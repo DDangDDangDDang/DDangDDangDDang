@@ -21,6 +21,8 @@ public class JwtProvider {
     public static final String CLAIM_EMAIL = "email";
     public static final String CLAIM_NICKNAME = "nickname";
     public static final String CLAIM_ROLE = "role";
+    private static final String BEARER_PREFIX = "Bearer ";
+
 
     private final SecretKey secretKey;
     private final Duration accessTokenValidity;
@@ -77,5 +79,16 @@ public class JwtProvider {
 
     public Duration getRefreshTokenValidity() {
         return refreshTokenValidity;
+    }
+
+    /**
+     * "Bearer {token}" 형식의 Authorization 헤더에서 토큰만 꺼낸다. 형식이 다르면 null.
+     */
+    public static String resolveBearerToken(String authorizationHeader) {
+        if (authorizationHeader != null && authorizationHeader.startsWith(BEARER_PREFIX)) {
+            String token = authorizationHeader.substring(BEARER_PREFIX.length());
+            return token.isBlank() ? null : token;
+        }
+        return null;
     }
 }

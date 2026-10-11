@@ -29,6 +29,7 @@ import java.util.Set;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private final TokenBlacklistRepository tokenBlacklistRepository;
 
     /**
      * 토큰 검증을 건너뛰는 경로.
@@ -52,7 +53,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String token = resolveToken(request);
+        String token = JwtProvider.resolveBearerToken(request.getHeader(HttpHeaders.AUTHORIZATION));
 
         // 토큰이 없으면 익명으로 통과시킨다. 인증이 필요한 API라면 EntryPoint가 401 AUTH_001을 응답한다.
         if (token == null) {
@@ -70,6 +71,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         } catch (JwtException | IllegalArgumentException e) {
             errorResponder.respond(response, AuthErrorCode.INVALID_TOKEN);
+            return;
+        }
+
+        if (tokenBlacklistRepository.exists(claims.getId())) {
+            errorResponder.respond(response, AuthErrorCode.LOGGED_OUT_TOKEN);
             return;
         }
 
