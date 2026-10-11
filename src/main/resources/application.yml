@@ -20,3 +20,15 @@ spring:
 logging:
   level:
     org.hibernate.SQL: debug
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  jwt:
+    # Base64로 인코딩된 256비트(32바이트) 이상의 키. 운영 환경에서는 반드시 환경변수로 주입
+    secret: ${JWT_SECRET:bG9jYWwtZGV2ZWxvcG1lbnQtand0LXNlY3JldC1rZXktZGRhbmctZGRhbmctZGRhbmc=}
+    access-token-validity: 30m
+    refresh-token-validity: 14d
+    cookie-secure: ${JWT_COOKIE_SECURE:false}
