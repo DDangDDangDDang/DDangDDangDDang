@@ -8,6 +8,7 @@ import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.AuthErrorCode;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
+import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,9 @@ import com.example.ddangddangddang.global.security.jwt.TokenType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import org.springframework.util.StringUtils;
+
+import java.time.Duration;
+import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +30,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final TokenBlacklistRepository tokenBlacklistRepository;
+
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -101,6 +107,21 @@ public class AuthService {
             return Long.valueOf(claims.getSubject());
         } catch (JwtException | IllegalArgumentException e) {
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+
+        }
+    }
+
+    /**
+     * Refresh Token을 삭제해 재발급을 막고, 현재 Access Token은 남은 유효시간 동안 블랙리스트에 올린다.
+     * accessToken은 인증 필터를 이미 통과한 토큰이다.
+     */
+    public void logout(Long userId, String accessToken) {
+        refreshTokenRepository.deleteByUserId(userId);
+
+        Claims claims = jwtProvider.parseClaims(accessToken);
+        Duration remaining = Duration.between(Instant.now(), claims.getExpiration().toInstant());
+        if (!remaining.isNegative() && !remaining.isZero()) {
+            tokenBlacklistRepository.save(claims.getId(), remaining);
         }
     }
 }
