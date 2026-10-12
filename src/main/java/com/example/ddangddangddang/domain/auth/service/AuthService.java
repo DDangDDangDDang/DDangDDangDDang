@@ -5,8 +5,8 @@ import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
+import com.example.ddangddangddang.domain.auth.exception.AuthErrorCode;
 import com.example.ddangddangddang.global.exception.BusinessException;
-import com.example.ddangddangddang.global.security.AuthErrorCode;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import lombok.RequiredArgsConstructor;

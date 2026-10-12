@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.global.security;
 
+import com.example.ddangddangddang.domain.auth.exception.AuthErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
