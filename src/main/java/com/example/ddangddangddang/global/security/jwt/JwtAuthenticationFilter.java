@@ -1,7 +1,7 @@
 package com.example.ddangddangddang.global.security.jwt;
 
 import com.example.ddangddangddang.domain.user.entity.UserRole;
-import com.example.ddangddangddang.global.security.AuthErrorCode;
+import com.example.ddangddangddang.domain.auth.exception.AuthErrorCode;
 import com.example.ddangddangddang.global.security.AuthUser;
 import com.example.ddangddangddang.global.security.SecurityErrorResponder;
 import io.jsonwebtoken.Claims;
@@ -17,7 +17,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -28,7 +27,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final String BEARER_PREFIX = "Bearer ";
+    private final TokenBlacklistRepository tokenBlacklistRepository;
 
     /**
      * 토큰 검증을 건너뛰는 경로.
@@ -52,7 +51,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String token = resolveToken(request);
+        String token = JwtProvider.resolveBearerToken(request.getHeader(HttpHeaders.AUTHORIZATION));
 
         // 토큰이 없으면 익명으로 통과시킨다. 인증이 필요한 API라면 EntryPoint가 401 AUTH_001을 응답한다.
         if (token == null) {
@@ -73,6 +72,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
+        if (tokenBlacklistRepository.exists(claims.getId())) {
+            errorResponder.respond(response, AuthErrorCode.LOGGED_OUT_TOKEN);
+            return;
+        }
+
         if (!TokenType.ACCESS.name().equals(claims.get(JwtProvider.CLAIM_TYPE, String.class))) {
             errorResponder.respond(response, AuthErrorCode.INVALID_TOKEN);
             return;
@@ -80,14 +84,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         setAuthentication(claims);
         filterChain.doFilter(request, response);
-    }
-
-    private String resolveToken(HttpServletRequest request) {
-        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (StringUtils.hasText(header) && header.startsWith(BEARER_PREFIX)) {
-            return header.substring(BEARER_PREFIX.length());
-        }
-        return null;
     }
 
     private void setAuthentication(Claims claims) {

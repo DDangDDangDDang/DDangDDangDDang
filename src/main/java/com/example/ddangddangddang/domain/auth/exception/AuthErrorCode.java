@@ -1,4 +1,4 @@
-package com.example.ddangddangddang.global.security;
+package com.example.ddangddangddang.domain.auth.exception;
 
 import com.example.ddangddangddang.global.exception.ErrorCode;
 import lombok.Getter;
