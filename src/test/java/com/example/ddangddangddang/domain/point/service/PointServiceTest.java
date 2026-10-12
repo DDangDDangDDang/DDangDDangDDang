@@ -20,6 +20,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.mockito.InOrder;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.times;
 
 import java.util.List;
 import java.util.Optional;
@@ -149,6 +152,92 @@ class PointServiceTest {
             assertThat(response.content()).isEmpty();
         }
     }
+    @Nested
+    @DisplayName("상위 입찰 (replaceHold)")
+    class ReplaceHold {
+
+        @Test
+        @DisplayName("이전 입찰자 홀딩을 해제하고 새 입찰자 포인트를 홀딩한다")
+        void success() {
+            PointWallet prev = walletWithHeld(10L, 1L, 5_000L);
+            PointWallet next = walletWithBalance(20L, 2L, 10_000L);
+            given(pointWalletRepository.findByUserIdForUpdate(1L)).willReturn(Optional.of(prev));
+            given(pointWalletRepository.findByUserIdForUpdate(2L)).willReturn(Optional.of(next));
+
+            pointService.replaceHold(2L, 6_000L, 1L, 5_000L, 100L);
+
+            assertThat(prev.getHeldBalance()).isZero();
+            assertThat(prev.getBalance()).isEqualTo(5_000L);
+            assertThat(next.getHeldBalance()).isEqualTo(6_000L);
+            assertThat(next.getBalance()).isEqualTo(4_000L);
+            verify(pointHistoryRepository, times(2)).save(any(PointHistory.class));
+        }
+
+        @Test
+        @DisplayName("새 입찰자 userId가 더 커도 userId가 작은 지갑부터 잠근다")
+        void lockOrder() {
+            given(pointWalletRepository.findByUserIdForUpdate(1L)).willReturn(Optional.of(walletWithBalance(10L, 1L, 10_000L)));
+            given(pointWalletRepository.findByUserIdForUpdate(9L)).willReturn(Optional.of(walletWithHeld(90L, 9L, 5_000L)));
+
+            // 새 입찰자 1번, 이전 입찰자 9번 / 새 입찰자 9번, 이전 입찰자 1번 어느 쪽이든 1번부터 잠근다
+            pointService.replaceHold(1L, 6_000L, 9L, 5_000L, 100L);
+
+            InOrder inOrder = inOrder(pointWalletRepository);
+            inOrder.verify(pointWalletRepository).findByUserIdForUpdate(1L);
+            inOrder.verify(pointWalletRepository).findByUserIdForUpdate(9L);
+        }
+
+        @Test
+        @DisplayName("새 입찰자 포인트가 부족하면 예외가 발생한다")
+        void insufficientBalance() {
+            given(pointWalletRepository.findByUserIdForUpdate(1L)).willReturn(Optional.of(walletWithHeld(10L, 1L, 5_000L)));
+            given(pointWalletRepository.findByUserIdForUpdate(2L)).willReturn(Optional.of(walletWithBalance(20L, 2L, 1_000L)));
+
+            assertThatThrownBy(() -> pointService.replaceHold(2L, 6_000L, 1L, 5_000L, 100L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(PointErrorCode.INSUFFICIENT_BALANCE);
+        }
+    }
+
+    @Nested
+    @DisplayName("낙찰, 즉시구매, 정산")
+    class PurchaseAndSettle {
+
+        @Test
+        @DisplayName("낙찰되면 홀딩 포인트를 차감하고 PURCHASE 내역을 남긴다")
+        void purchaseWithHeld() {
+            PointWallet wallet = walletWithHeld(10L, 1L, 5_000L);
+            given(pointWalletRepository.findByUserIdForUpdate(1L)).willReturn(Optional.of(wallet));
+
+            pointService.purchaseWithHeld(1L, 5_000L, 100L);
+
+            assertThat(wallet.getHeldBalance()).isZero();
+            verify(pointHistoryRepository).save(any(PointHistory.class));
+        }
+
+        @Test
+        @DisplayName("구매 확정되면 판매자 지갑에 정산한다")
+        void settle() {
+            PointWallet seller = walletWithBalance(10L, 1L, 0L);
+            given(pointWalletRepository.findByUserIdForUpdate(1L)).willReturn(Optional.of(seller));
+
+            pointService.settle(1L, 5_000L, 200L);
+
+            assertThat(seller.getBalance()).isEqualTo(5_000L);
+        }
+
+        @Test
+        @DisplayName("지갑이 없으면 예외가 발생한다")
+        void walletNotFound() {
+            given(pointWalletRepository.findByUserIdForUpdate(1L)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> pointService.hold(1L, 1_000L, 100L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(PointErrorCode.WALLET_NOT_FOUND);
+        }
+    }
 
     private PointWallet wallet(Long walletId, Long userId) {
         PointWallet wallet = PointWallet.create(userId);
@@ -162,5 +251,17 @@ class PointServiceTest {
             ReflectionTestUtils.setField(history, "id", id);
             return history;
         }).toList();
+    }
+
+    private PointWallet walletWithBalance(Long walletId, Long userId, long balance) {
+        PointWallet wallet = wallet(walletId, userId);
+        ReflectionTestUtils.setField(wallet, "balance", balance);
+        return wallet;
+    }
+
+    private PointWallet walletWithHeld(Long walletId, Long userId, long heldBalance) {
+        PointWallet wallet = wallet(walletId, userId);
+        ReflectionTestUtils.setField(wallet, "heldBalance", heldBalance);
+        return wallet;
     }
 }
