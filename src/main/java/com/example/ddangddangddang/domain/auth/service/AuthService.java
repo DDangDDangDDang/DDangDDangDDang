@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.auth.service;
 
 import com.example.ddangddangddang.domain.auth.dto.*;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
+import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
@@ -31,7 +32,7 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final TokenBlacklistRepository tokenBlacklistRepository;
-
+    private final PointService pointService;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -48,6 +49,7 @@ public class AuthService {
                 request.nickname()
         );
         User savedUser = userRepository.save(user);
+        pointService.createWallet(savedUser.getId());
 
         return SignupResponse.from(savedUser);
     }

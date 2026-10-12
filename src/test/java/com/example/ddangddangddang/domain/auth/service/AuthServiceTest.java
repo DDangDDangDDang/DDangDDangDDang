@@ -24,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import com.example.ddangddangddang.domain.point.service.PointService;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -62,6 +63,9 @@ class AuthServiceTest {
     @Mock
     private TokenBlacklistRepository tokenBlacklistRepository;
 
+    @Mock
+    private PointService pointService;
+
     @Nested
     @DisplayName("회원가입")
     class Signup {
@@ -69,18 +73,23 @@ class AuthServiceTest {
         private final SignupRequest request = new SignupRequest("user@test.com", "Abcd1234!", "경매왕");
 
         @Test
-        @DisplayName("성공하면 비밀번호를 암호화해서 저장한다")
+        @DisplayName("성공하면 비밀번호를 암호화해서 저장하고 포인트 지갑을 만든다")
         void success() {
             given(userRepository.existsByEmail(request.email())).willReturn(false);
             given(userRepository.existsByNickname(request.nickname())).willReturn(false);
             given(passwordEncoder.encode(request.password())).willReturn("encoded");
-            given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
+            given(userRepository.save(any(User.class))).willAnswer(invocation -> {
+                User saved = invocation.getArgument(0);
+                ReflectionTestUtils.setField(saved, "id", 1L);
+                return saved;
+            });
 
             SignupResponse response = authService.signup(request);
 
             assertThat(response.email()).isEqualTo("user@test.com");
             assertThat(response.nickname()).isEqualTo("경매왕");
             verify(userRepository).save(any(User.class));
+            verify(pointService).createWallet(1L);
         }
 
         @Test
