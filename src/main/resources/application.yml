@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: DDangDDangDDang
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ddang?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:ddang}
+    password: ${DB_PASSWORD:ddang}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:update}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_batch_fetch_size: 100
+
+logging:
+  level:
+    org.hibernate.SQL: debug
