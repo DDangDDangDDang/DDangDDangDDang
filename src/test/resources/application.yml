@@ -15,3 +15,9 @@ jwt:
   access-token-validity: 30m
   refresh-token-validity: 14d
   cookie-secure: false
+
+livekit:
+  api-url: http://localhost:7880
+  ws-url: ws://localhost:7880
+  api-key: test-api-key
+  api-secret: test-api-secret-test-api-secret-test
