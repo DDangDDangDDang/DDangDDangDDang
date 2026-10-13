@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: DDangDDangDDang
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ddang?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:ddang}
+    password: ${DB_PASSWORD:ddang}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:update}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_batch_fetch_size: 100
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+
+jwt:
+  # Base64로 인코딩된 256비트(32바이트) 이상의 키. 운영 환경에서는 반드시 환경변수로 주입
+  secret: ${JWT_SECRET:bG9jYWwtZGV2ZWxvcG1lbnQtand0LXNlY3JldC1rZXktZGRhbmctZGRhbmctZGRhbmc=}
+  access-token-validity: 30m
+  refresh-token-validity: 14d
+  cookie-secure: ${JWT_COOKIE_SECURE:false}
+
+livekit:
+  # 로컬은 livekit-server --dev 기본값. 운영 환경에서는 반드시 환경변수로 주입
+  api-url: ${LIVEKIT_API_URL:http://localhost:7880}
+  ws-url: ${LIVEKIT_WS_URL:ws://localhost:7880}
+  api-key: ${LIVEKIT_API_KEY:devkey}
+  api-secret: ${LIVEKIT_API_SECRET:secret}
