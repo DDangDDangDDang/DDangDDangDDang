@@ -9,6 +9,7 @@ import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.domain.user.entity.UserRole;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.AuthUser;
+import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,7 +17,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.Duration;
 
@@ -41,7 +41,7 @@ class LiveChatServiceTest {
     private LiveChatService liveChatService;
 
     @Mock
-    private SimpMessagingTemplate messagingTemplate;
+    private StompBroadcaster stompBroadcaster;
 
     @Mock
     private ChatRateLimitRepository chatRateLimitRepository;
@@ -58,7 +58,7 @@ class LiveChatServiceTest {
         liveChatService.send(LIVE_STREAM_ID, SENDER, "  안녕하세요  ");
 
         ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
-        then(messagingTemplate).should().convertAndSend(eq("/topic/live-streams/10/chat"), captor.capture());
+        then(stompBroadcaster).should().broadcast(eq("/topic/live-streams/10/chat"), captor.capture());
         ChatMessageResponse message = captor.getValue();
         assertThat(message.type()).isEqualTo(ChatMessageType.CHAT);
         assertThat(message.senderId()).isEqualTo(1L);
@@ -79,7 +79,7 @@ class LiveChatServiceTest {
 
         then(chatRateLimitRepository).should().mute(SENDER.id(), Duration.ofSeconds(30));
         then(liveStreamService).should(never()).validateLive(any());
-        then(messagingTemplate).should(never()).convertAndSend(anyString(), any(Object.class));
+        then(stompBroadcaster).should(never()).broadcast(anyString(), any());
     }
 
     @Test
@@ -96,7 +96,7 @@ class LiveChatServiceTest {
         then(chatRateLimitRepository).should(never()).increment(anyLong(), any());
         then(chatRateLimitRepository).should(never()).mute(anyLong(), any());
         then(liveStreamService).should(never()).validateLive(any());
-        then(messagingTemplate).should(never()).convertAndSend(anyString(), any(Object.class));
+        then(stompBroadcaster).should(never()).broadcast(anyString(), any());
     }
 
     @Test
@@ -130,7 +130,7 @@ class LiveChatServiceTest {
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(LiveStreamErrorCode.NOT_LIVE);
 
-        then(messagingTemplate).should(never()).convertAndSend(anyString(), any(Object.class));
+        then(stompBroadcaster).should(never()).broadcast(anyString(), any());
     }
 
     @Test
@@ -139,7 +139,7 @@ class LiveChatServiceTest {
         liveChatService.sendSystemMessage(LIVE_STREAM_ID, "방송이 종료되었습니다.");
 
         ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
-        then(messagingTemplate).should().convertAndSend(eq("/topic/live-streams/10/chat"), captor.capture());
+        then(stompBroadcaster).should().broadcast(eq("/topic/live-streams/10/chat"), captor.capture());
         ChatMessageResponse message = captor.getValue();
         assertThat(message.type()).isEqualTo(ChatMessageType.SYSTEM);
         assertThat(message.senderId()).isNull();
