@@ -21,3 +21,9 @@ livekit:
   ws-url: ws://localhost:7880
   api-key: test-api-key
   api-secret: test-api-secret-test-api-secret-test
+
+toss:
+  secret-key: test_sk_dummy
+  base-url: http://localhost:0
+  connect-timeout: 1s
+  read-timeout: 1s
