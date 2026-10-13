@@ -46,7 +46,7 @@ public class LiveChatController {
     @MessageExceptionHandler(BusinessException.class)
     @SendToUser(destinations = ERROR_DESTINATION, broadcast = false)
     public ErrorResponse handleBusinessException(BusinessException e) {
-        return ErrorResponse.of(e.getErrorCode());
+        return ErrorResponse.of(e.getErrorCode(), e.getMessage());
     }
 
     @MessageExceptionHandler(MethodArgumentNotValidException.class)

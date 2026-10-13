@@ -1,6 +1,11 @@
 package com.example.ddangddangddang.domain.livechat.controller;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
+import com.example.ddangddangddang.domain.livechat.repository.ChatRateLimitRepository;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
+import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
+import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
+import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.entity.UserRole;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
@@ -25,6 +30,7 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 import java.lang.reflect.Type;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -32,6 +38,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 
@@ -49,8 +57,20 @@ class LiveChatControllerTest {
     @MockitoBean
     private RefreshTokenRepository refreshTokenRepository;
 
+    @Autowired
+    private LiveStreamRepository liveStreamRepository;
+
+    @Autowired
+    private LiveStreamService liveStreamService;
+
     @MockitoBean
     private TokenBlacklistRepository tokenBlacklistRepository;
+
+    @MockitoBean
+    private ChatRateLimitRepository chatRateLimitRepository;
+
+    @MockitoBean
+    private MediaServerClient mediaServerClient;
 
     private WebSocketStompClient stompClient;
 
@@ -71,13 +91,14 @@ class LiveChatControllerTest {
     @Test
     @DisplayName("채팅을 보내면 같은 방송 구독자에게 토큰의 회원 정보와 함께 전달된다")
     void sendChat() throws Exception {
+        Long liveStreamId = liveStream(99L, true);
         StompSession session = connect(bearer(accessToken(1L)));
-        BlockingQueue<Map<String, Object>> messages = subscribe(session, "/topic/live-streams/10/chat");
+        BlockingQueue<Map<String, Object>> messages = subscribe(session, chatTopic(liveStreamId));
 
-        Map<String, Object> message = sendUntilReceived(session, "/app/live-streams/10/chat", Map.of("content", "  안녕하세요  "), messages);
+        Map<String, Object> message = sendUntilReceived(session, chatApp(liveStreamId), Map.of("content", "  안녕하세요  "), messages);
         assertThat(message).isNotNull();
         assertThat(message.get("type")).isEqualTo("CHAT");
-        assertThat(message.get("liveStreamId")).isEqualTo(10);
+        assertThat(((Number) message.get("liveStreamId")).longValue()).isEqualTo(liveStreamId);
         assertThat(message.get("senderId")).isEqualTo(1);
         assertThat(message.get("nickname")).isEqualTo("회원1");
         assertThat(message.get("content")).isEqualTo("안녕하세요");
@@ -86,10 +107,12 @@ class LiveChatControllerTest {
     @Test
     @DisplayName("다른 방송의 채팅은 전달되지 않는다")
     void otherStream() throws Exception {
+        Long liveStreamId = liveStream(99L, true);
+        Long otherLiveStreamId = liveStream(98L, true);
         StompSession session = connect(bearer(accessToken(1L)));
-        BlockingQueue<Map<String, Object>> messages = subscribe(session, "/topic/live-streams/10/chat");
+        BlockingQueue<Map<String, Object>> messages = subscribe(session, chatTopic(liveStreamId));
 
-        session.send("/app/live-streams/20/chat", Map.of("content", "다른 방송"));
+        session.send(chatApp(otherLiveStreamId), Map.of("content", "다른 방송"));
 
         assertThat(messages.poll(1, TimeUnit.SECONDS)).isNull();
     }
@@ -97,14 +120,80 @@ class LiveChatControllerTest {
     @Test
     @DisplayName("빈 메시지를 보내면 보낸 사람에게만 COMMON_001 에러가 전달된다")
     void blankContent() throws Exception {
+        Long liveStreamId = liveStream(99L, true);
         StompSession session = connect(bearer(accessToken(1L)));
-        BlockingQueue<Map<String, Object>> messages = subscribe(session, "/topic/live-streams/10/chat");
+        BlockingQueue<Map<String, Object>> messages = subscribe(session, chatTopic(liveStreamId));
         BlockingQueue<Map<String, Object>> errors = subscribe(session, "/user/queue/errors");
 
-        Map<String, Object> error = sendUntilReceived(session, "/app/live-streams/10/chat", Map.of("content", " "), errors);
+        Map<String, Object> error = sendUntilReceived(session, chatApp(liveStreamId), Map.of("content", " "), errors);
         assertThat(error).isNotNull();
         assertThat(error.get("code")).isEqualTo("COMMON_001");
         assertThat(messages.poll(1, TimeUnit.SECONDS)).isNull();
+    }
+
+    @Test
+    @DisplayName("방송 중이 아닌 방송에 채팅을 보내면 LIVESTREAM_004 에러가 전달된다")
+    void notLive() throws Exception {
+        Long liveStreamId = liveStream(99L, false);
+        StompSession session = connect(bearer(accessToken(1L)));
+        BlockingQueue<Map<String, Object>> messages = subscribe(session, chatTopic(liveStreamId));
+        BlockingQueue<Map<String, Object>> errors = subscribe(session, "/user/queue/errors");
+
+        Map<String, Object> error = sendUntilReceived(session, chatApp(liveStreamId), Map.of("content", "안녕하세요"), errors);
+        assertThat(error).isNotNull();
+        assertThat(error.get("code")).isEqualTo("LIVESTREAM_004");
+        assertThat(messages.poll(1, TimeUnit.SECONDS)).isNull();
+    }
+
+    @Test
+    @DisplayName("너무 빠르게 보내면 LIVECHAT_001 에러가 전달되고 메시지는 전송되지 않는다")
+    void tooManyMessages() throws Exception {
+        given(chatRateLimitRepository.increment(anyLong(), any())).willReturn(6L);
+        Long liveStreamId = liveStream(99L, true);
+        StompSession session = connect(bearer(accessToken(1L)));
+        BlockingQueue<Map<String, Object>> messages = subscribe(session, chatTopic(liveStreamId));
+        BlockingQueue<Map<String, Object>> errors = subscribe(session, "/user/queue/errors");
+
+        Map<String, Object> error = sendUntilReceived(session, chatApp(liveStreamId), Map.of("content", "도배"), errors);
+        assertThat(error).isNotNull();
+        assertThat(error.get("code")).isEqualTo("LIVECHAT_001");
+        assertThat(messages.poll(1, TimeUnit.SECONDS)).isNull();
+    }
+
+    @Test
+    @DisplayName("채팅 금지 중이면 남은 시간을 담은 LIVECHAT_002 에러가 전달되고 메시지는 전송되지 않는다")
+    void muted() throws Exception {
+        given(chatRateLimitRepository.getMuteRemaining(anyLong())).willReturn(Duration.ofSeconds(23));
+        Long liveStreamId = liveStream(99L, true);
+        StompSession session = connect(bearer(accessToken(1L)));
+        BlockingQueue<Map<String, Object>> messages = subscribe(session, chatTopic(liveStreamId));
+        BlockingQueue<Map<String, Object>> errors = subscribe(session, "/user/queue/errors");
+
+        Map<String, Object> error = sendUntilReceived(session, chatApp(liveStreamId), Map.of("content", "안녕하세요"), errors);
+        assertThat(error).isNotNull();
+        assertThat(error.get("code")).isEqualTo("LIVECHAT_002");
+        assertThat(error.get("message")).isEqualTo("도배로 채팅이 금지된 상태입니다. 23초 후에 다시 보낼 수 있습니다.");
+        assertThat(messages.poll(1, TimeUnit.SECONDS)).isNull();
+    }
+
+    @Test
+    @DisplayName("방송이 종료되면 구독자에게 종료 안내 SYSTEM 메시지가 전달된다")
+    void streamEnded() throws Exception {
+        Long sellerId = 99L;
+        Long liveStreamId = liveStream(sellerId, true);
+        StompSession session = connect(bearer(accessToken(1L)));
+        BlockingQueue<Map<String, Object>> messages = subscribe(session, chatTopic(liveStreamId));
+        // 채팅이 도착하면 구독이 등록된 것이므로 그 뒤에 종료한다.
+        assertThat(sendUntilReceived(session, chatApp(liveStreamId), Map.of("content", "안녕하세요"), messages)).isNotNull();
+
+        liveStreamService.end(liveStreamId, sellerId);
+
+        // 위에서 여러 번 보낸 채팅이 늦게 도착할 수 있으므로 SYSTEM 메시지가 올 때까지 건너뛴다.
+        Map<String, Object> message = pollUntilType(messages, "SYSTEM");
+        assertThat(message).isNotNull();
+        assertThat(message.get("type")).isEqualTo("SYSTEM");
+        assertThat(message.get("senderId")).isNull();
+        assertThat(message.get("content")).isEqualTo("방송이 종료되었습니다.");
     }
 
     @Test
@@ -183,6 +272,34 @@ class LiveChatControllerTest {
             }
         }
         return null;
+    }
+
+    private Map<String, Object> pollUntilType(BlockingQueue<Map<String, Object>> queue, String type)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
+        while (System.nanoTime() < deadline) {
+            Map<String, Object> received = queue.poll(200, TimeUnit.MILLISECONDS);
+            if (received != null && type.equals(received.get("type"))) {
+                return received;
+            }
+        }
+        return null;
+    }
+
+    private Long liveStream(Long sellerId, boolean live) {
+        LiveStream liveStream = LiveStream.create(sellerId, "테스트 방송");
+        if (live) {
+            liveStream.start(sellerId);
+        }
+        return liveStreamRepository.save(liveStream).getId();
+    }
+
+    private String chatTopic(Long liveStreamId) {
+        return "/topic/live-streams/" + liveStreamId + "/chat";
+    }
+
+    private String chatApp(Long liveStreamId) {
+        return "/app/live-streams/" + liveStreamId + "/chat";
     }
 
     private BlockingQueue<Map<String, Object>> subscribe(StompSession session, String destination) {
