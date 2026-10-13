@@ -8,6 +8,7 @@ import com.example.ddangddangddang.domain.livestream.repository.LiveStreamReposi
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.entity.UserRole;
+import com.example.ddangddangddang.global.security.jwt.JwtProperties;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -53,6 +54,9 @@ class LiveChatControllerTest {
 
     @Autowired
     private JwtProvider jwtProvider;
+
+    @Autowired
+    private JwtProperties jwtProperties;
 
     @MockitoBean
     private RefreshTokenRepository refreshTokenRepository;
@@ -244,6 +248,51 @@ class LiveChatControllerTest {
         assertThat(errorCodes.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS)).isEqualTo("COMMON_005");
     }
 
+    @Test
+    @DisplayName("연결 뒤 로그아웃하면 채팅을 보낼 때 AUTH_004 에러로 연결이 끊기고 메시지는 전송되지 않는다")
+    void sendAfterLogout() throws Exception {
+        Long liveStreamId = liveStream(99L, true);
+        StompSession session = connect(bearer(accessToken(1L)));
+        BlockingQueue<Map<String, Object>> messages = subscribe(session, chatTopic(liveStreamId));
+        // 구독이 처리된 뒤에 로그아웃하도록, 채팅이 정상 도착하는 것을 먼저 확인한다.
+        assertThat(sendUntilReceived(session, chatApp(liveStreamId), Map.of("content", "로그아웃 전"), messages)).isNotNull();
+
+        given(tokenBlacklistRepository.exists(anyString())).willReturn(true);
+        session.send(chatApp(liveStreamId), Map.of("content", "로그아웃 후"));
+
+        assertThat(errorCodes.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS)).isEqualTo("AUTH_004");
+        assertThat(pollUntilContent(messages, "로그아웃 후")).isNull();
+    }
+
+    @Test
+    @DisplayName("연결 뒤 토큰이 만료되면 채팅을 보낼 때 AUTH_002 에러로 연결이 끊기고 메시지는 전송되지 않는다")
+    void sendAfterTokenExpired() throws Exception {
+        Long liveStreamId = liveStream(99L, true);
+        JwtProvider shortLivedProvider = new JwtProvider(new JwtProperties(
+                jwtProperties.secret(), Duration.ofSeconds(2), Duration.ofDays(14), false));
+        StompSession session = connect(bearer(shortLivedProvider.createAccessToken(user(1L))));
+        BlockingQueue<Map<String, Object>> messages = subscribe(session, chatTopic(liveStreamId));
+
+        Thread.sleep(2500);
+        session.send(chatApp(liveStreamId), Map.of("content", "만료 후"));
+
+        assertThat(errorCodes.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS)).isEqualTo("AUTH_002");
+        assertThat(pollUntilContent(messages, "만료 후")).isNull();
+    }
+
+    // 1초 동안 기다리며 내용이 같은 메시지가 오면 반환한다. 앞서 여러 번 보낸 메시지가 늦게 도착할 수 있어 내용으로 구분한다.
+    private Map<String, Object> pollUntilContent(BlockingQueue<Map<String, Object>> queue, String content)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+        while (System.nanoTime() < deadline) {
+            Map<String, Object> received = queue.poll(100, TimeUnit.MILLISECONDS);
+            if (received != null && content.equals(received.get("content"))) {
+                return received;
+            }
+        }
+        return null;
+    }
+
     private StompSession connect(String authorization) throws Exception {
         return connectAsync(authorization).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
@@ -335,10 +384,14 @@ class LiveChatControllerTest {
     }
 
     private String accessToken(Long userId) {
+        return jwtProvider.createAccessToken(user(userId));
+    }
+
+    private User user(Long userId) {
         User user = User.create("user" + userId + "@test.com", "encoded", "회원" + userId);
         ReflectionTestUtils.setField(user, "id", userId);
         ReflectionTestUtils.setField(user, "role", UserRole.USER);
-        return jwtProvider.createAccessToken(user);
+        return user;
     }
 
     private String bearer(String token) {

@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -30,6 +31,30 @@ public class AccessTokenAuthenticator {
      * 검증에 실패하면 원인에 맞는 AuthErrorCode로 BusinessException을 던진다.
      */
     public Authentication authenticate(String token) {
+        return toAuthentication(verify(token));
+    }
+
+    /**
+     * authenticate와 같은 규칙으로 검증하고, 나중에 validateStillActive로 다시 확인할 수 있도록 토큰 ID와 만료 시각을 함께 돌려준다.
+     */
+    public AuthenticatedToken authenticateForSession(String token) {
+        Claims claims = verify(token);
+        return new AuthenticatedToken(toAuthentication(claims), claims.getId(), claims.getExpiration().toInstant());
+    }
+
+    /**
+     * 이미 검증한 토큰이 지금도 유효한지 확인한다. 연결 뒤에 만료됐거나 로그아웃(블랙리스트)됐으면 예외를 던진다.
+     */
+    public void validateStillActive(String tokenId, Instant expiresAt) {
+        if (!Instant.now().isBefore(expiresAt)) {
+            throw new BusinessException(AuthErrorCode.EXPIRED_TOKEN);
+        }
+        if (tokenBlacklistRepository.exists(tokenId)) {
+            throw new BusinessException(AuthErrorCode.LOGGED_OUT_TOKEN);
+        }
+    }
+
+    private Claims verify(String token) {
         Claims claims;
         try {
             claims = jwtProvider.parseClaims(token);
@@ -47,7 +72,7 @@ public class AccessTokenAuthenticator {
             throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
         }
 
-        return toAuthentication(claims);
+        return claims;
     }
 
     private Authentication toAuthentication(Claims claims) {

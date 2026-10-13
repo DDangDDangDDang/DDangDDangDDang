@@ -4,6 +4,7 @@ import com.example.ddangddangddang.domain.auth.exception.AuthErrorCode;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import com.example.ddangddangddang.global.security.jwt.AccessTokenAuthenticator;
+import com.example.ddangddangddang.global.security.jwt.AuthenticatedToken;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -15,13 +16,16 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
  * 클라이언트가 보낸 STOMP 프레임을 검사한다.
  * - CONNECT: Access Token으로 인증하고 사용자 정보를 세션에 저장한다. 이후 프레임은 이 사용자로 처리된다.
- * - SUBSCRIBE / SEND: 인증된 연결인지, 허용된 경로인지 확인한다.
+ * - SUBSCRIBE / SEND: 인증된 연결인지, 연결에 쓴 토큰이 아직 유효한지, 허용된 경로인지 확인한다.
+ *   연결은 토큰 유효시간보다 오래 유지되므로, 연결 뒤에 토큰이 만료되거나 로그아웃되면 여기서 막고 연결을 끊는다.
  *
  * 여기서 던진 예외는 StompErrorHandler가 ERROR 프레임으로 바꿔 보내고 연결을 끊는다.
  */
@@ -30,6 +34,10 @@ import java.util.regex.Pattern;
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     private static final String APP_DESTINATION_PREFIX = "/app/";
+
+    // CONNECT에 쓴 토큰 정보를 WebSocket 세션 속성에 저장하는 키
+    private static final String TOKEN_ID_ATTRIBUTE = "accessTokenId";
+    private static final String TOKEN_EXPIRES_AT_ATTRIBUTE = "accessTokenExpiresAt";
 
     // 클라이언트가 구독할 수 있는 경로. 새 토픽을 만들면 여기에 추가한다.
     private static final List<Pattern> SUBSCRIBABLE_DESTINATIONS = List.of(
@@ -66,13 +74,30 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         if (token == null) {
             throw new BusinessException(AuthErrorCode.TOKEN_NOT_FOUND);
         }
-        accessor.setUser(accessTokenAuthenticator.authenticate(token));
+        AuthenticatedToken authenticatedToken = accessTokenAuthenticator.authenticateForSession(token);
+        accessor.setUser(authenticatedToken.authentication());
+
+        Map<String, Object> sessionAttributes = sessionAttributes(accessor);
+        sessionAttributes.put(TOKEN_ID_ATTRIBUTE, authenticatedToken.tokenId());
+        sessionAttributes.put(TOKEN_EXPIRES_AT_ATTRIBUTE, authenticatedToken.expiresAt());
     }
 
     private void validateAuthenticated(StompHeaderAccessor accessor) {
-        if (accessor.getUser() == null) {
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if (accessor.getUser() == null || sessionAttributes == null
+                || !(sessionAttributes.get(TOKEN_ID_ATTRIBUTE) instanceof String tokenId)
+                || !(sessionAttributes.get(TOKEN_EXPIRES_AT_ATTRIBUTE) instanceof Instant expiresAt)) {
             throw new BusinessException(AuthErrorCode.TOKEN_NOT_FOUND);
         }
+        accessTokenAuthenticator.validateStillActive(tokenId, expiresAt);
+    }
+
+    private Map<String, Object> sessionAttributes(StompHeaderAccessor accessor) {
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if (sessionAttributes == null) {
+            throw new IllegalStateException("WebSocket 세션 속성이 없습니다.");
+        }
+        return sessionAttributes;
     }
 
     private void validateSubscribable(String destination) {
