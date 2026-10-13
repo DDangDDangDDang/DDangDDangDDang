@@ -6,8 +6,8 @@ import com.example.ddangddangddang.domain.livechat.repository.ChatRateLimitRepos
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.AuthUser;
+import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
 import lombok.RequiredArgsConstructor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -23,7 +23,7 @@ public class LiveChatService {
     static final Duration RATE_LIMIT_WINDOW = Duration.ofSeconds(5);
     static final Duration MUTE_DURATION = Duration.ofSeconds(30);
 
-    private final SimpMessagingTemplate messagingTemplate;
+    private final StompBroadcaster stompBroadcaster;
     private final ChatRateLimitRepository chatRateLimitRepository;
     private final LiveStreamService liveStreamService;
 
@@ -61,6 +61,6 @@ public class LiveChatService {
     }
 
     private void broadcast(Long liveStreamId, ChatMessageResponse message) {
-        messagingTemplate.convertAndSend(CHAT_TOPIC.formatted(liveStreamId), message);
+        stompBroadcaster.broadcast(CHAT_TOPIC.formatted(liveStreamId), message);
     }
 }
