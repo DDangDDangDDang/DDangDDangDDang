@@ -18,22 +18,22 @@ import java.util.List;
 public class CategoryController {
     private final CategoryService categoryService;
 
-    @GetMapping("/ctegories")
+    @GetMapping("/categories")
     ResponseEntity<List<CategoryResponse>> findAdd(){
         return ResponseEntity.ok(categoryService.findAdd());
     }
-    @PostMapping("/admin/ctegories")
+    @PostMapping("/admin/categories")
     ResponseEntity<CategoryResponse> creation(@Valid @RequestBody CategoryRequest request){
         return ResponseEntity.status(HttpStatus.CREATED).body(categoryService.creation(request));
     }
-    @PatchMapping("/admin/ctegories/{id}")
-    ResponseEntity<CategoryResponse> updateCategory(@PathVariable Long id, @Valid @RequestBody UpdateRequest request){
-        return ResponseEntity.ok(categoryService.updateCategory(id,request));
+    @PatchMapping("/admin/categories/{categoryId}")
+    ResponseEntity<CategoryResponse> updateCategory(@PathVariable Long categoryId, @Valid @RequestBody UpdateRequest request){
+        return ResponseEntity.ok(categoryService.updateCategory(categoryId,request));
     }
 
-    @DeleteMapping("/admin/ctegories/{id}")
-    ResponseEntity<Void> delete(@PathVariable Long id){
-        categoryService.delete(id);
+    @DeleteMapping("/admin/categories/{categoryId}")
+    ResponseEntity<Void> delete(@PathVariable Long categoryId){
+        categoryService.delete(categoryId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 

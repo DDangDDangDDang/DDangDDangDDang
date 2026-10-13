@@ -78,8 +78,8 @@ public class CategoryService {
 
     }
 
-    public CategoryResponse updateCategory(Long id, UpdateRequest request) {
-        Category category = categoryRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("카테고리가 존재 하지 않습니다"));
+    public CategoryResponse updateCategory(Long categoryId, UpdateRequest request) {
+        Category category = categoryRepository.findById(categoryId).orElseThrow(() -> new IllegalArgumentException("카테고리가 존재 하지 않습니다"));
 
         if (!category.getName().equals(request.name())) {
             boolean duplicated;
@@ -102,10 +102,10 @@ public class CategoryService {
         return CategoryResponse.from(category);
         }
 
-    public void delete(Long id) {
-        Category category = categoryRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("카테고리가 존재 하지 않습니다"));
+    public void delete(Long categoryId) {
+        Category category = categoryRepository.findById(categoryId).orElseThrow(() -> new IllegalArgumentException("카테고리가 존재 하지 않습니다"));
 
-        if (categoryRepository.existsByParentId(id)){
+        if (categoryRepository.existsByParentId(categoryId)){
             throw new IllegalArgumentException("하위 카테고리가 있어 삭제 불가능합니다.");
         }
         categoryRepository.delete(category);
