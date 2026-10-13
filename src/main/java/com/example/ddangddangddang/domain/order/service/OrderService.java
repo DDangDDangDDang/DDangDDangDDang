@@ -8,12 +8,20 @@ import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.ddangddangddang.domain.order.dto.OrderResponse;
+import com.example.ddangddangddang.domain.order.dto.OrderSummaryResponse;
+import com.example.ddangddangddang.domain.order.entity.OrderRole;
+import com.example.ddangddangddang.domain.order.entity.OrderStatus;
+import com.example.ddangddangddang.global.common.CursorResponse;
+import org.springframework.data.domain.PageRequest;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class OrderService {
 
+    private static final int MAX_PAGE_SIZE = 100;
     private final OrderRepository orderRepository;
 
     /**
@@ -39,5 +47,31 @@ public class OrderService {
                 command.finalPrice()
         );
         return orderRepository.save(order).getId();
+    }
+
+    public CursorResponse<OrderSummaryResponse> getOrders(Long userId, OrderRole role, OrderStatus status,
+                                                          Long cursor, int size) {
+        int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
+        PageRequest limit = PageRequest.of(0, pageSize + 1);
+
+        List<Order> fetched = role == OrderRole.SELLER
+                ? orderRepository.findSellerOrders(userId, status, cursor, limit)
+                : orderRepository.findBuyerOrders(userId, status, cursor, limit);
+
+        return CursorResponse.of(fetched, pageSize, OrderSummaryResponse::from, Order::getId);
+    }
+
+    /** 구매자나 판매자만 조회할 수 있다. */
+    public OrderResponse getOrder(Long userId, Long orderId) {
+        Order order = findOrder(orderId);
+        if (!order.isParticipant(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_PARTICIPANT);
+        }
+        return OrderResponse.from(order);
+    }
+
+    private Order findOrder(Long orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
     }
 }
