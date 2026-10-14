@@ -55,7 +55,13 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
     }
   }, [connected, liveStreamId]);
 
-  useEffect(() => () => void clientRef.current?.deactivate(), []);
+  useEffect(
+    () => () => {
+      clientRef.current?.deactivate();
+      clientRef.current = null;
+    },
+    [],
+  );
 
   function onChatMessage(frame: IMessage) {
     const msg = JSON.parse(frame.body) as ServerMessage;
@@ -91,6 +97,7 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
       client.connectHeaders = { Authorization: `Bearer ${getAccessToken() ?? ''}` };
     };
     client.onConnect = () => {
+      if (!isCurrent(client)) return;
       retriedRef.current = false;
       setConnected(true);
       log('채팅 서버 연결');
@@ -102,6 +109,7 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
     };
     // 연결 거부, 토큰 만료·로그아웃(AUTH_002/004), 허용되지 않은 경로(COMMON_005) 등. 서버가 연결을 끊는다.
     client.onStompError = (frame) => {
+      if (!isCurrent(client)) return;
       const code = frame.headers.message ?? 'UNKNOWN';
       let message = frame.body;
       try {
@@ -116,17 +124,27 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
         retriedRef.current = true;
         log('토큰 만료 → 재발급 후 다시 연결');
         reissue()
-          .then(() => connect())
+          .then(() => {
+            // 재발급하는 사이에 연결 해제를 눌렀거나 화면을 떠났으면 다시 연결하지 않는다.
+            if (isCurrent(client)) connect();
+          })
           .catch(() => log('재발급 실패. 다시 로그인해 주세요.', 'error'));
       }
     };
     client.onWebSocketClose = () => {
+      if (!isCurrent(client)) return;
       setConnected(false);
       chatSubRef.current = null;
     };
 
     clientRef.current = client;
     client.activate();
+  }
+
+  // 재연결로 client가 바뀐 뒤에도 이전 client의 콜백이 늦게 실행될 수 있다.
+  // 지금 쓰는 client의 콜백일 때만 화면 상태를 바꾼다.
+  function isCurrent(client: Client): boolean {
+    return clientRef.current === client;
   }
 
   function disconnect() {

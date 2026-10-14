@@ -59,7 +59,7 @@ export default function App() {
 
       {user && (
         <main className="grid">
-          <LivePanel log={log} liveStreamId={liveStreamId} onLiveStreamIdChange={setLiveStreamId} />
+          <LivePanel log={log} userId={user.userId} liveStreamId={liveStreamId} onLiveStreamIdChange={setLiveStreamId} />
           <ChatPanel log={log} liveStreamId={liveStreamId} />
         </main>
       )}

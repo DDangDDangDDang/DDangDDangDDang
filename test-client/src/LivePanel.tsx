@@ -12,13 +12,14 @@ import type { Log } from './App';
 
 type Props = {
   log: Log;
+  userId: number;
   liveStreamId: number | null;
   onLiveStreamIdChange: (id: number | null) => void;
 };
 
 type Mode = 'publisher' | 'viewer';
 
-export default function LivePanel({ log, liveStreamId, onLiveStreamIdChange }: Props) {
+export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdChange }: Props) {
   const [title, setTitle] = useState('테스트 방송');
   const [idInput, setIdInput] = useState(liveStreamId ? String(liveStreamId) : '');
   const [stream, setStream] = useState<LiveStream | null>(null);
@@ -76,8 +77,26 @@ export default function LivePanel({ log, liveStreamId, onLiveStreamIdChange }: P
       const token = await liveStreamApi.start(id);
       log(`방송 시작: room=${token.roomName}`);
       setStream(await liveStreamApi.get(id));
-      await connect(token, 'publisher');
+      await connectPublisher(token);
     });
+
+  // 방송이 LIVE가 된 뒤에는 방송 시작을 다시 할 수 없고(ALREADY_LIVE), 시청 입장 토큰으로는 송출할 수 없다.
+  // 그래서 송출 토큰만 새로 받아 다시 접속한다. 새로고침이나 토큰 만료 뒤에도 같은 방법으로 복구된다.
+  const reconnectPublisher = () =>
+    run('송출 다시 연결', async () => {
+      const token = await liveStreamApi.publisherToken(currentId());
+      log(`송출 토큰 재발급: room=${token.roomName}`);
+      await connectPublisher(token);
+    });
+
+  async function connectPublisher(token: LiveStreamToken) {
+    try {
+      await connect(token, 'publisher');
+    } catch (e) {
+      // 서버에서는 이미 방송이 LIVE이므로 방송 시작 실패가 아니라 송출 연결 실패로 알린다.
+      throw new Error(`방송은 시작됐지만 LiveKit 송출 연결에 실패했어요. "송출 다시 연결"로 재시도해 주세요. (${errorText(e)})`);
+    }
+  }
 
   const join = () =>
     run('시청 입장', async () => {
@@ -100,9 +119,13 @@ export default function LivePanel({ log, liveStreamId, onLiveStreamIdChange }: P
     const room = new Room({ adaptiveStream: true, dynacast: true });
     roomRef.current = room;
     setMode(nextMode);
+    // 다시 접속하면 room이 바뀌는데, 이전 room의 이벤트가 늦게 올 수 있다. 지금 room의 이벤트만 화면에 반영한다.
+    const isCurrent = () => roomRef.current === room;
 
     room
-      .on(RoomEvent.ConnectionStateChanged, (state) => setConnection(state))
+      .on(RoomEvent.ConnectionStateChanged, (state) => {
+        if (isCurrent()) setConnection(state);
+      })
       .on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub, participant) => {
         attach(track.attach(), `${participant.name || participant.identity} · ${track.kind}`);
       })
@@ -113,13 +136,24 @@ export default function LivePanel({ log, liveStreamId, onLiveStreamIdChange }: P
       .on(RoomEvent.ParticipantDisconnected, (p) => log(`퇴장: ${p.name || p.identity}`))
       .on(RoomEvent.AudioPlaybackStatusChanged, () => setNeedsAudioClick(!room.canPlaybackAudio))
       .on(RoomEvent.Disconnected, (reason) => {
+        if (!isCurrent()) return;
         // 방송 종료로 방이 삭제되면 ROOM_DELETED
         log(`LiveKit 연결 종료 (사유: ${reason === undefined ? '-' : DisconnectReason[reason]})`);
         clearVideos();
         setMode(null);
       });
 
-    await room.connect(token.serverUrl, token.token);
+    try {
+      await room.connect(token.serverUrl, token.token);
+    } catch (e) {
+      // 접속 전에 실패하면 Disconnected 이벤트가 오지 않을 수 있어 여기서 정리한다.
+      if (isCurrent()) {
+        roomRef.current = null;
+        setMode(null);
+        setConnection(ConnectionState.Disconnected);
+      }
+      throw e;
+    }
     log(`LiveKit 연결: ${token.serverUrl}`);
 
     if (nextMode === 'publisher') {
@@ -207,6 +241,11 @@ export default function LivePanel({ log, liveStreamId, onLiveStreamIdChange }: P
           <button type="button" onClick={() => roomRef.current?.startAudio()}>소리 켜기</button>
         )}
         {mode && <button type="button" onClick={disconnect}>LiveKit 연결 끊기</button>}
+        {stream?.status === 'LIVE' && stream.sellerId === userId && mode !== 'publisher' && (
+          <button type="button" className="primary" onClick={reconnectPublisher} disabled={busy}>
+            송출 다시 연결 (방송 #{stream.id})
+          </button>
+        )}
       </div>
 
       <div ref={videoBoxRef} className="videos" aria-live="polite" />
