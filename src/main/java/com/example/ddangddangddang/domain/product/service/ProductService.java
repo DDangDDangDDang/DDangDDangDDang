@@ -1,15 +1,19 @@
 package com.example.ddangddangddang.domain.product.service;
 
 import com.example.ddangddangddang.domain.category.entity.Category;
+import com.example.ddangddangddang.domain.category.exception.CategoryErrorCode;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
 import com.example.ddangddangddang.domain.product.dto.request.ProductRequest;
 import com.example.ddangddangddang.domain.product.dto.request.UpdateRequest;
 import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
 import com.example.ddangddangddang.domain.product.entity.Product;
 import com.example.ddangddangddang.domain.product.entity.Status;
+import com.example.ddangddangddang.domain.product.exception.ProductErrorCode;
 import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.domain.user.entity.User;
+import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
+import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,7 +30,8 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductResponse findAddBy(Long productsId) {
-        Product product = productRepository.findByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(() -> new IllegalArgumentException("존재 하지 않은 상품입니다."));
+        Product product = productRepository.findByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
+                () -> new BusinessException(ProductErrorCode.NOT_FOUND));
 
         return ProductResponse.from(product);
 
@@ -41,7 +46,7 @@ public class ProductService {
 
     public ProductResponse creation(Long sellerId, ProductRequest request) {
         User seller = userRepository.findById(sellerId).orElseThrow(
-                () -> new IllegalArgumentException("존재하지 않은 회원입니다"));
+                () -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
         Category category = findCategory(request.categoryId());
         Product save = productRepository.save(new Product(seller, category, request.name(), request.description()));
 
@@ -51,10 +56,10 @@ public class ProductService {
 
     public ProductResponse updateProduct(Long sellerId, Long productsId, UpdateRequest request) {
         Product product = productRepository.findByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
-                () -> new IllegalArgumentException("존재 하지 않은 상품입니다."));
+                () -> new BusinessException(ProductErrorCode.NOT_FOUND));
 
         if (!product.getSeller().getId().equals(sellerId)) {
-            throw new IllegalArgumentException("본인 상품만 수정이 가능합니다");
+            throw new BusinessException(ProductErrorCode.NOT_OWNER);
         }
 
         Category category = (request.categoryId() != null)
@@ -76,11 +81,11 @@ public class ProductService {
 
     private Category findCategory(Long categoryId) {
         Category category = categoryRepository.findById(categoryId).orElseThrow(
-                () -> new IllegalArgumentException("존재하지 않은 카테고리 입니다")
+                () -> new BusinessException(CategoryErrorCode.NOT_FOUND)
         );
 
         if (category.getParent() == null && categoryRepository.existsByParentId(categoryId)) {
-            throw new IllegalArgumentException("하위 카테고리를 사용하십쇼");
+            throw new BusinessException(ProductErrorCode.SUBCATEGORY_REQUIRED);
         }
 
         return category;
@@ -88,11 +93,11 @@ public class ProductService {
 
     public void delete(Long sellerId, Long productsId) {
         Product product = productRepository.findByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
-                () -> new IllegalArgumentException("존재 하지 않은 상품입니다."));
+                () -> new BusinessException(ProductErrorCode.NOT_FOUND));
         if (!product.getSeller().getId().equals(sellerId)) {
-            throw new IllegalArgumentException("본인 상품만 삭제가 가능합니다");
+            throw new BusinessException(ProductErrorCode.NOT_OWNER);
         }
-
+        // 진행 중 경매 있을시 삭제 불가
         product.delete();
     }
 }
