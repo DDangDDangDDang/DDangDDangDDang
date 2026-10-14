@@ -22,5 +22,16 @@ services:
     ports:
       - "6379:6379"
 
+  # 로컬 개발용 LiveKit 미디어 서버. --dev 모드의 API 키는 devkey / secret (application.yml 기본값과 같음)
+  # 브라우저가 컨테이너 내부 IP로는 접속할 수 없으므로 --node-ip로 127.0.0.1을 알려준다.
+  livekit:
+    image: livekit/livekit-server
+    container_name: ddang-livekit
+    command: --dev --bind 0.0.0.0 --node-ip 127.0.0.1
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+
 volumes:
   mysql-data:
