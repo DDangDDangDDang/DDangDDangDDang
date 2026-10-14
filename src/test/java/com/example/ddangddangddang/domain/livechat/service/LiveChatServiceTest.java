@@ -3,6 +3,8 @@ package com.example.ddangddangddang.domain.livechat.service;
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageResponse;
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageType;
 import com.example.ddangddangddang.domain.livechat.exception.LiveChatErrorCode;
+import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
+import com.example.ddangddangddang.domain.livechat.moderation.ChatModerationQueue;
 import com.example.ddangddangddang.domain.livechat.repository.ChatRateLimitRepository;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
@@ -49,8 +51,14 @@ class LiveChatServiceTest {
     @Mock
     private LiveStreamService liveStreamService;
 
+    @Mock
+    private ChatContentFilter chatContentFilter;
+
+    @Mock
+    private ChatModerationQueue chatModerationQueue;
+
     @Test
-    @DisplayName("방송 중이고 제한 횟수 이내면 앞뒤 공백을 지운 메시지를 방송 채팅 토픽으로 보낸다")
+    @DisplayName("방송 중이고 제한 횟수 이내면 앞뒤 공백을 지운 메시지를 방송 채팅 토픽으로 보내고, 같은 메시지를 AI 검토 대기열에 넣는다")
     void send() {
         given(chatRateLimitRepository.increment(SENDER.id(), LiveChatService.RATE_LIMIT_WINDOW))
                 .willReturn((long) LiveChatService.RATE_LIMIT_MAX_MESSAGES);
@@ -60,10 +68,29 @@ class LiveChatServiceTest {
         ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
         then(stompBroadcaster).should().broadcast(eq("/topic/live-streams/10/chat"), captor.capture());
         ChatMessageResponse message = captor.getValue();
+        assertThat(message.messageId()).isNotBlank();
         assertThat(message.type()).isEqualTo(ChatMessageType.CHAT);
         assertThat(message.senderId()).isEqualTo(1L);
         assertThat(message.nickname()).isEqualTo("회원1");
         assertThat(message.content()).isEqualTo("안녕하세요");
+        then(chatContentFilter).should().validate("안녕하세요");
+        then(chatModerationQueue).should().enqueue(message);
+    }
+
+    @Test
+    @DisplayName("규칙 검사에 걸리면 LIVECHAT_003, 방송 상태는 조회하지 않고 메시지도 보내지 않으며 AI 검토에도 넣지 않는다")
+    void contentNotAllowed() {
+        given(chatRateLimitRepository.increment(SENDER.id(), LiveChatService.RATE_LIMIT_WINDOW)).willReturn(1L);
+        willThrow(new BusinessException(LiveChatErrorCode.CONTENT_NOT_ALLOWED, "전화번호는 채팅으로 보낼 수 없습니다."))
+                .given(chatContentFilter).validate("010-1234-5678");
+
+        assertThatThrownBy(() -> liveChatService.send(LIVE_STREAM_ID, SENDER, "010-1234-5678"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("전화번호는 채팅으로 보낼 수 없습니다.");
+
+        then(liveStreamService).should(never()).validateLive(any());
+        then(stompBroadcaster).should(never()).broadcast(anyString(), any());
+        then(chatModerationQueue).should(never()).enqueue(any());
     }
 
     @Test
