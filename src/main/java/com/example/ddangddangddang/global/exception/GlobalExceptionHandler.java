@@ -10,6 +10,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
 @RestControllerAdvice
@@ -28,6 +30,16 @@ public class GlobalExceptionHandler {
                 ? fieldError.getDefaultMessage()
                 : CommonErrorCode.INVALID_INPUT.getMessage();
         return toResponse(CommonErrorCode.INVALID_INPUT, message);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatchException(MethodArgumentTypeMismatchException e) {
+        return toResponse(CommonErrorCode.INVALID_INPUT, "'" + e.getName() + "' 값이 올바르지 않습니다.");
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingParameterException(MissingServletRequestParameterException e) {
+        return toResponse(CommonErrorCode.INVALID_INPUT, "'" + e.getParameterName() + "' 값이 필요합니다.");
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
