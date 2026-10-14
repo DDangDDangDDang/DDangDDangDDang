@@ -35,6 +35,7 @@ public class Product extends BaseTimeEntity {
     @Column(nullable = false,length = 20)
     private Status status;
 
+    //상품 생성시 항상 Status==ACTIVE 시작된다
     public Product(User seller, Category category, String name, String description) {
         this.seller = seller;
         this.category = category;
@@ -49,6 +50,7 @@ public class Product extends BaseTimeEntity {
         this.description = description;
     }
 
+    //상품 삭제(실제 삭제가 아닌 Status를 DELETED 전환)
     public void delete() {
         this.status = Status.DELETED;
     }

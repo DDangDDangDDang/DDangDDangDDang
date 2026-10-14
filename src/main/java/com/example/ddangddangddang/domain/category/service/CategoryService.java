@@ -21,6 +21,8 @@ import java.util.List;
 public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
+
+    //카테고리 전체 조회
     @Transactional(readOnly = true)
     public List<CategoryResponse> findAdd() {
         List<Category> all = categoryRepository.findAllByOrderBySortOrderAscIdAsc();

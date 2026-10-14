@@ -19,19 +19,25 @@ import java.util.List;
 public class CategoryController {
     private final CategoryService categoryService;
 
+    //카테고리 전체 조회
     @GetMapping("/categories")
     ResponseEntity<ApiResponse<List<CategoryResponse>>> findAdd(){
         return ResponseEntity.ok(ApiResponse.ok(categoryService.findAdd()));
     }
+
+    //카테고리 생성(관리자만)
     @PostMapping("/admin/categories")
     ResponseEntity<ApiResponse<CategoryResponse>> creation(@Valid @RequestBody CategoryRequest request){
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(categoryService.creation(request)));
     }
+
+    //카테고리 수정(관리자만)
     @PatchMapping("/admin/categories/{categoryId}")
     ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(@PathVariable Long categoryId, @Valid @RequestBody UpdateRequest request){
         return ResponseEntity.ok(ApiResponse.ok(categoryService.updateCategory(categoryId,request)));
     }
 
+    //카테고리 삭제(관리자만)
     @DeleteMapping("/admin/categories/{categoryId}")
     ResponseEntity<Void> delete(@PathVariable Long categoryId){
         categoryService.delete(categoryId);

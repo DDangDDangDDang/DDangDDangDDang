@@ -28,6 +28,7 @@ public class ProductService {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
 
+    //상품 상세 조회(삭제된 상품은 제외)
     @Transactional(readOnly = true)
     public ProductResponse findAddBy(Long productsId) {
         Product product = productRepository.findByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
@@ -37,13 +38,14 @@ public class ProductService {
 
     }
 
+    //내 상품 조회(삭제된 상품은 제외)
     @Transactional(readOnly = true)
     public Page<ProductResponse> myProducts(Long swllerId, Pageable pageable) {
         Page<Product> bySellerIdAndStatusNot = productRepository.findBySellerIdAndStatusNot(swllerId, Status.DELETED, pageable);
         return bySellerIdAndStatusNot.map(ProductResponse::from);
     }
 
-
+    //상품 생성(하위 카테고리 내에서만 생성(대분류에는 등록X))
     public ProductResponse creation(Long sellerId, ProductRequest request) {
         User seller = userRepository.findById(sellerId).orElseThrow(
                 () -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
@@ -54,6 +56,7 @@ public class ProductService {
 
     }
 
+    //상품 수정(본인만 수정가능+보내지 않은 값들은 기존 유지)
     public ProductResponse updateProduct(Long sellerId, Long productsId, UpdateRequest request) {
         Product product = productRepository.findByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
                 () -> new BusinessException(ProductErrorCode.NOT_FOUND));
@@ -78,7 +81,7 @@ public class ProductService {
         return ProductResponse.from(product);
 
     }
-
+    //카테고리 조회시 하위가 있을시 대분류에 생성 수정시 예외처리
     private Category findCategory(Long categoryId) {
         Category category = categoryRepository.findById(categoryId).orElseThrow(
                 () -> new BusinessException(CategoryErrorCode.NOT_FOUND)
@@ -91,6 +94,7 @@ public class ProductService {
         return category;
     }
 
+    //상품 삭제(본인 상품만 삭제 가능+삭제시 Status를 DELETED 전환)
     public void delete(Long sellerId, Long productsId) {
         Product product = productRepository.findByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
                 () -> new BusinessException(ProductErrorCode.NOT_FOUND));
