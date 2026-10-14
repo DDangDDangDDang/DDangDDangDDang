@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.auth.controller;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
+import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository.RotateResult;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
@@ -17,11 +18,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -131,7 +132,7 @@ class AuthControllerTest {
         void success() throws Exception {
             signup("user@test.com", "Abcd1234!", "경매왕");
             String refreshToken = loginAndGetRefreshToken("user@test.com", "Abcd1234!");
-            given(refreshTokenRepository.findByUserId(any())).willReturn(Optional.of(refreshToken));
+            given(refreshTokenRepository.rotate(any(), eq(refreshToken), anyString(), any())).willReturn(RotateResult.ROTATED);
 
             mockMvc.perform(post("/api/v1/auth/reissue")
                             .cookie(new Cookie("refreshToken", refreshToken)))
@@ -146,7 +147,7 @@ class AuthControllerTest {
         void withExpiredAccessToken() throws Exception {
             signup("user@test.com", "Abcd1234!", "경매왕");
             String refreshToken = loginAndGetRefreshToken("user@test.com", "Abcd1234!");
-            given(refreshTokenRepository.findByUserId(any())).willReturn(Optional.of(refreshToken));
+            given(refreshTokenRepository.rotate(any(), eq(refreshToken), anyString(), any())).willReturn(RotateResult.ROTATED);
 
             mockMvc.perform(post("/api/v1/auth/reissue")
                             .header(HttpHeaders.AUTHORIZATION, "Bearer expired.access.token")
