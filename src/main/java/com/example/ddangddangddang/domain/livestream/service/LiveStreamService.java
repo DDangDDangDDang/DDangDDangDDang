@@ -52,6 +52,21 @@ public class LiveStreamService {
         // 실패 시 예외 -> 트랜잭션 롤백 -> 상태는 SCHEDULED 그대로
         mediaServerClient.createRoom(liveStream.getRoomName());
 
+        return publisherTokenResponse(liveStream, sellerId, nickname);
+    }
+
+    /**
+     * 송출 중인 방송의 송출 토큰을 다시 발급한다. 방송 상태와 LiveKit 방은 그대로 두고 토큰만 새로 만든다.
+     * 판매자가 방송 중에 새로고침했거나, 송출 연결이 끊겼거나, 토큰이 만료됐을 때 다시 송출하기 위함이다.
+     * 같은 identity로 다시 접속하므로, 이전 접속(다른 탭 등)이 남아 있으면 LiveKit이 이전 접속을 끊는다.
+     */
+    public LiveStreamTokenResponse reissuePublisherToken(Long liveStreamId, Long sellerId, String nickname) {
+        LiveStream liveStream = findById(liveStreamId);
+        liveStream.validatePublishable(sellerId);
+        return publisherTokenResponse(liveStream, sellerId, nickname);
+    }
+
+    private LiveStreamTokenResponse publisherTokenResponse(LiveStream liveStream, Long sellerId, String nickname) {
         String token = mediaServerClient.createPublisherToken(
                 liveStream.getRoomName(), publisherIdentity(sellerId), nickname);
 
