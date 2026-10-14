@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.order.entity.OrderRole;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
+import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -39,6 +41,9 @@ class OrderServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
+
+    @Mock
+    private PointService pointService;
 
     @Nested
     @DisplayName("주문 생성")
@@ -125,6 +130,78 @@ class OrderServiceTest {
 
             assertThat(response.content()).hasSize(1);
             verify(orderRepository, never()).findBuyerOrders(any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("발송 처리")
+    class Ship {
+
+        @Test
+        @DisplayName("판매자가 발송하면 SHIPPING이 된다")
+        void success() {
+            Order order = order(10L);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            OrderResponse response = orderService.ship(SELLER_ID, 10L, "1234567890");
+
+            assertThat(response.status()).isEqualTo(OrderStatus.SHIPPING);
+            assertThat(response.trackingNo()).isEqualTo("1234567890");
+        }
+
+        @Test
+        @DisplayName("판매자가 아니면 예외가 발생한다")
+        void notSeller() {
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order(10L)));
+
+            assertThatThrownBy(() -> orderService.ship(BUYER_ID, 10L, "1234567890"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(OrderErrorCode.NOT_ORDER_SELLER);
+        }
+    }
+
+    @Nested
+    @DisplayName("구매 확정")
+    class ConfirmPurchase {
+
+        @Test
+        @DisplayName("구매자가 확정하면 COMPLETED가 되고 판매자에게 낙찰 금액을 정산한다")
+        void success() {
+            Order order = order(10L);
+            order.ship("1234567890");
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            OrderResponse response = orderService.confirmPurchase(BUYER_ID, 10L);
+
+            assertThat(response.status()).isEqualTo(OrderStatus.COMPLETED);
+            verify(pointService).settle(SELLER_ID, 500_000L, 10L);
+        }
+
+        @Test
+        @DisplayName("구매자가 아니면 예외가 발생하고 정산하지 않는다")
+        void notBuyer() {
+            Order order = order(10L);
+            order.ship("1234567890");
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.confirmPurchase(SELLER_ID, 10L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(OrderErrorCode.NOT_ORDER_BUYER);
+            verify(pointService, never()).settle(anyLong(), anyLong(), anyLong());
+        }
+
+        @Test
+        @DisplayName("발송 전이면 예외가 발생하고 정산하지 않는다")
+        void beforeShip() {
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order(10L)));
+
+            assertThatThrownBy(() -> orderService.confirmPurchase(BUYER_ID, 10L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(OrderErrorCode.CANNOT_CONFIRM);
+            verify(pointService, never()).settle(anyLong(), anyLong(), anyLong());
         }
     }
 

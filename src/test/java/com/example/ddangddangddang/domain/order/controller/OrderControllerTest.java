@@ -18,8 +18,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -113,6 +112,80 @@ class OrderControllerTest {
             mockMvc.perform(get("/api/v1/orders").param("status", "COMPLETED")
                             .header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
                     .andExpect(jsonPath("$.data.content.length()").value(0));
+        }
+    }
+
+    @Nested
+    @DisplayName("발송 -> 구매 확정")
+    class ShipAndConfirm {
+
+        @Test
+        @DisplayName("판매자가 발송하고 구매자가 확정하면 판매자 지갑에 낙찰 금액이 정산된다")
+        void flow() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+
+            mockMvc.perform(patch("/api/v1/orders/{orderId}/ship", orderId)
+                            .header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"trackingNo": "1234567890"}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("SHIPPING"))
+                    .andExpect(jsonPath("$.data.trackingNo").value("1234567890"));
+
+            mockMvc.perform(patch("/api/v1/orders/{orderId}/confirm", orderId)
+                            .header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+
+            mockMvc.perform(get("/api/v1/points/wallet").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                    .andExpect(jsonPath("$.data.balance").value(500_000));
+            mockMvc.perform(get("/api/v1/points/histories").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                    .andExpect(jsonPath("$.data.content[0].type").value("SETTLE"))
+                    .andExpect(jsonPath("$.data.content[0].refType").value("ORDER"))
+                    .andExpect(jsonPath("$.data.content[0].refId").value(orderId));
+        }
+
+        @Test
+        @DisplayName("구매자가 발송 처리하면 403 ORDER_004")
+        void buyerCannotShip() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+
+            mockMvc.perform(patch("/api/v1/orders/{orderId}/ship", orderId)
+                            .header(HttpHeaders.AUTHORIZATION, buyer.bearer())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"trackingNo": "1234567890"}
+                                    """))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error.code").value("ORDER_004"));
+        }
+
+        @Test
+        @DisplayName("송장번호 없이 발송하면 400")
+        void shipWithoutTrackingNo() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+
+            mockMvc.perform(patch("/api/v1/orders/{orderId}/ship", orderId)
+                            .header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"trackingNo": ""}
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+        }
+
+        @Test
+        @DisplayName("발송 전에 구매 확정하면 409 ORDER_007")
+        void confirmBeforeShip() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+
+            mockMvc.perform(patch("/api/v1/orders/{orderId}/confirm", orderId)
+                            .header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.error.code").value("ORDER_007"));
         }
     }
 
