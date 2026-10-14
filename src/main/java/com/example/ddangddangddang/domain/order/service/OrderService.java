@@ -4,6 +4,7 @@ import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
+import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import org.hibernate.exception.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class OrderService {
 
     private static final int MAX_PAGE_SIZE = 100;
     private final OrderRepository orderRepository;
+    private final PointService pointService;
 
     /**
      * 낙찰 주문을 만든다. API가 아니라 경매 도메인이 호출하는 내부 메서드다.
@@ -88,8 +90,41 @@ public class OrderService {
         return OrderResponse.from(order);
     }
 
+    /** 판매자가 발송 처리한다. */
+    @Transactional
+    public OrderResponse ship(Long userId, Long orderId, String trackingNo) {
+        Order order = findOrderForUpdate(orderId);
+        if (!order.isSeller(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_SELLER);
+        }
+        order.ship(trackingNo);
+        return OrderResponse.from(order);
+    }
+
     private Order findOrder(Long orderId) {
         return orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
+    }
+
+    /**
+     * 구매자가 구매 확정하면 에스크로에 묶여 있던 낙찰 금액을 판매자에게 정산한다.
+     *
+     * 주문을 먼저 잠그고 상태를 확인하므로, 동시에 여러 번 요청해도 정산은 한 번만 된다.
+     * (주문 락 -> 판매자 지갑 락 순서로 잠근다)
+     */
+    @Transactional
+    public OrderResponse confirmPurchase(Long userId, Long orderId) {
+        Order order = findOrderForUpdate(orderId);
+        if (!order.isBuyer(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_BUYER);
+        }
+        order.confirm();
+        pointService.settle(order.getSellerId(), order.getFinalPrice(), order.getId());
+        return OrderResponse.from(order);
+    }
+
+    private Order findOrderForUpdate(Long orderId) {
+        return orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
     }
 }

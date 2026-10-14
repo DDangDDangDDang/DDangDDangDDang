@@ -1,6 +1,8 @@
 package com.example.ddangddangddang.domain.order.entity;
 
+import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.global.entity.BaseTimeEntity;
+import com.example.ddangddangddang.global.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -92,6 +94,25 @@ public class Order extends BaseTimeEntity {
     public static Order create(Long auctionId, Long buyerId, Long sellerId, String productName,
                                String productImageUrl, long finalPrice) {
         return new Order(auctionId, buyerId, sellerId, productName, productImageUrl, finalPrice);
+    }
+
+    /** 발송 처리: ESCROW -> SHIPPING */
+    public void ship(String trackingNo) {
+        if (status != OrderStatus.ESCROW) {
+            throw new BusinessException(OrderErrorCode.CANNOT_SHIP);
+        }
+        this.trackingNo = trackingNo;
+        this.shippedAt = LocalDateTime.now();
+        this.status = OrderStatus.SHIPPING;
+    }
+
+    /** 구매 확정: SHIPPING -> COMPLETED. 정산은 서비스에서 포인트 도메인에 요청한다. */
+    public void confirm() {
+        if (status != OrderStatus.SHIPPING) {
+            throw new BusinessException(OrderErrorCode.CANNOT_CONFIRM);
+        }
+        this.completedAt = LocalDateTime.now();
+        this.status = OrderStatus.COMPLETED;
     }
 
     public boolean isBuyer(Long userId) {
