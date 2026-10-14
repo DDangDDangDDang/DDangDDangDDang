@@ -39,3 +39,6 @@ out/
 
 application.properties
 data.sql
+
+### Claude Code ###
+.claude/

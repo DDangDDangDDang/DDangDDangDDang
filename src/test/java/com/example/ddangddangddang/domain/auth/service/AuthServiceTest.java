@@ -6,6 +6,7 @@ import com.example.ddangddangddang.domain.auth.dto.SignupRequest;
 import com.example.ddangddangddang.domain.auth.dto.SignupResponse;
 import com.example.ddangddangddang.domain.auth.exception.AuthErrorCode;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
+import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository.RotateResult;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
@@ -177,41 +178,49 @@ class AuthServiceTest {
         private static final String REFRESH_TOKEN = "refresh-token";
 
         @Test
-        @DisplayName("성공하면 새 토큰을 발급하고 Refresh Token을 교체한다")
+        @DisplayName("성공하면 새 토큰을 발급하고 저장된 Refresh Token을 원자적으로 교체한다")
         void success() {
-            User user = createUser(1L);
-            given(jwtProvider.parseClaims(REFRESH_TOKEN)).willReturn(claims("1", "REFRESH"));
-            given(refreshTokenRepository.findByUserId(1L)).willReturn(Optional.of(REFRESH_TOKEN));
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(jwtProvider.createAccessToken(user)).willReturn("new-access-token");
-            given(jwtProvider.createRefreshToken(1L)).willReturn("new-refresh-token");
+            User user = givenNewTokens();
             given(jwtProvider.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
-            given(jwtProvider.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
+            given(refreshTokenRepository.rotate(1L, REFRESH_TOKEN, "new-refresh-token", Duration.ofDays(14)))
+                    .willReturn(RotateResult.ROTATED);
 
             LoginResult result = authService.reissue(REFRESH_TOKEN);
 
             assertThat(result.response().accessToken()).isEqualTo("new-access-token");
+            assertThat(result.response().user().nickname()).isEqualTo(user.getNickname());
             assertThat(result.refreshToken()).isEqualTo("new-refresh-token");
-            verify(refreshTokenRepository).save(1L, "new-refresh-token", Duration.ofDays(14));
         }
 
         @Test
-        @DisplayName("이미 교체된 Refresh Token이면 저장된 토큰까지 삭제하고 예외가 발생한다")
+        @DisplayName("이미 교체된 Refresh Token이면(재사용 감지, 저장된 토큰은 rotate에서 삭제됨) 예외가 발생한다")
         void reusedToken() {
-            given(jwtProvider.parseClaims(REFRESH_TOKEN)).willReturn(claims("1", "REFRESH"));
-            given(refreshTokenRepository.findByUserId(1L)).willReturn(Optional.of("other-refresh-token"));
+            givenNewTokens();
+            given(refreshTokenRepository.rotate(1L, REFRESH_TOKEN, "new-refresh-token", Duration.ofDays(14)))
+                    .willReturn(RotateResult.REUSED);
 
             assertInvalidRefreshToken(REFRESH_TOKEN);
-            verify(refreshTokenRepository).deleteByUserId(1L);
         }
 
         @Test
         @DisplayName("저장된 Refresh Token이 없으면(로그아웃 상태) 예외가 발생한다")
         void notStored() {
-            given(jwtProvider.parseClaims(REFRESH_TOKEN)).willReturn(claims("1", "REFRESH"));
-            given(refreshTokenRepository.findByUserId(1L)).willReturn(Optional.empty());
+            givenNewTokens();
+            given(refreshTokenRepository.rotate(1L, REFRESH_TOKEN, "new-refresh-token", Duration.ofDays(14)))
+                    .willReturn(RotateResult.NOT_FOUND);
 
             assertInvalidRefreshToken(REFRESH_TOKEN);
+        }
+
+        // 재발급은 저장된 토큰과 비교하기 전에 새 토큰을 먼저 만든다. (비교와 교체를 Redis에서 한 번에 하기 위해)
+        private User givenNewTokens() {
+            User user = createUser(1L);
+            given(jwtProvider.parseClaims(REFRESH_TOKEN)).willReturn(claims("1", "REFRESH"));
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(jwtProvider.createAccessToken(user)).willReturn("new-access-token");
+            given(jwtProvider.createRefreshToken(1L)).willReturn("new-refresh-token");
+            given(jwtProvider.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
+            return user;
         }
 
         @Test
