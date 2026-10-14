@@ -63,6 +63,30 @@ class RedisStompBroadcastListenerTest {
     }
 
     @Test
+    @DisplayName("user가 있는 메시지는 그 사용자의 /user/queue/...로만 전달한다")
+    void deliverToUser() {
+        listener.onMessage(message("""
+                {"destination":"/queue/moderation","payload":{"messageId":"m1"},"user":"99"}
+                """), null);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        then(messagingTemplate).should().convertAndSendToUser(eq("99"), eq("/queue/moderation"), captor.capture());
+        assertThat(((JsonNode) captor.getValue()).get("messageId").asString()).isEqualTo("m1");
+        then(messagingTemplate).should(never()).convertAndSend(anyString(), any(Object.class));
+    }
+
+    @Test
+    @DisplayName("사용자 메시지라도 /queue/가 아닌 경로는 전달하지 않는다")
+    void ignoreUserMessageToTopic() {
+        listener.onMessage(message("""
+                {"destination":"/topic/live-streams/10/chat","payload":{"type":"CHAT"},"user":"99"}
+                """), null);
+
+        then(messagingTemplate).should(never()).convertAndSendToUser(anyString(), anyString(), any(Object.class));
+        then(messagingTemplate).should(never()).convertAndSend(anyString(), any(Object.class));
+    }
+
+    @Test
     @DisplayName("JSON 형식이 깨진 메시지는 예외를 밖으로 던지지 않고 무시한다")
     void ignoreBrokenMessage() {
         assertThatCode(() -> listener.onMessage(message("{broken"), null)).doesNotThrowAnyException();

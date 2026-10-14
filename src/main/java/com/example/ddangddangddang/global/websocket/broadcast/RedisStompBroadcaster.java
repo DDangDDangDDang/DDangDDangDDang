@@ -23,7 +23,19 @@ public class RedisStompBroadcaster implements StompBroadcaster {
 
     @Override
     public void broadcast(String destination, Object payload) {
-        StompBroadcastMessage message = new StompBroadcastMessage(destination, objectMapper.valueToTree(payload));
+        publish(StompBroadcastMessage.toTopic(destination, objectMapper.valueToTree(payload)));
+    }
+
+    /**
+     * 받는 사용자가 어느 서버에 연결돼 있는지 모르므로 모든 서버에 보내고,
+     * 각 서버는 그 사용자가 자기에게 연결돼 있을 때만 전달한다. (연결돼 있지 않으면 아무 일도 없음)
+     */
+    @Override
+    public void sendToUser(Long userId, String destination, Object payload) {
+        publish(StompBroadcastMessage.toUser(String.valueOf(userId), destination, objectMapper.valueToTree(payload)));
+    }
+
+    private void publish(StompBroadcastMessage message) {
         redisTemplate.convertAndSend(CHANNEL, objectMapper.writeValueAsString(message));
     }
 }
