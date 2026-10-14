@@ -29,6 +29,9 @@ function wsUrl(): string {
 
 export default function ChatPanel({ log, liveStreamId }: Props) {
   const [connected, setConnected] = useState(false);
+  // 연결에 성공할 때마다 1씩 오른다. 재연결로 client가 바뀌어도 connected가 true로 유지될 수 있어서,
+  // 이 값으로 새 client에 채팅 구독을 다시 건다.
+  const [connectionGen, setConnectionGen] = useState(0);
   const [items, setItems] = useState<ChatItem[]>([]);
   const [input, setInput] = useState('');
 
@@ -43,7 +46,7 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [items]);
 
-  // 연결된 상태에서 방송 ID가 바뀌면 채팅 구독을 옮긴다.
+  // 새로 연결되거나 방송 ID가 바뀌면 지금 client에 채팅 구독을 건다.
   useEffect(() => {
     const client = clientRef.current;
     if (!connected || !client) return;
@@ -53,7 +56,7 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
       chatSubRef.current = client.subscribe(`/topic/live-streams/${liveStreamId}/chat`, onChatMessage);
       log(`채팅 구독: 방송 #${liveStreamId}`);
     }
-  }, [connected, liveStreamId]);
+  }, [connected, connectionGen, liveStreamId]);
 
   useEffect(
     () => () => {
@@ -85,6 +88,8 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
       return;
     }
     clientRef.current?.deactivate();
+    // 이전 client의 구독은 그 client와 함께 끝난다. 새 client에서 해제하지 않도록 비워 둔다.
+    chatSubRef.current = null;
 
     const client = new Client({
       brokerURL: wsUrl(),
@@ -100,6 +105,7 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
       if (!isCurrent(client)) return;
       retriedRef.current = false;
       setConnected(true);
+      setConnectionGen((gen) => gen + 1);
       log('채팅 서버 연결');
       // 내가 보낸 메시지가 거부되면 나에게만 오는 에러
       client.subscribe('/user/queue/errors', (frame) => {
