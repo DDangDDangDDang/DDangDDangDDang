@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface LiveStreamRepository extends JpaRepository<LiveStream, Long> {
 
     boolean existsBySellerIdAndStatus(Long sellerId, LiveStreamStatus status);
+
+    boolean existsByIdAndStatus(Long id, LiveStreamStatus status);
 }

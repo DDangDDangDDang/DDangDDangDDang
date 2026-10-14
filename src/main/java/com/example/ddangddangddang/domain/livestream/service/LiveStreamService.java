@@ -5,11 +5,13 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
+import com.example.ddangddangddang.domain.livestream.event.LiveStreamEndedEvent;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,7 @@ public class LiveStreamService {
 
     private final LiveStreamRepository liveStreamRepository;
     private final MediaServerClient mediaServerClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     // TODO: 판매자 권한(ROLE_SELLER) 확인은 인증 담당과 방식 확정 후 추가
     @Transactional
@@ -76,8 +79,19 @@ public class LiveStreamService {
         // 방을 삭제하면 접속 중인 판매자·시청자 모두 연결이 끊긴다.
         mediaServerClient.deleteRoom(liveStream.getRoomName());
 
-        // TODO(6단계): LiveStreamEndedEvent 발행 -> 경매 도메인에서 진행 중 경매 처리
+        // 커밋 후 리스너가 처리한다. (채팅 종료 안내 / TODO(6단계): 경매 도메인에서 진행 중 경매 처리)
+        eventPublisher.publishEvent(new LiveStreamEndedEvent(liveStream.getId()));
         return LiveStreamResponse.from(liveStream);
+    }
+
+    /**
+     * 채팅처럼 방송 중에만 할 수 있는 작업 전에 호출한다.
+     * 메시지마다 호출되므로 엔티티 전체를 읽지 않고 존재 여부만 확인한다.
+     */
+    public void validateLive(Long liveStreamId) {
+        if (!liveStreamRepository.existsByIdAndStatus(liveStreamId, LiveStreamStatus.LIVE)) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_LIVE);
+        }
     }
 
     // 동시에 같은 방송 상태를 바꾸면 먼저 커밋된 요청만 성공하고, 나머지는 409 CONCURRENT_UPDATE로 응답한다.

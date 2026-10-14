@@ -22,8 +22,7 @@ livekit:
   api-key: test-api-key
   api-secret: test-api-secret-test-api-secret-test
 
-toss:
-  secret-key: test_sk_dummy
-  base-url: http://localhost:0
-  connect-timeout: 1s
-  read-timeout: 1s
+
+# Redis 없이 테스트하도록 이 서버의 구독자에게만 보낸다. 서버 간 전달은 RedisStompBroadcastTest에서 Testcontainers로 확인한다.
+websocket:
+  broadcast: local
