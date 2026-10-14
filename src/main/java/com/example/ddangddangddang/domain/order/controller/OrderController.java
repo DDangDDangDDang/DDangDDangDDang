@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.order.controller;
 
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
+import com.example.ddangddangddang.domain.order.dto.OrderShipRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderSummaryResponse;
 import com.example.ddangddangddang.domain.order.entity.OrderRole;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
@@ -8,14 +9,11 @@ import com.example.ddangddangddang.domain.order.service.OrderService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -40,5 +38,20 @@ public class OrderController {
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long orderId) {
         return ResponseEntity.ok(ApiResponse.ok(orderService.getOrder(authUser.id(), orderId)));
+    }
+
+    @PatchMapping("/{orderId}/ship")
+    public ResponseEntity<ApiResponse<OrderResponse>> ship(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long orderId,
+            @Valid @RequestBody OrderShipRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(orderService.ship(authUser.id(), orderId, request.trackingNo())));
+    }
+
+    @PatchMapping("/{orderId}/confirm")
+    public ResponseEntity<ApiResponse<OrderResponse>> confirmPurchase(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long orderId) {
+        return ResponseEntity.ok(ApiResponse.ok(orderService.confirmPurchase(authUser.id(), orderId)));
     }
 }
