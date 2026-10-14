@@ -5,6 +5,8 @@ import com.example.ddangddangddang.domain.category.dto.request.UpdateRequest;
 import com.example.ddangddangddang.domain.category.dto.response.CategoryResponse;
 import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
+import com.example.ddangddangddang.domain.product.repository.ProductRepository;
+import com.example.ddangddangddang.global.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,7 +20,7 @@ import java.util.List;
 @Transactional
 public class CategoryService {
     private final CategoryRepository categoryRepository;
-
+    private final ProductRepository productRepository;
     @Transactional(readOnly = true)
     public List<CategoryResponse> findAdd() {
         List<Category> all = categoryRepository.findAllByOrderBySortOrderAscIdAsc();
@@ -103,10 +105,15 @@ public class CategoryService {
         }
 
     public void delete(Long categoryId) {
-        Category category = categoryRepository.findById(categoryId).orElseThrow(() -> new IllegalArgumentException("카테고리가 존재 하지 않습니다"));
+        Category category = categoryRepository.findById(categoryId).orElseThrow(
+                () -> new IllegalArgumentException("카테고리가 존재 하지 않습니다"));
 
         if (categoryRepository.existsByParentId(categoryId)){
             throw new IllegalArgumentException("하위 카테고리가 있어 삭제 불가능합니다.");
+        }
+
+        if (productRepository.existsByCategoryId(categoryId)){
+            throw new IllegalArgumentException("이 카테고리에서 사용하는 상품이 있어 삭제 불가능 합니다.");
         }
         categoryRepository.delete(category);
     }
