@@ -48,6 +48,19 @@ public class LiveStreamController {
     /**
      * 시청자가 진행 중인 방송에 입장한다. 시청 전용 토큰을 발급한다.
      */
+    /**
+     * 송출 중인 방송의 송출 토큰을 다시 발급한다. (판매자 새로고침, 송출 연결 끊김, 토큰 만료)
+     * 방송 시작은 LIVE 상태에서 다시 할 수 없으므로 이 API로 다시 접속한다.
+     */
+    @PostMapping("/{liveStreamId}/publisher-token")
+    public ResponseEntity<ApiResponse<LiveStreamTokenResponse>> reissuePublisherToken(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId) {
+        LiveStreamTokenResponse response =
+                liveStreamService.reissuePublisherToken(liveStreamId, authUser.id(), authUser.nickname());
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
     @PostMapping("/{liveStreamId}/join")
     public ResponseEntity<ApiResponse<LiveStreamTokenResponse>> join(
             @AuthenticationPrincipal AuthUser authUser,

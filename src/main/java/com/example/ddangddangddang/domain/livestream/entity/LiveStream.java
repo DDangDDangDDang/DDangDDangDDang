@@ -78,6 +78,17 @@ public class LiveStream extends BaseTimeEntity {
         }
     }
 
+    /**
+     * 송출 중인 방송에 판매자가 다시 접속할 수 있는지 확인한다. (새로고침, 송출 토큰 만료, 연결 끊김)
+     * 방송 시작은 LIVE 상태에서 다시 할 수 없으므로(ALREADY_LIVE) 송출 토큰만 다시 발급할 때 쓴다.
+     */
+    public void validatePublishable(Long requesterId) {
+        validateOwner(requesterId);
+        if (status != LiveStreamStatus.LIVE) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_LIVE);
+        }
+    }
+
     public boolean isOwner(Long memberId) {
         return sellerId.equals(memberId);
     }
