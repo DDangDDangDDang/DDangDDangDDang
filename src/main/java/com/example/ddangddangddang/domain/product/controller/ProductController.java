@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.product.controller;
 
 import com.example.ddangddangddang.domain.product.dto.request.ProductRequest;
+import com.example.ddangddangddang.domain.product.dto.request.UpdateRequest;
 import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
 import com.example.ddangddangddang.domain.product.service.ProductService;
 import com.example.ddangddangddang.global.common.ApiResponse;
@@ -26,24 +27,27 @@ public class ProductController {
     @GetMapping("/users/me/products")
     ResponseEntity<ApiResponse<Page<ProductResponse>>> myProducts(@AuthenticationPrincipal AuthUser authUser,
                                                                   @PageableDefault(size = 10, sort = "createdAt",
-                                                                          direction = Sort.Direction.DESC) Pageable pageable){
-        return ResponseEntity.ok(ApiResponse.ok(categoryService.myProducts(authUser.id(),pageable)));
+                                                                          direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(categoryService.myProducts(authUser.id(), pageable)));
     }
 
     @GetMapping("/products/{productId}")
-    ResponseEntity<ApiResponse<ProductResponse>> findAddBy(@PathVariable Long productId){
+    ResponseEntity<ApiResponse<ProductResponse>> findAddBy(@PathVariable Long productId) {
         return ResponseEntity.ok(ApiResponse.ok(categoryService.findAddBy(productId)));
     }
 
     @PostMapping("/products")
     ResponseEntity<ApiResponse<ProductResponse>> creation(@AuthenticationPrincipal AuthUser authUser,
-                                             @Valid @RequestBody ProductRequest request){
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(categoryService.creation(authUser.id(),request)));
+                                                          @Valid @RequestBody ProductRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(categoryService.creation(authUser.id(), request)));
     }
-//    @PatchMapping("/products/{productId}")
-//    ResponseEntity<ProductResponse> updateCategory(@PathVariable Long categoryId, @Valid @RequestBody UpdateRequest request){
-//        return ResponseEntity.ok(categoryService.updateCategory(categoryId,request));
-//    }
+
+    @PatchMapping("/products/{productId}")
+    ResponseEntity<ApiResponse<ProductResponse>> updateProduct(@AuthenticationPrincipal AuthUser authUser,
+                                                   @PathVariable Long productId,
+                                                   @Valid @RequestBody UpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(categoryService.updateProduct(authUser.id(),productId, request)));
+    }
 //
 //    @DeleteMapping("/products/{productId}")
 //    ResponseEntity<Void> delete(@PathVariable Long categoryId){
