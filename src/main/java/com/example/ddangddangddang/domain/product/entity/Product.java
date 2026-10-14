@@ -49,7 +49,7 @@ public class Product extends BaseTimeEntity {
         this.description = description;
     }
 
-    public void deldte () {
+    public void delete() {
         this.status = Status.DELETED;
     }
 }

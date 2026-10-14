@@ -10,16 +10,11 @@ import com.example.ddangddangddang.domain.product.entity.Status;
 import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
-import com.example.ddangddangddang.global.common.ApiResponse;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @RequiredArgsConstructor
 @Service
@@ -89,5 +84,15 @@ public class ProductService {
         }
 
         return category;
+    }
+
+    public void delete(Long sellerId, Long productsId) {
+        Product product = productRepository.findByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
+                () -> new IllegalArgumentException("존재 하지 않은 상품입니다."));
+        if (!product.getSeller().getId().equals(sellerId)) {
+            throw new IllegalArgumentException("본인 상품만 삭제가 가능합니다");
+        }
+
+        product.delete();
     }
 }

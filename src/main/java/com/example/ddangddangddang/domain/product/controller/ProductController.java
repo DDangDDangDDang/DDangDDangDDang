@@ -48,12 +48,13 @@ public class ProductController {
                                                    @Valid @RequestBody UpdateRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(categoryService.updateProduct(authUser.id(),productId, request)));
     }
-//
-//    @DeleteMapping("/products/{productId}")
-//    ResponseEntity<Void> delete(@PathVariable Long categoryId){
-//        categoryService.delete(categoryId);
-//        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-//    }
-//
+
+    @DeleteMapping("/products/{productId}")
+    ResponseEntity<Void> delete(@AuthenticationPrincipal AuthUser authUser,
+                                @PathVariable Long productId){
+        categoryService.delete(authUser.id(),productId);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
 
 }
