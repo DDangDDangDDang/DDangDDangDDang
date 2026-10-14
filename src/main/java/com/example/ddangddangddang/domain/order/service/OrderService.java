@@ -5,7 +5,9 @@ import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import org.hibernate.exception.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
@@ -14,6 +16,7 @@ import com.example.ddangddangddang.domain.order.entity.OrderRole;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import org.springframework.data.domain.PageRequest;
+
 import java.util.List;
 
 @Service
@@ -26,7 +29,7 @@ public class OrderService {
 
     /**
      * 낙찰 주문을 만든다. API가 아니라 경매 도메인이 호출하는 내부 메서드다.
-     *
+     * <p>
      * 경매 종료 처리(낙찰자 포인트 차감)와 같은 트랜잭션에서 호출해야 한다.
      * 그래야 포인트는 빠졌는데 주문이 없거나, 주문은 있는데 포인트가 안 빠지는 상황이 생기지 않는다.
      *
@@ -46,7 +49,20 @@ public class OrderService {
                 command.productImageUrl(),
                 command.finalPrice()
         );
-        return orderRepository.save(order).getId();
+        try {
+            return orderRepository.saveAndFlush(order).getId();
+        } catch (DataIntegrityViolationException e) {
+            if (isAuctionIdUniqueViolation(e)) {
+                throw new BusinessException(OrderErrorCode.ORDER_ALREADY_EXISTS);
+            }
+            throw e;
+        }
+    }
+
+    private boolean isAuctionIdUniqueViolation(DataIntegrityViolationException e) {
+        return e.getCause() instanceof ConstraintViolationException violation
+                && violation.getConstraintName() != null
+                && violation.getConstraintName().toLowerCase().contains(Order.UK_AUCTION_ID);
     }
 
     public CursorResponse<OrderSummaryResponse> getOrders(Long userId, OrderRole role, OrderStatus status,
@@ -61,7 +77,9 @@ public class OrderService {
         return CursorResponse.of(fetched, pageSize, OrderSummaryResponse::from, Order::getId);
     }
 
-    /** 구매자나 판매자만 조회할 수 있다. */
+    /**
+     * 구매자나 판매자만 조회할 수 있다.
+     */
     public OrderResponse getOrder(Long userId, Long orderId) {
         Order order = findOrder(orderId);
         if (!order.isParticipant(userId)) {

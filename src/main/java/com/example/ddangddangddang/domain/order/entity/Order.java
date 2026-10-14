@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,23 +20,32 @@ import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "orders", indexes = {
-        @Index(name = "idx_orders_buyer_id", columnList = "buyerId, id"),
-        @Index(name = "idx_orders_seller_id", columnList = "sellerId, id")
-})
+@Table(name = "orders",
+        uniqueConstraints = @UniqueConstraint(name = Order.UK_AUCTION_ID,
+                columnNames = "auctionId"),
+        indexes = {
+                @Index(name = "idx_orders_buyer_id", columnList = "buyerId, id"),
+                @Index(name = "idx_orders_seller_id", columnList = "sellerId, id")
+        })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order extends BaseTimeEntity {
+
+    public static final String UK_AUCTION_ID = "uk_orders_auction_id";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** 사용자에게 보여주는 주문번호 */
+    /**
+     * 사용자에게 보여주는 주문번호
+     */
     @Column(nullable = false, unique = true, length = 40)
     private String orderNo;
 
-    /** 경매 하나당 주문은 하나만 생긴다 */
-    @Column(nullable = false, unique = true)
+    /**
+     * 경매 하나당 주문은 하나만 생긴다
+     */
+    @Column(nullable = false)
     private Long auctionId;
 
     @Column(nullable = false)
@@ -44,7 +54,9 @@ public class Order extends BaseTimeEntity {
     @Column(nullable = false)
     private Long sellerId;
 
-    /** 낙찰 시점 상품 정보 스냅샷. 이후 상품이 바뀌거나 숨겨져도 주문 내역은 그대로 보여준다. */
+    /**
+     * 낙찰 시점 상품 정보 스냅샷. 이후 상품이 바뀌거나 숨겨져도 주문 내역은 그대로 보여준다.
+     */
     @Column(nullable = false, length = 100)
     private String productName;
 
