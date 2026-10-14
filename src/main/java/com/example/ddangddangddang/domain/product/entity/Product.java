@@ -35,7 +35,7 @@ public class Product extends BaseTimeEntity {
     @Column(nullable = false,length = 20)
     private Status status;
 
-    public Product(User seller, Category category, String name, String description, Status status) {
+    public Product(User seller, Category category, String name, String description) {
         this.seller = seller;
         this.category = category;
         this.name = name;

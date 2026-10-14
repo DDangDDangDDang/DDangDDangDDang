@@ -1,7 +1,6 @@
 package com.example.ddangddangddang.domain.product.controller;
 
 import com.example.ddangddangddang.domain.product.dto.request.ProductRequest;
-import com.example.ddangddangddang.domain.product.dto.request.UpdateRequest;
 import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
 import com.example.ddangddangddang.domain.product.service.ProductService;
 import com.example.ddangddangddang.global.common.ApiResponse;
@@ -17,7 +16,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -36,11 +34,12 @@ public class ProductController {
     ResponseEntity<ApiResponse<ProductResponse>> findAddBy(@PathVariable Long productId){
         return ResponseEntity.ok(ApiResponse.ok(categoryService.findAddBy(productId)));
     }
-//
-//    @PostMapping("/products")
-//    ResponseEntity<ProductResponse> creation(@Valid @RequestBody ProductRequest request){
-//        return ResponseEntity.status(HttpStatus.CREATED).body(categoryService.creation(request));
-//    }
+
+    @PostMapping("/products")
+    ResponseEntity<ApiResponse<ProductResponse>> creation(@AuthenticationPrincipal AuthUser authUser,
+                                             @Valid @RequestBody ProductRequest request){
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(categoryService.creation(authUser.id(),request)));
+    }
 //    @PatchMapping("/products/{productId}")
 //    ResponseEntity<ProductResponse> updateCategory(@PathVariable Long categoryId, @Valid @RequestBody UpdateRequest request){
 //        return ResponseEntity.ok(categoryService.updateCategory(categoryId,request));
