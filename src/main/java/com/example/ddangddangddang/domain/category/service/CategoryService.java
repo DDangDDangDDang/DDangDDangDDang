@@ -51,7 +51,7 @@ public class CategoryService {
         return responses;
     }
 
-
+    //카테고리 생성
     public CategoryResponse creation(CategoryRequest request) {
         Category parent = null;
 
@@ -62,7 +62,9 @@ public class CategoryService {
             // 입력한 상위 카테고리가 진짜 상위 인지 검증
             if (parent.getParent() != null) {
                 throw new BusinessException(CategoryErrorCode.PARENT_NOT_TOP_LEVEL);
-
+            }
+            if (productRepository.existsByCategoryId(parent.getId())){
+                throw new BusinessException(CategoryErrorCode.PARENT_HAS_PRODUCTS);
             }
         }
         boolean duplicated;
@@ -72,7 +74,7 @@ public class CategoryService {
             duplicated = categoryRepository.existsByParentIsNullAndName(request.name()) || categoryRepository.existsByParentIdAndName(parent.getId(), request.name());
 
         }
-        if (duplicated) {
+        if (duplicated) {//카테고리 내에 상품이 있는가
             throw new BusinessException(CategoryErrorCode.DUPLICATE_NAME);
         }
 
@@ -83,6 +85,7 @@ public class CategoryService {
 
     }
 
+    //카테고리 수정
     public CategoryResponse updateCategory(Long categoryId, UpdateRequest request) {
         Category category = categoryRepository.findById(categoryId).orElseThrow(
                 () -> new BusinessException(CategoryErrorCode.NOT_FOUND));
@@ -108,6 +111,7 @@ public class CategoryService {
         return CategoryResponse.from(category);
         }
 
+    //카테고리 삭제
     public void delete(Long categoryId) {
         Category category = categoryRepository.findById(categoryId).orElseThrow(
                 () -> new BusinessException(CategoryErrorCode.NOT_FOUND));
