@@ -33,9 +33,21 @@ jwt:
   refresh-token-validity: 14d
   cookie-secure: ${JWT_COOKIE_SECURE:false}
 
-livekit:
-  # 로컬은 livekit-server --dev 기본값. 운영 환경에서는 반드시 환경변수로 주입
-  api-url: ${LIVEKIT_API_URL:http://localhost:7880}
-  ws-url: ${LIVEKIT_WS_URL:ws://localhost:7880}
-  api-key: ${LIVEKIT_API_KEY:devkey}
-  api-secret: ${LIVEKIT_API_SECRET:secret}
+#livekit:
+#  # 로컬은 livekit-server --dev 기본값. 운영 환경에서는 반드시 환경변수로 주입
+#  api-url: ${LIVEKIT_API_URL:http://localhost:7880}
+#  ws-url: ${LIVEKIT_WS_URL:ws://localhost:7880}
+#  api-key: ${LIVEKIT_API_KEY:devkey}
+#  api-secret: ${LIVEKIT_API_SECRET:secret}
+#
+#toss:
+#  # 토스페이먼츠 테스트 시크릿 키. 운영 환경에서는 반드시 환경변수로 주입
+#  secret-key: ${TOSS_SECRET_KEY:test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6}
+#  base-url: https://api.tosspayments.com
+#  connect-timeout: 3s
+#  read-timeout: 30s
+
+portone:
+  api-url: ${PORTONE_API_URL:https://api.portone.io}
+  api-secret: ${PORTONE_API_SECRET:7gJ4LOoIqMN5NxmROFMgSC5m8yDcK7naMgy1ZbYJq36QLeKvdHUumTxQikU76444opBMQ8qwPE2Kgs49}
+
