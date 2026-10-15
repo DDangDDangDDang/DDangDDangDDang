@@ -29,6 +29,14 @@ public class LiveStreamController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
 
+    /**
+     * 내 종료되지 않은 방송 (대기 중·방송 중). 판매자당 하나이며, 없으면 data가 null이다.
+     */
+    @GetMapping("/me/active")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> myActive(@AuthenticationPrincipal AuthUser authUser) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.getMyActive(authUser.id())));
+    }
+
     @GetMapping("/{liveStreamId}")
     public ResponseEntity<ApiResponse<LiveStreamResponse>> get(@PathVariable Long liveStreamId) {
         return ResponseEntity.ok(ApiResponse.ok(liveStreamService.get(liveStreamId)));

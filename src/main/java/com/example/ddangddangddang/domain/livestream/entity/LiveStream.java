@@ -15,6 +15,8 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "live_streams",
+        // 판매자당 종료되지 않은 방송은 하나. 동시에 두 개를 만들어도 DB에서 하나만 성공한다.
+        uniqueConstraints = @UniqueConstraint(name = "uk_live_stream_active_seller", columnNames = "active_seller_id"),
         indexes = @Index(name = "idx_live_stream_seller_status", columnList = "seller_id, status")
 )
 @Getter
@@ -47,6 +49,11 @@ public class LiveStream extends BaseTimeEntity {
     private LocalDateTime startedAt;
     private LocalDateTime endedAt;
 
+    // 종료되지 않은(대기 중·방송 중) 방송이면 sellerId, 종료되면 null. 이 컬럼에 유니크를 걸어 판매자당 하나만 허용한다.
+    // (유니크 인덱스는 null을 여러 개 허용하므로 종료된 방송은 몇 개든 남을 수 있다)
+    @Column(name = "active_seller_id")
+    private Long activeSellerId;
+
     // 시작 버튼 연타, 여러 서버에서 동시에 상태를 바꾸는 경우 한 건만 성공시키기 위한 낙관적 락
     @Version
     private Long version;
@@ -57,6 +64,7 @@ public class LiveStream extends BaseTimeEntity {
         this.description = description;
         this.roomName = "live-" + UUID.randomUUID();
         this.status = LiveStreamStatus.SCHEDULED;
+        this.activeSellerId = sellerId;
     }
 
     public static LiveStream create(Long sellerId, String title) {
@@ -106,6 +114,8 @@ public class LiveStream extends BaseTimeEntity {
         validateOwner(requesterId);
         this.status = LiveStreamStatus.ENDED;
         this.endedAt = LocalDateTime.now();
+        // 종료되면 판매자가 새 방송을 만들 수 있게 비운다.
+        this.activeSellerId = null;
     }
 
     public void validateJoinable() {

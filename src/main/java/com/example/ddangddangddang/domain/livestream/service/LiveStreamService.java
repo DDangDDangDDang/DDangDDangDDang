@@ -16,6 +16,7 @@ import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,10 @@ public class LiveStreamService {
     private final ApplicationEventPublisher eventPublisher;
     private final ChatContentFilter contentFilter;
 
+    /**
+     * 방송을 만든다. 판매자는 종료되지 않은(대기 중·방송 중) 방송을 하나만 가질 수 있다.
+     * 먼저 확인해 안내하고, 동시에 두 요청이 확인을 통과해도 DB 유니크 제약(active_seller_id)으로 하나만 저장된다.
+     */
     // TODO: 판매자 권한(ROLE_SELLER) 확인은 인증 담당과 방식 확정 후 추가
     @Transactional
     public LiveStreamResponse create(Long sellerId, LiveStreamCreateRequest request) {
@@ -38,8 +43,22 @@ public class LiveStreamService {
         String description = blankToNull(request.description());
         validateContent(title);
         validateContent(description);
-        LiveStream liveStream = liveStreamRepository.save(LiveStream.create(sellerId, title, description));
-        return LiveStreamResponse.from(liveStream);
+        if (liveStreamRepository.existsByActiveSellerId(sellerId)) {
+            throw new BusinessException(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS);
+        }
+        try {
+            LiveStream liveStream = liveStreamRepository.saveAndFlush(LiveStream.create(sellerId, title, description));
+            return LiveStreamResponse.from(liveStream);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS, e);
+        }
+    }
+
+    /**
+     * 판매자의 종료되지 않은 방송. 없으면 null. (판매자 스튜디오에서 이어서 방송하기)
+     */
+    public LiveStreamResponse getMyActive(Long sellerId) {
+        return liveStreamRepository.findByActiveSellerId(sellerId).map(LiveStreamResponse::from).orElse(null);
     }
 
     /**

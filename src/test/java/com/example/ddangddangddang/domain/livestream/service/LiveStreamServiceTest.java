@@ -25,6 +25,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
@@ -194,6 +195,56 @@ class LiveStreamServiceTest {
                     .isEqualTo(errorCode);
             then(liveStreamRepository).should(never()).saveAndFlush(any());
             then(eventPublisher).should(never()).publishEvent(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("판매자당 종료되지 않은 방송 하나")
+    class ActiveStreamRule {
+
+        @Test
+        @DisplayName("종료되지 않은 방송이 있으면 새 방송을 만들 수 없다 (LIVESTREAM_010)")
+        void rejectWhenActiveExists() {
+            given(liveStreamRepository.existsByActiveSellerId(SELLER_ID)).willReturn(true);
+
+            assertThatThrownBy(() -> liveStreamService.create(SELLER_ID, new LiveStreamCreateRequest("새 방송", null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS);
+            then(liveStreamRepository).should(never()).saveAndFlush(any());
+        }
+
+        @Test
+        @DisplayName("동시에 만들어 확인을 함께 통과해도, 저장 때 유니크 제약에 걸리면 LIVESTREAM_010")
+        void rejectOnUniqueViolation() {
+            given(liveStreamRepository.existsByActiveSellerId(SELLER_ID)).willReturn(false);
+            given(liveStreamRepository.saveAndFlush(any())).willThrow(new DataIntegrityViolationException("uk_live_stream_active_seller"));
+
+            assertThatThrownBy(() -> liveStreamService.create(SELLER_ID, new LiveStreamCreateRequest("새 방송", null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS);
+        }
+
+        @Test
+        @DisplayName("만든 방송은 종료되지 않은 방송으로 표시되고, 종료하면 표시가 사라진다")
+        void activeUntilEnded() {
+            LiveStream liveStream = liveStream(true);
+            assertThat(liveStream.getActiveSellerId()).isEqualTo(SELLER_ID);
+
+            liveStream.end(SELLER_ID);
+
+            assertThat(liveStream.getActiveSellerId()).isNull();
+        }
+
+        @Test
+        @DisplayName("내 종료되지 않은 방송을 조회하고, 없으면 null")
+        void getMyActive() {
+            given(liveStreamRepository.findByActiveSellerId(SELLER_ID)).willReturn(Optional.of(liveStream(false)));
+            given(liveStreamRepository.findByActiveSellerId(2L)).willReturn(Optional.empty());
+
+            assertThat(liveStreamService.getMyActive(SELLER_ID).id()).isEqualTo(LIVE_STREAM_ID);
+            assertThat(liveStreamService.getMyActive(2L)).isNull();
         }
     }
 
