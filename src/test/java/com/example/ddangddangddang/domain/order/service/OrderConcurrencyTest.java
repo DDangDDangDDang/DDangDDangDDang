@@ -7,11 +7,11 @@ import com.example.ddangddangddang.domain.point.entity.PointWallet;
 import com.example.ddangddangddang.domain.point.repository.PointHistoryRepository;
 import com.example.ddangddangddang.domain.point.repository.PointWalletRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.support.MySqlIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,8 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * 실제 DB 락이 동작해야 하므로 @Transactional 없이 실행하고, 끝나면 직접 데이터를 지운다.
  */
-@SpringBootTest
-class OrderConcurrencyTest {
+class OrderConcurrencyTest extends MySqlIntegrationTest {
 
     private static final Long BUYER_ID = 1L;
     private static final Long SELLER_ID = 2L;

@@ -8,7 +8,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.example.ddangddangddang.support.MySqlIntegrationTest;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,8 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * 실제 DB 락이 동작해야 하므로 @Transactional 없이 실행하고, 끝나면 직접 데이터를 지운다.
  */
-@SpringBootTest
-class PointConcurrencyTest {
+class PointConcurrencyTest extends MySqlIntegrationTest {
 
     @Autowired
     private PointService pointService;
