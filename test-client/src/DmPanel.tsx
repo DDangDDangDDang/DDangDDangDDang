@@ -49,6 +49,8 @@ export default function DmPanel({ log, userId }: Props) {
   // STOMP 콜백은 처음 만든 함수를 계속 쓰므로, 지금 열린 방은 ref로 읽는다.
   const currentRef = useRef<DmRoom | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
+  // 대화방 열기 요청 순번. 늦게 도착한 이전 요청의 응답을 버리는 데 쓴다.
+  const openSeqRef = useRef(0);
 
   useEffect(() => {
     currentRef.current = current;
@@ -96,10 +98,13 @@ export default function DmPanel({ log, userId }: Props) {
   }
 
   // 대화방을 열면 최근 메시지를 불러오고 읽음 처리한다.
+  // 방을 빠르게 연달아 열면 먼저 연 방의 응답이 늦게 와서 화면을 덮어쓸 수 있으므로, 마지막으로 연 방의 응답만 반영한다.
   async function openRoom(otherUserId: number) {
+    const seq = ++openSeqRef.current;
     try {
       const room = await dmApi.openRoom(otherUserId);
       const page = await dmApi.messages(room.roomId);
+      if (seq !== openSeqRef.current) return;
       setCurrent(room);
       setMessages([...page.content].reverse());
       setOlderCursor(page.nextCursor);
@@ -109,7 +114,7 @@ export default function DmPanel({ log, userId }: Props) {
       await markRead(room.roomId);
       requestAnimationFrame(() => listRef.current?.scrollTo({ top: listRef.current.scrollHeight }));
     } catch (e) {
-      log(`1:1 대화방 열기 실패: ${errorText(e)}`, 'error');
+      if (seq === openSeqRef.current) log(`1:1 대화방 열기 실패: ${errorText(e)}`, 'error');
     }
   }
 
