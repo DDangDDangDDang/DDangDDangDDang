@@ -41,6 +41,7 @@ public class Auction extends BaseTimeEntity {
     @Column(nullable = false)
     private int bidCount;
 
+    private LocalDateTime canceledAt;
 
     private Long highestBidderId;
 
@@ -72,9 +73,10 @@ public class Auction extends BaseTimeEntity {
         this.endAt = endAt;
     }
 
-    //경매 취소(status==CANCELED 전환)
+    //경매 취소(status==CANCELED 전환+취소 시간 기록)
     public void cancel () {
         this.status = AuctionStatus.CANCELED;
+        this.canceledAt=LocalDateTime.now();
     }
 
 }
