@@ -227,13 +227,18 @@ public class DirectMessageService {
         }
 
         Integer updated = transactionTemplate.execute(status -> markReadUpTo(room, userId, target));
-        Long current = previous == null || previous < target ? target : previous;
-        if (updated != null && updated > 0) {
-            DmEvent event = DmEvent.read(roomId, userId, current);
-            deliver(room.otherUserId(userId), event);
-            deliver(userId, event);
+        if (updated == null || updated == 0) {
+            // 이미 target 이상까지 읽은 상태다. 처음 읽어 둔 previous는 그 사이 다른 요청(다른 탭, 메시지 전송)이
+            // 더 뒤로 옮겼을 수 있어 오래된 값일 수 있으므로, 저장된 읽음 위치를 다시 읽어 응답한다.
+            Long stored = dmRoomRepository.findById(roomId)
+                    .map(fresh -> fresh.lastReadMessageId(userId))
+                    .orElse(previous);
+            return new DmReadResponse(roomId, stored, unreadCount(userId, roomId));
         }
-        return new DmReadResponse(roomId, current, unreadCount(userId, roomId));
+        DmEvent event = DmEvent.read(roomId, userId, target);
+        deliver(room.otherUserId(userId), event);
+        deliver(userId, event);
+        return new DmReadResponse(roomId, target, unreadCount(userId, roomId));
     }
 
     private int markReadUpTo(DmRoom room, Long userId, long messageId) {
