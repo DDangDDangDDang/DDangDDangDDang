@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.livechat.moderation;
 
+import com.anthropic.models.beta.AnthropicBeta;
+import com.anthropic.models.beta.messages.StructuredMessageCreateParams;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatModerator.ChatForReview;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatModerator.ModerationFlag;
 import com.example.ddangddangddang.domain.livechat.moderation.ClaudeChatModerator.ModerationOutput;
@@ -30,6 +32,38 @@ class ClaudeChatModeratorTest {
         assertThatCode(() -> ClaudeChatModerator.buildParams(messages, SETTINGS)).doesNotThrowAnyException();
         assertThat(SETTINGS.model()).isEqualTo("claude-opus-5-5");
         assertThat(SETTINGS.effort()).isEqualTo("low");
+    }
+
+    @Test
+    @DisplayName("기본 모델(Opus 5.5)은 서버 측 거절 대비(fallbacks)와 베타 헤더를 붙인다")
+    void fallbacksForOpus() {
+        StructuredMessageCreateParams<ModerationOutput> params = ClaudeChatModerator.buildParams(messages, SETTINGS);
+
+        assertThat(params.rawParams().model().asString()).isEqualTo("claude-opus-5-5");
+        assertThat(params.rawParams().fallbacks()).isPresent();
+        assertThat(params.rawParams().betas()).hasValueSatisfying(
+                betas -> assertThat(betas).contains(AnthropicBeta.SERVER_SIDE_FALLBACK_2026_07_01));
+    }
+
+    @Test
+    @DisplayName("Haiku 5.5는 서버 측 거절 대비를 지원하지 않으므로 fallbacks와 베타 헤더를 붙이지 않는다")
+    void noFallbacksForHaiku() {
+        ChatModerationProperties.Ai haiku = new ChatModerationProperties.Ai(true, "claude-haiku-5-5", "low", null, 0, 0);
+
+        StructuredMessageCreateParams<ModerationOutput> params = ClaudeChatModerator.buildParams(messages, haiku);
+
+        assertThat(params.rawParams().model().asString()).isEqualTo("claude-haiku-5-5");
+        assertThat(params.rawParams().fallbacks()).isEmpty();
+        assertThat(params.rawParams().betas().orElse(List.of()))
+                .doesNotContain(AnthropicBeta.SERVER_SIDE_FALLBACK_2026_07_01);
+    }
+
+    @Test
+    @DisplayName("서버 측 거절 대비 지원 모델 목록")
+    void supportsServerSideFallback() {
+        assertThat(ClaudeChatModerator.supportsServerSideFallback("claude-opus-5-5")).isTrue();
+        assertThat(ClaudeChatModerator.supportsServerSideFallback("claude-sonnet-5-5")).isTrue();
+        assertThat(ClaudeChatModerator.supportsServerSideFallback("claude-haiku-5-5")).isFalse();
     }
 
     @Test

@@ -12,7 +12,8 @@ import java.util.List;
  * chat.moderation.banned-words   전송 전에 막을 금칙어 (환경변수 CHAT_MODERATION_BANNED_WORDS=단어1,단어2)
  * chat.moderation.ai.enabled     AI 검토 사용 여부. 기본 false (환경변수 CHAT_MODERATION_AI_ENABLED=true)
  *                                켜려면 ANTHROPIC_API_KEY 환경변수도 필요하다.
- * chat.moderation.ai.model       검토 모델. 기본 claude-opus-5-5
+ * chat.moderation.ai.model       검토 모델. 기본 claude-opus-5-5 (환경변수 CHAT_MODERATION_AI_MODEL)
+ *                                비용을 줄이려면 claude-haiku-5-5 (Opus 5.5보다 약 40배 저렴, 품질은 평가 세트로 비교 후 결정)
  * chat.moderation.ai.effort      추론 강도 (low / medium / high). 단순 분류라 기본 low
  * chat.moderation.ai.interval    방송별로 모은 채팅을 검토하는 주기. 기본 3초
  * chat.moderation.ai.batch-size  한 번에 검토할 최대 메시지 수. 기본 50

@@ -23,7 +23,9 @@ import java.util.Set;
  *
  * - 구조화된 출력: 응답을 ModerationOutput 형식(JSON 스키마)으로 받아 파싱이 깨지지 않게 한다.
  * - 거절 대비: 안전 분류기가 요청을 거절하면 서버가 다른 모델로 다시 처리한다. (fallbacks "default")
- *   그래도 거절되면 이번 묶음은 표시 없이 넘긴다. 검토는 보조 수단이라 서비스 동작을 막지 않는다.
+ *   서버 측 대체를 지원하는 모델에만 붙인다. Claude Haiku 5.5 등은 지원하지 않아 붙이면 오류가 나거나 효과가 없다.
+ *   거절되면 이번 묶음은 표시 없이 넘긴다. 검토는 보조 수단이라 서비스 동작을 막지 않는다.
+ * - 모델은 chat.moderation.ai.model 설정으로 바꾼다. (예: 비용을 줄이려면 claude-haiku-5-5)
  */
 @Slf4j
 @Component
@@ -32,6 +34,10 @@ public class ClaudeChatModerator implements ChatModerator {
 
     // 단순 분류라 짧게 끝나지만, 추론(thinking)도 이 한도 안에서 쓰이므로 여유를 둔다.
     private static final long MAX_TOKENS = 8000L;
+
+    // 서버 측 거절 대비(fallbacks "default")를 지원하는 모델
+    private static final Set<String> SERVER_SIDE_FALLBACK_MODELS =
+            Set.of("claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-1");
 
     static final String SYSTEM_PROMPT = """
             당신은 라이브 커머스 경매 방송 "땅땅땅"의 채팅 검토자입니다.
@@ -101,15 +107,22 @@ public class ClaudeChatModerator implements ChatModerator {
 
     static StructuredMessageCreateParams<ModerationOutput> buildParams(List<ChatForReview> messages,
                                                                      ChatModerationProperties.Ai settings) {
-        return MessageCreateParams.builder()
+        MessageCreateParams.Builder builder = MessageCreateParams.builder()
                 .model(settings.model())
                 .maxTokens(MAX_TOKENS)
-                .system(SYSTEM_PROMPT)
-                .addBeta(AnthropicBeta.SERVER_SIDE_FALLBACK_2026_07_01)
-                .fallbacksDefault()
+                .system(SYSTEM_PROMPT);
+        if (supportsServerSideFallback(settings.model())) {
+            builder.addBeta(AnthropicBeta.SERVER_SIDE_FALLBACK_2026_07_01)
+                    .fallbacksDefault();
+        }
+        return builder
                 .outputConfig(ModerationOutput.class, BetaOutputConfig.Effort.of(settings.effort()), JsonSchemaLocalValidation.YES)
                 .addUserMessage(ModerationPrompt.userMessage(messages))
                 .build();
+    }
+
+    static boolean supportsServerSideFallback(String model) {
+        return SERVER_SIDE_FALLBACK_MODELS.contains(model);
     }
 
     /**
