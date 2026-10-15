@@ -2,6 +2,8 @@ package com.example.ddangddangddang.domain.livechat.service;
 
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageResponse;
 import com.example.ddangddangddang.domain.livechat.exception.LiveChatErrorCode;
+import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
+import com.example.ddangddangddang.domain.livechat.moderation.ChatModerationQueue;
 import com.example.ddangddangddang.domain.livechat.repository.ChatRateLimitRepository;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.global.exception.BusinessException;
@@ -26,14 +28,21 @@ public class LiveChatService {
     private final StompBroadcaster stompBroadcaster;
     private final ChatRateLimitRepository chatRateLimitRepository;
     private final LiveStreamService liveStreamService;
+    private final ChatContentFilter chatContentFilter;
+    private final ChatModerationQueue chatModerationQueue;
 
-    // TODO: 금칙어 (목록 관리 방식 확정 후)
     public void send(Long liveStreamId, AuthUser sender, String content) {
+        String trimmed = content.strip();
         // 도배 메시지가 DB 조회까지 가지 않도록 Redis 확인을 먼저 한다.
         validateRateLimit(sender.id());
+        // 연락처·외부 링크·계좌번호·금칙어는 보내기 전에 막는다.
+        chatContentFilter.validate(trimmed);
         liveStreamService.validateLive(liveStreamId);
 
-        broadcast(liveStreamId, ChatMessageResponse.chat(liveStreamId, sender.id(), sender.nickname(), content.strip()));
+        ChatMessageResponse message = ChatMessageResponse.chat(liveStreamId, sender.id(), sender.nickname(), trimmed);
+        broadcast(liveStreamId, message);
+        // 애매한 내용은 전송한 뒤 AI가 따로 검토해 판매자에게 알린다. (AI를 끈 상태면 아무것도 하지 않음)
+        chatModerationQueue.enqueue(message);
     }
 
     public void sendSystemMessage(Long liveStreamId, String content) {

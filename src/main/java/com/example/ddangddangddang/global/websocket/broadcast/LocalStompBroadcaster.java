@@ -16,4 +16,9 @@ public class LocalStompBroadcaster implements StompBroadcaster {
     public void broadcast(String destination, Object payload) {
         messagingTemplate.convertAndSend(destination, payload);
     }
+
+    @Override
+    public void sendToUser(Long userId, String destination, Object payload) {
+        messagingTemplate.convertAndSendToUser(String.valueOf(userId), destination, payload);
+    }
 }

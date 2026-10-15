@@ -155,6 +155,27 @@ class RedisStompBroadcastTest {
         assertThat(received.get("content")).isEqualTo("방송이 종료되었습니다.");
     }
 
+    @Test
+    @DisplayName("서버 1에서 특정 사용자에게 보낸 메시지를 서버 2에 연결된 그 사용자만 받는다")
+    void sendToUserAcrossServers() throws Exception {
+        StompSession seller = connect(server2, 99L);
+        BlockingQueue<Map<String, Object>> sellerQueue = subscribe(seller, "/user/queue/moderation");
+        StompSession otherUser = connect(server2, 2L);
+        BlockingQueue<Map<String, Object>> otherQueue = subscribe(otherUser, "/user/queue/moderation");
+        awaitSubscribed(server2, "/user/queue/moderation");
+
+        Map<String, Object> received = null;
+        for (int attempt = 1; attempt <= 4 && received == null; attempt++) {
+            server1.getBean(StompBroadcaster.class)
+                    .sendToUser(99L, "/queue/moderation", Map.of("messageId", "m-" + attempt));
+            received = sellerQueue.poll(1, TimeUnit.SECONDS);
+        }
+
+        assertThat(received).isNotNull();
+        assertThat(received.get("messageId")).asString().startsWith("m-");
+        assertThat(otherQueue.poll(500, TimeUnit.MILLISECONDS)).isNull();
+    }
+
     private Long liveStream() {
         LiveStream liveStream = LiveStream.create(99L, "테스트 방송");
         liveStream.start(99L);
