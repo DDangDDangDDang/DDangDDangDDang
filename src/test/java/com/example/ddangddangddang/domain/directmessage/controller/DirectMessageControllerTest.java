@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.directmessage.controller;
 import com.example.ddangddangddang.domain.directmessage.dto.DmEvent;
 import com.example.ddangddangddang.domain.directmessage.dto.DmRoomResponse;
 import com.example.ddangddangddang.domain.directmessage.repository.DmMessageRepository;
+import com.example.ddangddangddang.domain.directmessage.repository.DmRoomRepository;
 import com.example.ddangddangddang.domain.directmessage.service.DirectMessageService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +51,12 @@ class DirectMessageControllerTest extends DmApiTestSupport {
 
     @Autowired
     private DmMessageRepository dmMessageRepository;
+
+    @Autowired
+    private DmRoomRepository dmRoomRepository;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Nested
     @DisplayName("POST /api/v1/dm/rooms")
@@ -157,12 +165,51 @@ class DirectMessageControllerTest extends DmApiTestSupport {
                     .andExpect(jsonPath("$.data.messageId").isNumber())
                     .andExpect(jsonPath("$.data.sentAt").isNotEmpty());
 
-            DmEvent toBob = captureEvent(bob.id());
-            DmEvent toAlice = captureEvent(alice.id());
-            assertThat(toBob.type()).isEqualTo(DmEvent.Type.MESSAGE);
+            DmEvent toBob = captureEvent(bob.id(), DmEvent.Type.MESSAGE);
+            DmEvent toAlice = captureEvent(alice.id(), DmEvent.Type.MESSAGE);
             assertThat(toBob.roomId()).isEqualTo(roomId);
             assertThat(toBob.message().content()).isEqualTo("안녕하세요, 사이즈 문의드려요");
             assertThat(toAlice).isEqualTo(toBob);
+        }
+
+        @Test
+        @DisplayName("보내면서 읽음 위치가 앞으로 가면 MESSAGE 다음에 READ를 상대와 나에게 보내, 상대 화면의 \"1\"이 지워지게 한다")
+        void sendMovesReadPosition() throws Exception {
+            Long roomId = roomId(alice, bob.id());
+            sendAndGetId(bob, roomId, "판매하시나요?");
+            clearInvocations(stompBroadcaster);
+
+            // 읽음 처리를 따로 하지 않고 바로 답장한다.
+            Long reply = sendAndGetId(alice, roomId, "네 판매해요");
+
+            for (Member receiver : List.of(bob, alice)) {
+                List<DmEvent> events = events(receiver.id());
+                assertThat(events).extracting(DmEvent::type).containsExactly(DmEvent.Type.MESSAGE, DmEvent.Type.READ);
+                DmEvent read = events.get(1);
+                assertThat(read.roomId()).isEqualTo(roomId);
+                assertThat(read.readerId()).isEqualTo(alice.id());
+                assertThat(read.lastReadMessageId()).isEqualTo(reply);
+            }
+            getRooms(bob).andExpect(jsonPath("$.data.content[0].otherLastReadMessageId").value(reply));
+        }
+
+        @Test
+        @DisplayName("다른 요청이 이미 더 뒤까지 읽음 처리해 읽음 위치가 바뀌지 않으면 READ는 보내지 않는다")
+        void noReadEventWhenPositionUnchanged() throws Exception {
+            Long roomId = roomId(alice, bob.id());
+            // 앨리스의 읽음 위치를 앞으로 보낼 메시지보다 뒤로 미리 옮겨 둔다. (동시에 들어온 읽음 요청이 먼저 처리된 상황)
+            transactionTemplate.executeWithoutResult(status -> {
+                if (alice.id() < bob.id()) {
+                    dmRoomRepository.markReadByUser1(roomId, Long.MAX_VALUE);
+                } else {
+                    dmRoomRepository.markReadByUser2(roomId, Long.MAX_VALUE);
+                }
+            });
+
+            sendAndGetId(alice, roomId, "답장");
+
+            assertThat(events(bob.id())).extracting(DmEvent::type).containsExactly(DmEvent.Type.MESSAGE);
+            assertThat(events(alice.id())).extracting(DmEvent::type).containsExactly(DmEvent.Type.MESSAGE);
         }
 
         @Test
@@ -402,8 +449,7 @@ class DirectMessageControllerTest extends DmApiTestSupport {
                     .andExpect(jsonPath("$.data.lastReadMessageId").value(last))
                     .andExpect(jsonPath("$.data.unreadCount").value(0));
 
-            DmEvent toBob = captureEvent(bob.id());
-            assertThat(toBob.type()).isEqualTo(DmEvent.Type.READ);
+            DmEvent toBob = captureEvent(bob.id(), DmEvent.Type.READ);
             assertThat(toBob.readerId()).isEqualTo(alice.id());
             assertThat(toBob.lastReadMessageId()).isEqualTo(last);
             getRooms(bob).andExpect(jsonPath("$.data.content[0].otherLastReadMessageId").value(last));
@@ -471,10 +517,18 @@ class DirectMessageControllerTest extends DmApiTestSupport {
         }
     }
 
-    // receiverId에게 /queue/dm으로 보낸 마지막 이벤트
-    private DmEvent captureEvent(Long receiverId) {
+    // receiverId에게 /queue/dm으로 보낸 이벤트 중 해당 종류의 마지막 이벤트
+    private DmEvent captureEvent(Long receiverId, DmEvent.Type type) {
+        return events(receiverId).stream()
+                .filter(event -> event.type() == type)
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new AssertionError(receiverId + "에게 " + type + " 이벤트가 오지 않았습니다."));
+    }
+
+    // receiverId에게 /queue/dm으로 보낸 이벤트 (보낸 순서대로)
+    private List<DmEvent> events(Long receiverId) {
         ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
         then(stompBroadcaster).should(atLeastOnce()).sendToUser(eq(receiverId), eq("/queue/dm"), captor.capture());
-        return (DmEvent) captor.getValue();
+        return captor.getAllValues().stream().map(DmEvent.class::cast).toList();
     }
 }

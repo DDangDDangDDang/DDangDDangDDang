@@ -138,7 +138,8 @@ public class DirectMessageService {
     }
 
     /**
-     * 메시지를 저장하고, 커밋된 뒤 상대와 나에게 실시간으로 보낸다. 보낸 사람은 자기 메시지까지 읽은 것으로 한다.
+     * 메시지를 저장하고, 커밋된 뒤 상대와 나에게 실시간으로 보낸다. (MESSAGE)
+     * 보낸 사람은 자기 메시지까지 읽은 것으로 하고, 읽음 위치가 바뀌었으면 READ도 이어서 보낸다.
      *
      * 검사 순서: 참여자 → 같은 clientMessageId 재전송 → 내용 필터 → 차단 → 도배 제한
      * 같은 clientMessageId로 다시 보내면(응답을 못 받은 재전송) 다른 검사 없이 처음 저장한 메시지를 돌려준다.
@@ -168,14 +169,14 @@ public class DirectMessageService {
             throw new BusinessException(DirectMessageErrorCode.TOO_MANY_MESSAGES);
         }
 
-        DmMessage saved;
+        SendResult result;
         try {
-            saved = transactionTemplate.execute(status -> {
+            result = transactionTemplate.execute(status -> {
                 DmMessage message = dmMessageRepository.saveAndFlush(
                         DmMessage.create(roomId, userId, request.clientMessageId(), content));
                 dmRoomRepository.updateLastMessage(roomId, message.getId(), preview(content), message.getCreatedAt());
-                markReadUpTo(room, userId, message.getId());
-                return message;
+                boolean readMoved = markReadUpTo(room, userId, message.getId()) > 0;
+                return new SendResult(message, readMoved);
             });
         } catch (DataIntegrityViolationException e) {
             // 같은 메시지를 거의 동시에 두 번 보내 둘 다 위의 중복 확인을 통과한 경우. 먼저 저장된 것을 돌려준다.
@@ -184,12 +185,23 @@ public class DirectMessageService {
             return alreadySent(duplicate, roomId);
         }
 
-        DmMessageResponse response = DmMessageResponse.from(saved);
+        DmMessageResponse response = DmMessageResponse.from(result.message());
         DmEvent event = DmEvent.message(response);
         deliver(otherUserId, event);
         // 같은 계정으로 연 다른 탭·기기에도 보낸 메시지가 보이도록 나에게도 보낸다.
         deliver(userId, event);
+        // 보내면서 읽음 위치가 앞으로 갔으면(그 사이 온 상대 메시지까지 읽음) 상대 화면의 "1"과 내 다른 탭의 읽지 않은 수를 갱신한다.
+        // 그 사이 다른 요청이 이미 더 뒤까지 읽음 처리했다면 위치가 바뀌지 않으므로 보내지 않는다.
+        if (result.readMoved()) {
+            DmEvent read = DmEvent.read(roomId, userId, response.messageId());
+            deliver(otherUserId, read);
+            deliver(userId, read);
+        }
         return response;
+    }
+
+    // 메시지 저장 트랜잭션의 결과. readMoved: 보낸 사람의 읽음 위치가 이 메시지로 바뀌었는지
+    private record SendResult(DmMessage message, boolean readMoved) {
     }
 
     /**

@@ -90,12 +90,13 @@ class DirectMessageWebSocketTest {
         BlockingQueue<Map<String, Object>> strangerQueue = subscribe(connect(stranger), "/user/queue/dm");
 
         // 구독 등록 전에 보낸 실시간 전달은 받지 못하므로(메시지는 저장됨), 받을 때까지 새 메시지로 다시 보낸다.
+        // 보낼 때마다 MESSAGE 뒤에 READ(보낸 사람 읽음 위치)도 오는데, 구독이 그 사이에 등록되면 READ만 받을 수 있어 건너뛴다.
         Map<String, Object> received = null;
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
         while (received == null && System.nanoTime() < deadline) {
             directMessageService.send(sender.getId(), roomId,
                     new DmMessageSendRequest(UUID.randomUUID().toString(), "실시간으로 가나요?"));
-            received = receiverQueue.poll(200, TimeUnit.MILLISECONDS);
+            received = pollMessageEvent(receiverQueue);
         }
 
         assertThat(received).isNotNull();
@@ -106,6 +107,18 @@ class DirectMessageWebSocketTest {
         assertThat(((Number) message.get("senderId")).longValue()).isEqualTo(sender.getId());
         assertThat(message.get("content")).isEqualTo("실시간으로 가나요?");
         assertThat(strangerQueue.poll(500, TimeUnit.MILLISECONDS)).isNull();
+    }
+
+    // 200ms 동안 기다리며 MESSAGE 이벤트가 오면 반환한다. READ 이벤트는 건너뛴다.
+    private Map<String, Object> pollMessageEvent(BlockingQueue<Map<String, Object>> queue) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(200);
+        while (System.nanoTime() < deadline) {
+            Map<String, Object> event = queue.poll(50, TimeUnit.MILLISECONDS);
+            if (event != null && "MESSAGE".equals(event.get("type"))) {
+                return event;
+            }
+        }
+        return null;
     }
 
     private User user(String name) {
