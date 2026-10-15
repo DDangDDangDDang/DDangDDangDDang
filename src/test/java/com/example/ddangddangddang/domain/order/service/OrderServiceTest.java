@@ -56,7 +56,7 @@ class OrderServiceTest {
         @DisplayName("ESCROW 상태로 주문을 만들고 주문 ID를 반환한다")
         void success() {
             given(orderRepository.existsByAuctionId(100L)).willReturn(false);
-            given(orderRepository.save(any(Order.class))).willAnswer(invocation -> {
+            given(orderRepository.saveAndFlush(any(Order.class))).willAnswer(invocation -> {
                 Order saved = invocation.getArgument(0);
                 ReflectionTestUtils.setField(saved, "id", 10L);
                 assertThat(saved.getStatus()).isEqualTo(OrderStatus.ESCROW);
@@ -78,7 +78,7 @@ class OrderServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(OrderErrorCode.ORDER_ALREADY_EXISTS);
-            verify(orderRepository, never()).save(any());
+            verify(orderRepository, never()).saveAndFlush(any());
         }
     }
 
