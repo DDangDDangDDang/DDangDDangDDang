@@ -17,4 +17,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // 카테고리 삭제 검증 : 카테고리 삭제전 카테고리 내 상품이 있는지 조회
     boolean existsByCategoryId(Long categoryId);
 
+    //해당 카테고리 내 삭제된 상품을 제외한 상품이 있는지 조회(카테고리 생성 검증용)
+    boolean existsByCategoryIdAndStatusNot(Long categoryId, Status status);
 }

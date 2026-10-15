@@ -6,6 +6,7 @@ import com.example.ddangddangddang.domain.category.dto.response.CategoryResponse
 import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.exception.CategoryErrorCode;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
+import com.example.ddangddangddang.domain.product.entity.Status;
 import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -63,7 +64,7 @@ public class CategoryService {
             if (parent.getParent() != null) {
                 throw new BusinessException(CategoryErrorCode.PARENT_NOT_TOP_LEVEL);
             }
-            if (productRepository.existsByCategoryId(parent.getId())){
+            if (productRepository.existsByCategoryIdAndStatusNot(parent.getId(), Status.DELETED)){
                 throw new BusinessException(CategoryErrorCode.PARENT_HAS_PRODUCTS);
             }
         }

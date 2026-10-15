@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.category.repository;
 
 import com.example.ddangddangddang.domain.category.entity.Category;
+import com.example.ddangddangddang.domain.product.entity.Status;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -17,4 +18,5 @@ public interface CategoryRepository extends JpaRepository<Category,Long> {
     boolean existsByParentIsNullAndName(String name);
     //소분류 생성시 : 현재 대분류 중 같은 이름의 소분류 존재 하는지
     boolean existsByParentIdAndName(Long parentId, String name);
+
 }
