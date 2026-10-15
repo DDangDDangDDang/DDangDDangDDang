@@ -1,0 +1,63 @@
+package com.example.ddangddangddang.domain.directmessage.controller;
+
+import com.example.ddangddangddang.domain.directmessage.dto.DmMessageResponse;
+import com.example.ddangddangddang.domain.directmessage.dto.DmMessageSendRequest;
+import com.example.ddangddangddang.domain.directmessage.dto.DmRoomCreateRequest;
+import com.example.ddangddangddang.domain.directmessage.dto.DmRoomResponse;
+import com.example.ddangddangddang.domain.directmessage.service.DirectMessageService;
+import com.example.ddangddangddang.global.common.ApiResponse;
+import com.example.ddangddangddang.global.common.CursorResponse;
+import com.example.ddangddangddang.global.security.AuthUser;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * 회원 간 1:1 채팅. 보내기는 이 API로 하고, 받기는 WebSocket /user/queue/dm 구독으로 한다.
+ */
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/v1/dm")
+public class DirectMessageController {
+
+    private final DirectMessageService directMessageService;
+
+    /**
+     * 상대와의 대화방을 가져온다. 없으면 만든다. (같은 두 사람 사이의 방은 하나)
+     */
+    @PostMapping("/rooms")
+    public ResponseEntity<ApiResponse<DmRoomResponse>> getOrCreateRoom(
+            @AuthenticationPrincipal AuthUser authUser,
+            @Valid @RequestBody DmRoomCreateRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(directMessageService.getOrCreateRoom(authUser.id(), request.targetUserId())));
+    }
+
+    @GetMapping("/rooms")
+    public ResponseEntity<ApiResponse<CursorResponse<DmRoomResponse>>> getRooms(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.ok(directMessageService.getRooms(authUser.id(), cursor, size)));
+    }
+
+    @GetMapping("/rooms/{roomId}/messages")
+    public ResponseEntity<ApiResponse<CursorResponse<DmMessageResponse>>> getMessages(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long roomId,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "30") int size) {
+        return ResponseEntity.ok(ApiResponse.ok(directMessageService.getMessages(authUser.id(), roomId, cursor, size)));
+    }
+
+    @PostMapping("/rooms/{roomId}/messages")
+    public ResponseEntity<ApiResponse<DmMessageResponse>> send(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long roomId,
+            @Valid @RequestBody DmMessageSendRequest request) {
+        DmMessageResponse response = directMessageService.send(authUser.id(), roomId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
+    }
+}
