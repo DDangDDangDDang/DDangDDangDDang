@@ -13,6 +13,7 @@ import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCo
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -33,7 +34,7 @@ public class LiveStreamService {
     // TODO: 판매자 권한(ROLE_SELLER) 확인은 인증 담당과 방식 확정 후 추가
     @Transactional
     public LiveStreamResponse create(Long sellerId, LiveStreamCreateRequest request) {
-        String title = request.title().strip();
+        String title = requireTitle(request.title());
         String description = blankToNull(request.description());
         validateContent(title);
         validateContent(description);
@@ -48,7 +49,7 @@ public class LiveStreamService {
     @Transactional
     public LiveStreamResponse update(Long liveStreamId, Long sellerId, LiveStreamUpdateRequest request) {
         LiveStream liveStream = findById(liveStreamId);
-        String title = request.title() == null ? null : request.title().strip();
+        String title = request.title() == null ? null : requireTitle(request.title());
         // null은 그대로 두기, 빈 문자열(공백만 포함)은 설명 지우기
         String description = request.description() == null ? null : request.description().strip();
         validateContent(title);
@@ -69,6 +70,19 @@ public class LiveStreamService {
         contentFilter.findViolation(content).ifPresent(violation -> {
             throw new BusinessException(LiveStreamErrorCode.CONTENT_NOT_ALLOWED, violation.getMessage());
         });
+    }
+
+    /**
+     * 저장할 값과 같은 기준(strip)으로 비었는지 본다.
+     * 요청 검증(@NotBlank의 trim, 정규식 \S)은 전각 공백(U+2003) 같은 유니코드 공백만으로 된 제목을 통과시킬 수 있어
+     * strip 뒤 빈 제목이 저장되지 않도록 여기서 한 번 더 막는다.
+     */
+    private static String requireTitle(String title) {
+        String stripped = title == null ? "" : title.strip();
+        if (stripped.isEmpty()) {
+            throw new BusinessException(CommonErrorCode.INVALID_INPUT, "방송 제목은 비워 둘 수 없습니다.");
+        }
+        return stripped;
     }
 
     private static String blankToNull(String value) {

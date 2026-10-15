@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.livestream.service;
 
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.livechat.moderation.ContentViolation;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
@@ -11,10 +12,14 @@ import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCo
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.exception.CommonErrorCode;
+import com.example.ddangddangddang.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -53,6 +58,17 @@ class LiveStreamServiceTest {
     // 기본은 막을 내용 없음(Optional.empty). 막는 경우만 따로 정한다.
     @Mock
     private ChatContentFilter contentFilter;
+
+    @Test
+    @DisplayName("방송을 만들 때도 전각 공백만으로 된 제목은 COMMON_001로 막고 저장하지 않는다")
+    void createWithUnicodeBlankTitle() {
+        assertThatThrownBy(() -> liveStreamService.create(SELLER_ID, new LiveStreamCreateRequest(" ", null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("방송 제목은 비워 둘 수 없습니다.")
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(CommonErrorCode.INVALID_INPUT);
+        then(liveStreamRepository).should(never()).save(any());
+    }
 
     @Nested
     @DisplayName("방송 정보 수정")
@@ -160,7 +176,18 @@ class LiveStreamServiceTest {
             assertUpdateError(SELLER_ID, new LiveStreamUpdateRequest("새 제목", null), LiveStreamErrorCode.NOT_FOUND);
         }
 
-        private void assertUpdateError(Long requesterId, LiveStreamUpdateRequest request, LiveStreamErrorCode errorCode) {
+        @ParameterizedTest
+        @ValueSource(strings = {"  ", "\u001C", " \t "})
+        @DisplayName("전각 공백 등 strip하면 비는 제목은 요청 검증을 통과해도 COMMON_001로 막고, 제목은 그대로다")
+        void blankTitleAfterStrip(String title) {
+            LiveStream liveStream = liveStream(true);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            assertUpdateError(SELLER_ID, new LiveStreamUpdateRequest(title, null), CommonErrorCode.INVALID_INPUT);
+            assertThat(liveStream.getTitle()).isEqualTo("테스트 방송");
+        }
+
+        private void assertUpdateError(Long requesterId, LiveStreamUpdateRequest request, ErrorCode errorCode) {
             assertThatThrownBy(() -> liveStreamService.update(LIVE_STREAM_ID, requesterId, request))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
