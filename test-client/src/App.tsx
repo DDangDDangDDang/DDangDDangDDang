@@ -3,6 +3,7 @@ import { errorText, LiveStream, logout, onSessionChange, reissue, UserInfo } fro
 import AuthPanel from './AuthPanel';
 import LivePanel from './LivePanel';
 import ChatPanel from './ChatPanel';
+import DmPanel from './DmPanel';
 
 export type Log = (message: string, level?: 'info' | 'error') => void;
 type LogEntry = { key: number; time: string; message: string; level: 'info' | 'error' };
@@ -71,6 +72,9 @@ export default function App() {
           <ChatPanel log={log} liveStreamId={liveStreamId} onStreamUpdated={setStreamUpdate} />
         </main>
       )}
+
+      {/* 계정이 바뀌면 대화방 상태를 새로 시작하도록 회원 ID를 key로 둔다. */}
+      {user && <DmPanel key={user.userId} log={log} userId={user.userId} />}
 
       <section className="panel logs">
         <div className="row between">
