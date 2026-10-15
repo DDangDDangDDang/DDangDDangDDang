@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.livechat.controller;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.livechat.repository.ChatRateLimitRepository;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
@@ -198,6 +199,34 @@ class LiveChatControllerTest {
         assertThat(message.get("type")).isEqualTo("SYSTEM");
         assertThat(message.get("senderId")).isNull();
         assertThat(message.get("content")).isEqualTo("방송이 종료되었습니다.");
+    }
+
+    @Test
+    @DisplayName("방송 중에 판매자가 제목을 바꾸면 방송 정보를 구독한 시청자에게 UPDATED 메시지로 전달된다")
+    void streamUpdated() throws Exception {
+        Long sellerId = 99L;
+        Long liveStreamId = liveStream(sellerId, true);
+        StompSession session = connect(bearer(accessToken(1L)));
+        BlockingQueue<Map<String, Object>> messages = subscribe(session, "/topic/live-streams/" + liveStreamId);
+
+        // 구독 등록 전에 보낸 알림은 받지 못하므로, 받을 때까지 제목을 바꿔 가며 다시 수정한다.
+        Map<String, Object> message = null;
+        String title = null;
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
+        for (int attempt = 1; message == null && System.nanoTime() < deadline; attempt++) {
+            title = "바뀐 제목 " + attempt;
+            liveStreamService.update(liveStreamId, sellerId, new LiveStreamUpdateRequest(title, "설명"));
+            message = messages.poll(200, TimeUnit.MILLISECONDS);
+        }
+
+        assertThat(message).isNotNull();
+        assertThat(message.get("type")).isEqualTo("UPDATED");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> liveStream = (Map<String, Object>) message.get("liveStream");
+        assertThat(((Number) liveStream.get("id")).longValue()).isEqualTo(liveStreamId);
+        assertThat(liveStream.get("title")).asString().startsWith("바뀐 제목 ");
+        assertThat(liveStream.get("description")).isEqualTo("설명");
+        assertThat(liveStream.get("status")).isEqualTo("LIVE");
     }
 
     @Test

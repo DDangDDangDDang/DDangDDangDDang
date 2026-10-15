@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.livestream.controller;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
@@ -31,6 +32,17 @@ public class LiveStreamController {
     @GetMapping("/{liveStreamId}")
     public ResponseEntity<ApiResponse<LiveStreamResponse>> get(@PathVariable Long liveStreamId) {
         return ResponseEntity.ok(ApiResponse.ok(liveStreamService.get(liveStreamId)));
+    }
+
+    /**
+     * 판매자가 방송 정보(제목·설명)를 바꾼다. 방송 중에도 바꿀 수 있고, 시청자 화면에 바로 반영된다.
+     */
+    @PatchMapping("/{liveStreamId}")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> update(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @Valid @RequestBody LiveStreamUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.update(liveStreamId, authUser.id(), request)));
     }
 
     /**

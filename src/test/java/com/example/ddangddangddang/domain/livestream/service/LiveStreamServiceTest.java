@@ -1,6 +1,11 @@
 package com.example.ddangddangddang.domain.livestream.service;
 
+import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
+import com.example.ddangddangddang.domain.livechat.moderation.ContentViolation;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.event.LiveStreamUpdatedEvent;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
@@ -10,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,6 +26,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -42,6 +49,126 @@ class LiveStreamServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    // 기본은 막을 내용 없음(Optional.empty). 막는 경우만 따로 정한다.
+    @Mock
+    private ChatContentFilter contentFilter;
+
+    @Nested
+    @DisplayName("방송 정보 수정")
+    class Update {
+
+        @Test
+        @DisplayName("방송 중에 제목과 설명을 바꾸면 저장하고, 바뀐 방송 정보로 변경 이벤트를 발행한다")
+        void updateWhileLive() {
+            LiveStream liveStream = liveStream(true);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            LiveStreamResponse response = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest("  새 제목  ", " 오늘은 신발 경매 "));
+
+            assertThat(response.title()).isEqualTo("새 제목");
+            assertThat(response.description()).isEqualTo("오늘은 신발 경매");
+            then(liveStreamRepository).should().saveAndFlush(liveStream);
+            ArgumentCaptor<LiveStreamUpdatedEvent> captor = ArgumentCaptor.forClass(LiveStreamUpdatedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            assertThat(captor.getValue().liveStream()).isEqualTo(response);
+        }
+
+        @Test
+        @DisplayName("대기 중인 방송도 바꿀 수 있고, 보내지 않은 값(null)은 그대로 둔다")
+        void partialUpdateWhileScheduled() {
+            LiveStream liveStream = LiveStream.create(SELLER_ID, "테스트 방송", "기존 설명");
+            ReflectionTestUtils.setField(liveStream, "id", LIVE_STREAM_ID);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            LiveStreamResponse response = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest("새 제목", null));
+
+            assertThat(response.title()).isEqualTo("새 제목");
+            assertThat(response.description()).isEqualTo("기존 설명");
+        }
+
+        @Test
+        @DisplayName("설명을 빈 문자열로 보내면 설명을 지운다")
+        void clearDescription() {
+            LiveStream liveStream = LiveStream.create(SELLER_ID, "테스트 방송", "기존 설명");
+            ReflectionTestUtils.setField(liveStream, "id", LIVE_STREAM_ID);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            LiveStreamResponse response = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest(null, "  "));
+
+            assertThat(response.description()).isNull();
+            then(eventPublisher).should().publishEvent(any(LiveStreamUpdatedEvent.class));
+        }
+
+        @Test
+        @DisplayName("바뀐 값이 없으면 저장하지 않고 이벤트도 발행하지 않는다")
+        void nothingChanged() {
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(true)));
+
+            LiveStreamResponse response = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest("테스트 방송", null));
+
+            assertThat(response.title()).isEqualTo("테스트 방송");
+            then(liveStreamRepository).should(never()).saveAndFlush(any());
+            then(eventPublisher).should(never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("방송 주인이 아니면 LIVESTREAM_002")
+        void notOwner() {
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(true)));
+
+            assertUpdateError(2L, new LiveStreamUpdateRequest("새 제목", null), LiveStreamErrorCode.NOT_OWNER);
+        }
+
+        @Test
+        @DisplayName("종료된 방송이면 LIVESTREAM_008")
+        void ended() {
+            LiveStream liveStream = liveStream(true);
+            liveStream.end(SELLER_ID);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            assertUpdateError(SELLER_ID, new LiveStreamUpdateRequest("새 제목", null), LiveStreamErrorCode.ALREADY_ENDED);
+        }
+
+        @Test
+        @DisplayName("제목이나 설명에 연락처 같은 막힌 내용이 있으면 이유를 담은 LIVESTREAM_009, 방송 정보는 그대로다")
+        void contentNotAllowed() {
+            LiveStream liveStream = liveStream(true);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+            given(contentFilter.findViolation(any())).willAnswer(invocation -> "문의 010-1234-5678".equals(invocation.getArgument(0))
+                    ? Optional.of(ContentViolation.PHONE_NUMBER) : Optional.empty());
+
+            assertThatThrownBy(() -> liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest("새 제목", "문의 010-1234-5678")))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage("전화번호는 넣을 수 없습니다.")
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(LiveStreamErrorCode.CONTENT_NOT_ALLOWED);
+            assertThat(liveStream.getTitle()).isEqualTo("테스트 방송");
+            then(eventPublisher).should(never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("없는 방송이면 LIVESTREAM_001")
+        void notFound() {
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.empty());
+
+            assertUpdateError(SELLER_ID, new LiveStreamUpdateRequest("새 제목", null), LiveStreamErrorCode.NOT_FOUND);
+        }
+
+        private void assertUpdateError(Long requesterId, LiveStreamUpdateRequest request, LiveStreamErrorCode errorCode) {
+            assertThatThrownBy(() -> liveStreamService.update(LIVE_STREAM_ID, requesterId, request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(errorCode);
+            then(liveStreamRepository).should(never()).saveAndFlush(any());
+            then(eventPublisher).should(never()).publishEvent(any());
+        }
+    }
 
     @Nested
     @DisplayName("송출 토큰 재발급")
