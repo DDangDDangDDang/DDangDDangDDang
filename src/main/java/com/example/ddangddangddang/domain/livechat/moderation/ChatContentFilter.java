@@ -20,6 +20,12 @@ public class ChatContentFilter {
     // 휴대폰 번호: 010-1234-5678, 010 1234 5678, 01012345678, 010.1234.5678
     private static final Pattern PHONE_NUMBER = Pattern.compile("01[016789][-.\\s]?\\d{3,4}[-.\\s]?\\d{4}");
 
+    // 위 형식을 피해 쓴 번호: +82 10 1234 5678, 0 1 0 1 2 3 4 5 6 7 8, 010 12 34 56 78
+    // 숫자 사이 구분자(-, ., 공백)를 지운 뒤 묶음 전체가 휴대폰 번호인지 본다.
+    // 묶음 전체가 01X(또는 82 1X)로 시작해야 하므로 날짜(2026 10 14)나 가격 나열(10000 11000)은 걸리지 않는다.
+    private static final Pattern DIGIT_SEQUENCE = Pattern.compile("\\+?\\d(?:[-.\\s]{1,3}\\d|\\d)*");
+    private static final Pattern NORMALIZED_PHONE_NUMBER = Pattern.compile("(?:0|82)1[016789]\\d{7,8}");
+
     // 외부 메신저·오픈채팅 링크
     private static final Pattern EXTERNAL_LINK = Pattern.compile(
             "(open\\.kakao\\.com|pf\\.kakao\\.com|t\\.me/|telegram\\.me/|line\\.me/)", Pattern.CASE_INSENSITIVE);
@@ -42,7 +48,7 @@ public class ChatContentFilter {
      * 막아야 하는 내용이면 이유가 담긴 LIVECHAT_003 예외를 던진다.
      */
     public void validate(String content) {
-        if (PHONE_NUMBER.matcher(content).find()) {
+        if (PHONE_NUMBER.matcher(content).find() || containsSeparatedPhoneNumber(content)) {
             throw rejected("전화번호는 채팅으로 보낼 수 없습니다.");
         }
         if (EXTERNAL_LINK.matcher(content).find()) {
@@ -55,6 +61,17 @@ public class ChatContentFilter {
         if (bannedWords.stream().anyMatch(lower::contains)) {
             throw rejected("사용할 수 없는 단어가 포함되어 있습니다.");
         }
+    }
+
+    private boolean containsSeparatedPhoneNumber(String content) {
+        Matcher matcher = DIGIT_SEQUENCE.matcher(content);
+        while (matcher.find()) {
+            String digits = matcher.group().replaceAll("\\D", "");
+            if (NORMALIZED_PHONE_NUMBER.matcher(digits).matches()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean containsAccountNumber(String content) {

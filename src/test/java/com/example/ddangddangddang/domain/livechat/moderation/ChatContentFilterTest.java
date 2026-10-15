@@ -25,6 +25,16 @@ class ChatContentFilterTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {
+            "+82 10-1234-5678 로 연락", "+82 10 1234 5678", "+821012345678", "821012345678",
+            "0 1 0 1 2 3 4 5 6 7 8", "010 12 34 56 78", "010 - 1234 - 5678", "016 123 4567"
+    })
+    @DisplayName("+82 형식이나 공백으로 쪼갠 휴대폰 번호도 막는다")
+    void separatedPhoneNumber(String content) {
+        assertRejected(content, "전화번호");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"https://open.kakao.com/o/abc 로 오세요", "t.me/seller 텔레그램", "OPEN.KAKAO.COM/o/x"})
     @DisplayName("오픈채팅·텔레그램 링크는 막는다")
     void externalLink(String content) {
@@ -52,6 +62,11 @@ class ChatContentFilterTest {
             "방송 2026-10-14 21:00에 또 해요?",
             "1,000,000원 너무 비싸요",
             "모델명 AB-1234 맞나요?",
+            "2026 10 14 방송 몇 시예요?",
+            "2026. 10. 14. 21:00",
+            "10000 11000 12000 중에 뭐가 나아요?",
+            "15000 20000 30000",
+            "사이즈 01 10 사이 있어요?",
             "카톡 프로필 사진 예쁘네요"
     })
     @DisplayName("일반 대화, 가격, 날짜, 모델명은 막지 않는다 (애매한 표현은 AI 검토에 맡김)")
