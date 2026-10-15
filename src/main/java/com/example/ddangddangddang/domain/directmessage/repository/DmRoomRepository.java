@@ -43,4 +43,26 @@ public interface DmRoomRepository extends JpaRepository<DmRoom, Long> {
                           @Param("messageId") Long messageId,
                           @Param("preview") String preview,
                           @Param("sentAt") LocalDateTime sentAt);
+
+    /**
+     * 읽음 위치를 앞으로만 옮긴다. 늦게 도착한 읽음 요청이 더 앞선 위치로 되돌리지 않도록 지금 값보다 클 때만 바꾼다.
+     * 회원이 user1인지 user2인지에 따라 둘 중 하나를 쓴다.
+     *
+     * @return 바뀌었으면 1, 이미 그 위치 이상까지 읽었으면 0
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            update DmRoom r set r.user1LastReadMessageId = :messageId
+            where r.id = :roomId
+              and (r.user1LastReadMessageId is null or r.user1LastReadMessageId < :messageId)
+            """)
+    int markReadByUser1(@Param("roomId") Long roomId, @Param("messageId") Long messageId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            update DmRoom r set r.user2LastReadMessageId = :messageId
+            where r.id = :roomId
+              and (r.user2LastReadMessageId is null or r.user2LastReadMessageId < :messageId)
+            """)
+    int markReadByUser2(@Param("roomId") Long roomId, @Param("messageId") Long messageId);
 }

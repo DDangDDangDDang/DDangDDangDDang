@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.directmessage.controller;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.directmessage.dto.DmMessageSendRequest;
+import com.example.ddangddangddang.domain.directmessage.repository.DmRateLimitRepository;
 import com.example.ddangddangddang.domain.directmessage.service.DirectMessageService;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
@@ -60,6 +61,10 @@ class DirectMessageWebSocketTest {
     @MockitoBean
     private TokenBlacklistRepository tokenBlacklistRepository;
 
+    // 도배 제한(Redis)은 통과시킨다. (횟수 0)
+    @MockitoBean
+    private DmRateLimitRepository dmRateLimitRepository;
+
     private WebSocketStompClient stompClient;
 
     @BeforeEach
@@ -94,9 +99,12 @@ class DirectMessageWebSocketTest {
         }
 
         assertThat(received).isNotNull();
+        assertThat(received.get("type")).isEqualTo("MESSAGE");
         assertThat(((Number) received.get("roomId")).longValue()).isEqualTo(roomId);
-        assertThat(((Number) received.get("senderId")).longValue()).isEqualTo(sender.getId());
-        assertThat(received.get("content")).isEqualTo("실시간으로 가나요?");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> message = (Map<String, Object>) received.get("message");
+        assertThat(((Number) message.get("senderId")).longValue()).isEqualTo(sender.getId());
+        assertThat(message.get("content")).isEqualTo("실시간으로 가나요?");
         assertThat(strangerQueue.poll(500, TimeUnit.MILLISECONDS)).isNull();
     }
 

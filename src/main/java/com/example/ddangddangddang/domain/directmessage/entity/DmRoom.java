@@ -47,6 +47,13 @@ public class DmRoom extends BaseTimeEntity {
     @Column(name = "last_message_at")
     private LocalDateTime lastMessageAt;
 
+    // 각 회원이 마지막으로 읽은 메시지 ID. 이보다 큰 id의 상대 메시지가 "읽지 않은 메시지"다. 읽은 적 없으면 null
+    @Column(name = "user1_last_read_message_id")
+    private Long user1LastReadMessageId;
+
+    @Column(name = "user2_last_read_message_id")
+    private Long user2LastReadMessageId;
+
     private DmRoom(Long user1Id, Long user2Id) {
         this.user1Id = user1Id;
         this.user2Id = user2Id;
@@ -62,5 +69,13 @@ public class DmRoom extends BaseTimeEntity {
 
     public Long otherUserId(Long userId) {
         return user1Id.equals(userId) ? user2Id : user1Id;
+    }
+
+    public boolean isUser1(Long userId) {
+        return user1Id.equals(userId);
+    }
+
+    public Long lastReadMessageId(Long userId) {
+        return isUser1(userId) ? user1LastReadMessageId : user2LastReadMessageId;
     }
 }

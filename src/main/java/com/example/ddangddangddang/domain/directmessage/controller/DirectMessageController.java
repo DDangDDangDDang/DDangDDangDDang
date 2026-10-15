@@ -2,8 +2,11 @@ package com.example.ddangddangddang.domain.directmessage.controller;
 
 import com.example.ddangddangddang.domain.directmessage.dto.DmMessageResponse;
 import com.example.ddangddangddang.domain.directmessage.dto.DmMessageSendRequest;
+import com.example.ddangddangddang.domain.directmessage.dto.DmReadRequest;
+import com.example.ddangddangddang.domain.directmessage.dto.DmReadResponse;
 import com.example.ddangddangddang.domain.directmessage.dto.DmRoomCreateRequest;
 import com.example.ddangddangddang.domain.directmessage.dto.DmRoomResponse;
+import com.example.ddangddangddang.domain.directmessage.dto.DmUnreadCountResponse;
 import com.example.ddangddangddang.domain.directmessage.service.DirectMessageService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.common.CursorResponse;
@@ -16,7 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 회원 간 1:1 채팅. 보내기는 이 API로 하고, 받기는 WebSocket /user/queue/dm 구독으로 한다.
+ * 회원 간 1:1 채팅. 보내기·읽음은 이 API로 하고, 받기는 WebSocket /user/queue/dm 구독으로 한다.
  */
 @RestController
 @RequiredArgsConstructor
@@ -43,6 +46,14 @@ public class DirectMessageController {
         return ResponseEntity.ok(ApiResponse.ok(directMessageService.getRooms(authUser.id(), cursor, size)));
     }
 
+    /**
+     * 내 모든 대화방의 읽지 않은 메시지 수 합계 (상단 알림 배지)
+     */
+    @GetMapping("/unread-count")
+    public ResponseEntity<ApiResponse<DmUnreadCountResponse>> getUnreadCount(@AuthenticationPrincipal AuthUser authUser) {
+        return ResponseEntity.ok(ApiResponse.ok(directMessageService.getUnreadCount(authUser.id())));
+    }
+
     @GetMapping("/rooms/{roomId}/messages")
     public ResponseEntity<ApiResponse<CursorResponse<DmMessageResponse>>> getMessages(
             @AuthenticationPrincipal AuthUser authUser,
@@ -59,5 +70,17 @@ public class DirectMessageController {
             @Valid @RequestBody DmMessageSendRequest request) {
         DmMessageResponse response = directMessageService.send(authUser.id(), roomId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
+    }
+
+    /**
+     * 읽음 처리. 본문을 비우거나 lastReadMessageId를 빼면 방의 마지막 메시지까지 읽은 것으로 한다.
+     */
+    @PostMapping("/rooms/{roomId}/read")
+    public ResponseEntity<ApiResponse<DmReadResponse>> markRead(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long roomId,
+            @RequestBody(required = false) DmReadRequest request) {
+        Long lastReadMessageId = request == null ? null : request.lastReadMessageId();
+        return ResponseEntity.ok(ApiResponse.ok(directMessageService.markRead(authUser.id(), roomId, lastReadMessageId)));
     }
 }
