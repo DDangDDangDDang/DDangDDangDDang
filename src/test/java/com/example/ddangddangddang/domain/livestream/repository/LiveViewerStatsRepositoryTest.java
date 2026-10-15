@@ -62,6 +62,8 @@ class LiveViewerStatsRepositoryTest {
 
         assertThat(repository.topViewers(10)).containsExactly(new Ranked(2L, 40), new Ranked(1L, 15));
         assertThat(repository.topViewers(1)).containsExactly(new Ranked(2L, 40));
+        // 호출마다 고유한 임시 키를 쓰고, RENAME으로 옮겨 남지 않는다.
+        assertThat(redisTemplate.keys("live:viewers*:tmp:*")).isEmpty();
     }
 
     @Test

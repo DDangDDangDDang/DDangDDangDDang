@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * 진행 중인 방송의 시청자 수 집계를 Redis에 둔다. 서버가 여러 대여도 모두 같은 값을 본다.
@@ -75,8 +76,8 @@ public class LiveViewerStatsRepository {
             redisTemplate.delete(key);
             return;
         }
-        String tempKey = key + ":tmp";
-        redisTemplate.delete(tempKey);
+        // 집계가 잠금 시간보다 오래 걸려 두 서버가 동시에 바꾸더라도 서로의 임시 키를 섞지 않도록 호출마다 고유한 키를 쓴다.
+        String tempKey = key + ":tmp:" + UUID.randomUUID();
         scores.forEach((liveStreamId, score) -> redisTemplate.opsForZSet().add(tempKey, String.valueOf(liveStreamId), score));
         redisTemplate.rename(tempKey, key);
     }
