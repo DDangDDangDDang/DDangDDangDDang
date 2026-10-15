@@ -25,6 +25,13 @@ public interface DmMessageRepository extends JpaRepository<DmMessage, Long> {
     List<DmMessage> findByCursor(@Param("roomId") Long roomId, @Param("cursor") Long cursor, Pageable pageable);
 
     /**
+     * 이 방의 메시지 중 messageId 이하에서 가장 최근 메시지 ID. 없으면 null
+     * 읽음 처리에 다른 방의 메시지 ID가 들어와도 이 방의 실제 메시지로 맞추는 데 쓴다. (room_id, id) 인덱스를 탄다.
+     */
+    @Query("select max(m.id) from DmMessage m where m.roomId = :roomId and m.id <= :messageId")
+    Long findLatestIdAtOrBefore(@Param("roomId") Long roomId, @Param("messageId") Long messageId);
+
+    /**
      * 방별 읽지 않은 메시지 수. 상대가 보낸 메시지 중 내가 마지막으로 읽은 메시지보다 id가 큰 것을 센다.
      * 목록 한 페이지의 방들을 한 번에 센다. (방마다 따로 세지 않음)
      */

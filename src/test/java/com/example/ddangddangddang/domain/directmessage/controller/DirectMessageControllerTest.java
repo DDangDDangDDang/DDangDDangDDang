@@ -489,6 +489,33 @@ class DirectMessageControllerTest extends DmApiTestSupport {
         }
 
         @Test
+        @DisplayName("다른 방의 메시지 ID로 읽으면 그 이하인 이 방의 가장 최근 메시지로 맞추고, 이 방에 그 이하 메시지가 없으면 그대로 둔다")
+        void snapToMessageInRoom() throws Exception {
+            Member carol = signupAndLogin("캐롤");
+            Long roomId = roomId(alice, bob.id());
+            Long first = sendAndGetId(bob, roomId, "1");
+            Long otherRoomMessage = sendAndGetId(carol, roomId(carol, bob.id()), "다른 방");
+            sendAndGetId(bob, roomId, "2");
+            clearInvocations(stompBroadcaster);
+
+            read(alice, roomId, otherRoomMessage)
+                    .andExpect(jsonPath("$.data.lastReadMessageId").value(first))
+                    .andExpect(jsonPath("$.data.unreadCount").value(1));
+            assertThat(captureEvent(bob.id(), DmEvent.Type.READ).lastReadMessageId()).isEqualTo(first);
+            getRooms(bob).andExpect(jsonPath("$.data.content[?(@.roomId == " + roomId + ")].otherLastReadMessageId").value(first.intValue()));
+
+            // 이 방의 첫 메시지보다 작은 ID: 읽을 메시지가 없으므로 읽음 위치와 읽지 않은 수가 그대로다.
+            Long emptyRoom = roomId(alice, carol.id());
+            Long carolFirst = sendAndGetId(carol, emptyRoom, "캐롤 첫 메시지");
+            clearInvocations(stompBroadcaster);
+            read(alice, emptyRoom, carolFirst - 1)
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.lastReadMessageId").doesNotExist())
+                    .andExpect(jsonPath("$.data.unreadCount").value(1));
+            then(stompBroadcaster).should(never()).sendToUser(anyLong(), anyString(), any());
+        }
+
+        @Test
         @DisplayName("메시지가 없는 방을 읽어도 오류 없이 0을 응답하고, 참여하지 않은 방은 DM_002")
         void emptyRoomAndNotMember() throws Exception {
             Member carol = signupAndLogin("캐롤");

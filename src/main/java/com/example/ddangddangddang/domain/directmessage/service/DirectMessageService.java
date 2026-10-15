@@ -216,11 +216,18 @@ public class DirectMessageService {
         if (lastMessageId == null) {
             return new DmReadResponse(roomId, previous, 0);
         }
-        // 방에 없는 미래의 ID로 읽음 위치를 앞질러 두지 못하게 마지막 메시지에서 자른다.
-        long target = lastReadMessageId == null ? lastMessageId : Math.min(lastReadMessageId, lastMessageId);
+        // 읽음 위치는 항상 이 방의 실제 메시지 ID로 둔다.
+        // 방에 없는 미래의 ID는 마지막 메시지에서 자르고, 다른 방의 메시지 ID는 그 이하인 이 방의 가장 최근 메시지로 맞춘다.
+        Long target = lastReadMessageId == null
+                ? lastMessageId
+                : dmMessageRepository.findLatestIdAtOrBefore(roomId, Math.min(lastReadMessageId, lastMessageId));
+        if (target == null) {
+            // 이 방에 그 ID 이하의 메시지가 없다. (예: 방의 첫 메시지보다 작은 ID) 읽을 메시지가 없으므로 그대로 둔다.
+            return new DmReadResponse(roomId, previous, unreadCount(userId, roomId));
+        }
 
         Integer updated = transactionTemplate.execute(status -> markReadUpTo(room, userId, target));
-        Long current = previous == null || previous < target ? Long.valueOf(target) : previous;
+        Long current = previous == null || previous < target ? target : previous;
         if (updated != null && updated > 0) {
             DmEvent event = DmEvent.read(roomId, userId, current);
             deliver(room.otherUserId(userId), event);
