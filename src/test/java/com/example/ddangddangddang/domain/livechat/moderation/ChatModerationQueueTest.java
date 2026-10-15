@@ -113,6 +113,22 @@ class ChatModerationQueueTest {
     }
 
     @Test
+    @DisplayName("빈 큐가 정리된 뒤에 들어온 메시지도 빠짐없이 검토한다")
+    void enqueueAfterEmptyQueueRemoved() {
+        RecordingModerator moderator = new RecordingModerator(true);
+        ChatModerationQueue queue = queue(moderator, 50, 500);
+
+        queue.enqueue(chat(1L, "회원1", "첫 메시지"));
+        queue.flush();
+        queue.flush(); // 빈 큐를 맵에서 지운다.
+        queue.enqueue(chat(1L, "회원1", "두 번째 메시지"));
+        queue.flush();
+
+        assertThat(moderator.batches).extracting(batch -> batch.get(0).content())
+                .containsExactly("첫 메시지", "두 번째 메시지");
+    }
+
+    @Test
     @DisplayName("AI 호출이 실패해도 예외를 밖으로 던지지 않고, 다음 메시지는 계속 검토한다")
     void reviewFailure() {
         RecordingModerator moderator = new RecordingModerator(true);

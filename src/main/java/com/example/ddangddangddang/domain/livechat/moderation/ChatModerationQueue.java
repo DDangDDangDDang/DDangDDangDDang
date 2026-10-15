@@ -75,16 +75,21 @@ public class ChatModerationQueue {
         if (!moderator.isEnabled()) {
             return;
         }
-        Deque<ChatForReview> queue = pending.computeIfAbsent(message.liveStreamId(), id -> new ConcurrentLinkedDeque<>());
-        queue.addLast(new ChatForReview(message.messageId(), message.senderId(), message.nickname(), message.content()));
-
-        // 검토가 밀려 메모리가 계속 늘지 않도록, 넘치면 오래된 메시지부터 검토를 포기한다.
-        int dropped = 0;
-        while (queue.size() > settings.maxPending() && queue.pollFirst() != null) {
-            dropped++;
-        }
-        if (dropped > 0) {
-            log.warn("채팅 검토 대기열이 가득 차 오래된 메시지 {}개를 검토하지 않습니다. liveStreamId={}", dropped, message.liveStreamId());
+        ChatForReview review = new ChatForReview(message.messageId(), message.senderId(), message.nickname(), message.content());
+        int[] dropped = {0};
+        // 큐 조회·생성과 삽입을 compute 안에서 한 번에 한다.
+        // 밖에서 넣으면 flush()가 빈 큐를 맵에서 지운 직후 그 큐에 넣게 되어, 메시지가 검토되지 않고 사라질 수 있다.
+        pending.compute(message.liveStreamId(), (id, queue) -> {
+            Deque<ChatForReview> target = queue == null ? new ConcurrentLinkedDeque<>() : queue;
+            target.addLast(review);
+            // 검토가 밀려 메모리가 계속 늘지 않도록, 넘치면 오래된 메시지부터 검토를 포기한다.
+            while (target.size() > settings.maxPending() && target.pollFirst() != null) {
+                dropped[0]++;
+            }
+            return target;
+        });
+        if (dropped[0] > 0) {
+            log.warn("채팅 검토 대기열이 가득 차 오래된 메시지 {}개를 검토하지 않습니다. liveStreamId={}", dropped[0],message.liveStreamId());
         }
     }
 
