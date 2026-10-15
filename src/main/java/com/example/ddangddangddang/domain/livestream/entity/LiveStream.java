@@ -17,7 +17,11 @@ import java.util.UUID;
         name = "live_streams",
         // 판매자당 종료되지 않은 방송은 하나. 동시에 두 개를 만들어도 DB에서 하나만 성공한다.
         uniqueConstraints = @UniqueConstraint(name = "uk_live_stream_active_seller", columnNames = "active_seller_id"),
-        indexes = @Index(name = "idx_live_stream_seller_status", columnList = "seller_id, status")
+        indexes = {
+                @Index(name = "idx_live_stream_seller_status", columnList = "seller_id, status"),
+                // 홈 화면: 진행 중인 방송을 최근 시작순으로
+                @Index(name = "idx_live_stream_status_started", columnList = "status, started_at")
+        }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -46,7 +50,9 @@ public class LiveStream extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private LiveStreamStatus status;
 
+    @Column(name = "started_at")
     private LocalDateTime startedAt;
+
     private LocalDateTime endedAt;
 
     // 종료되지 않은(대기 중·방송 중) 방송이면 sellerId, 종료되면 null. 이 컬럼에 유니크를 걸어 판매자당 하나만 허용한다.

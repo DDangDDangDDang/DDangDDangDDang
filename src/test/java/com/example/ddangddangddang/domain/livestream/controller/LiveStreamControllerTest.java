@@ -3,6 +3,8 @@ package com.example.ddangddangddang.domain.livestream.controller;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
+import com.example.ddangddangddang.domain.livestream.repository.LiveViewerStatsRepository;
+import com.example.ddangddangddang.domain.livestream.repository.LiveViewerStatsRepository.Ranked;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
@@ -19,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -27,13 +30,16 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 판매자당 종료되지 않은 방송 하나 규칙(실제 DB 유니크 제약)과 내 방송 API를 확인한다.
+ * 판매자당 종료되지 않은 방송 하나 규칙(실제 DB 유니크 제약)과 홈·내 방송 API를 확인한다.
  * 동시 요청이 각자 커밋되어야 해서 테스트 트랜잭션으로 감싸지 않고, 테스트마다 새 회원을 만든다.
  */
 @SpringBootTest
@@ -56,6 +62,10 @@ class LiveStreamControllerTest {
 
     @MockitoBean
     private MediaServerClient mediaServerClient;
+
+    // 시청자 수 순위(Redis)는 정해 둔 값을 돌려준다. 실제 Redis 동작은 LiveViewerStatsRepositoryTest에서 확인한다.
+    @MockitoBean
+    private LiveViewerStatsRepository statsRepository;
 
     @Test
     @DisplayName("종료되지 않은 방송이 있으면 새 방송을 만들 수 없고(409 LIVESTREAM_010), 종료하면 다시 만들 수 있다")
@@ -112,6 +122,32 @@ class LiveStreamControllerTest {
         executor.shutdown();
         assertThat(codes).containsOnlyOnce("OK");
         assertThat(codes).filteredOn(code -> !code.equals("OK")).containsOnly("LIVESTREAM_010");
+    }
+
+    @Test
+    @DisplayName("홈 화면은 시청자 많은 방송과 급증 방송을 판매자 닉네임·시청자 수와 함께 보여 준다")
+    void home() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = longValue(create(seller, "홈 방송"), "$.data.id");
+        given(mediaServerClient.createPublisherToken(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString())).willReturn("token");
+        liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
+        given(statsRepository.topViewers(anyInt())).willReturn(List.of(new Ranked(liveStreamId, 42)));
+        given(statsRepository.topSurging(anyInt())).willReturn(List.of(new Ranked(liveStreamId, 12)));
+        given(statsRepository.getViewerCounts(anyCollection())).willReturn(Map.of(liveStreamId, 42));
+        given(statsRepository.getIncreases(anyCollection())).willReturn(Map.of(liveStreamId, 12));
+
+        mockMvc.perform(get("/api/v1/live-streams/home").param("size", "5")
+                        .header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.mostViewed[0].liveStreamId").value(liveStreamId))
+                .andExpect(jsonPath("$.data.mostViewed[0].title").value("홈 방송"))
+                .andExpect(jsonPath("$.data.mostViewed[0].sellerNickname").value(seller.nickname()))
+                .andExpect(jsonPath("$.data.mostViewed[0].viewerCount").value(42))
+                .andExpect(jsonPath("$.data.surging[0].liveStreamId").value(liveStreamId))
+                .andExpect(jsonPath("$.data.surging[0].viewerIncrease").value(12));
+
+        liveStreamService.end(liveStreamId, seller.id());
     }
 
     private org.springframework.test.web.servlet.ResultActions create(Member seller, String title) throws Exception {

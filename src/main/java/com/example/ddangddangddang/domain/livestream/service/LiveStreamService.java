@@ -27,6 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class LiveStreamService {
 
+    // 시청 입장 토큰의 LiveKit identity 앞부분. 시청자 수를 셀 때 판매자와 구분하는 데도 쓴다. (LiveViewerStatsCollector)
+    public static final String VIEWER_IDENTITY_PREFIX = "viewer-";
+
     private final LiveStreamRepository liveStreamRepository;
     private final MediaServerClient mediaServerClient;
     private final ApplicationEventPublisher eventPublisher;
@@ -203,6 +206,6 @@ public class LiveStreamService {
     }
 
     private String viewerIdentity(Long memberId) {
-        return "viewer-" + memberId;
+        return VIEWER_IDENTITY_PREFIX + memberId;
     }
 }
