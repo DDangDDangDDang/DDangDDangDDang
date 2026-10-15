@@ -44,7 +44,7 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
   // 실시간으로 받은 방송 정보가 지금 보고 있는 방송이면 화면에 반영한다.
   useEffect(() => {
     if (streamUpdate && streamUpdate.id === liveStreamId) setStream(streamUpdate);
-  }, [streamUpdate]);
+  }, [streamUpdate, liveStreamId]);
 
   // 방송 정보가 바뀌면(조회, 수정, 실시간 알림) 수정 폼도 그 값으로 다시 채운다.
   useEffect(() => {
