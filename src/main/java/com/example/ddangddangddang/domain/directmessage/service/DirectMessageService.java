@@ -9,6 +9,7 @@ import com.example.ddangddangddang.domain.directmessage.dto.DmUnreadCountRespons
 import com.example.ddangddangddang.domain.directmessage.entity.DmMessage;
 import com.example.ddangddangddang.domain.directmessage.entity.DmRoom;
 import com.example.ddangddangddang.domain.directmessage.exception.DirectMessageErrorCode;
+import com.example.ddangddangddang.domain.directmessage.repository.DmBlockRepository;
 import com.example.ddangddangddang.domain.directmessage.repository.DmMessageRepository;
 import com.example.ddangddangddang.domain.directmessage.repository.DmMessageRepository.RoomUnreadCount;
 import com.example.ddangddangddang.domain.directmessage.repository.DmRateLimitRepository;
@@ -30,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,7 +42,7 @@ import java.util.stream.Collectors;
  *
  * 보내기·읽음은 HTTP로 받아 DB에 저장하고, 커밋된 뒤 StompBroadcaster.sendToUser로 /user/queue/dm 에 실시간 전달한다.
  * 상대가 접속해 있지 않아도 메시지는 저장되어 있어, 대화방 목록과 이전 메시지 조회로 볼 수 있다.
- * 남용은 내용 필터(연락처·계좌 등)와 도배 제한으로 막는다.
+ * 남용은 내용 필터(연락처·계좌 등), 도배 제한, 차단, 신고로 막는다.
  */
 @Slf4j
 @Service
@@ -56,6 +58,7 @@ public class DirectMessageService {
 
     private final DmRoomRepository dmRoomRepository;
     private final DmMessageRepository dmMessageRepository;
+    private final DmBlockRepository dmBlockRepository;
     private final DmRateLimitRepository dmRateLimitRepository;
     private final UserRepository userRepository;
     private final ChatContentFilter contentFilter;
@@ -63,7 +66,7 @@ public class DirectMessageService {
     private final TransactionTemplate transactionTemplate;
 
     /**
-     * 상대와의 대화방을 가져온다. 없으면 만든다.
+     * 상대와의 대화방을 가져온다. 없으면 만든다. 차단한 상대여도 방은 열 수 있다. (이전 대화 보기, 차단 해제)
      *
      * 두 사람이 동시에 서로에게 방을 만들면 유니크 제약에 한 쪽이 실패하는데, 그때는 먼저 만들어진 방을 다시 찾아 돌려준다.
      * 실패한 저장이 이 메서드의 트랜잭션을 롤백 전용으로 만들지 않도록, 저장은 TransactionTemplate으로 따로 커밋한다.
@@ -79,7 +82,8 @@ public class DirectMessageService {
         DmRoom candidate = DmRoom.create(userId, targetUserId);
         DmRoom room = dmRoomRepository.findByUser1IdAndUser2Id(candidate.getUser1Id(), candidate.getUser2Id())
                 .orElseGet(() -> createRoom(candidate));
-        return DmRoomResponse.of(room, userId, target.getNickname(), unreadCount(userId, room.getId()));
+        return DmRoomResponse.of(room, userId, target.getNickname(), unreadCount(userId, room.getId()),
+                dmBlockRepository.existsByBlockerIdAndBlockedId(userId, targetUserId));
     }
 
     private DmRoom createRoom(DmRoom candidate) {
@@ -108,10 +112,14 @@ public class DirectMessageService {
         Map<Long, Long> unreadCounts = dmMessageRepository
                 .countUnreadByRoom(userId, rooms.stream().map(DmRoom::getId).toList()).stream()
                 .collect(Collectors.toMap(RoomUnreadCount::getRoomId, RoomUnreadCount::getCount));
+        Set<Long> blocked = new HashSet<>(dmBlockRepository.findBlockedIds(userId, otherUserIds));
 
         return CursorResponse.of(rooms, pageSize,
-                room -> DmRoomResponse.of(room, userId, nicknames.get(room.otherUserId(userId)),
-                        unreadCounts.getOrDefault(room.getId(), 0L)),
+                room -> {
+                    Long otherUserId = room.otherUserId(userId);
+                    return DmRoomResponse.of(room, userId, nicknames.get(otherUserId),
+                            unreadCounts.getOrDefault(room.getId(), 0L), blocked.contains(otherUserId));
+                },
                 DmRoom::getLastMessageId);
     }
 
@@ -132,7 +140,7 @@ public class DirectMessageService {
     /**
      * 메시지를 저장하고, 커밋된 뒤 상대와 나에게 실시간으로 보낸다. 보낸 사람은 자기 메시지까지 읽은 것으로 한다.
      *
-     * 검사 순서: 참여자 → 같은 clientMessageId 재전송 → 내용 필터 → 도배 제한
+     * 검사 순서: 참여자 → 같은 clientMessageId 재전송 → 내용 필터 → 차단 → 도배 제한
      * 같은 clientMessageId로 다시 보내면(응답을 못 받은 재전송) 다른 검사 없이 처음 저장한 메시지를 돌려준다.
      * 이 경우 처음 보낼 때 이미 실시간 전달을 했으므로 다시 보내지 않고, 도배 횟수에도 세지 않는다.
      */
@@ -155,6 +163,7 @@ public class DirectMessageService {
             throw new BusinessException(DirectMessageErrorCode.CONTENT_NOT_ALLOWED, violation.getMessage());
         });
         Long otherUserId = room.otherUserId(userId);
+        validateNotBlocked(userId, otherUserId);
         if (dmRateLimitRepository.increment(userId, RATE_LIMIT_WINDOW) > RATE_LIMIT_MAX_MESSAGES) {
             throw new BusinessException(DirectMessageErrorCode.TOO_MANY_MESSAGES);
         }
@@ -212,6 +221,15 @@ public class DirectMessageService {
         return room.isUser1(userId)
                 ? dmRoomRepository.markReadByUser1(room.getId(), messageId)
                 : dmRoomRepository.markReadByUser2(room.getId(), messageId);
+    }
+
+    private void validateNotBlocked(Long userId, Long otherUserId) {
+        if (dmBlockRepository.existsByBlockerIdAndBlockedId(userId, otherUserId)) {
+            throw new BusinessException(DirectMessageErrorCode.BLOCKED_BY_ME);
+        }
+        if (dmBlockRepository.existsByBlockerIdAndBlockedId(otherUserId, userId)) {
+            throw new BusinessException(DirectMessageErrorCode.BLOCKED_BY_OTHER);
+        }
     }
 
     private long unreadCount(Long userId, Long roomId) {

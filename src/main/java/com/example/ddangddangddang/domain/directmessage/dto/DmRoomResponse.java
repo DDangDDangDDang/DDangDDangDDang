@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
  * - last*: 마지막 메시지. 메시지가 아직 없으면 null
  * - unreadCount: 상대가 보낸 메시지 중 내가 읽지 않은 수
  * - otherLastReadMessageId: 상대가 마지막으로 읽은 메시지. 내가 보낸 메시지 중 이보다 id가 크면 상대가 아직 안 읽은 것("1")
+ * - blockedByMe: 내가 상대를 차단했는지
  */
 public record DmRoomResponse(
         Long roomId,
@@ -18,13 +19,14 @@ public record DmRoomResponse(
         String lastMessagePreview,
         LocalDateTime lastMessageAt,
         long unreadCount,
-        Long otherLastReadMessageId
+        Long otherLastReadMessageId,
+        boolean blockedByMe
 ) {
-    public static DmRoomResponse of(DmRoom room, Long userId, String otherNickname, long unreadCount) {
+    public static DmRoomResponse of(DmRoom room, Long userId, String otherNickname, long unreadCount, boolean blockedByMe) {
         Long otherUserId = room.otherUserId(userId);
         return new DmRoomResponse(room.getId(), new OtherUser(otherUserId, otherNickname),
                 room.getLastMessageId(), room.getLastMessagePreview(), room.getLastMessageAt(),
-                unreadCount, room.lastReadMessageId(otherUserId));
+                unreadCount, room.lastReadMessageId(otherUserId), blockedByMe);
     }
 
     // 탈퇴 등으로 회원을 찾지 못하면 nickname은 null

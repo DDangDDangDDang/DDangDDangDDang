@@ -62,7 +62,8 @@ class DirectMessageControllerTest extends DmApiTestSupport {
                     .andExpect(jsonPath("$.data.otherUser.userId").value(bob.id()))
                     .andExpect(jsonPath("$.data.otherUser.nickname").value(bob.nickname()))
                     .andExpect(jsonPath("$.data.lastMessageId").doesNotExist())
-                    .andExpect(jsonPath("$.data.unreadCount").value(0));
+                    .andExpect(jsonPath("$.data.unreadCount").value(0))
+                    .andExpect(jsonPath("$.data.blockedByMe").value(false));
             Long roomId = roomId(alice, bob.id());
 
             assertThat(roomId(bob, alice.id())).isEqualTo(roomId);

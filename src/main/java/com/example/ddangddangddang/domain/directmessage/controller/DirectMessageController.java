@@ -4,10 +4,13 @@ import com.example.ddangddangddang.domain.directmessage.dto.DmMessageResponse;
 import com.example.ddangddangddang.domain.directmessage.dto.DmMessageSendRequest;
 import com.example.ddangddangddang.domain.directmessage.dto.DmReadRequest;
 import com.example.ddangddangddang.domain.directmessage.dto.DmReadResponse;
+import com.example.ddangddangddang.domain.directmessage.dto.DmReportRequest;
+import com.example.ddangddangddang.domain.directmessage.dto.DmReportResponse;
 import com.example.ddangddangddang.domain.directmessage.dto.DmRoomCreateRequest;
 import com.example.ddangddangddang.domain.directmessage.dto.DmRoomResponse;
 import com.example.ddangddangddang.domain.directmessage.dto.DmUnreadCountResponse;
 import com.example.ddangddangddang.domain.directmessage.service.DirectMessageService;
+import com.example.ddangddangddang.domain.directmessage.service.DmReportService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
@@ -27,6 +30,7 @@ import org.springframework.web.bind.annotation.*;
 public class DirectMessageController {
 
     private final DirectMessageService directMessageService;
+    private final DmReportService dmReportService;
 
     /**
      * 상대와의 대화방을 가져온다. 없으면 만든다. (같은 두 사람 사이의 방은 하나)
@@ -82,5 +86,17 @@ public class DirectMessageController {
             @RequestBody(required = false) DmReadRequest request) {
         Long lastReadMessageId = request == null ? null : request.lastReadMessageId();
         return ResponseEntity.ok(ApiResponse.ok(directMessageService.markRead(authUser.id(), roomId, lastReadMessageId)));
+    }
+
+    /**
+     * 대화 상대 또는 상대의 메시지를 신고한다.
+     */
+    @PostMapping("/rooms/{roomId}/reports")
+    public ResponseEntity<ApiResponse<DmReportResponse>> report(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long roomId,
+            @Valid @RequestBody DmReportRequest request) {
+        DmReportResponse response = dmReportService.report(authUser.id(), roomId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
 }
