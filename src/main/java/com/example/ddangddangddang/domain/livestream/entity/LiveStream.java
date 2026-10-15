@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -31,6 +32,10 @@ public class LiveStream extends BaseTimeEntity {
     @Column(nullable = false, length = 100)
     private String title;
 
+    // 방송 소개. 없으면 null
+    @Column(length = 1000)
+    private String description;
+
     // LiveKit 방 이름. 외부에 노출되므로 순번 ID 대신 UUID 사용
     @Column(name = "room_name", nullable = false, unique = true, length = 64)
     private String roomName;
@@ -46,15 +51,46 @@ public class LiveStream extends BaseTimeEntity {
     @Version
     private Long version;
 
-    private LiveStream(Long sellerId, String title) {
+    private LiveStream(Long sellerId, String title, String description) {
         this.sellerId = sellerId;
         this.title = title;
+        this.description = description;
         this.roomName = "live-" + UUID.randomUUID();
         this.status = LiveStreamStatus.SCHEDULED;
     }
 
     public static LiveStream create(Long sellerId, String title) {
-        return new LiveStream(sellerId, title);
+        return create(sellerId, title, null);
+    }
+
+    public static LiveStream create(Long sellerId, String title, String description) {
+        return new LiveStream(sellerId, title, description);
+    }
+
+    /**
+     * 방송 정보를 바꾼다. null인 값은 바꾸지 않는다. 대기 중이거나 방송 중일 때만 바꿀 수 있다.
+     * description을 빈 문자열로 보내면 설명을 지운다. (서비스에서 null 대신 빈 문자열로 넘김)
+     *
+     * @return 실제로 바뀐 값이 있으면 true
+     */
+    public boolean update(Long requesterId, String title, String description) {
+        validateOwner(requesterId);
+        if (status == LiveStreamStatus.ENDED) {
+            throw new BusinessException(LiveStreamErrorCode.ALREADY_ENDED);
+        }
+        boolean changed = false;
+        if (title != null && !title.equals(this.title)) {
+            this.title = title;
+            changed = true;
+        }
+        if (description != null) {
+            String newDescription = description.isEmpty() ? null : description;
+            if (!Objects.equals(newDescription, this.description)) {
+                this.description = newDescription;
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     public void start(Long requesterId) {

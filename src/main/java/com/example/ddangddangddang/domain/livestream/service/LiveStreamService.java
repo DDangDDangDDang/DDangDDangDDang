@@ -1,15 +1,19 @@
 package com.example.ddangddangddang.domain.livestream.service;
 
+import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamEndedEvent;
+import com.example.ddangddangddang.domain.livestream.event.LiveStreamUpdatedEvent;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -25,12 +29,64 @@ public class LiveStreamService {
     private final LiveStreamRepository liveStreamRepository;
     private final MediaServerClient mediaServerClient;
     private final ApplicationEventPublisher eventPublisher;
+    private final ChatContentFilter contentFilter;
 
     // TODO: 판매자 권한(ROLE_SELLER) 확인은 인증 담당과 방식 확정 후 추가
     @Transactional
     public LiveStreamResponse create(Long sellerId, LiveStreamCreateRequest request) {
-        LiveStream liveStream = liveStreamRepository.save(LiveStream.create(sellerId, request.title()));
+        String title = requireTitle(request.title());
+        String description = blankToNull(request.description());
+        validateContent(title);
+        validateContent(description);
+        LiveStream liveStream = liveStreamRepository.save(LiveStream.create(sellerId, title, description));
         return LiveStreamResponse.from(liveStream);
+    }
+
+    /**
+     * 방송 정보(제목·설명)를 바꾼다. 대기 중이거나 방송 중일 때 방송 주인만 바꿀 수 있다.
+     * 바뀐 값이 있으면 커밋 뒤 /topic/live-streams/{id} 구독자(시청자 화면)에게 알린다.
+     */
+    @Transactional
+    public LiveStreamResponse update(Long liveStreamId, Long sellerId, LiveStreamUpdateRequest request) {
+        LiveStream liveStream = findById(liveStreamId);
+        String title = request.title() == null ? null : requireTitle(request.title());
+        // null은 그대로 두기, 빈 문자열(공백만 포함)은 설명 지우기
+        String description = request.description() == null ? null : request.description().strip();
+        validateContent(title);
+        validateContent(description);
+
+        if (!liveStream.update(sellerId, title, description)) {
+            return LiveStreamResponse.from(liveStream);
+        }
+        flushWithVersionCheck(liveStream);
+
+        LiveStreamResponse response = LiveStreamResponse.from(liveStream);
+        eventPublisher.publishEvent(new LiveStreamUpdatedEvent(response));
+        return response;
+    }
+
+    // 판매자가 제목·설명에 연락처나 외부 링크를 적어 플랫폼 밖 거래로 유도하지 못하게 채팅과 같은 규칙으로 막는다.
+    private void validateContent(String content) {
+        contentFilter.findViolation(content).ifPresent(violation -> {
+            throw new BusinessException(LiveStreamErrorCode.CONTENT_NOT_ALLOWED, violation.getMessage());
+        });
+    }
+
+    /**
+     * 저장할 값과 같은 기준(strip)으로 비었는지 본다.
+     * 요청 검증(@NotBlank의 trim, 정규식 \S)은 전각 공백(U+2003) 같은 유니코드 공백만으로 된 제목을 통과시킬 수 있어
+     * strip 뒤 빈 제목이 저장되지 않도록 여기서 한 번 더 막는다.
+     */
+    private static String requireTitle(String title) {
+        String stripped = title == null ? "" : title.strip();
+        if (stripped.isEmpty()) {
+            throw new BusinessException(CommonErrorCode.INVALID_INPUT, "방송 제목은 비워 둘 수 없습니다.");
+        }
+        return stripped;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.strip();
     }
 
     public LiveStreamResponse get(Long liveStreamId) {

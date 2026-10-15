@@ -23,11 +23,17 @@ export type LiveStream = {
   id: number;
   sellerId: number;
   title: string;
+  description: string | null;
   status: LiveStreamStatus;
   createdAt: string;
   startedAt: string | null;
   endedAt: string | null;
 };
+export type LiveStreamUpdate = { title?: string; description?: string };
+
+// /topic/live-streams/{id} 로 오는 방송 정보 변경 알림. 바뀐 값만이 아니라 방송 전체 정보가 온다.
+export type LiveStreamUpdatedMessage = { type: 'UPDATED'; liveStream: LiveStream };
+
 export type LiveStreamToken = {
   liveStreamId: number;
   roomName: string;
@@ -175,8 +181,11 @@ async function logoutWithFreshToken(): Promise<void> {
 }
 
 export const liveStreamApi = {
-  create: (title: string) => api<LiveStream>('POST', '/api/v1/live-streams', { title }),
+  create: (title: string, description?: string) =>
+    api<LiveStream>('POST', '/api/v1/live-streams', { title, description: description || undefined }),
   get: (id: number) => api<LiveStream>('GET', `/api/v1/live-streams/${id}`),
+  // 보낸 값만 바뀐다. description을 ''로 보내면 설명을 지운다.
+  update: (id: number, changes: LiveStreamUpdate) => api<LiveStream>('PATCH', `/api/v1/live-streams/${id}`, changes),
   start: (id: number) => api<LiveStreamToken>('POST', `/api/v1/live-streams/${id}/start`),
   join: (id: number) => api<LiveStreamToken>('POST', `/api/v1/live-streams/${id}/join`),
   // 방송 중인 판매자가 다시 송출할 때 (새로고침, 송출 연결 끊김, 토큰 만료)

@@ -7,7 +7,7 @@ import {
   RoomEvent,
   Track,
 } from 'livekit-client';
-import { errorText, LiveStream, LiveStreamToken, liveStreamApi } from './api';
+import { errorText, LiveStream, LiveStreamToken, LiveStreamUpdate, liveStreamApi } from './api';
 import type { Log } from './App';
 
 type Props = {
@@ -15,12 +15,18 @@ type Props = {
   userId: number;
   liveStreamId: number | null;
   onLiveStreamIdChange: (id: number | null) => void;
+  // 채팅 연결로 받은 방송 정보 변경 알림 (다른 탭·다른 사용자의 수정도 여기로 온다)
+  streamUpdate: LiveStream | null;
 };
 
 type Mode = 'publisher' | 'viewer';
 
-export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdChange }: Props) {
+export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdChange, streamUpdate }: Props) {
   const [title, setTitle] = useState('테스트 방송');
+  const [description, setDescription] = useState('');
+  // 방송 정보 수정 폼. 지금 방송 정보로 채워 두고, 바뀐 값만 보낸다.
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [idInput, setIdInput] = useState(liveStreamId ? String(liveStreamId) : '');
   const [stream, setStream] = useState<LiveStream | null>(null);
   const [mode, setMode] = useState<Mode | null>(null);
@@ -34,6 +40,17 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
   useEffect(() => {
     setIdInput(liveStreamId ? String(liveStreamId) : '');
   }, [liveStreamId]);
+
+  // 실시간으로 받은 방송 정보가 지금 보고 있는 방송이면 화면에 반영한다.
+  useEffect(() => {
+    if (streamUpdate && streamUpdate.id === liveStreamId) setStream(streamUpdate);
+  }, [streamUpdate, liveStreamId]);
+
+  // 방송 정보가 바뀌면(조회, 수정, 실시간 알림) 수정 폼도 그 값으로 다시 채운다.
+  useEffect(() => {
+    setEditTitle(stream?.title ?? '');
+    setEditDescription(stream?.description ?? '');
+  }, [stream?.id, stream?.title, stream?.description]);
 
   // 화면을 떠나면 LiveKit 연결을 정리한다.
   useEffect(() => () => void roomRef.current?.disconnect(), []);
@@ -58,7 +75,7 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
 
   const create = () =>
     run('방송 생성', async () => {
-      const created = await liveStreamApi.create(title);
+      const created = await liveStreamApi.create(title, description);
       setStream(created);
       onLiveStreamIdChange(created.id);
       log(`방송 생성: id=${created.id}, 상태=${created.status}`);
@@ -103,6 +120,22 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
       const token = await liveStreamApi.join(currentId());
       log(`시청 입장: room=${token.roomName}`);
       await connect(token, 'viewer');
+    });
+
+  // 바뀐 값만 보낸다. 설명을 모두 지우면 ''를 보내 서버에서 설명을 삭제한다.
+  const update = () =>
+    run('방송 정보 수정', async () => {
+      if (!stream) return;
+      const changes: LiveStreamUpdate = {};
+      if (editTitle !== stream.title) changes.title = editTitle;
+      if (editDescription !== (stream.description ?? '')) changes.description = editDescription;
+      if (Object.keys(changes).length === 0) {
+        log('바뀐 내용이 없어요.');
+        return;
+      }
+      const updated = await liveStreamApi.update(stream.id, changes);
+      setStream(updated);
+      log(`방송 정보 수정: 제목="${updated.title}", 설명="${updated.description ?? ''}"`);
     });
 
   const end = () =>
@@ -212,6 +245,10 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
           방송 제목
           <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} />
         </label>
+        <label className="grow">
+          방송 설명 (선택)
+          <input value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} />
+        </label>
         <button type="button" onClick={create} disabled={busy}>방송 만들기</button>
       </div>
 
@@ -227,9 +264,40 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
       </div>
 
       {stream && (
-        <p className="meta">
-          #{stream.id} · {stream.title} · 판매자 id {stream.sellerId} · 상태 <strong>{stream.status}</strong>
-        </p>
+        <div className="stream-info">
+          <p className="meta">
+            #{stream.id} · <strong className="stream-title">{stream.title}</strong> · 판매자 id {stream.sellerId} · 상태{' '}
+            <strong>{stream.status}</strong>
+          </p>
+          <p className="meta">{stream.description || '설명 없음'}</p>
+        </div>
+      )}
+
+      {stream && stream.sellerId === userId && stream.status !== 'ENDED' && (
+        <fieldset className="edit-box">
+          <legend>방송 정보 수정 (판매자)</legend>
+          <div className="row">
+            <label className="grow">
+              제목
+              <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} maxLength={100} />
+            </label>
+          </div>
+          <label>
+            설명 (모두 지우고 저장하면 설명 삭제)
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              maxLength={1000}
+              rows={3}
+            />
+          </label>
+          <div className="row between">
+            <span className="meta">
+              {editDescription.length}/1000 · 방송 중에 바꾸면 채팅에 연결된 시청자 화면에도 바로 반영돼요
+            </span>
+            <button type="button" className="primary" onClick={update} disabled={busy}>정보 저장</button>
+          </div>
+        </fieldset>
       )}
 
       <div className="row">
