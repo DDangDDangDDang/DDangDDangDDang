@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { errorText, logout, onSessionChange, reissue, UserInfo } from './api';
+import { errorText, LiveStream, logout, onSessionChange, reissue, UserInfo } from './api';
 import AuthPanel from './AuthPanel';
 import LivePanel from './LivePanel';
 import ChatPanel from './ChatPanel';
@@ -13,6 +13,8 @@ export default function App() {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [restoring, setRestoring] = useState(true);
   const [liveStreamId, setLiveStreamId] = useState<number | null>(null);
+  // 채팅 패널이 /topic/live-streams/{id} 에서 받은 최신 방송 정보. 방송 패널 화면에 반영한다.
+  const [streamUpdate, setStreamUpdate] = useState<LiveStream | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
   const log = useCallback<Log>((message, level = 'info') => {
@@ -59,8 +61,14 @@ export default function App() {
 
       {user && (
         <main className="grid">
-          <LivePanel log={log} userId={user.userId} liveStreamId={liveStreamId} onLiveStreamIdChange={setLiveStreamId} />
-          <ChatPanel log={log} liveStreamId={liveStreamId} />
+          <LivePanel
+            log={log}
+            userId={user.userId}
+            liveStreamId={liveStreamId}
+            onLiveStreamIdChange={setLiveStreamId}
+            streamUpdate={streamUpdate}
+          />
+          <ChatPanel log={log} liveStreamId={liveStreamId} onStreamUpdated={setStreamUpdate} />
         </main>
       )}
 

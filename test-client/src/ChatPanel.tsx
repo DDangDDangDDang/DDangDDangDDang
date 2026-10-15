@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
-import { getAccessToken, reissue } from './api';
+import { getAccessToken, LiveStream, LiveStreamUpdatedMessage, reissue } from './api';
 import type { Log } from './App';
 
-type Props = { log: Log; liveStreamId: number | null };
+type Props = { log: Log; liveStreamId: number | null; onStreamUpdated: (stream: LiveStream) => void };
 
 type ChatItem =
   | { kind: 'chat'; key: string; nickname: string; senderId: number; content: string; sentAt: string }
@@ -27,7 +27,7 @@ function wsUrl(): string {
   return `${protocol}://${window.location.host}/ws`;
 }
 
-export default function ChatPanel({ log, liveStreamId }: Props) {
+export default function ChatPanel({ log, liveStreamId, onStreamUpdated }: Props) {
   const [connected, setConnected] = useState(false);
   // 연결에 성공할 때마다 1씩 오른다. 재연결로 client가 바뀌어도 connected가 true로 유지될 수 있어서,
   // 이 값으로 새 client에 채팅 구독을 다시 건다.
@@ -37,6 +37,7 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
 
   const clientRef = useRef<Client | null>(null);
   const chatSubRef = useRef<StompSubscription | null>(null);
+  const streamSubRef = useRef<StompSubscription | null>(null);
   const retriedRef = useRef(false);
   const listRef = useRef<HTMLUListElement | null>(null);
 
@@ -46,17 +47,29 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [items]);
 
-  // 새로 연결되거나 방송 ID가 바뀌면 지금 client에 채팅 구독을 건다.
+  // 새로 연결되거나 방송 ID가 바뀌면 지금 client에 채팅·방송 정보 구독을 건다.
   useEffect(() => {
     const client = clientRef.current;
     if (!connected || !client) return;
     chatSubRef.current?.unsubscribe();
     chatSubRef.current = null;
+    streamSubRef.current?.unsubscribe();
+    streamSubRef.current = null;
     if (liveStreamId) {
       chatSubRef.current = client.subscribe(`/topic/live-streams/${liveStreamId}/chat`, onChatMessage);
-      log(`채팅 구독: 방송 #${liveStreamId}`);
+      streamSubRef.current = client.subscribe(`/topic/live-streams/${liveStreamId}`, onStreamMessage);
+      log(`채팅·방송 정보 구독: 방송 #${liveStreamId}`);
     }
   }, [connected, connectionGen, liveStreamId]);
+
+  // 판매자가 방송 제목·설명을 바꾸면 온다. 방송 패널 화면을 갱신하고 채팅에도 안내를 남긴다.
+  function onStreamMessage(frame: IMessage) {
+    const msg = JSON.parse(frame.body) as LiveStreamUpdatedMessage;
+    if (msg.type !== 'UPDATED') return;
+    onStreamUpdated(msg.liveStream);
+    push({ kind: 'system', key: nextKey(), content: `방송 정보가 바뀌었어요: ${msg.liveStream.title}`, sentAt: '' });
+    log(`방송 정보 변경 수신: 제목="${msg.liveStream.title}", 설명="${msg.liveStream.description ?? ''}"`);
+  }
 
   useEffect(
     () => () => {
@@ -90,6 +103,7 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
     clientRef.current?.deactivate();
     // 이전 client의 구독은 그 client와 함께 끝난다. 새 client에서 해제하지 않도록 비워 둔다.
     chatSubRef.current = null;
+    streamSubRef.current = null;
 
     const client = new Client({
       brokerURL: wsUrl(),
@@ -141,6 +155,7 @@ export default function ChatPanel({ log, liveStreamId }: Props) {
       if (!isCurrent(client)) return;
       setConnected(false);
       chatSubRef.current = null;
+      streamSubRef.current = null;
     };
 
     clientRef.current = client;
