@@ -4,8 +4,11 @@ import com.example.ddangddangddang.domain.category.dto.request.CategoryRequest;
 import com.example.ddangddangddang.domain.category.dto.request.UpdateRequest;
 import com.example.ddangddangddang.domain.category.dto.response.CategoryResponse;
 import com.example.ddangddangddang.domain.category.entity.Category;
+import com.example.ddangddangddang.domain.category.exception.CategoryErrorCode;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
-import jakarta.validation.Valid;
+import com.example.ddangddangddang.domain.product.entity.Status;
+import com.example.ddangddangddang.domain.product.repository.ProductRepository;
+import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +21,9 @@ import java.util.List;
 @Transactional
 public class CategoryService {
     private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
 
+    //카테고리 전체 조회
     @Transactional(readOnly = true)
     public List<CategoryResponse> findAdd() {
         List<Category> all = categoryRepository.findAllByOrderBySortOrderAscIdAsc();
@@ -47,17 +52,20 @@ public class CategoryService {
         return responses;
     }
 
-
+    //카테고리 생성
     public CategoryResponse creation(CategoryRequest request) {
         Category parent = null;
 
         if (request.parentId() != null) {
             // 저장된 카테고리중 입력한 카테고리가 있는지 확인(상위,하위 관계없지 검증)
-            parent = categoryRepository.findById(request.parentId()).orElseThrow(() -> new IllegalArgumentException("저장된 상위 카테고리 내에 없습니다"));
+            parent = categoryRepository.findById(request.parentId()).orElseThrow(
+                    () -> new BusinessException(CategoryErrorCode.NOT_FOUND));
             // 입력한 상위 카테고리가 진짜 상위 인지 검증
             if (parent.getParent() != null) {
-                throw new IllegalArgumentException("상위 카테고리는 대분류만 선택 가능합니다.");
-
+                throw new BusinessException(CategoryErrorCode.PARENT_NOT_TOP_LEVEL);
+            }
+            if (productRepository.existsByCategoryIdAndStatusNot(parent.getId(), Status.DELETED)){
+                throw new BusinessException(CategoryErrorCode.PARENT_HAS_PRODUCTS);
             }
         }
         boolean duplicated;
@@ -67,8 +75,8 @@ public class CategoryService {
             duplicated = categoryRepository.existsByParentIsNullAndName(request.name()) || categoryRepository.existsByParentIdAndName(parent.getId(), request.name());
 
         }
-        if (duplicated) {
-            throw new IllegalArgumentException("이미 같은 이름의 카테고리가 있습니다");
+        if (duplicated) {//카테고리 내에 상품이 있는가
+            throw new BusinessException(CategoryErrorCode.DUPLICATE_NAME);
         }
 
         int sortOrder = (request.sortOrder() != null) ? request.sortOrder() : 0;
@@ -78,8 +86,10 @@ public class CategoryService {
 
     }
 
+    //카테고리 수정
     public CategoryResponse updateCategory(Long categoryId, UpdateRequest request) {
-        Category category = categoryRepository.findById(categoryId).orElseThrow(() -> new IllegalArgumentException("카테고리가 존재 하지 않습니다"));
+        Category category = categoryRepository.findById(categoryId).orElseThrow(
+                () -> new BusinessException(CategoryErrorCode.NOT_FOUND));
 
         if (!category.getName().equals(request.name())) {
             boolean duplicated;
@@ -92,7 +102,7 @@ public class CategoryService {
             }
 
             if (duplicated) {
-                throw new IllegalArgumentException("이미 같은 이름의 카테고리가 있습니다");
+                throw new BusinessException(CategoryErrorCode.DUPLICATE_NAME);
             }
         }
 
@@ -102,11 +112,17 @@ public class CategoryService {
         return CategoryResponse.from(category);
         }
 
+    //카테고리 삭제
     public void delete(Long categoryId) {
-        Category category = categoryRepository.findById(categoryId).orElseThrow(() -> new IllegalArgumentException("카테고리가 존재 하지 않습니다"));
+        Category category = categoryRepository.findById(categoryId).orElseThrow(
+                () -> new BusinessException(CategoryErrorCode.NOT_FOUND));
 
         if (categoryRepository.existsByParentId(categoryId)){
-            throw new IllegalArgumentException("하위 카테고리가 있어 삭제 불가능합니다.");
+            throw new BusinessException(CategoryErrorCode.HAS_CHILDREN);
+        }
+
+        if (productRepository.existsByCategoryId(categoryId)){
+            throw new BusinessException(CategoryErrorCode.HAS_PRODUCTS);
         }
         categoryRepository.delete(category);
     }

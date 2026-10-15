@@ -24,7 +24,7 @@ public class Category extends BaseTimeEntity {
 
     @Column(nullable = false)
     private int sortOrder;
-
+    //카테고리 생성(parent null일시 대분류, 값이 있으면 대분류의 하위 카테고리)
     public Category(Category parent, String name, int sortOrder) {
         this.parent = parent;
         this.name = name;
