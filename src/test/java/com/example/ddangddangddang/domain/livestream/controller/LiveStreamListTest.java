@@ -135,6 +135,45 @@ class LiveStreamListTest {
     }
 
     @Nested
+    @DisplayName("넘겨 보는 사이 방송 상태가 바뀌어도 다음 페이지가 이어진다")
+    class StatusChangedWhilePaging {
+
+        @Test
+        @DisplayName("방송 중 목록 1페이지의 마지막 방송이 그 사이 종료돼도, 그 방송을 커서로 다음 페이지를 가져온다")
+        void liveStreamEndedBetweenPages() throws Exception {
+            Long older = live(token + " 1", BASE.plusMinutes(1));
+            Long newer = live(token + " 2", BASE.plusMinutes(2));
+            Long cursor = longValue(list(Map.of("keyword", token, "size", "1"))
+                    .andExpect(jsonPath("$.data.content[0].liveStreamId").value(newer)), "$.data.nextCursor");
+
+            LiveStream ended = liveStreamRepository.findById(cursor).orElseThrow();
+            ended.end(ended.getSellerId());
+            liveStreamRepository.save(ended);
+
+            list(Map.of("keyword", token, "size", "1", "cursor", String.valueOf(cursor)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.content[0].liveStreamId").value(older));
+        }
+
+        @Test
+        @DisplayName("방송 예정 목록 1페이지의 마지막 방송이 그 사이 시작돼도, 그 방송을 커서로 다음 페이지를 가져온다")
+        void scheduledStreamStartedBetweenPages() throws Exception {
+            Long sooner = scheduled(token + " 먼저", LocalDateTime.now().plusHours(1));
+            Long later = scheduled(token + " 나중", LocalDateTime.now().plusHours(2));
+            Long cursor = longValue(list(Map.of("status", "SCHEDULED", "keyword", token, "size", "1"))
+                    .andExpect(jsonPath("$.data.content[0].liveStreamId").value(sooner)), "$.data.nextCursor");
+
+            LiveStream started = liveStreamRepository.findById(cursor).orElseThrow();
+            started.start(started.getSellerId());
+            liveStreamRepository.save(started);
+
+            list(Map.of("status", "SCHEDULED", "keyword", token, "size", "1", "cursor", String.valueOf(cursor)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.content[0].liveStreamId").value(later));
+        }
+    }
+
+    @Nested
     @DisplayName("검색")
     class Search {
 

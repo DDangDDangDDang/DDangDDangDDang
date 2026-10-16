@@ -81,7 +81,15 @@ public class LiveStreamListService {
         return "%" + escaped + "%";
     }
 
-    // 커서(이전 페이지 마지막 방송)의 정렬 시간. 그 방송이 없거나 이 목록의 방송이 아니었으면 잘못된 커서다.
+    /**
+     * 커서(이전 페이지 마지막 방송)의 정렬 시간. 그 방송이 없거나 이 목록에 한 번도 있지 않았으면 잘못된 커서다.
+     *
+     * 커서 방송의 "지금 상태"가 요청한 status와 같은지는 보지 않는다. 목록을 넘기는 사이 방송 상태가 바뀔 수 있기 때문이다.
+     * (방송 중 목록 1페이지의 마지막 방송이 그 사이 종료되거나, 방송 예정 방송이 시작됨) 지금 상태로 막으면 정상적인 "더 보기"가 실패한다.
+     * 대신 그 상태의 정렬 시간이 있는지로 "이 목록에 있었던 방송"인지 확인한다.
+     * - 시작 시간이 있으면 방송 중 목록에 있었고, 시작 예정 시간이 있으면 방송 예정 목록에, 종료 시간이 있으면 종료 목록에 있었다.
+     * 정렬 시간은 상태가 바뀌어도 그대로 남으므로, 그 시간과 ID 기준으로 다음 페이지를 이어서 가져온다.
+     */
     private LocalDateTime cursorTime(Long cursor, LiveStreamStatus status) {
         LiveStream last = liveStreamRepository.findById(cursor)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.INVALID_INPUT, "잘못된 커서입니다."));
