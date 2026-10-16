@@ -1,7 +1,9 @@
 package com.example.ddangddangddang.domain.order.service;
 
+import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
+import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.entity.OrderRole;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
@@ -9,6 +11,7 @@ import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -27,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -134,30 +139,102 @@ class OrderServiceTest {
     }
 
     @Nested
+    @DisplayName("배송지 입력")
+    class RegisterDeliveryAddress {
+
+        private final OrderAddressRequest request =
+                new OrderAddressRequest("홍길동", "01012345678", "서울시 강남구 테헤란로 1", "문 앞");
+
+        @Test
+        @DisplayName("구매자가 배송지를 입력한다")
+        void success() {
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order(10L)));
+
+            OrderResponse response = orderService.registerDeliveryAddress(BUYER_ID, 10L, request);
+
+            assertThat(response.receiverName()).isEqualTo("홍길동");
+            assertThat(response.address()).isEqualTo("서울시 강남구 테헤란로 1");
+            assertThat(response.deliveryMemo()).isEqualTo("문 앞");
+        }
+
+        @Test
+        @DisplayName("구매자가 아니면 예외가 발생한다")
+        void notBuyer() {
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order(10L)));
+
+            assertThatThrownBy(() -> orderService.registerDeliveryAddress(SELLER_ID, 10L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(OrderErrorCode.NOT_ORDER_BUYER_ADDRESS);
+        }
+    }
+
+    @Nested
     @DisplayName("발송 처리")
     class Ship {
 
         @Test
-        @DisplayName("판매자가 발송하면 SHIPPING이 된다")
+        @DisplayName("판매자가 택배사와 송장번호를 입력하면 SHIPPING이 된다")
         void success() {
-            Order order = order(10L);
-            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(shippableOrder(10L)));
 
-            OrderResponse response = orderService.ship(SELLER_ID, 10L, "1234567890");
+            OrderResponse response = orderService.ship(SELLER_ID, 10L, Courier.CJ, "1234567890");
 
             assertThat(response.status()).isEqualTo(OrderStatus.SHIPPING);
+            assertThat(response.courier()).isEqualTo(Courier.CJ);
             assertThat(response.trackingNo()).isEqualTo("1234567890");
+            verify(orderRepository).flush();
         }
 
         @Test
         @DisplayName("판매자가 아니면 예외가 발생한다")
         void notSeller() {
-            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order(10L)));
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(shippableOrder(10L)));
 
-            assertThatThrownBy(() -> orderService.ship(BUYER_ID, 10L, "1234567890"))
+            assertThatThrownBy(() -> orderService.ship(BUYER_ID, 10L, Courier.CJ, "1234567890"))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(OrderErrorCode.NOT_ORDER_SELLER);
+        }
+
+        @Test
+        @DisplayName("같은 송장이 다른 주문에 있으면 발송하지 않는다")
+        void duplicateTrackingNo() {
+            Order order = shippableOrder(10L);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+            given(orderRepository.existsByCourierAndTrackingNo(Courier.CJ, "1234567890")).willReturn(true);
+
+            assertThatThrownBy(() -> orderService.ship(SELLER_ID, 10L, Courier.CJ, "1234567890"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(OrderErrorCode.DUPLICATE_TRACKING_NO);
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.ESCROW);
+        }
+
+        @Test
+        @DisplayName("동시에 등록돼 유니크 제약에 걸리면 DUPLICATE_TRACKING_NO로 바꾼다")
+        void uniqueViolationOnFlush() {
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(shippableOrder(10L)));
+            willThrow(new DataIntegrityViolationException("duplicate",
+                    new ConstraintViolationException("duplicate", null, "orders." + Order.UK_COURIER_TRACKING_NO)))
+                    .given(orderRepository).flush();
+
+            assertThatThrownBy(() -> orderService.ship(SELLER_ID, 10L, Courier.CJ, "1234567890"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(OrderErrorCode.DUPLICATE_TRACKING_NO);
+        }
+
+        @Test
+        @DisplayName("다른 제약 위반은 그대로 던진다")
+        void otherViolationOnFlush() {
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(shippableOrder(10L)));
+            willThrow(new DataIntegrityViolationException("other",
+                    new ConstraintViolationException("other", null, "orders.uk_something_else")))
+                    .given(orderRepository).flush();
+
+            assertThatThrownBy(() -> orderService.ship(SELLER_ID, 10L, Courier.CJ, "1234567890"))
+                    .isInstanceOf(DataIntegrityViolationException.class);
         }
     }
 
@@ -168,8 +245,8 @@ class OrderServiceTest {
         @Test
         @DisplayName("구매자가 확정하면 COMPLETED가 되고 판매자에게 낙찰 금액을 정산한다")
         void success() {
-            Order order = order(10L);
-            order.ship("1234567890");
+            Order order = shippableOrder(10L);
+            order.ship(Courier.CJ, "1234567890");
             given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
 
             OrderResponse response = orderService.confirmPurchase(BUYER_ID, 10L);
@@ -181,8 +258,8 @@ class OrderServiceTest {
         @Test
         @DisplayName("구매자가 아니면 예외가 발생하고 정산하지 않는다")
         void notBuyer() {
-            Order order = order(10L);
-            order.ship("1234567890");
+            Order order = shippableOrder(10L);
+            order.ship(Courier.CJ, "1234567890");
             given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
 
             assertThatThrownBy(() -> orderService.confirmPurchase(SELLER_ID, 10L))
@@ -208,6 +285,12 @@ class OrderServiceTest {
     private Order order(Long orderId) {
         Order order = Order.create(100L, BUYER_ID, SELLER_ID, "아이패드", "https://img/1.png", 500_000L);
         ReflectionTestUtils.setField(order, "id", orderId);
+        return order;
+    }
+
+    private Order shippableOrder(Long orderId) {
+        Order order = order(orderId);
+        order.registerDeliveryAddress("홍길동", "01012345678", "서울시 강남구 테헤란로 1", null);
         return order;
     }
 }

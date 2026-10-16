@@ -142,6 +142,10 @@ public class Order extends BaseTimeEntity {
         if (status != OrderStatus.ESCROW) {
             throw new BusinessException(OrderErrorCode.CANNOT_SHIP);
         }
+        if (!hasDeliveryAddress()) {
+            throw new BusinessException(OrderErrorCode.ADDRESS_REQUIRED);
+        }
+
         this.courier = courier;
         this.trackingNo = trackingNo;
         this.shippedAt = LocalDateTime.now();
