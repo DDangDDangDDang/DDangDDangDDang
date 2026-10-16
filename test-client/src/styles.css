@@ -32,6 +32,7 @@ body { margin: 0; background: var(--bg); }
 .grow { flex: 1 1 200px; }
 
 label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; }
+label.checkbox { flex-direction: row; align-items: center; height: 40px; }
 input { height: 40px; padding: 0 10px; border: 1px solid #a3a3a3; border-radius: 8px; font: inherit; font-weight: 400; }
 input.short { width: 96px; }
 textarea { padding: 8px 10px; border: 1px solid #a3a3a3; border-radius: 8px; font: inherit; font-weight: 400; resize: vertical; }
