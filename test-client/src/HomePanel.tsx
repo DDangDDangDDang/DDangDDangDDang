@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { errorText, LiveStreamCard, LiveStreamHome, liveStreamApi } from './api';
+import { errorText, LiveStreamCard, LiveStreamHome, liveStreamApi, scheduleText } from './api';
 import type { Log } from './App';
 
 type Props = { log: Log; onSelect: (liveStreamId: number) => void };
@@ -50,6 +50,13 @@ export default function HomePanel({ log, onSelect }: Props) {
           metric={(card) => `+${card.viewerIncrease}명 (지금 ${card.viewerCount}명)`}
           onSelect={onSelect}
         />
+        <HomeSection
+          title="방송 예정"
+          empty="시작 예정 시간이 정해진 방송이 없어요"
+          cards={home?.upcoming ?? []}
+          metric={(card) => upcomingText(card)}
+          onSelect={onSelect}
+        />
         <div className="home-section">
           <h3>입찰 많은 방송</h3>
           <p className="meta">경매 기능이 생기면 보여 줄 예정이에요</p>
@@ -57,6 +64,13 @@ export default function HomePanel({ log, onSelect }: Props) {
       </div>
     </section>
   );
+}
+
+// 예정 시간이 지났지만 아직 시작하지 않은 방송(서버가 30분까지 보여 줌)은 "곧 시작"으로 표시한다.
+function upcomingText(card: LiveStreamCard): string {
+  if (!card.scheduledStartAt) return '시작 예정';
+  const late = new Date(card.scheduledStartAt).getTime() < Date.now();
+  return `${scheduleText(card.scheduledStartAt)} 시작 예정${late ? ' · 곧 시작' : ''}`;
 }
 
 type SectionProps = {

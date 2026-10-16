@@ -26,10 +26,13 @@ export type LiveStream = {
   description: string | null;
   status: LiveStreamStatus;
   createdAt: string;
+  // 판매자가 정한 시작 예정 시간 (없으면 null). startedAt은 실제 시작 시간
+  scheduledStartAt: string | null;
   startedAt: string | null;
   endedAt: string | null;
 };
-export type LiveStreamUpdate = { title?: string; description?: string };
+// scheduledStartAt은 방송을 시작하기 전(대기 중)에만 바꿀 수 있다.
+export type LiveStreamUpdate = { title?: string; description?: string; scheduledStartAt?: string };
 
 // 홈 화면 방송 카드. viewerIncrease: 최근 5분 동안 늘어난 시청자 수
 export type LiveStreamCard = {
@@ -37,11 +40,25 @@ export type LiveStreamCard = {
   title: string;
   sellerId: number;
   sellerNickname: string | null;
+  scheduledStartAt: string | null;
   startedAt: string | null;
   viewerCount: number;
   viewerIncrease: number;
 };
-export type LiveStreamHome = { mostViewed: LiveStreamCard[]; surging: LiveStreamCard[] };
+// upcoming: 방송 예정 (시작 예정 시간이 가까운 순)
+export type LiveStreamHome = { mostViewed: LiveStreamCard[]; surging: LiveStreamCard[]; upcoming: LiveStreamCard[] };
+
+/** "2026-10-20T20:00:00" → "10월 20일 (화) 20:00" */
+export function scheduleText(iso: string): string {
+  return new Date(iso).toLocaleString('ko-KR', {
+    month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+}
+
+/** 서버 시간("2026-10-20T20:00:00")을 datetime-local 입력값("2026-10-20T20:00")으로 */
+export function toDateTimeInput(iso: string | null): string {
+  return iso ? iso.slice(0, 16) : '';
+}
 
 // /topic/live-streams/{id} 로 오는 방송 정보 변경 알림. 바뀐 값만이 아니라 방송 전체 정보가 온다.
 export type LiveStreamUpdatedMessage = { type: 'UPDATED'; liveStream: LiveStream };
@@ -193,8 +210,13 @@ async function logoutWithFreshToken(): Promise<void> {
 }
 
 export const liveStreamApi = {
-  create: (title: string, description?: string) =>
-    api<LiveStream>('POST', '/api/v1/live-streams', { title, description: description || undefined }),
+  // scheduledStartAt: datetime-local 입력값("2026-10-20T20:00"). 비우면 바로 시작하는 방송
+  create: (title: string, description?: string, scheduledStartAt?: string) =>
+    api<LiveStream>('POST', '/api/v1/live-streams', {
+      title,
+      description: description || undefined,
+      scheduledStartAt: scheduledStartAt || undefined,
+    }),
   get: (id: number) => api<LiveStream>('GET', `/api/v1/live-streams/${id}`),
   home: (size = 10) => api<LiveStreamHome>('GET', `/api/v1/live-streams/home?size=${size}`),
   // 내 종료되지 않은 방송 (판매자당 하나). 없으면 null

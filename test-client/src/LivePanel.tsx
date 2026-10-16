@@ -7,7 +7,15 @@ import {
   RoomEvent,
   Track,
 } from 'livekit-client';
-import { errorText, LiveStream, LiveStreamToken, LiveStreamUpdate, liveStreamApi } from './api';
+import {
+  errorText,
+  LiveStream,
+  LiveStreamToken,
+  LiveStreamUpdate,
+  liveStreamApi,
+  scheduleText,
+  toDateTimeInput,
+} from './api';
 import type { Log } from './App';
 
 type Props = {
@@ -24,6 +32,8 @@ type Mode = 'publisher' | 'viewer';
 export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdChange, streamUpdate }: Props) {
   const [title, setTitle] = useState('테스트 방송');
   const [description, setDescription] = useState('');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [editScheduledAt, setEditScheduledAt] = useState('');
   // 방송 정보 수정 폼. 지금 방송 정보로 채워 두고, 바뀐 값만 보낸다.
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -50,7 +60,8 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
   useEffect(() => {
     setEditTitle(stream?.title ?? '');
     setEditDescription(stream?.description ?? '');
-  }, [stream?.id, stream?.title, stream?.description]);
+    setEditScheduledAt(toDateTimeInput(stream?.scheduledStartAt ?? null));
+  }, [stream?.id, stream?.title, stream?.description, stream?.scheduledStartAt]);
 
   // 화면을 떠나면 LiveKit 연결을 정리한다.
   useEffect(() => () => void roomRef.current?.disconnect(), []);
@@ -75,7 +86,7 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
 
   const create = () =>
     run('방송 생성', async () => {
-      const created = await liveStreamApi.create(title, description);
+      const created = await liveStreamApi.create(title, description, scheduledAt);
       setStream(created);
       onLiveStreamIdChange(created.id);
       log(`방송 생성: id=${created.id}, 상태=${created.status}`);
@@ -142,6 +153,9 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
       const changes: LiveStreamUpdate = {};
       if (editTitle !== stream.title) changes.title = editTitle;
       if (editDescription !== (stream.description ?? '')) changes.description = editDescription;
+      if (stream.status === 'SCHEDULED' && editScheduledAt && editScheduledAt !== toDateTimeInput(stream.scheduledStartAt)) {
+        changes.scheduledStartAt = editScheduledAt;
+      }
       if (Object.keys(changes).length === 0) {
         log('바뀐 내용이 없어요.');
         return;
@@ -262,6 +276,10 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
           방송 설명 (선택)
           <input value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} />
         </label>
+        <label>
+          시작 예정 시간 (선택, 30일 이내)
+          <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+        </label>
         <button type="button" onClick={create} disabled={busy}>방송 만들기</button>
         <button type="button" onClick={loadMyActive} disabled={busy}>내 방송 불러오기</button>
       </div>
@@ -284,6 +302,9 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
             <strong>{stream.status}</strong>
           </p>
           <p className="meta">{stream.description || '설명 없음'}</p>
+          {stream.scheduledStartAt && (
+            <p className="meta">시작 예정 {scheduleText(stream.scheduledStartAt)}</p>
+          )}
         </div>
       )}
 
@@ -295,6 +316,12 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
               제목
               <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} maxLength={100} />
             </label>
+            {stream.status === 'SCHEDULED' && (
+              <label>
+                시작 예정 시간 (시작 전에만 변경)
+                <input type="datetime-local" value={editScheduledAt} onChange={(e) => setEditScheduledAt(e.target.value)} />
+              </label>
+            )}
           </div>
           <label>
             설명 (모두 지우고 저장하면 설명 삭제)
