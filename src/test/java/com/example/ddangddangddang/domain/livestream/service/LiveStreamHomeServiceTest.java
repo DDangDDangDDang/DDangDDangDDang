@@ -12,6 +12,7 @@ import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,6 +21,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,8 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -92,6 +96,31 @@ class LiveStreamHomeServiceTest {
     }
 
     @Test
+    @DisplayName("방송 예정은 시작 예정 시간이 30분 전 이후인 대기 중 방송을 가까운 순으로 보여 주고, 시청자 수는 읽지 않는다")
+    void upcoming() {
+        LiveStream soon = scheduled(5L, LocalDateTime.now().plusMinutes(10));
+        LiveStream later = scheduled(6L, LocalDateTime.now().plusDays(1));
+        given(statsRepository.topViewers(anyInt())).willReturn(List.of());
+        given(statsRepository.topSurging(anyInt())).willReturn(List.of());
+        given(liveStreamRepository.findByStatusOrderByStartedAtDesc(eq(LiveStreamStatus.LIVE), any())).willReturn(List.of());
+        given(liveStreamRepository.findByStatusAndScheduledStartAtGreaterThanEqualOrderByScheduledStartAtAsc(
+                eq(LiveStreamStatus.SCHEDULED), any(), any())).willReturn(List.of(soon, later));
+        given(userRepository.findAllById(any())).willReturn(List.of(user(105L, "예정판매자")));
+
+        LiveStreamHomeResponse home = homeService.getHome(10);
+
+        assertThat(home.upcoming()).extracting(LiveStreamCard::liveStreamId).containsExactly(5L, 6L);
+        assertThat(home.upcoming().get(0).scheduledStartAt()).isEqualTo(soon.getScheduledStartAt());
+        assertThat(home.upcoming().get(0).sellerNickname()).isEqualTo("예정판매자");
+        then(statsRepository).should(never()).getViewerCounts(anyCollection());
+
+        ArgumentCaptor<LocalDateTime> from = ArgumentCaptor.forClass(LocalDateTime.class);
+        then(liveStreamRepository).should().findByStatusAndScheduledStartAtGreaterThanEqualOrderByScheduledStartAtAsc(
+                eq(LiveStreamStatus.SCHEDULED), from.capture(), any());
+        assertThat(from.getValue()).isBetween(LocalDateTime.now().minusMinutes(31), LocalDateTime.now().minusMinutes(29));
+    }
+
+    @Test
     @DisplayName("size만큼만 보여 준다")
     void limitSize() {
         LiveStream a = live(1L);
@@ -126,6 +155,12 @@ class LiveStreamHomeServiceTest {
     private static List<LiveStream> streams(Iterable<Long> ids, LiveStream... candidates) {
         Collection<Long> wanted = ids instanceof Collection<Long> c ? c : List.of();
         return java.util.Arrays.stream(candidates).filter(s -> wanted.contains(s.getId())).toList();
+    }
+
+    private static LiveStream scheduled(Long id, LocalDateTime at) {
+        LiveStream liveStream = LiveStream.create(100L + id, "예정 방송 " + id, null, at);
+        ReflectionTestUtils.setField(liveStream, "id", id);
+        return liveStream;
     }
 
     private static LiveStream live(Long id) {

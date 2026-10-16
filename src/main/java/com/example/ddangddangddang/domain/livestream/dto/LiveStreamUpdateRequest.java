@@ -3,6 +3,8 @@ package com.example.ddangddangddang.domain.livestream.dto;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDateTime;
+
 /**
  * 방송 정보 수정. 보낸 값만 바꾸고, 보내지 않은(null) 값은 그대로 둔다.
  * description을 빈 문자열("")로 보내면 설명을 지운다.
@@ -15,6 +17,12 @@ public record LiveStreamUpdateRequest(
         String title,
 
         @Size(max = 1000, message = "방송 설명은 1000자 이하입니다.")
-        String description
+        String description,
+
+        // 방송 시작 예정 시간. 방송을 시작하기 전(대기 중)에만 바꿀 수 있고, 지금부터 30일 이내
+        LocalDateTime scheduledStartAt
 ) {
+    public LiveStreamUpdateRequest(String title, String description) {
+        this(title, description, null);
+    }
 }

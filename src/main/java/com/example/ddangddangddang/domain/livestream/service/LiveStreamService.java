@@ -22,6 +22,8 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Locale;
 
 @Service
@@ -34,6 +36,9 @@ public class LiveStreamService {
 
     // 판매자당 종료되지 않은 방송 하나 규칙의 유니크 제약 (LiveStream 엔티티의 @UniqueConstraint 이름)
     static final String ACTIVE_SELLER_CONSTRAINT = "uk_live_stream_active_seller";
+
+    // 방송 시작 예정 시간을 정할 수 있는 범위 (지금부터)
+    static final Duration SCHEDULE_LIMIT = Duration.ofDays(30);
 
     private final LiveStreamRepository liveStreamRepository;
     private final MediaServerClient mediaServerClient;
@@ -51,11 +56,13 @@ public class LiveStreamService {
         String description = blankToNull(request.description());
         validateContent(title);
         validateContent(description);
+        validateScheduledStartAt(request.scheduledStartAt(), LocalDateTime.now());
         if (liveStreamRepository.existsByActiveSellerId(sellerId)) {
             throw new BusinessException(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS);
         }
         try {
-            LiveStream liveStream = liveStreamRepository.saveAndFlush(LiveStream.create(sellerId, title, description));
+            LiveStream liveStream = liveStreamRepository.saveAndFlush(
+                    LiveStream.create(sellerId, title, description, request.scheduledStartAt()));
             return LiveStreamResponse.from(liveStream);
         } catch (DataIntegrityViolationException e) {
             // 판매자당 하나 규칙의 유니크 제약에 걸린 경우만 안내로 바꾼다. 다른 제약 위반(버그)은 그대로 드러나게 다시 던진다.
@@ -99,8 +106,9 @@ public class LiveStreamService {
         String description = request.description() == null ? null : request.description().strip();
         validateContent(title);
         validateContent(description);
+        validateScheduledStartAt(request.scheduledStartAt(), LocalDateTime.now());
 
-        if (!liveStream.update(sellerId, title, description)) {
+        if (!liveStream.update(sellerId, title, description, request.scheduledStartAt())) {
             return LiveStreamResponse.from(liveStream);
         }
         flushWithVersionCheck(liveStream);
@@ -108,6 +116,22 @@ public class LiveStreamService {
         LiveStreamResponse response = LiveStreamResponse.from(liveStream);
         eventPublisher.publishEvent(new LiveStreamUpdatedEvent(response));
         return response;
+    }
+
+    /**
+     * 방송 시작 예정 시간은 지금 이후, 지금부터 SCHEDULE_LIMIT(30일) 이내여야 한다. 정하지 않았으면(null) 검사하지 않는다.
+     * 너무 먼 예정은 홈의 방송 예정 목록을 오래 차지하고, 판매자당 종료되지 않은 방송 하나 규칙 때문에 그동안 다른 방송도 못 하게 된다.
+     */
+    static void validateScheduledStartAt(LocalDateTime scheduledStartAt, LocalDateTime now) {
+        if (scheduledStartAt == null) {
+            return;
+        }
+        if (scheduledStartAt.isBefore(now)) {
+            throw new BusinessException(LiveStreamErrorCode.INVALID_SCHEDULED_START, "방송 시작 예정 시간은 지금 이후로 정해 주세요.");
+        }
+        if (scheduledStartAt.isAfter(now.plus(SCHEDULE_LIMIT))) {
+            throw new BusinessException(LiveStreamErrorCode.INVALID_SCHEDULED_START);
+        }
     }
 
     // 판매자가 제목·설명에 연락처나 외부 링크를 적어 플랫폼 밖 거래로 유도하지 못하게 채팅과 같은 규칙으로 막는다.
