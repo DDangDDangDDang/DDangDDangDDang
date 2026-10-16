@@ -365,6 +365,11 @@ class LiveChatControllerTest {
     }
 
     private Long liveStream(Long sellerId, boolean live) {
+        // 판매자당 종료되지 않은 방송은 하나라서, 앞선 테스트가 남긴 같은 판매자의 방송을 먼저 끝낸다.
+        liveStreamRepository.findByActiveSellerId(sellerId).ifPresent(previous -> {
+            previous.end(sellerId);
+            liveStreamRepository.save(previous);
+        });
         LiveStream liveStream = LiveStream.create(sellerId, "테스트 방송");
         if (live) {
             liveStream.start(sellerId);

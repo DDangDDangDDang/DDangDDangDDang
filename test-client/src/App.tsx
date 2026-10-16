@@ -4,6 +4,7 @@ import AuthPanel from './AuthPanel';
 import LivePanel from './LivePanel';
 import ChatPanel from './ChatPanel';
 import DmPanel from './DmPanel';
+import HomePanel from './HomePanel';
 
 export type Log = (message: string, level?: 'info' | 'error') => void;
 type LogEntry = { key: number; time: string; message: string; level: 'info' | 'error' };
@@ -59,6 +60,10 @@ export default function App() {
 
       {restoring && <p className="meta">로그인 상태 확인 중…</p>}
       {!restoring && !user && <AuthPanel log={log} />}
+
+      {user && (
+        <HomePanel log={log} onSelect={setLiveStreamId} />
+      )}
 
       {user && (
         <main className="grid">

@@ -186,6 +186,11 @@ class ChatModerationIntegrationTest {
     }
 
     private Long liveStream() {
+        // 판매자당 종료되지 않은 방송은 하나라서, 앞선 테스트가 남긴 방송을 먼저 끝낸다.
+        liveStreamRepository.findByActiveSellerId(SELLER_ID).ifPresent(previous -> {
+            previous.end(SELLER_ID);
+            liveStreamRepository.save(previous);
+        });
         LiveStream liveStream = LiveStream.create(SELLER_ID, "테스트 방송");
         liveStream.start(SELLER_ID);
         return liveStreamRepository.save(liveStream).getId();

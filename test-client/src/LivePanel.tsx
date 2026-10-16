@@ -81,6 +81,19 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
       log(`방송 생성: id=${created.id}, 상태=${created.status}`);
     });
 
+  // 판매자는 종료되지 않은 방송을 하나만 가질 수 있다. 새로고침 뒤 그 방송을 다시 불러와 이어서 방송한다.
+  const loadMyActive = () =>
+    run('내 방송 불러오기', async () => {
+      const active = await liveStreamApi.myActive();
+      if (!active) {
+        log('종료되지 않은 내 방송이 없어요. 새로 만들 수 있어요.');
+        return;
+      }
+      setStream(active);
+      onLiveStreamIdChange(active.id);
+      log(`내 방송 불러오기: id=${active.id}, 상태=${active.status}`);
+    });
+
   const refresh = () =>
     run('방송 조회', async () => {
       const found = await liveStreamApi.get(currentId());
@@ -250,6 +263,7 @@ export default function LivePanel({ log, userId, liveStreamId, onLiveStreamIdCha
           <input value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} />
         </label>
         <button type="button" onClick={create} disabled={busy}>방송 만들기</button>
+        <button type="button" onClick={loadMyActive} disabled={busy}>내 방송 불러오기</button>
       </div>
 
       <div className="row">

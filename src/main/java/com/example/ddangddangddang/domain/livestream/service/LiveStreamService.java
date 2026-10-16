@@ -15,22 +15,35 @@ import com.example.ddangddangddang.domain.livestream.repository.LiveStreamReposi
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class LiveStreamService {
 
+    // 시청 입장 토큰의 LiveKit identity 앞부분. 시청자 수를 셀 때 판매자와 구분하는 데도 쓴다. (LiveViewerStatsCollector)
+    public static final String VIEWER_IDENTITY_PREFIX = "viewer-";
+
+    // 판매자당 종료되지 않은 방송 하나 규칙의 유니크 제약 (LiveStream 엔티티의 @UniqueConstraint 이름)
+    static final String ACTIVE_SELLER_CONSTRAINT = "uk_live_stream_active_seller";
+
     private final LiveStreamRepository liveStreamRepository;
     private final MediaServerClient mediaServerClient;
     private final ApplicationEventPublisher eventPublisher;
     private final ChatContentFilter contentFilter;
 
+    /**
+     * 방송을 만든다. 판매자는 종료되지 않은(대기 중·방송 중) 방송을 하나만 가질 수 있다.
+     * 먼저 확인해 안내하고, 동시에 두 요청이 확인을 통과해도 DB 유니크 제약(active_seller_id)으로 하나만 저장된다.
+     */
     // TODO: 판매자 권한(ROLE_SELLER) 확인은 인증 담당과 방식 확정 후 추가
     @Transactional
     public LiveStreamResponse create(Long sellerId, LiveStreamCreateRequest request) {
@@ -38,8 +51,40 @@ public class LiveStreamService {
         String description = blankToNull(request.description());
         validateContent(title);
         validateContent(description);
-        LiveStream liveStream = liveStreamRepository.save(LiveStream.create(sellerId, title, description));
-        return LiveStreamResponse.from(liveStream);
+        if (liveStreamRepository.existsByActiveSellerId(sellerId)) {
+            throw new BusinessException(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS);
+        }
+        try {
+            LiveStream liveStream = liveStreamRepository.saveAndFlush(LiveStream.create(sellerId, title, description));
+            return LiveStreamResponse.from(liveStream);
+        } catch (DataIntegrityViolationException e) {
+            // 판매자당 하나 규칙의 유니크 제약에 걸린 경우만 안내로 바꾼다. 다른 제약 위반(버그)은 그대로 드러나게 다시 던진다.
+            if (isViolationOf(e, ACTIVE_SELLER_CONSTRAINT)) {
+                throw new BusinessException(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS, e);
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * 원인 중 Hibernate 제약 위반 예외의 제약 이름이 constraint인지 확인한다.
+     * DB마다 이름에 테이블 이름이 붙거나(MySQL: live_streams.uk_...) 대문자로 바뀌어(H2) 나오므로, 대소문자 없이 포함 여부로 본다.
+     */
+    static boolean isViolationOf(Throwable exception, String constraint) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConstraintViolationException violation) {
+                String name = violation.getConstraintName();
+                return name != null && name.toLowerCase(Locale.ROOT).contains(constraint);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 판매자의 종료되지 않은 방송. 없으면 null. (판매자 스튜디오에서 이어서 방송하기)
+     */
+    public LiveStreamResponse getMyActive(Long sellerId) {
+        return liveStreamRepository.findByActiveSellerId(sellerId).map(LiveStreamResponse::from).orElse(null);
     }
 
     /**
@@ -184,6 +229,6 @@ public class LiveStreamService {
     }
 
     private String viewerIdentity(Long memberId) {
-        return "viewer-" + memberId;
+        return VIEWER_IDENTITY_PREFIX + memberId;
     }
 }

@@ -177,9 +177,15 @@ class RedisStompBroadcastTest {
     }
 
     private Long liveStream() {
+        LiveStreamRepository repository = server1.getBean(LiveStreamRepository.class);
+        // 판매자당 종료되지 않은 방송은 하나라서, 앞선 테스트가 남긴 방송을 먼저 끝낸다.
+        repository.findByActiveSellerId(99L).ifPresent(previous -> {
+            previous.end(99L);
+            repository.save(previous);
+        });
         LiveStream liveStream = LiveStream.create(99L, "테스트 방송");
         liveStream.start(99L);
-        return server1.getBean(LiveStreamRepository.class).save(liveStream).getId();
+        return repository.save(liveStream).getId();
     }
 
     private String chatTopic(Long liveStreamId) {

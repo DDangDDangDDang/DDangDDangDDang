@@ -31,6 +31,18 @@ export type LiveStream = {
 };
 export type LiveStreamUpdate = { title?: string; description?: string };
 
+// 홈 화면 방송 카드. viewerIncrease: 최근 5분 동안 늘어난 시청자 수
+export type LiveStreamCard = {
+  liveStreamId: number;
+  title: string;
+  sellerId: number;
+  sellerNickname: string | null;
+  startedAt: string | null;
+  viewerCount: number;
+  viewerIncrease: number;
+};
+export type LiveStreamHome = { mostViewed: LiveStreamCard[]; surging: LiveStreamCard[] };
+
 // /topic/live-streams/{id} 로 오는 방송 정보 변경 알림. 바뀐 값만이 아니라 방송 전체 정보가 온다.
 export type LiveStreamUpdatedMessage = { type: 'UPDATED'; liveStream: LiveStream };
 
@@ -184,6 +196,9 @@ export const liveStreamApi = {
   create: (title: string, description?: string) =>
     api<LiveStream>('POST', '/api/v1/live-streams', { title, description: description || undefined }),
   get: (id: number) => api<LiveStream>('GET', `/api/v1/live-streams/${id}`),
+  home: (size = 10) => api<LiveStreamHome>('GET', `/api/v1/live-streams/home?size=${size}`),
+  // 내 종료되지 않은 방송 (판매자당 하나). 없으면 null
+  myActive: () => api<LiveStream | null>('GET', '/api/v1/live-streams/me/active'),
   // 보낸 값만 바뀐다. description을 ''로 보내면 설명을 지운다.
   update: (id: number, changes: LiveStreamUpdate) => api<LiveStream>('PATCH', `/api/v1/live-streams/${id}`, changes),
   start: (id: number) => api<LiveStreamToken>('POST', `/api/v1/live-streams/${id}/start`),
