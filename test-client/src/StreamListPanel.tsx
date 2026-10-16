@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { errorText, LiveStreamCard, LiveStreamStatus, liveStreamApi, scheduleText } from './api';
 import type { Log } from './App';
 
@@ -26,9 +26,16 @@ export default function StreamListPanel({ log, userId, onSelect }: Props) {
   const [cards, setCards] = useState<LiveStreamCard[]>([]);
   const [cursor, setCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  // 검색 버튼을 누를 때마다 올린다. 같은 검색어로 다시 검색해도 목록을 새로 불러오게 하기 위함이다.
+  const [searchCount, setSearchCount] = useState(0);
+  // 조건(탭·검색어·내 방송만)으로 처음부터 불러올 때마다 올리는 세대 번호.
+  // 응답이 왔을 때 세대가 바뀌었으면 이전 조건의 응답이므로 버린다. (늦게 온 이전 탭 응답이 지금 목록을 덮어쓰거나 더 보기에 섞이지 않게)
+  const generationRef = useRef(0);
 
   const load = useCallback(
     async (more: boolean, from: number | null) => {
+      const generation = more ? generationRef.current : ++generationRef.current;
+      const isCurrent = () => generation === generationRef.current;
       setLoading(true);
       try {
         const page = await liveStreamApi.list({
@@ -37,25 +44,29 @@ export default function StreamListPanel({ log, userId, onSelect }: Props) {
           sellerId: mineOnly ? userId : undefined,
           cursor: more ? from : null,
         });
+        if (!isCurrent()) return;
         setCards((prev) => (more ? [...prev, ...page.content] : page.content));
         setCursor(page.nextCursor);
       } catch (e) {
-        log(`방송 목록 조회 실패: ${errorText(e)}`, 'error');
+        if (isCurrent()) log(`방송 목록 조회 실패: ${errorText(e)}`, 'error');
       } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
     },
     [status, keyword, mineOnly, userId, log],
   );
 
-  // 탭·검색어·내 방송만 조건이 바뀌면 처음부터 다시 불러온다.
+  // 탭·검색어·내 방송만 조건이 바뀌거나 검색 버튼을 누르면, 이전 목록을 비우고 처음부터 다시 불러온다.
   useEffect(() => {
+    setCards([]);
+    setCursor(null);
     void load(false, null);
-  }, [load]);
+  }, [load, searchCount]);
 
   function search(e: FormEvent) {
     e.preventDefault();
     setKeyword(keywordInput.trim());
+    setSearchCount((count) => count + 1);
   }
 
   return (
