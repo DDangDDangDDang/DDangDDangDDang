@@ -23,11 +23,48 @@ export type LiveStream = {
   id: number;
   sellerId: number;
   title: string;
+  description: string | null;
   status: LiveStreamStatus;
   createdAt: string;
+  // 판매자가 정한 시작 예정 시간 (없으면 null). startedAt은 실제 시작 시간
+  scheduledStartAt: string | null;
   startedAt: string | null;
   endedAt: string | null;
 };
+// scheduledStartAt은 방송을 시작하기 전(대기 중)에만 바꿀 수 있다.
+export type LiveStreamUpdate = { title?: string; description?: string; scheduledStartAt?: string };
+
+// 방송 카드 (홈, 방송 목록·검색). viewerIncrease: 최근 5분 동안 늘어난 시청자 수
+export type LiveStreamCard = {
+  liveStreamId: number;
+  title: string;
+  status: LiveStreamStatus;
+  sellerId: number;
+  sellerNickname: string | null;
+  scheduledStartAt: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  viewerCount: number;
+  viewerIncrease: number;
+};
+// upcoming: 방송 예정 (시작 예정 시간이 가까운 순)
+export type LiveStreamHome = { mostViewed: LiveStreamCard[]; surging: LiveStreamCard[]; upcoming: LiveStreamCard[] };
+
+/** "2026-10-20T20:00:00" → "10월 20일 (화) 20:00" */
+export function scheduleText(iso: string): string {
+  return new Date(iso).toLocaleString('ko-KR', {
+    month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+}
+
+/** 서버 시간("2026-10-20T20:00:00")을 datetime-local 입력값("2026-10-20T20:00")으로 */
+export function toDateTimeInput(iso: string | null): string {
+  return iso ? iso.slice(0, 16) : '';
+}
+
+// /topic/live-streams/{id} 로 오는 방송 정보 변경 알림. 바뀐 값만이 아니라 방송 전체 정보가 온다.
+export type LiveStreamUpdatedMessage = { type: 'UPDATED'; liveStream: LiveStream };
+
 export type LiveStreamToken = {
   liveStreamId: number;
   roomName: string;
@@ -175,13 +212,84 @@ async function logoutWithFreshToken(): Promise<void> {
 }
 
 export const liveStreamApi = {
-  create: (title: string) => api<LiveStream>('POST', '/api/v1/live-streams', { title }),
+  // scheduledStartAt: datetime-local 입력값("2026-10-20T20:00"). 비우면 바로 시작하는 방송
+  create: (title: string, description?: string, scheduledStartAt?: string) =>
+    api<LiveStream>('POST', '/api/v1/live-streams', {
+      title,
+      description: description || undefined,
+      scheduledStartAt: scheduledStartAt || undefined,
+    }),
   get: (id: number) => api<LiveStream>('GET', `/api/v1/live-streams/${id}`),
+  home: (size = 10) => api<LiveStreamHome>('GET', `/api/v1/live-streams/home?size=${size}`),
+  // 방송 목록·검색. status 기본 LIVE, keyword는 제목·설명·판매자 닉네임에서 찾는다.
+  list: (params: { status?: LiveStreamStatus; sellerId?: number; keyword?: string; cursor?: number | null; size?: number }) => {
+    const query = new URLSearchParams();
+    if (params.status) query.set('status', params.status);
+    if (params.sellerId) query.set('sellerId', String(params.sellerId));
+    if (params.keyword) query.set('keyword', params.keyword);
+    if (params.cursor) query.set('cursor', String(params.cursor));
+    query.set('size', String(params.size ?? 20));
+    return api<CursorPage<LiveStreamCard>>('GET', `/api/v1/live-streams?${query}`);
+  },
+  // 내 종료되지 않은 방송 (판매자당 하나). 없으면 null
+  myActive: () => api<LiveStream | null>('GET', '/api/v1/live-streams/me/active'),
+  // 보낸 값만 바뀐다. description을 ''로 보내면 설명을 지운다.
+  update: (id: number, changes: LiveStreamUpdate) => api<LiveStream>('PATCH', `/api/v1/live-streams/${id}`, changes),
   start: (id: number) => api<LiveStreamToken>('POST', `/api/v1/live-streams/${id}/start`),
   join: (id: number) => api<LiveStreamToken>('POST', `/api/v1/live-streams/${id}/join`),
   // 방송 중인 판매자가 다시 송출할 때 (새로고침, 송출 연결 끊김, 토큰 만료)
   publisherToken: (id: number) => api<LiveStreamToken>('POST', `/api/v1/live-streams/${id}/publisher-token`),
   end: (id: number) => api<LiveStream>('POST', `/api/v1/live-streams/${id}/end`),
+};
+
+// ---- 1:1 채팅 ----
+export type CursorPage<T> = { content: T[]; nextCursor: number | null; hasNext: boolean };
+export type DmRoom = {
+  roomId: number;
+  otherUser: { userId: number; nickname: string | null };
+  lastMessageId: number | null;
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+  // 상대가 마지막으로 읽은 메시지. 내 메시지 중 이보다 id가 크면 상대가 아직 안 읽은 것("1")
+  otherLastReadMessageId: number | null;
+  blockedByMe: boolean;
+};
+export type DmMessage = {
+  messageId: number;
+  roomId: number;
+  senderId: number;
+  clientMessageId: string;
+  content: string;
+  sentAt: string;
+};
+// /user/queue/dm 으로 오는 실시간 이벤트
+export type DmEvent =
+  | { type: 'MESSAGE'; roomId: number; message: DmMessage; readerId: null; lastReadMessageId: null }
+  | { type: 'READ'; roomId: number; message: null; readerId: number; lastReadMessageId: number };
+export type DmReportReason = 'EXTERNAL_TRADE' | 'SCAM' | 'HARASSMENT' | 'SEXUAL' | 'SPAM' | 'OTHER';
+export type DmBlock = { userId: number; nickname: string | null; blockedAt: string };
+
+function cursorQuery(cursor: number | null, size: number): string {
+  return `?size=${size}${cursor ? `&cursor=${cursor}` : ''}`;
+}
+
+export const dmApi = {
+  openRoom: (targetUserId: number) => api<DmRoom>('POST', '/api/v1/dm/rooms', { targetUserId }),
+  rooms: (cursor: number | null = null, size = 20) => api<CursorPage<DmRoom>>('GET', `/api/v1/dm/rooms${cursorQuery(cursor, size)}`),
+  unreadCount: () => api<{ unreadCount: number }>('GET', '/api/v1/dm/unread-count'),
+  messages: (roomId: number, cursor: number | null = null, size = 30) =>
+    api<CursorPage<DmMessage>>('GET', `/api/v1/dm/rooms/${roomId}/messages${cursorQuery(cursor, size)}`),
+  // clientMessageId: 재전송해도 한 번만 저장되도록 메시지마다 만드는 ID
+  send: (roomId: number, clientMessageId: string, content: string) =>
+    api<DmMessage>('POST', `/api/v1/dm/rooms/${roomId}/messages`, { clientMessageId, content }),
+  read: (roomId: number, lastReadMessageId?: number) =>
+    api<{ roomId: number; lastReadMessageId: number | null; unreadCount: number }>(
+      'POST', `/api/v1/dm/rooms/${roomId}/read`, lastReadMessageId ? { lastReadMessageId } : undefined),
+  block: (userId: number) => api<DmBlock>('POST', '/api/v1/dm/blocks', { userId }),
+  unblock: (userId: number) => api<null>('DELETE', `/api/v1/dm/blocks/${userId}`),
+  report: (roomId: number, reason: DmReportReason, messageId?: number, detail?: string) =>
+    api<unknown>('POST', `/api/v1/dm/rooms/${roomId}/reports`, { reason, messageId, detail: detail || undefined }),
 };
 
 export function errorText(e: unknown): string {

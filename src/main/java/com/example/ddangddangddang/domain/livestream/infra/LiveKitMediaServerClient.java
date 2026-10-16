@@ -14,8 +14,13 @@ import io.livekit.server.CanSubscribe;
 import io.livekit.server.RoomJoin;
 import io.livekit.server.RoomName;
 import io.livekit.server.RoomServiceClient;
+import livekit.LivekitModels;
 
 import java.io.IOException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -89,6 +94,45 @@ public class LiveKitMediaServerClient implements MediaServerClient {
     @Override
     public String getWsUrl() {
         return properties.wsUrl();
+    }
+
+    /**
+     * 방 목록으로 참가자가 있는 방만 고른 뒤, 그 방들의 참가자 중 시청자 identity로 접속한 사람을 센다.
+     * "참가자 수 - 송출자 수"로 세면 판매자가 접속만 하고 카메라를 켜지 않았을 때 판매자가 시청자로 세어지므로 identity로 구분한다.
+     */
+    @Override
+    public Map<String, Integer> getViewerCounts(Collection<String> roomNames, String viewerIdentityPrefix) {
+        if (roomNames.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            List<LivekitModels.Room> rooms = body(roomServiceClient.listRooms(List.copyOf(roomNames)).execute(), "방 목록 조회");
+            Map<String, Integer> counts = new HashMap<>();
+            for (LivekitModels.Room room : rooms) {
+                if (room.getNumParticipants() == 0) {
+                    counts.put(room.getName(), 0);
+                    continue;
+                }
+                List<LivekitModels.ParticipantInfo> participants =
+                        body(roomServiceClient.listParticipants(room.getName()).execute(), "참가자 조회");
+                int viewers = (int) participants.stream()
+                        .filter(participant -> participant.getIdentity().startsWith(viewerIdentityPrefix))
+                        .count();
+                counts.put(room.getName(), viewers);
+            }
+            return counts;
+        } catch (IOException e) {
+            log.error("LiveKit 시청자 수 조회 통신 오류 count={}", roomNames.size(), e);
+            throw new BusinessException(LiveStreamErrorCode.MEDIA_SERVER_ERROR, e);
+        }
+    }
+
+    private <T> List<T> body(Response<List<T>> response, String action) {
+        if (!response.isSuccessful() || response.body() == null) {
+            log.error("LiveKit {} 실패 code={}", action, response.code());
+            throw new BusinessException(LiveStreamErrorCode.MEDIA_SERVER_ERROR);
+        }
+        return response.body();
     }
 
     private AccessToken newToken(String identity, String displayName) {

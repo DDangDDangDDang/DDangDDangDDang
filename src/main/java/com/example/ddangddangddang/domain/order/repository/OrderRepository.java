@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.order.repository;
 
+import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import jakarta.persistence.LockModeType;
@@ -15,6 +16,7 @@ import java.util.Optional;
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
     boolean existsByAuctionId(Long auctionId);
+    boolean existsByCourierAndTrackingNo(Courier courier, String trackingNo);
 
     /** 구매 내역. cursor보다 오래된 주문을 최신순으로 조회한다. status, cursor가 null이면 조건을 적용하지 않는다. */
     @Query("""

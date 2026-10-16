@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -48,19 +49,32 @@ public class ChatContentFilter {
      * 막아야 하는 내용이면 이유가 담긴 LIVECHAT_003 예외를 던진다.
      */
     public void validate(String content) {
+        findViolation(content).ifPresent(violation -> {
+            throw new BusinessException(LiveChatErrorCode.CONTENT_NOT_ALLOWED, violation.getChatMessage());
+        });
+    }
+
+    /**
+     * 막아야 하는 내용인지만 확인한다. 채팅이 아닌 곳(방송 제목·설명 등)에서 각자의 오류 코드로 거부할 때 쓴다.
+     */
+    public Optional<ContentViolation> findViolation(String content) {
+        if (content == null || content.isEmpty()) {
+            return Optional.empty();
+        }
         if (PHONE_NUMBER.matcher(content).find() || containsSeparatedPhoneNumber(content)) {
-            throw rejected("전화번호는 채팅으로 보낼 수 없습니다.");
+            return Optional.of(ContentViolation.PHONE_NUMBER);
         }
         if (EXTERNAL_LINK.matcher(content).find()) {
-            throw rejected("외부 메신저나 오픈채팅 링크는 보낼 수 없습니다.");
+            return Optional.of(ContentViolation.EXTERNAL_LINK);
         }
         if (containsAccountNumber(content)) {
-            throw rejected("계좌번호로 보이는 내용은 보낼 수 없습니다.");
+            return Optional.of(ContentViolation.ACCOUNT_NUMBER);
         }
         String lower = content.toLowerCase(Locale.ROOT);
         if (bannedWords.stream().anyMatch(lower::contains)) {
-            throw rejected("사용할 수 없는 단어가 포함되어 있습니다.");
+            return Optional.of(ContentViolation.BANNED_WORD);
         }
+        return Optional.empty();
     }
 
     private boolean containsSeparatedPhoneNumber(String content) {
@@ -83,9 +97,5 @@ public class ChatContentFilter {
             }
         }
         return false;
-    }
-
-    private BusinessException rejected(String reason) {
-        return new BusinessException(LiveChatErrorCode.CONTENT_NOT_ALLOWED, reason);
     }
 }

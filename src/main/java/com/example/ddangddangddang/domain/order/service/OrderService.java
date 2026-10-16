@@ -1,6 +1,8 @@
 package com.example.ddangddangddang.domain.order.service;
 
+import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
+import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
@@ -54,17 +56,17 @@ public class OrderService {
         try {
             return orderRepository.saveAndFlush(order).getId();
         } catch (DataIntegrityViolationException e) {
-            if (isAuctionIdUniqueViolation(e)) {
+            if (isUniqueViolation(e, Order.UK_AUCTION_ID)) {
                 throw new BusinessException(OrderErrorCode.ORDER_ALREADY_EXISTS);
             }
             throw e;
         }
     }
 
-    private boolean isAuctionIdUniqueViolation(DataIntegrityViolationException e) {
+    private boolean isUniqueViolation(DataIntegrityViolationException e, String constraintName) {
         return e.getCause() instanceof ConstraintViolationException violation
                 && violation.getConstraintName() != null
-                && violation.getConstraintName().toLowerCase().contains(Order.UK_AUCTION_ID);
+                && violation.getConstraintName().toLowerCase().contains(constraintName);
     }
 
     public CursorResponse<OrderSummaryResponse> getOrders(Long userId, OrderRole role, OrderStatus status,
@@ -90,16 +92,34 @@ public class OrderService {
         return OrderResponse.from(order);
     }
 
-    /** 판매자가 발송 처리한다. */
+    /**
+     * 판매자가 구매자의 배송지로 만든 송장(택배사, 송장번호)을 입력해 발송 처리한다.
+     *
+     * 같은 송장이 이미 다른 주문에 있으면 거부한다. 먼저 조회로 확인하고,
+     * 두 주문이 동시에 같은 송장을 등록하는 경우는 유니크 제약이 막는다.
+     * 변경 감지는 커밋할 때 UPDATE를 보내므로, 제약 위반을 여기서 잡으려면 직접 flush해야 한다.
+     */
     @Transactional
-    public OrderResponse ship(Long userId, Long orderId, String trackingNo) {
+    public OrderResponse ship(Long userId, Long orderId, Courier courier, String trackingNo) {
         Order order = findOrderForUpdate(orderId);
         if (!order.isSeller(userId)) {
             throw new BusinessException(OrderErrorCode.NOT_ORDER_SELLER);
         }
-        order.ship(trackingNo);
+        if (orderRepository.existsByCourierAndTrackingNo(courier, trackingNo)) {
+            throw new BusinessException(OrderErrorCode.DUPLICATE_TRACKING_NO);
+        }
+        order.ship(courier, trackingNo);
+        try {
+            orderRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            if (isUniqueViolation(e, Order.UK_COURIER_TRACKING_NO)) {
+                throw new BusinessException(OrderErrorCode.DUPLICATE_TRACKING_NO);
+            }
+            throw e;
+        }
         return OrderResponse.from(order);
     }
+
 
     private Order findOrder(Long orderId) {
         return orderRepository.findById(orderId)
@@ -126,5 +146,20 @@ public class OrderService {
     private Order findOrderForUpdate(Long orderId) {
         return orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
+    }
+
+    /**
+     * 구매자가 배송지를 입력한다.
+     * 발송과 같은 주문 락을 잡아서, 판매자가 발송하는 순간 배송지가 바뀌는 일이 없게 한다.
+     */
+    @Transactional
+    public OrderResponse registerDeliveryAddress(Long userId, Long orderId, OrderAddressRequest request) {
+        Order order = findOrderForUpdate(orderId);
+        if (!order.isBuyer(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_BUYER_ADDRESS);
+        }
+        order.registerDeliveryAddress(request.receiverName(), request.receiverPhone(),
+                request.address(), request.deliveryMemo());
+        return OrderResponse.from(order);
     }
 }

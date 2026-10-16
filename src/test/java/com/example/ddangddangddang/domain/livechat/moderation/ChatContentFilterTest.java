@@ -9,6 +9,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -72,6 +73,18 @@ class ChatContentFilterTest {
     @DisplayName("일반 대화, 가격, 날짜, 모델명은 막지 않는다 (애매한 표현은 AI 검토에 맡김)")
     void allowed(String content) {
         assertThatCode(() -> filter.validate(content)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("findViolation은 예외 없이 막는 이유를 알려 주고, 문제없거나 비어 있으면 빈 값을 준다 (방송 제목·설명 검사용)")
+    void findViolation() {
+        assertThat(filter.findViolation("문의 010-1234-5678")).contains(ContentViolation.PHONE_NUMBER);
+        assertThat(filter.findViolation("open.kakao.com/o/abc")).contains(ContentViolation.EXTERNAL_LINK);
+        assertThat(filter.findViolation("110-123-456789")).contains(ContentViolation.ACCOUNT_NUMBER);
+        assertThat(filter.findViolation("금칙어")).contains(ContentViolation.BANNED_WORD);
+        assertThat(filter.findViolation("오늘은 신발 경매")).isEmpty();
+        assertThat(filter.findViolation(null)).isEmpty();
+        assertThat(filter.findViolation("")).isEmpty();
     }
 
     private void assertRejected(String content, String reasonKeyword) {

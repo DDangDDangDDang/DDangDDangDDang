@@ -42,9 +42,13 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     // 클라이언트가 구독할 수 있는 경로. 새 토픽을 만들면 여기에 추가한다.
     private static final List<Pattern> SUBSCRIBABLE_DESTINATIONS = List.of(
             Pattern.compile("^/topic/live-streams/\\d+/chat$"),
+            // 방송 정보 변경 알림 (제목·설명 수정)
+            Pattern.compile("^/topic/live-streams/\\d+$"),
             Pattern.compile("^/user/queue/errors$"),
             // 판매자에게만 오는 채팅 검토 알림 (내 방송의 알림만 나에게 전달됨)
-            Pattern.compile("^/user/queue/moderation$")
+            Pattern.compile("^/user/queue/moderation$"),
+            // 1:1 채팅 메시지 (나에게 온 메시지와 내가 다른 화면에서 보낸 메시지)
+            Pattern.compile("^/user/queue/dm$")
     );
 
     private final AccessTokenAuthenticator accessTokenAuthenticator;

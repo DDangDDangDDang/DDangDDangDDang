@@ -1,10 +1,17 @@
 package com.example.ddangddangddang.domain.livestream.controller;
 
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCard;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamHomeResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
+import com.example.ddangddangddang.domain.livestream.service.LiveStreamHomeService;
+import com.example.ddangddangddang.domain.livestream.service.LiveStreamListService;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.global.common.ApiResponse;
+import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +26,8 @@ import org.springframework.web.bind.annotation.*;
 public class LiveStreamController {
 
     private final LiveStreamService liveStreamService;
+    private final LiveStreamHomeService liveStreamHomeService;
+    private final LiveStreamListService liveStreamListService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<LiveStreamResponse>> create(
@@ -28,9 +37,50 @@ public class LiveStreamController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
 
+    /**
+     * 방송 목록·검색. status별로 정렬이 다르다. (LIVE 최근 시작순, SCHEDULED 시작 예정 시간이 가까운 순, ENDED 최근 종료순)
+     * sellerId를 주면 그 판매자의 방송만, keyword를 주면 제목·설명·판매자 닉네임에 검색어가 들어간 방송만 보여 준다.
+     */
+    @GetMapping
+    public ResponseEntity<ApiResponse<CursorResponse<LiveStreamCard>>> list(
+            @RequestParam(required = false) LiveStreamStatus status,
+            @RequestParam(required = false) Long sellerId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamListService.getList(status, sellerId, keyword, cursor, size)));
+    }
+
+    /**
+     * 홈 화면 방송 목록 (시청자 많은 방송, 시청자 급증 방송). size는 섹션별 개수 (최대 20)
+     */
+    @GetMapping("/home")
+    public ResponseEntity<ApiResponse<LiveStreamHomeResponse>> home(@RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamHomeService.getHome(size)));
+    }
+
+    /**
+     * 내 종료되지 않은 방송 (대기 중·방송 중). 판매자당 하나이며, 없으면 data가 null이다.
+     */
+    @GetMapping("/me/active")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> myActive(@AuthenticationPrincipal AuthUser authUser) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.getMyActive(authUser.id())));
+    }
+
     @GetMapping("/{liveStreamId}")
     public ResponseEntity<ApiResponse<LiveStreamResponse>> get(@PathVariable Long liveStreamId) {
         return ResponseEntity.ok(ApiResponse.ok(liveStreamService.get(liveStreamId)));
+    }
+
+    /**
+     * 판매자가 방송 정보(제목·설명)를 바꾼다. 방송 중에도 바꿀 수 있고, 시청자 화면에 바로 반영된다.
+     */
+    @PatchMapping("/{liveStreamId}")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> update(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @Valid @RequestBody LiveStreamUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.update(liveStreamId, authUser.id(), request)));
     }
 
     /**

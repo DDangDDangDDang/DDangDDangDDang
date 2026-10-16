@@ -168,8 +168,8 @@ class ChatModerationQueueTest {
     }
 
     private LiveStreamResponse liveStream() {
-        return new LiveStreamResponse(LIVE_STREAM_ID, SELLER_ID, "테스트 방송", LiveStreamStatus.LIVE,
-                LocalDateTime.now(), LocalDateTime.now(), null);
+        return new LiveStreamResponse(LIVE_STREAM_ID, SELLER_ID, "테스트 방송", null, LiveStreamStatus.LIVE,
+                LocalDateTime.now(), null, LocalDateTime.now(), null);
     }
 
     /** 받은 묶음을 기록하고, 정해 둔 문구가 들어간 메시지를 표시하는 가짜 검토기 */

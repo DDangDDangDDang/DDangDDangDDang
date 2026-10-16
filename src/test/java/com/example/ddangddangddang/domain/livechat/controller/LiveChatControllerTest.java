@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.livechat.controller;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.livechat.repository.ChatRateLimitRepository;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
@@ -201,6 +202,34 @@ class LiveChatControllerTest {
     }
 
     @Test
+    @DisplayName("방송 중에 판매자가 제목을 바꾸면 방송 정보를 구독한 시청자에게 UPDATED 메시지로 전달된다")
+    void streamUpdated() throws Exception {
+        Long sellerId = 99L;
+        Long liveStreamId = liveStream(sellerId, true);
+        StompSession session = connect(bearer(accessToken(1L)));
+        BlockingQueue<Map<String, Object>> messages = subscribe(session, "/topic/live-streams/" + liveStreamId);
+
+        // 구독 등록 전에 보낸 알림은 받지 못하므로, 받을 때까지 제목을 바꿔 가며 다시 수정한다.
+        Map<String, Object> message = null;
+        String title = null;
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
+        for (int attempt = 1; message == null && System.nanoTime() < deadline; attempt++) {
+            title = "바뀐 제목 " + attempt;
+            liveStreamService.update(liveStreamId, sellerId, new LiveStreamUpdateRequest(title, "설명"));
+            message = messages.poll(200, TimeUnit.MILLISECONDS);
+        }
+
+        assertThat(message).isNotNull();
+        assertThat(message.get("type")).isEqualTo("UPDATED");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> liveStream = (Map<String, Object>) message.get("liveStream");
+        assertThat(((Number) liveStream.get("id")).longValue()).isEqualTo(liveStreamId);
+        assertThat(liveStream.get("title")).asString().startsWith("바뀐 제목 ");
+        assertThat(liveStream.get("description")).isEqualTo("설명");
+        assertThat(liveStream.get("status")).isEqualTo("LIVE");
+    }
+
+    @Test
     @DisplayName("토큰 없이 연결하면 AUTH_001 에러로 연결이 거부된다")
     void connectWithoutToken() throws Exception {
         connectAsync(null);
@@ -336,6 +365,11 @@ class LiveChatControllerTest {
     }
 
     private Long liveStream(Long sellerId, boolean live) {
+        // 판매자당 종료되지 않은 방송은 하나라서, 앞선 테스트가 남긴 같은 판매자의 방송을 먼저 끝낸다.
+        liveStreamRepository.findByActiveSellerId(sellerId).ifPresent(previous -> {
+            previous.end(sellerId);
+            liveStreamRepository.save(previous);
+        });
         LiveStream liveStream = LiveStream.create(sellerId, "테스트 방송");
         if (live) {
             liveStream.start(sellerId);
