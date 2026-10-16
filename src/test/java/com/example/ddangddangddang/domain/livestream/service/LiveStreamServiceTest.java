@@ -8,6 +8,7 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamUpdatedEvent;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
@@ -30,9 +31,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -197,6 +200,82 @@ class LiveStreamServiceTest {
                     .isEqualTo(errorCode);
             then(liveStreamRepository).should(never()).saveAndFlush(any());
             then(eventPublisher).should(never()).publishEvent(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("방송 시작 예정 시간")
+    class ScheduledStartAt {
+
+        @Test
+        @DisplayName("방송을 만들 때 시작 예정 시간을 정하면 함께 저장하고 응답한다")
+        void createWithSchedule() {
+            LocalDateTime at = LocalDateTime.now().plusDays(1).withNano(0);
+            given(liveStreamRepository.existsByActiveSellerId(SELLER_ID)).willReturn(false);
+            given(liveStreamRepository.saveAndFlush(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+            LiveStreamResponse response = liveStreamService.create(SELLER_ID, new LiveStreamCreateRequest("예정 방송", null, at));
+
+            assertThat(response.scheduledStartAt()).isEqualTo(at);
+            assertThat(response.status()).isEqualTo(LiveStreamStatus.SCHEDULED);
+        }
+
+        @Test
+        @DisplayName("지난 시간이나 30일보다 먼 시간은 LIVESTREAM_012로 거부하고 저장하지 않는다")
+        void rejectOutOfRange() {
+            assertScheduleError(LocalDateTime.now().minusMinutes(1), "방송 시작 예정 시간은 지금 이후로 정해 주세요.");
+            assertScheduleError(LocalDateTime.now().plusDays(31), "방송 시작 예정 시간은 지금부터 30일 이내로 정해 주세요.");
+            then(liveStreamRepository).should(never()).saveAndFlush(any());
+        }
+
+        @Test
+        @DisplayName("범위 경계: 지금과 정확히 30일 뒤는 허용하고, 정하지 않으면(null) 검사하지 않는다")
+        void boundaries() {
+            LocalDateTime now = LocalDateTime.of(2026, 10, 16, 12, 0);
+
+            assertThatCode(() -> LiveStreamService.validateScheduledStartAt(now, now)).doesNotThrowAnyException();
+            assertThatCode(() -> LiveStreamService.validateScheduledStartAt(now.plusDays(30), now)).doesNotThrowAnyException();
+            assertThatCode(() -> LiveStreamService.validateScheduledStartAt(null, now)).doesNotThrowAnyException();
+            assertThatThrownBy(() -> LiveStreamService.validateScheduledStartAt(now.plusDays(30).plusSeconds(1), now))
+                    .isInstanceOf(BusinessException.class);
+        }
+
+        @Test
+        @DisplayName("대기 중인 방송은 시작 예정 시간을 바꿀 수 있고, 바뀌면 변경 이벤트를 보낸다")
+        void changeWhileScheduled() {
+            LiveStream liveStream = liveStream(false);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+            LocalDateTime at = LocalDateTime.now().plusHours(3).withNano(0);
+
+            LiveStreamResponse response = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest(null, null, at));
+
+            assertThat(response.scheduledStartAt()).isEqualTo(at);
+            then(eventPublisher).should().publishEvent(any(LiveStreamUpdatedEvent.class));
+        }
+
+        @Test
+        @DisplayName("이미 시작한 방송은 시작 예정 시간을 바꿀 수 없다 (LIVESTREAM_011). 다른 값만 바꾸는 요청은 그대로 된다")
+        void rejectChangeAfterStart() {
+            LiveStream liveStream = liveStream(true);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            assertThatThrownBy(() -> liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest(null, null, LocalDateTime.now().plusHours(1))))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(LiveStreamErrorCode.SCHEDULE_CHANGE_NOT_ALLOWED);
+
+            assertThat(liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest("방송 중 제목 변경", null)).title()).isEqualTo("방송 중 제목 변경");
+        }
+
+        private void assertScheduleError(LocalDateTime at, String message) {
+            assertThatThrownBy(() -> liveStreamService.create(SELLER_ID, new LiveStreamCreateRequest("예정 방송", null, at)))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage(message)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(LiveStreamErrorCode.INVALID_SCHEDULED_START);
         }
     }
 

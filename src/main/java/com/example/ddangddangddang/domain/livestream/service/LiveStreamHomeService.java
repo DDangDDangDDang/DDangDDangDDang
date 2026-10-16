@@ -15,6 +15,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -25,7 +27,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 홈 화면 방송 목록. 시청자 수 순위는 LiveViewerStatsCollector가 주기적으로 Redis에 갱신한 값을 읽는다.
+ * 홈 화면 방송 목록 (시청자 많은 방송, 시청자 급증 방송, 방송 예정). 시청자 수 순위는 LiveViewerStatsCollector가 주기적으로 Redis에 갱신한 값을 읽는다.
  *
  * 순위는 최대 한 주기(기본 15초) 늦을 수 있어, 그 사이 끝난 방송이 순위에 남아 있을 수 있다.
  * 그래서 DB에서 방송 상태를 다시 확인해 진행 중인 방송만 보여 준다.
@@ -40,6 +42,9 @@ public class LiveStreamHomeService {
     static final int MAX_SIZE = 20;
     // 순위에 남아 있을 수 있는 끝난 방송을 걸러낸 뒤에도 size개를 채울 수 있도록 조금 더 읽는다.
     private static final int EXTRA = 10;
+    // 방송 예정 목록에 시작 예정 시간이 조금 지났지만 아직 시작하지 않은 방송도 남겨 둔다. (판매자가 조금 늦게 시작하는 경우)
+    // 그보다 오래 지난 방송은 시작하지 않을 가능성이 커서 목록에서 뺀다.
+    static final Duration UPCOMING_GRACE = Duration.ofMinutes(30);
 
     private final LiveStreamRepository liveStreamRepository;
     private final LiveViewerStatsRepository statsRepository;
@@ -60,8 +65,10 @@ public class LiveStreamHomeService {
         List<LiveStream> mostViewed = liveOnly(viewerRanking, pageSize);
         fillWithRecent(mostViewed, pageSize);
         List<LiveStream> surging = liveOnly(surgeRanking, pageSize);
+        List<LiveStream> upcoming = liveStreamRepository.findByStatusAndScheduledStartAtGreaterThanEqualOrderByScheduledStartAtAsc(
+                LiveStreamStatus.SCHEDULED, LocalDateTime.now().minus(UPCOMING_GRACE), PageRequest.of(0, pageSize));
 
-        return new LiveStreamHomeResponse(toCards(mostViewed), toCards(surging));
+        return new LiveStreamHomeResponse(toCards(mostViewed, true), toCards(surging, true), toCards(upcoming, false));
     }
 
     // 순위 순서를 지키면서 DB에서 진행 중인 방송만 남긴다.
@@ -95,18 +102,21 @@ public class LiveStreamHomeService {
         }
     }
 
-    private List<LiveStreamCard> toCards(List<LiveStream> streams) {
+    // withViewerStats: 진행 중인 방송이면 시청자 수를 함께 읽는다. 방송 예정 목록은 시청자가 없으므로 읽지 않는다.
+    private List<LiveStreamCard> toCards(List<LiveStream> streams, boolean withViewerStats) {
         if (streams.isEmpty()) {
             return List.of();
         }
         List<Long> ids = streams.stream().map(LiveStream::getId).toList();
         Map<Long, Integer> viewers = Map.of();
         Map<Long, Integer> increases = Map.of();
-        try {
-            viewers = statsRepository.getViewerCounts(ids);
-            increases = statsRepository.getIncreases(ids);
-        } catch (RuntimeException e) {
-            log.warn("시청자 수를 읽지 못해 0으로 보여 줍니다.", e);
+        if (withViewerStats) {
+            try {
+                viewers = statsRepository.getViewerCounts(ids);
+                increases = statsRepository.getIncreases(ids);
+            } catch (RuntimeException e) {
+                log.warn("시청자 수를 읽지 못해 0으로 보여 줍니다.", e);
+            }
         }
         Map<Long, String> nicknames = userRepository.findAllById(
                         streams.stream().map(LiveStream::getSellerId).distinct().toList())
@@ -115,7 +125,7 @@ public class LiveStreamHomeService {
         Map<Long, LiveStreamCard> cards = new LinkedHashMap<>();
         for (LiveStream stream : streams) {
             cards.put(stream.getId(), new LiveStreamCard(stream.getId(), stream.getTitle(), stream.getSellerId(),
-                    nicknames.get(stream.getSellerId()), stream.getStartedAt(),
+                    nicknames.get(stream.getSellerId()), stream.getScheduledStartAt(), stream.getStartedAt(),
                     viewers.getOrDefault(stream.getId(), 0), increases.getOrDefault(stream.getId(), 0)));
         }
         return List.copyOf(cards.values());

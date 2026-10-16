@@ -150,6 +150,35 @@ class LiveStreamControllerTest {
         liveStreamService.end(liveStreamId, seller.id());
     }
 
+    @Test
+    @DisplayName("시작 예정 시간을 \"yyyy-MM-ddTHH:mm\"로 보내 방송을 만들면 홈의 방송 예정에 나오고, 지난 시간은 400 LIVESTREAM_012")
+    void scheduledStream() throws Exception {
+        Member seller = signupAndLogin();
+        // 브라우저의 datetime-local 입력값처럼 초 없이 보낸다.
+        String at = java.time.LocalDateTime.now().plusDays(2).withSecond(0).withNano(0)
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
+
+        mockMvc.perform(post("/api/v1/live-streams").header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"예정 방송\", \"scheduledStartAt\": \"2020-01-01T10:00\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("LIVESTREAM_012"));
+
+        Long liveStreamId = longValue(mockMvc.perform(post("/api/v1/live-streams")
+                        .header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"예정 방송\", \"scheduledStartAt\": \"" + at + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.scheduledStartAt").value(at + ":00")), "$.data.id");
+
+        mockMvc.perform(get("/api/v1/live-streams/home").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.upcoming[?(@.liveStreamId == " + liveStreamId + ")].scheduledStartAt").value(at + ":00"))
+                .andExpect(jsonPath("$.data.upcoming[?(@.liveStreamId == " + liveStreamId + ")].sellerNickname").value(seller.nickname()));
+
+        liveStreamService.end(liveStreamId, seller.id());
+    }
+
     private org.springframework.test.web.servlet.ResultActions create(Member seller, String title) throws Exception {
         return mockMvc.perform(post("/api/v1/live-streams").header(HttpHeaders.AUTHORIZATION, seller.bearer())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"title\": \"" + title + "\"}"))

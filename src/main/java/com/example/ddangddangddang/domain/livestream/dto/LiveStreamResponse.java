@@ -5,6 +5,9 @@ import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 
 import java.time.LocalDateTime;
 
+/**
+ * scheduledStartAt: 판매자가 정한 시작 예정 시간 (없으면 null), startedAt: 실제 시작 시간
+ */
 public record LiveStreamResponse(
         Long id,
         Long sellerId,
@@ -12,6 +15,7 @@ public record LiveStreamResponse(
         String description,
         LiveStreamStatus status,
         LocalDateTime createdAt,
+        LocalDateTime scheduledStartAt,
         LocalDateTime startedAt,
         LocalDateTime endedAt
 ) {
@@ -23,6 +27,7 @@ public record LiveStreamResponse(
                 liveStream.getDescription(),
                 liveStream.getStatus(),
                 liveStream.getCreatedAt(),
+                liveStream.getScheduledStartAt(),
                 liveStream.getStartedAt(),
                 liveStream.getEndedAt()
         );
