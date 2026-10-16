@@ -46,7 +46,9 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             Pattern.compile("^/topic/live-streams/\\d+$"),
             Pattern.compile("^/user/queue/errors$"),
             // 판매자에게만 오는 채팅 검토 알림 (내 방송의 알림만 나에게 전달됨)
-            Pattern.compile("^/user/queue/moderation$")
+            Pattern.compile("^/user/queue/moderation$"),
+            // 1:1 채팅 메시지 (나에게 온 메시지와 내가 다른 화면에서 보낸 메시지)
+            Pattern.compile("^/user/queue/dm$")
     );
 
     private final AccessTokenAuthenticator accessTokenAuthenticator;

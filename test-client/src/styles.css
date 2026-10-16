@@ -59,6 +59,26 @@ button.link { border: 0; background: none; padding: 0; height: auto; text-decora
 .messages .system { text-align: center; color: var(--sub); background: var(--bg); border-radius: 6px; padding: 4px 8px; font-size: 13px; }
 .error-msg { color: var(--error-text); background: var(--error-bg); border-radius: 6px; padding: 4px 8px; font-size: 13px; }
 
+select { height: 40px; padding: 0 8px; border: 1px solid #a3a3a3; border-radius: 8px; font: inherit; font-weight: 400; background: #fff; }
+.badge { display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; text-align: center; }
+
+.dm-layout { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .dm-layout { grid-template-columns: minmax(0, 1fr); } }
+.dm-rooms, .dm-chat { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.room-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; }
+.room-item { width: 100%; height: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.room-item.active { border-color: var(--accent); background: var(--error-bg); }
+.room-item .preview { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-messages { height: 380px; }
+.dm-messages li { display: flex; flex-direction: column; gap: 2px; max-width: 75%; }
+.dm-messages li.mine { align-self: flex-end; align-items: flex-end; }
+.dm-messages li.theirs { align-self: flex-start; align-items: flex-start; }
+.dm-messages li.system { align-self: center; max-width: none; }
+.bubble { padding: 6px 10px; border-radius: 10px; background: var(--bg); white-space: pre-wrap; word-break: break-word; }
+.mine .bubble { background: var(--accent); color: #fff; }
+.bubble.pending { opacity: 0.6; }
+.unread-mark { color: var(--accent); }
+.report-box { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--error-bg); }
 .home-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .home-section { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .home-section h3 { margin: 0; font-size: 15px; }

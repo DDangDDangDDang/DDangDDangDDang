@@ -208,6 +208,56 @@ export const liveStreamApi = {
   end: (id: number) => api<LiveStream>('POST', `/api/v1/live-streams/${id}/end`),
 };
 
+// ---- 1:1 채팅 ----
+export type CursorPage<T> = { content: T[]; nextCursor: number | null; hasNext: boolean };
+export type DmRoom = {
+  roomId: number;
+  otherUser: { userId: number; nickname: string | null };
+  lastMessageId: number | null;
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+  // 상대가 마지막으로 읽은 메시지. 내 메시지 중 이보다 id가 크면 상대가 아직 안 읽은 것("1")
+  otherLastReadMessageId: number | null;
+  blockedByMe: boolean;
+};
+export type DmMessage = {
+  messageId: number;
+  roomId: number;
+  senderId: number;
+  clientMessageId: string;
+  content: string;
+  sentAt: string;
+};
+// /user/queue/dm 으로 오는 실시간 이벤트
+export type DmEvent =
+  | { type: 'MESSAGE'; roomId: number; message: DmMessage; readerId: null; lastReadMessageId: null }
+  | { type: 'READ'; roomId: number; message: null; readerId: number; lastReadMessageId: number };
+export type DmReportReason = 'EXTERNAL_TRADE' | 'SCAM' | 'HARASSMENT' | 'SEXUAL' | 'SPAM' | 'OTHER';
+export type DmBlock = { userId: number; nickname: string | null; blockedAt: string };
+
+function cursorQuery(cursor: number | null, size: number): string {
+  return `?size=${size}${cursor ? `&cursor=${cursor}` : ''}`;
+}
+
+export const dmApi = {
+  openRoom: (targetUserId: number) => api<DmRoom>('POST', '/api/v1/dm/rooms', { targetUserId }),
+  rooms: (cursor: number | null = null, size = 20) => api<CursorPage<DmRoom>>('GET', `/api/v1/dm/rooms${cursorQuery(cursor, size)}`),
+  unreadCount: () => api<{ unreadCount: number }>('GET', '/api/v1/dm/unread-count'),
+  messages: (roomId: number, cursor: number | null = null, size = 30) =>
+    api<CursorPage<DmMessage>>('GET', `/api/v1/dm/rooms/${roomId}/messages${cursorQuery(cursor, size)}`),
+  // clientMessageId: 재전송해도 한 번만 저장되도록 메시지마다 만드는 ID
+  send: (roomId: number, clientMessageId: string, content: string) =>
+    api<DmMessage>('POST', `/api/v1/dm/rooms/${roomId}/messages`, { clientMessageId, content }),
+  read: (roomId: number, lastReadMessageId?: number) =>
+    api<{ roomId: number; lastReadMessageId: number | null; unreadCount: number }>(
+      'POST', `/api/v1/dm/rooms/${roomId}/read`, lastReadMessageId ? { lastReadMessageId } : undefined),
+  block: (userId: number) => api<DmBlock>('POST', '/api/v1/dm/blocks', { userId }),
+  unblock: (userId: number) => api<null>('DELETE', `/api/v1/dm/blocks/${userId}`),
+  report: (roomId: number, reason: DmReportReason, messageId?: number, detail?: string) =>
+    api<unknown>('POST', `/api/v1/dm/rooms/${roomId}/reports`, { reason, messageId, detail: detail || undefined }),
+};
+
 export function errorText(e: unknown): string {
   if (e instanceof ApiError) return `[${e.code}] ${e.message}`;
   if (e instanceof Error) return e.message;
