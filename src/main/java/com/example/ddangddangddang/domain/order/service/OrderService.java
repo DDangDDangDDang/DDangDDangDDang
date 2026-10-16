@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.order.service;
 
+import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
@@ -126,5 +127,20 @@ public class OrderService {
     private Order findOrderForUpdate(Long orderId) {
         return orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
+    }
+
+    /**
+     * 구매자가 배송지를 입력한다.
+     * 발송과 같은 주문 락을 잡아서, 판매자가 발송하는 순간 배송지가 바뀌는 일이 없게 한다.
+     */
+    @Transactional
+    public OrderResponse registerDeliveryAddress(Long userId, Long orderId, OrderAddressRequest request) {
+        Order order = findOrderForUpdate(orderId);
+        if (!order.isBuyer(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_BUYER_ADDRESS);
+        }
+        order.registerDeliveryAddress(request.receiverName(), request.receiverPhone(),
+                request.address(), request.deliveryMemo());
+        return OrderResponse.from(order);
     }
 }

@@ -72,6 +72,22 @@ public class Order extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private OrderStatus status;
 
+    /*
+     * 배송지. 낙찰자가 발송 전에 입력하고, 판매자는 이 정보로 송장을 만든다.
+     * 주문에 직접 저장(스냅샷)해서, 나중에 회원 정보가 바뀌어도 이미 보낸 주문의 배송지는 그대로 남는다.
+     */
+    @Column(length = 20)
+    private String receiverName;
+
+    @Column(length = 11)
+    private String receiverPhone;
+
+    @Column(length = 200)
+    private String address;
+
+    @Column(length = 100)
+    private String deliveryMemo;
+
     @Column(length = 50)
     private String trackingNo;
 
@@ -94,6 +110,21 @@ public class Order extends BaseTimeEntity {
     public static Order create(Long auctionId, Long buyerId, Long sellerId, String productName,
                                String productImageUrl, long finalPrice) {
         return new Order(auctionId, buyerId, sellerId, productName, productImageUrl, finalPrice);
+    }
+
+    /** 배송지 입력. 발송 전(ESCROW)에는 여러 번 고칠 수 있다. */
+    public void registerDeliveryAddress(String receiverName, String receiverPhone, String address, String deliveryMemo) {
+        if (status != OrderStatus.ESCROW) {
+            throw new BusinessException(OrderErrorCode.CANNOT_REGISTER_ADDRESS);
+        }
+        this.receiverName = receiverName;
+        this.receiverPhone = receiverPhone;
+        this.address = address;
+        this.deliveryMemo = deliveryMemo;
+    }
+
+    public boolean hasDeliveryAddress() {
+        return address != null;
     }
 
     /** 발송 처리: ESCROW -> SHIPPING */
