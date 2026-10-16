@@ -22,7 +22,9 @@ import java.util.UUID;
                 // 홈 화면: 진행 중인 방송을 최근 시작순으로
                 @Index(name = "idx_live_stream_status_started", columnList = "status, started_at"),
                 // 홈 화면: 방송 예정인 방송을 시작 예정 시간순으로
-                @Index(name = "idx_live_stream_status_scheduled", columnList = "status, scheduled_start_at")
+                @Index(name = "idx_live_stream_status_scheduled", columnList = "status, scheduled_start_at"),
+                // 방송 목록: 종료된 방송을 최근 종료순으로
+                @Index(name = "idx_live_stream_status_ended", columnList = "status, ended_at")
         }
 )
 @Getter
@@ -60,6 +62,7 @@ public class LiveStream extends BaseTimeEntity {
     @Column(name = "started_at")
     private LocalDateTime startedAt;
 
+    @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
     // 종료되지 않은(대기 중·방송 중) 방송이면 sellerId, 종료되면 null. 이 컬럼에 유니크를 걸어 판매자당 하나만 허용한다.

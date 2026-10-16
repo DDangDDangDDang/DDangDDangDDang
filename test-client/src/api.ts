@@ -34,14 +34,16 @@ export type LiveStream = {
 // scheduledStartAt은 방송을 시작하기 전(대기 중)에만 바꿀 수 있다.
 export type LiveStreamUpdate = { title?: string; description?: string; scheduledStartAt?: string };
 
-// 홈 화면 방송 카드. viewerIncrease: 최근 5분 동안 늘어난 시청자 수
+// 방송 카드 (홈, 방송 목록·검색). viewerIncrease: 최근 5분 동안 늘어난 시청자 수
 export type LiveStreamCard = {
   liveStreamId: number;
   title: string;
+  status: LiveStreamStatus;
   sellerId: number;
   sellerNickname: string | null;
   scheduledStartAt: string | null;
   startedAt: string | null;
+  endedAt: string | null;
   viewerCount: number;
   viewerIncrease: number;
 };
@@ -219,6 +221,16 @@ export const liveStreamApi = {
     }),
   get: (id: number) => api<LiveStream>('GET', `/api/v1/live-streams/${id}`),
   home: (size = 10) => api<LiveStreamHome>('GET', `/api/v1/live-streams/home?size=${size}`),
+  // 방송 목록·검색. status 기본 LIVE, keyword는 제목·설명·판매자 닉네임에서 찾는다.
+  list: (params: { status?: LiveStreamStatus; sellerId?: number; keyword?: string; cursor?: number | null; size?: number }) => {
+    const query = new URLSearchParams();
+    if (params.status) query.set('status', params.status);
+    if (params.sellerId) query.set('sellerId', String(params.sellerId));
+    if (params.keyword) query.set('keyword', params.keyword);
+    if (params.cursor) query.set('cursor', String(params.cursor));
+    query.set('size', String(params.size ?? 20));
+    return api<CursorPage<LiveStreamCard>>('GET', `/api/v1/live-streams?${query}`);
+  },
   // 내 종료되지 않은 방송 (판매자당 하나). 없으면 null
   myActive: () => api<LiveStream | null>('GET', '/api/v1/live-streams/me/active'),
   // 보낸 값만 바뀐다. description을 ''로 보내면 설명을 지운다.

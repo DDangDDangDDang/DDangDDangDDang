@@ -1,13 +1,17 @@
 package com.example.ddangddangddang.domain.livestream.controller;
 
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCard;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamHomeResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamHomeService;
+import com.example.ddangddangddang.domain.livestream.service.LiveStreamListService;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.global.common.ApiResponse;
+import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +27,7 @@ public class LiveStreamController {
 
     private final LiveStreamService liveStreamService;
     private final LiveStreamHomeService liveStreamHomeService;
+    private final LiveStreamListService liveStreamListService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<LiveStreamResponse>> create(
@@ -30,6 +35,20 @@ public class LiveStreamController {
             @Valid @RequestBody LiveStreamCreateRequest request) {
         LiveStreamResponse response = liveStreamService.create(authUser.id(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
+    }
+
+    /**
+     * 방송 목록·검색. status별로 정렬이 다르다. (LIVE 최근 시작순, SCHEDULED 시작 예정 시간이 가까운 순, ENDED 최근 종료순)
+     * sellerId를 주면 그 판매자의 방송만, keyword를 주면 제목·설명·판매자 닉네임에 검색어가 들어간 방송만 보여 준다.
+     */
+    @GetMapping
+    public ResponseEntity<ApiResponse<CursorResponse<LiveStreamCard>>> list(
+            @RequestParam(required = false) LiveStreamStatus status,
+            @RequestParam(required = false) Long sellerId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamListService.getList(status, sellerId, keyword, cursor, size)));
     }
 
     /**

@@ -5,6 +5,7 @@ import LivePanel from './LivePanel';
 import ChatPanel from './ChatPanel';
 import DmPanel from './DmPanel';
 import HomePanel from './HomePanel';
+import StreamListPanel from './StreamListPanel';
 
 export type Log = (message: string, level?: 'info' | 'error') => void;
 type LogEntry = { key: number; time: string; message: string; level: 'info' | 'error' };
@@ -64,6 +65,8 @@ export default function App() {
       {user && (
         <HomePanel log={log} onSelect={setLiveStreamId} />
       )}
+
+      {user && <StreamListPanel log={log} userId={user.userId} onSelect={setLiveStreamId} />}
 
       {user && (
         <main className="grid">
