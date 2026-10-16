@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.product.service;
 
+import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
+import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.exception.CategoryErrorCode;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
@@ -20,6 +22,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Service
 @Transactional
@@ -27,6 +31,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
+    private final AuctionRepository auctionRepository;
 
     //상품 상세 조회(삭제된 상품은 제외)
     @Transactional(readOnly = true)
@@ -65,6 +70,11 @@ public class ProductService {
             throw new BusinessException(ProductErrorCode.NOT_OWNER);
         }
 
+        // 진행 OR 대기 중 경매 있을시
+        if (auctionRepository.existsByProductIdAndStatusIn(product.getId(), List.of(AuctionStatus.READY,AuctionStatus.ONGOING))){
+            throw new BusinessException(ProductErrorCode.IN_AUCTION);
+        }
+
         Category category = (request.categoryId() != null)
                 ? findCategory(request.categoryId())
                 : product.getCategory();
@@ -101,7 +111,10 @@ public class ProductService {
         if (!product.getSeller().getId().equals(sellerId)) {
             throw new BusinessException(ProductErrorCode.NOT_OWNER);
         }
-        // 진행 중 경매 있을시 삭제 불가
+        // 진행 OR 대기 중 경매 있을시
+        if (auctionRepository.existsByProductIdAndStatusIn(product.getId(), List.of(AuctionStatus.READY,AuctionStatus.ONGOING))){
+            throw new BusinessException(ProductErrorCode.IN_AUCTION);
+        }
         product.delete();
     }
 }
