@@ -28,19 +28,13 @@ public class AuctionController {
             @Valid @RequestBody AuctionCreateRequest request){
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(auctionService.auctionCreate(authUser.id(),request))) ;
     }
-//
-//    //카테고리 생성(관리자만)
-//    @PostMapping("/admin/categories")
-//    ResponseEntity<ApiResponse<AuctionResponse>> creation(@Valid @RequestBody AuctionCreateRequest request){
-//        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(auctionService.creation(request)));
-//    }
-//
-//    //카테고리 수정(관리자만)
-//    @PatchMapping("/admin/categories/{categoryId}")
-//    ResponseEntity<ApiResponse<AuctionResponse>> updateCategory(@PathVariable Long categoryId, @Valid @RequestBody LiveAuctionCreateRequest request){
-//        return ResponseEntity.ok(ApiResponse.ok(auctionService.updateCategory(categoryId,request)));
-//    }
-//
+
+    @GetMapping("/auctions/{auctionId}")
+    ResponseEntity<ApiResponse<AuctionResponse>> findAddBy(
+            @PathVariable Long auctionId){
+        return ResponseEntity.ok(ApiResponse.ok(auctionService.findAddBy(auctionId))) ;
+    }
+
 //    //카테고리 삭제(관리자만)
 //    @DeleteMapping("/admin/categories/{categoryId}")
 //    ResponseEntity<Void> delete(@PathVariable Long categoryId){

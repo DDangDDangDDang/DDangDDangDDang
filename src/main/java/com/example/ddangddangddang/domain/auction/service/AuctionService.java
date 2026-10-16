@@ -64,4 +64,14 @@ public class AuctionService {
         return AuctionResponse.from(save);
 
     }
+
+    //경매 상세 조회
+    @Transactional(readOnly = true)
+    public AuctionResponse findAddBy(Long auctionId) {
+        Auction auction = auctionRepository.findById(auctionId).orElseThrow(
+                () -> new BusinessException(AuctionErrorCode.NOT_FOUND)
+        );
+
+        return AuctionResponse.from(auction);
+    }
 }
