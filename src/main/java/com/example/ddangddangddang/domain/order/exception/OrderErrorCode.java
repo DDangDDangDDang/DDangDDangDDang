@@ -17,7 +17,9 @@ public enum OrderErrorCode implements ErrorCode {
     CANNOT_SHIP(HttpStatus.CONFLICT, "ORDER_006", "발송 대기 중인 주문만 발송 처리할 수 있습니다."),
     CANNOT_CONFIRM(HttpStatus.CONFLICT, "ORDER_007", "배송 중인 주문만 구매 확정할 수 있습니다."),
     NOT_ORDER_BUYER_ADDRESS(HttpStatus.FORBIDDEN, "ORDER_008", "구매자만 배송지를 입력할 수 있습니다."),
-    CANNOT_REGISTER_ADDRESS(HttpStatus.CONFLICT, "ORDER_009", "발송 전 주문만 배송지를 입력할 수 있습니다.");
+    CANNOT_REGISTER_ADDRESS(HttpStatus.CONFLICT, "ORDER_009", "발송 전 주문만 배송지를 입력할 수 있습니다."),
+    ADDRESS_REQUIRED(HttpStatus.CONFLICT, "ORDER_010", "구매자가 배송지를 입력한 뒤에 발송할 수 있습니다."),
+    DUPLICATE_TRACKING_NO(HttpStatus.CONFLICT, "ORDER_011", "이미 다른 주문에 등록된 송장입니다.");
 
     private final HttpStatus status;
     private final String code;

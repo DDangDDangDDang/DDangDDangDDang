@@ -46,8 +46,7 @@ public class OrderController {
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long orderId,
             @Valid @RequestBody OrderShipRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(orderService.ship(authUser.id(), orderId, request.trackingNo())));
-    }
+        return ResponseEntity.ok(ApiResponse.ok(orderService.ship(authUser.id(), orderId, request.courier(), request.trackingNo())));    }
 
     @PatchMapping("/{orderId}/confirm")
     public ResponseEntity<ApiResponse<OrderResponse>> confirmPurchase(

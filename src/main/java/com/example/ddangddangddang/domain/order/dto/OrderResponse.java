@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.order.dto;
 
+import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 
@@ -19,6 +20,7 @@ public record OrderResponse(
         String receiverPhone,
         String address,
         String deliveryMemo,
+        Courier courier,
         String trackingNo,
         LocalDateTime createdAt,
         LocalDateTime shippedAt,
@@ -40,6 +42,7 @@ public record OrderResponse(
                 order.getReceiverPhone(),
                 order.getAddress(),
                 order.getDeliveryMemo(),
+                order.getCourier(),
                 order.getTrackingNo(),
                 order.getCreatedAt(),
                 order.getShippedAt(),
