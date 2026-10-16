@@ -24,9 +24,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.sql.SQLException;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -194,6 +197,85 @@ class LiveStreamServiceTest {
                     .isEqualTo(errorCode);
             then(liveStreamRepository).should(never()).saveAndFlush(any());
             then(eventPublisher).should(never()).publishEvent(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("판매자당 종료되지 않은 방송 하나")
+    class ActiveStreamRule {
+
+        @Test
+        @DisplayName("종료되지 않은 방송이 있으면 새 방송을 만들 수 없다 (LIVESTREAM_010)")
+        void rejectWhenActiveExists() {
+            given(liveStreamRepository.existsByActiveSellerId(SELLER_ID)).willReturn(true);
+
+            assertThatThrownBy(() -> liveStreamService.create(SELLER_ID, new LiveStreamCreateRequest("새 방송", null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS);
+            then(liveStreamRepository).should(never()).saveAndFlush(any());
+        }
+
+        @Test
+        @DisplayName("동시에 만들어 확인을 함께 통과해도, 저장 때 판매자당 하나 유니크 제약에 걸리면 LIVESTREAM_010 (MySQL처럼 테이블 이름이 붙어도)")
+        void rejectOnActiveSellerUniqueViolation() {
+            given(liveStreamRepository.existsByActiveSellerId(SELLER_ID)).willReturn(false);
+            given(liveStreamRepository.saveAndFlush(any()))
+                    .willThrow(violation("live_streams.uk_live_stream_active_seller"));
+
+            assertThatThrownBy(() -> liveStreamService.create(SELLER_ID, new LiveStreamCreateRequest("새 방송", null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS);
+        }
+
+        @Test
+        @DisplayName("다른 제약 위반이나 제약 이름을 알 수 없는 위반은 LIVESTREAM_010으로 바꾸지 않고 원래 예외를 그대로 던진다")
+        void rethrowOtherViolations() {
+            given(liveStreamRepository.existsByActiveSellerId(SELLER_ID)).willReturn(false);
+            DataIntegrityViolationException roomName = violation("live_streams.UK_room_name");
+            DataIntegrityViolationException unknown = new DataIntegrityViolationException("not null");
+            given(liveStreamRepository.saveAndFlush(any())).willThrow(roomName, unknown);
+
+            assertThatThrownBy(() -> liveStreamService.create(SELLER_ID, new LiveStreamCreateRequest("새 방송", null)))
+                    .isSameAs(roomName);
+            assertThatThrownBy(() -> liveStreamService.create(SELLER_ID, new LiveStreamCreateRequest("새 방송", null)))
+                    .isSameAs(unknown);
+        }
+
+        @Test
+        @DisplayName("H2처럼 제약 이름이 대문자로 오거나 앞뒤에 다른 글자가 붙어도 판매자당 하나 제약으로 판별한다")
+        void constraintNameMatching() {
+            assertThat(LiveStreamService.isViolationOf(violation("PUBLIC.UK_LIVE_STREAM_ACTIVE_SELLER_INDEX_A"),
+                    "uk_live_stream_active_seller")).isTrue();
+            assertThat(LiveStreamService.isViolationOf(violation(null), "uk_live_stream_active_seller")).isFalse();
+        }
+
+        // Spring이 Hibernate 제약 위반을 감싸 주는 모양 그대로 만든다.
+        private DataIntegrityViolationException violation(String constraintName) {
+            return new DataIntegrityViolationException("could not execute statement",
+                    new ConstraintViolationException("Duplicate entry", new SQLException("Duplicate entry", "23000", 1062), constraintName));
+        }
+
+        @Test
+        @DisplayName("만든 방송은 종료되지 않은 방송으로 표시되고, 종료하면 표시가 사라진다")
+        void activeUntilEnded() {
+            LiveStream liveStream = liveStream(true);
+            assertThat(liveStream.getActiveSellerId()).isEqualTo(SELLER_ID);
+
+            liveStream.end(SELLER_ID);
+
+            assertThat(liveStream.getActiveSellerId()).isNull();
+        }
+
+        @Test
+        @DisplayName("내 종료되지 않은 방송을 조회하고, 없으면 null")
+        void getMyActive() {
+            given(liveStreamRepository.findByActiveSellerId(SELLER_ID)).willReturn(Optional.of(liveStream(false)));
+            given(liveStreamRepository.findByActiveSellerId(2L)).willReturn(Optional.empty());
+
+            assertThat(liveStreamService.getMyActive(SELLER_ID).id()).isEqualTo(LIVE_STREAM_ID);
+            assertThat(liveStreamService.getMyActive(2L)).isNull();
         }
     }
 

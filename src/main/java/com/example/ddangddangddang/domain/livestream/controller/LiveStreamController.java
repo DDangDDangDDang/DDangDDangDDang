@@ -1,9 +1,11 @@
 package com.example.ddangddangddang.domain.livestream.controller;
 
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamHomeResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.service.LiveStreamHomeService;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class LiveStreamController {
 
     private final LiveStreamService liveStreamService;
+    private final LiveStreamHomeService liveStreamHomeService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<LiveStreamResponse>> create(
@@ -27,6 +30,22 @@ public class LiveStreamController {
             @Valid @RequestBody LiveStreamCreateRequest request) {
         LiveStreamResponse response = liveStreamService.create(authUser.id(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
+    }
+
+    /**
+     * 홈 화면 방송 목록 (시청자 많은 방송, 시청자 급증 방송). size는 섹션별 개수 (최대 20)
+     */
+    @GetMapping("/home")
+    public ResponseEntity<ApiResponse<LiveStreamHomeResponse>> home(@RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamHomeService.getHome(size)));
+    }
+
+    /**
+     * 내 종료되지 않은 방송 (대기 중·방송 중). 판매자당 하나이며, 없으면 data가 null이다.
+     */
+    @GetMapping("/me/active")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> myActive(@AuthenticationPrincipal AuthUser authUser) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.getMyActive(authUser.id())));
     }
 
     @GetMapping("/{liveStreamId}")
