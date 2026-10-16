@@ -63,7 +63,7 @@ public class ProductService {
 
     //상품 수정(본인만 수정가능+보내지 않은 값들은 기존 유지)
     public ProductResponse updateProduct(Long sellerId, Long productsId, UpdateRequest request) {
-        Product product = productRepository.findByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
+        Product product = productRepository.findWithLockByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
                 () -> new BusinessException(ProductErrorCode.NOT_FOUND));
 
         if (!product.getSeller().getId().equals(sellerId)) {
@@ -106,7 +106,7 @@ public class ProductService {
 
     //상품 삭제(본인 상품만 삭제 가능+삭제시 Status를 DELETED 전환)
     public void delete(Long sellerId, Long productsId) {
-        Product product = productRepository.findByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
+        Product product = productRepository.findWithLockByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
                 () -> new BusinessException(ProductErrorCode.NOT_FOUND));
         if (!product.getSeller().getId().equals(sellerId)) {
             throw new BusinessException(ProductErrorCode.NOT_OWNER);

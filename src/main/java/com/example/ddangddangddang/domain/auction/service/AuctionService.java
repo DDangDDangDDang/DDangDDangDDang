@@ -30,7 +30,7 @@ public class AuctionService {
     //경매(일반) 생성 : 본인 상품이고 판매 중이며 대기 or 진행 중인 경매가 아닐때 생성이 가능합니다
     public AuctionResponse auctionCreate(Long sellerId,AuctionCreateRequest request) {
         //상품 조회(삭제된 상품 제외)
-        Product product = productRepository.findByIdAndStatusNot(request.productId(), Status.DELETED).orElseThrow(
+        Product product = productRepository.findWithLockByIdAndStatusNot(request.productId(), Status.DELETED).orElseThrow(
                 () -> new BusinessException(ProductErrorCode.NOT_FOUND)
         );
 
