@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.order.controller;
 
+import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
 import com.example.ddangddangddang.domain.order.dto.OrderShipRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderSummaryResponse;
@@ -45,13 +46,20 @@ public class OrderController {
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long orderId,
             @Valid @RequestBody OrderShipRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(orderService.ship(authUser.id(), orderId, request.trackingNo())));
-    }
+        return ResponseEntity.ok(ApiResponse.ok(orderService.ship(authUser.id(), orderId, request.courier(), request.trackingNo())));    }
 
     @PatchMapping("/{orderId}/confirm")
     public ResponseEntity<ApiResponse<OrderResponse>> confirmPurchase(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long orderId) {
         return ResponseEntity.ok(ApiResponse.ok(orderService.confirmPurchase(authUser.id(), orderId)));
+    }
+
+    @PatchMapping("/{orderId}/address")
+    public ResponseEntity<ApiResponse<OrderResponse>> registerDeliveryAddress(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long orderId,
+            @Valid @RequestBody OrderAddressRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(orderService.registerDeliveryAddress(authUser.id(), orderId, request)));
     }
 }

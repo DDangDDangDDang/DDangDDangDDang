@@ -16,6 +16,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -116,22 +117,88 @@ class OrderControllerTest {
     }
 
     @Nested
+    @DisplayName("배송지 입력")
+    class DeliveryAddress {
+
+        @Test
+        @DisplayName("구매자가 배송지를 입력하면 상세 조회에서 구매자와 판매자 모두 볼 수 있다")
+        void register() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+
+            registerAddress(orderId, buyer)
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.receiverName").value("홍길동"))
+                    .andExpect(jsonPath("$.data.receiverPhone").value("01012345678"))
+                    .andExpect(jsonPath("$.data.address").value("서울시 강남구 테헤란로 1"))
+                    .andExpect(jsonPath("$.data.deliveryMemo").value("문 앞에 놓아주세요"));
+
+            mockMvc.perform(get("/api/v1/orders/{orderId}", orderId).header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                    .andExpect(jsonPath("$.data.address").value("서울시 강남구 테헤란로 1"));
+        }
+
+        @Test
+        @DisplayName("주문 목록에는 배송지가 나오지 않는다")
+        void notInList() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+            registerAddress(orderId, buyer);
+
+            mockMvc.perform(get("/api/v1/orders").header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
+                    .andExpect(jsonPath("$.data.content[0].address").doesNotExist())
+                    .andExpect(jsonPath("$.data.content[0].receiverPhone").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("판매자가 배송지를 입력하면 403 ORDER_008")
+        void sellerCannotRegister() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+
+            registerAddress(orderId, seller)
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error.code").value("ORDER_008"));
+        }
+
+        @Test
+        @DisplayName("연락처에 하이픈이 있으면 400")
+        void invalidPhone() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+
+            mockMvc.perform(patch("/api/v1/orders/{orderId}/address", orderId)
+                            .header(HttpHeaders.AUTHORIZATION, buyer.bearer())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"receiverName": "홍길동", "receiverPhone": "010-1234-5678", "address": "서울시"}
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+        }
+
+        @Test
+        @DisplayName("발송한 뒤에 배송지를 바꾸면 409 ORDER_009")
+        void afterShip() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+            registerAddress(orderId, buyer);
+            ship(orderId, "CJ", "1234567890");
+
+            registerAddress(orderId, buyer)
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.error.code").value("ORDER_009"));
+        }
+    }
+
+    @Nested
     @DisplayName("발송 -> 구매 확정")
     class ShipAndConfirm {
 
         @Test
-        @DisplayName("판매자가 발송하고 구매자가 확정하면 판매자 지갑에 낙찰 금액이 정산된다")
+        @DisplayName("구매자가 배송지를 입력하고, 판매자가 발송하고, 구매자가 확정하면 판매자 지갑에 낙찰 금액이 정산된다")
         void flow() throws Exception {
             Long orderId = createOrder(1L, "아이패드");
+            registerAddress(orderId, buyer);
 
-            mockMvc.perform(patch("/api/v1/orders/{orderId}/ship", orderId)
-                            .header(HttpHeaders.AUTHORIZATION, seller.bearer())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                    {"trackingNo": "1234567890"}
-                                    """))
+            ship(orderId, "CJ", "1234567890")
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.status").value("SHIPPING"))
+                    .andExpect(jsonPath("$.data.courier").value("CJ"))
                     .andExpect(jsonPath("$.data.trackingNo").value("1234567890"));
 
             mockMvc.perform(patch("/api/v1/orders/{orderId}/confirm", orderId)
@@ -151,30 +218,74 @@ class OrderControllerTest {
         @DisplayName("구매자가 발송 처리하면 403 ORDER_004")
         void buyerCannotShip() throws Exception {
             Long orderId = createOrder(1L, "아이패드");
+            registerAddress(orderId, buyer);
 
             mockMvc.perform(patch("/api/v1/orders/{orderId}/ship", orderId)
                             .header(HttpHeaders.AUTHORIZATION, buyer.bearer())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"trackingNo": "1234567890"}
+                                    {"courier": "CJ", "trackingNo": "1234567890"}
                                     """))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.error.code").value("ORDER_004"));
         }
 
         @Test
-        @DisplayName("송장번호 없이 발송하면 400")
-        void shipWithoutTrackingNo() throws Exception {
+        @DisplayName("배송지가 입력되기 전에 발송하면 409 ORDER_010")
+        void shipWithoutAddress() throws Exception {
             Long orderId = createOrder(1L, "아이패드");
+
+            ship(orderId, "CJ", "1234567890")
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.error.code").value("ORDER_010"));
+        }
+
+        @Test
+        @DisplayName("다른 주문에 등록된 송장으로 발송하면 409 ORDER_011, 택배사가 다르면 허용")
+        void duplicateTrackingNo() throws Exception {
+            Long first = createOrder(1L, "아이패드");
+            Long second = createOrder(2L, "맥북");
+            registerAddress(first, buyer);
+            registerAddress(second, buyer);
+            ship(first, "CJ", "1234567890").andExpect(status().isOk());
+
+            ship(second, "CJ", "1234567890")
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.error.code").value("ORDER_011"));
+            ship(second, "LOTTE", "1234567890")
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("송장번호가 없거나 하이픈이 있으면 400 COMMON_001")
+        void invalidTrackingNo() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+            registerAddress(orderId, buyer);
+
+            ship(orderId, "CJ", "")
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+            ship(orderId, "CJ", "1234-5678-90")
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+        }
+
+        @Test
+        @DisplayName("택배사가 없으면 400 COMMON_001, 없는 택배사 코드면 400")
+        void invalidCourier() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+            registerAddress(orderId, buyer);
 
             mockMvc.perform(patch("/api/v1/orders/{orderId}/ship", orderId)
                             .header(HttpHeaders.AUTHORIZATION, seller.bearer())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"trackingNo": ""}
+                                    {"trackingNo": "1234567890"}
                                     """))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+            ship(orderId, "UNKNOWN", "1234567890")
+                    .andExpect(status().isBadRequest());
         }
 
         @Test
@@ -225,6 +336,25 @@ class OrderControllerTest {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.error.code").value("ORDER_001"));
         }
+    }
+
+    private ResultActions registerAddress(Long orderId, TestUser user) throws Exception {
+        return mockMvc.perform(patch("/api/v1/orders/{orderId}/address", orderId)
+                .header(HttpHeaders.AUTHORIZATION, user.bearer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"receiverName": "홍길동", "receiverPhone": "01012345678",
+                         "address": "서울시 강남구 테헤란로 1", "deliveryMemo": "문 앞에 놓아주세요"}
+                        """));
+    }
+
+    private ResultActions ship(Long orderId, String courier, String trackingNo) throws Exception {
+        return mockMvc.perform(patch("/api/v1/orders/{orderId}/ship", orderId)
+                .header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"courier": "%s", "trackingNo": "%s"}
+                        """.formatted(courier, trackingNo)));
     }
 
     private Long createOrder(Long auctionId, String productName) {
