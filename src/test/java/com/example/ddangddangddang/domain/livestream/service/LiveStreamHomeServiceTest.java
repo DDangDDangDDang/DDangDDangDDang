@@ -13,7 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -39,7 +39,6 @@ import static org.mockito.Mockito.never;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class LiveStreamHomeServiceTest {
 
-    @InjectMocks
     private LiveStreamHomeService homeService;
 
     @Mock
@@ -50,6 +49,13 @@ class LiveStreamHomeServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    // 카드 만들기(닉네임·시청자 수 붙이기)는 실제 객체로 두고, 그 안의 저장소만 가짜로 둔다.
+    @BeforeEach
+    void setUp() {
+        homeService = new LiveStreamHomeService(liveStreamRepository, statsRepository,
+                new LiveStreamCardAssembler(statsRepository, userRepository));
+    }
 
     @Test
     @DisplayName("시청자 많은 순과 급증 순으로 보여 주고, 순위에 남아 있는 끝난 방송은 뺀다")

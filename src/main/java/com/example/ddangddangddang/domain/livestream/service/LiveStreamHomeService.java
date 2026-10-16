@@ -1,14 +1,11 @@
 package com.example.ddangddangddang.domain.livestream.service;
 
-import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCard;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamHomeResponse;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
 import com.example.ddangddangddang.domain.livestream.repository.LiveViewerStatsRepository;
 import com.example.ddangddangddang.domain.livestream.repository.LiveViewerStatsRepository.Ranked;
-import com.example.ddangddangddang.domain.user.entity.User;
-import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -19,7 +16,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,7 +44,7 @@ public class LiveStreamHomeService {
 
     private final LiveStreamRepository liveStreamRepository;
     private final LiveViewerStatsRepository statsRepository;
-    private final UserRepository userRepository;
+    private final LiveStreamCardAssembler cardAssembler;
 
     public LiveStreamHomeResponse getHome(int size) {
         int pageSize = Math.max(1, Math.min(size, MAX_SIZE));
@@ -68,7 +64,8 @@ public class LiveStreamHomeService {
         List<LiveStream> upcoming = liveStreamRepository.findByStatusAndScheduledStartAtGreaterThanEqualOrderByScheduledStartAtAsc(
                 LiveStreamStatus.SCHEDULED, LocalDateTime.now().minus(UPCOMING_GRACE), PageRequest.of(0, pageSize));
 
-        return new LiveStreamHomeResponse(toCards(mostViewed, true), toCards(surging, true), toCards(upcoming, false));
+        return new LiveStreamHomeResponse(
+                cardAssembler.toCards(mostViewed), cardAssembler.toCards(surging), cardAssembler.toCards(upcoming));
     }
 
     // 순위 순서를 지키면서 DB에서 진행 중인 방송만 남긴다.
@@ -100,34 +97,5 @@ public class LiveStreamHomeService {
                 streams.add(recent);
             }
         }
-    }
-
-    // withViewerStats: 진행 중인 방송이면 시청자 수를 함께 읽는다. 방송 예정 목록은 시청자가 없으므로 읽지 않는다.
-    private List<LiveStreamCard> toCards(List<LiveStream> streams, boolean withViewerStats) {
-        if (streams.isEmpty()) {
-            return List.of();
-        }
-        List<Long> ids = streams.stream().map(LiveStream::getId).toList();
-        Map<Long, Integer> viewers = Map.of();
-        Map<Long, Integer> increases = Map.of();
-        if (withViewerStats) {
-            try {
-                viewers = statsRepository.getViewerCounts(ids);
-                increases = statsRepository.getIncreases(ids);
-            } catch (RuntimeException e) {
-                log.warn("시청자 수를 읽지 못해 0으로 보여 줍니다.", e);
-            }
-        }
-        Map<Long, String> nicknames = userRepository.findAllById(
-                        streams.stream().map(LiveStream::getSellerId).distinct().toList())
-                .stream().collect(Collectors.toMap(User::getId, User::getNickname));
-
-        Map<Long, LiveStreamCard> cards = new LinkedHashMap<>();
-        for (LiveStream stream : streams) {
-            cards.put(stream.getId(), new LiveStreamCard(stream.getId(), stream.getTitle(), stream.getSellerId(),
-                    nicknames.get(stream.getSellerId()), stream.getScheduledStartAt(), stream.getStartedAt(),
-                    viewers.getOrDefault(stream.getId(), 0), increases.getOrDefault(stream.getId(), 0)));
-        }
-        return List.copyOf(cards.values());
     }
 }
