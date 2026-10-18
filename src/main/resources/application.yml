@@ -51,3 +51,15 @@ portone:
   api-url: ${PORTONE_API_URL:https://api.portone.io}
   api-secret: ${PORTONE_API_SECRET:7gJ4LOoIqMN5NxmROFMgSC5m8yDcK7naMgy1ZbYJq36QLeKvdHUumTxQikU76444opBMQ8qwPE2Kgs49}
 
+point:
+  payout:
+    # 실제 송금사가 정해지면 바꾼다. fake는 실제로 돈을 보내지 않는다
+    provider: fake
+    fake:
+      result: SUCCESS          # SUCCESS / FAILED / IN_PROGRESS 로 바꿔서 흐름 확인 가능
+  exchange:
+    worker:
+      enabled: true
+      pending-delay-ms: 10000      # PENDING 처리 주기 (10초)
+      recovery-delay-ms: 60000     # 복구 확인 주기 (1분)
+      stuck-threshold-minutes: 10  # PROCESSING에 10분 넘게 머물면 복구 대상

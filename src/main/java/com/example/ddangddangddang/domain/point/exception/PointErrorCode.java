@@ -21,8 +21,14 @@ public enum PointErrorCode implements ErrorCode {
     CHARGE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "POINT_022", "본인의 충전 요청만 처리할 수 있습니다."),
 
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "POINT_031", "결제 내역을 찾을 수 없습니다."),
-    PAYMENT_GATEWAY_ERROR(HttpStatus.BAD_GATEWAY, "POINT_032", "결제사와 통신 중 오류가 발생했습니다.");
+    PAYMENT_GATEWAY_ERROR(HttpStatus.BAD_GATEWAY, "POINT_032", "결제사와 통신 중 오류가 발생했습니다."),
 
+    EXCHANGE_NOT_FOUND(HttpStatus.NOT_FOUND, "POINT_041", "환전 신청이 존재하지 않습니다."),
+    EXCHANGE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "POINT_042", "본인의 환전 신청만 처리할 수 있습니다."),
+    INVALID_EXCHANGE_STATUS(HttpStatus.BAD_REQUEST, "POINT_043", "현재 상태에서는 처리할 수 없는 환전 신청입니다."),
+    EXCHANGE_AMOUNT_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "POINT_044", "환전 금액은 1,000 이상 1,000,000 이하여야 합니다."),
+    INVALID_BANK_ACCOUNT(HttpStatus.BAD_REQUEST, "POINT_045", "계좌 정보가 올바르지 않습니다."),
+    INVALID_PAYOUT_ID(HttpStatus.BAD_REQUEST, "POINT_046", "송금 ID가 올바르지 않습니다.");
 
     private final HttpStatus status;
     private final String code;

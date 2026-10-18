@@ -29,3 +29,10 @@ websocket:
 portone:
   api-url: http://localhost
   api-secret: test-secret
+
+point:
+  payout:
+    provider: fake
+  exchange:
+    worker:
+      enabled: false   # 테스트 중 스케줄러가 끼어들지 않게 끈다
