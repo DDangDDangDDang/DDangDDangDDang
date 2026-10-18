@@ -49,7 +49,7 @@ jwt:
 
 portone:
   api-url: ${PORTONE_API_URL:https://api.portone.io}
-  api-secret: ${PORTONE_API_SECRET:7gJ4LOoIqMN5NxmROFMgSC5m8yDcK7naMgy1ZbYJq36QLeKvdHUumTxQikU76444opBMQ8qwPE2Kgs49}
+  api-secret: ${PORTONE_API_SECRET:}
 
 point:
   payout:
