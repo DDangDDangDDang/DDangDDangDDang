@@ -88,13 +88,13 @@ class PointExchangeServiceTest {
         void insufficientPoint() {
             PointExchangeRequest request = new PointExchangeRequest(10_000L, "088", "1101234567", "홍길동");
             given(pointExchangeRepository.save(any(PointExchange.class))).willAnswer(invocation -> invocation.getArgument(0));
-            willThrow(new BusinessException(PointErrorCode.INSUFFICIENT_POINT))
+            willThrow(new BusinessException(PointErrorCode.INSUFFICIENT_BALANCE))
                     .given(pointExchangeLedger).deduct(any());
 
             assertThatThrownBy(() -> pointExchangeService.requestExchange(USER_ID, request))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
-                    .isEqualTo(PointErrorCode.INSUFFICIENT_POINT);
+                    .isEqualTo(PointErrorCode.INSUFFICIENT_BALANCE);
         }
     }
 

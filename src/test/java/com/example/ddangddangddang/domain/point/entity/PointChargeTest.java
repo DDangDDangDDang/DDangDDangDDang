@@ -1,7 +1,5 @@
-package com.example.ddangddangddang.domain.point.controller;
+package com.example.ddangddangddang.domain.point.entity;
 
-import com.example.ddangddangddang.domain.point.entity.PointCharge;
-import com.example.ddangddangddang.domain.point.entity.PointChargeType;
 import com.example.ddangddangddang.domain.point.exception.PointErrorCode;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.exception.CommonErrorCode;
@@ -46,11 +44,11 @@ class PointChargeTest {
             assertThatThrownBy(() -> PointCharge.create(1L, null, PAYMENT_ID))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
-                    .isEqualTo(PointErrorCode.INVALID_POINT_AMOUNT);
+                    .isEqualTo(PointErrorCode.INVALID_AMOUNT);
             assertThatThrownBy(() -> PointCharge.create(1L, 0L, PAYMENT_ID))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
-                    .isEqualTo(PointErrorCode.INVALID_POINT_AMOUNT);
+                    .isEqualTo(PointErrorCode.INVALID_AMOUNT);
         }
 
         @Test

@@ -3,7 +3,7 @@ package com.example.ddangddangddang.domain.point.service;
 import com.example.ddangddangddang.domain.point.entity.PointCharge;
 import com.example.ddangddangddang.domain.point.entity.PointChargeType;
 import com.example.ddangddangddang.domain.point.entity.PointWallet;
-import com.example.ddangddangddang.domain.point.infra.PaymentClient;
+import com.example.ddangddangddang.domain.point.infra.PaymentGateway;
 import com.example.ddangddangddang.domain.point.infra.PaymentInfo;
 import com.example.ddangddangddang.domain.point.infra.PaymentStatus;
 import com.example.ddangddangddang.domain.point.repository.PointChargeRepository;
@@ -49,7 +49,7 @@ class PointChargeWebhookServiceTest {
     private PointHistoryRepository pointHistoryRepository;
 
     @Mock
-    private PaymentClient paymentClient;
+    private PaymentGateway paymentGateway;
 
     @Test
     @DisplayName("결제 완료 웹훅이면 본인 확인 없이 포트원 재조회 후 포인트를 지급한다")
@@ -57,8 +57,8 @@ class PointChargeWebhookServiceTest {
         PointCharge charge = pendingCharge();
         PointWallet wallet = wallet();
         given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
-        given(paymentClient.getPayment(PAYMENT_ID)).willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.PAID, AMOUNT));
-        given(pointWalletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
+        given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.PAID, AMOUNT));
+        given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
 
         boolean handled = pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
 
@@ -76,7 +76,7 @@ class PointChargeWebhookServiceTest {
         boolean handled = pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
 
         assertThat(handled).isFalse();
-        verify(paymentClient, never()).getPayment(anyString());
+        verify(paymentGateway, never()).getPayment(anyString());
     }
 
     @Test
@@ -89,7 +89,7 @@ class PointChargeWebhookServiceTest {
         boolean handled = pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
 
         assertThat(handled).isTrue();
-        verify(paymentClient, never()).getPayment(anyString());
+        verify(paymentGateway, never()).getPayment(anyString());
         verify(pointHistoryRepository, never()).save(any());
     }
 
@@ -98,12 +98,12 @@ class PointChargeWebhookServiceTest {
     void failedByPortOne() {
         PointCharge charge = pendingCharge();
         given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
-        given(paymentClient.getPayment(PAYMENT_ID)).willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.FAILED, AMOUNT));
+        given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.FAILED, AMOUNT));
 
         pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
 
         assertThat(charge.getStatus()).isEqualTo(PointChargeType.FAILED);
-        verify(pointWalletRepository, never()).findByUserId(any());
+        verify(pointWalletRepository, never()).findByUserIdForUpdate(any());
     }
 
     @Test
@@ -111,7 +111,7 @@ class PointChargeWebhookServiceTest {
     void ready() {
         PointCharge charge = pendingCharge();
         given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
-        given(paymentClient.getPayment(PAYMENT_ID)).willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.READY, AMOUNT));
+        given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.READY, AMOUNT));
 
         pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
 

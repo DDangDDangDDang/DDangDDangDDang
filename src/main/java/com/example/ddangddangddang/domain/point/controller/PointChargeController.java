@@ -21,13 +21,6 @@ public class PointChargeController {
 
     private final PointChargeService pointChargeService;
 
-//    @PostMapping
-//    public Long createChargeRequest(@AuthenticationPrincipal AuthUser authUser, @Valid @RequestBody PointChargeRequest request) {
-//
-//        return pointChargeService.createChargeRequest(AuthUser, request);
-//
-//    }
-
     @PostMapping
     public ResponseEntity<ApiResponse<PointChargeResponse>> createChargeRequest(
             @AuthenticationPrincipal AuthUser authUser,

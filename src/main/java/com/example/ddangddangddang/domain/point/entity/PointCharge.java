@@ -44,7 +44,7 @@ public class PointCharge extends BaseTimeEntity {
             throw new BusinessException(CommonErrorCode.INVALID_INPUT);
         }
         if (amount == null || amount <= 0) {
-            throw new BusinessException(PointErrorCode.INVALID_POINT_AMOUNT);
+            throw new BusinessException(PointErrorCode.INVALID_AMOUNT);
         }
         if (paymentId == null || paymentId.isBlank()) {
             throw new BusinessException(PointErrorCode.INVALID_PAYMENT_ID);
