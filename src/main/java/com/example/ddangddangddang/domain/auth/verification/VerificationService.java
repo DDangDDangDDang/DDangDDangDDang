@@ -4,8 +4,6 @@ import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.UUID;
@@ -45,22 +43,18 @@ public class VerificationService {
     /**
      * 6자리는 경우의 수가 100만 개뿐이라 무작위 대입을 막기 위해 시도 횟수를 제한한다.
      * 5번 틀리면 인증번호를 지워 다시 요청하게 한다.
+     * 확인·횟수 증가·삭제는 저장소에서 한 번에(원자적으로) 처리해, 동시에 맞는 번호로 요청해도 토큰은 하나만 발급된다.
      */
     public String verifyCode(VerificationPurpose purpose, String target, String code) {
-        String savedCode = verificationCodeRepository.findCode(purpose, target)
-                .orElseThrow(() -> new BusinessException(VerificationErrorCode.INVALID_CODE));
-
-        long attempts = verificationCodeRepository.increaseAttempts(purpose, target, CODE_TTL);
-        if (attempts > MAX_ATTEMPTS) {
-            verificationCodeRepository.deleteCode(purpose, target);
+        VerificationCodeRepository.CodeCheckResult result = verificationCodeRepository.verifyAndDeleteCode(
+                purpose, target, code, CODE_TTL, MAX_ATTEMPTS);
+        if (result == VerificationCodeRepository.CodeCheckResult.TOO_MANY_ATTEMPTS) {
             throw new BusinessException(VerificationErrorCode.TOO_MANY_ATTEMPTS);
         }
-        // 비교 시간으로 몇 번째 자리까지 맞았는지 추측하지 못하게 상수 시간 비교를 쓴다
-        if (!MessageDigest.isEqual(savedCode.getBytes(StandardCharsets.UTF_8), code.getBytes(StandardCharsets.UTF_8))) {
+        if (result == VerificationCodeRepository.CodeCheckResult.INVALID) {
             throw new BusinessException(VerificationErrorCode.INVALID_CODE);
         }
 
-        verificationCodeRepository.deleteCode(purpose, target);
         String token = UUID.randomUUID().toString();
         verificationCodeRepository.saveToken(purpose, token, target, TOKEN_TTL);
         return token;

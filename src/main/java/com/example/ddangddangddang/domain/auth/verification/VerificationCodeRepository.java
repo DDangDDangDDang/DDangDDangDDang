@@ -2,9 +2,11 @@ package com.example.ddangddangddang.domain.auth.verification;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -19,6 +21,31 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class VerificationCodeRepository {
 
+    /**
+     * KEYS[1] 인증번호, KEYS[2] 시도 횟수 / ARGV[1] 입력한 번호, ARGV[2] 시도 횟수 TTL(초), ARGV[3] 최대 시도 횟수
+     * - 인증번호가 없거나(만료·미발급) 틀림 → 0
+     * - 맞음 → 인증번호와 시도 횟수 삭제 → 1
+     * - 시도 횟수 초과 → 인증번호와 시도 횟수 삭제 → -1 (맞는 번호여도 거부)
+     */
+    private static final RedisScript<Long> VERIFY_SCRIPT = RedisScript.of("""
+            local saved = redis.call('GET', KEYS[1])
+            if not saved then
+                return 0
+            end
+            local attempts = redis.call('INCR', KEYS[2])
+            if attempts == 1 then
+                redis.call('EXPIRE', KEYS[2], ARGV[2])
+            end
+            if attempts > tonumber(ARGV[3]) then
+                redis.call('DEL', KEYS[1], KEYS[2])
+                return -1
+            end
+            if saved ~= ARGV[1] then
+                return 0
+            end
+            redis.call('DEL', KEYS[1], KEYS[2])
+            return 1
+            """, Long.class);
     private final StringRedisTemplate redisTemplate;
 
     /** 재전송 대기 중이 아니면 대기를 시작하고 true. 이미 대기 중이면 false (SET NX로 원자적으로 확인) */
@@ -33,23 +60,20 @@ public class VerificationCodeRepository {
         redisTemplate.delete(key("attempt", purpose, target));
     }
 
-    public Optional<String> findCode(VerificationPurpose purpose, String target) {
-        return Optional.ofNullable(redisTemplate.opsForValue().get(key("code", purpose, target)));
-    }
-
-    /** 시도 횟수를 1 늘리고 늘어난 값을 반환한다. (INCR이라 동시에 시도해도 횟수가 빠지지 않음) */
-    public long increaseAttempts(VerificationPurpose purpose, String target, Duration ttl) {
-        String key = key("attempt", purpose, target);
-        Long attempts = redisTemplate.opsForValue().increment(key);
-        if (attempts != null && attempts == 1) {
-            redisTemplate.expire(key, ttl);
+    /**
+     * 인증번호 확인, 시도 횟수 증가, 삭제를 Lua 스크립트로 한 번에 실행한다.
+     * 따로 실행하면 맞는 인증번호로 동시에 요청했을 때 둘 다 "아직 남아 있음"을 보고 통과해 토큰이 여러 개 발급된다.
+     * Redis는 스크립트 하나를 다른 명령과 섞지 않고 끝까지 실행하므로 그 사이에 끼어들 수 없다.
+     */
+    public CodeCheckResult verifyAndDeleteCode(VerificationPurpose purpose, String target, String code,
+                                               Duration ttl, int maxAttempts) {
+        Long result = redisTemplate.execute(VERIFY_SCRIPT,
+                List.of(key("code", purpose, target), key("attempt", purpose, target)),
+                code, String.valueOf(ttl.toSeconds()), String.valueOf(maxAttempts));
+        if (result == null || result == 0) {
+            return CodeCheckResult.INVALID;
         }
-        return attempts == null ? 0 : attempts;
-    }
-
-    public void deleteCode(VerificationPurpose purpose, String target) {
-        redisTemplate.delete(key("code", purpose, target));
-        redisTemplate.delete(key("attempt", purpose, target));
+        return result == 1 ? CodeCheckResult.VERIFIED : CodeCheckResult.TOO_MANY_ATTEMPTS;
     }
 
     public void saveToken(VerificationPurpose purpose, String token, String target, Duration ttl) {
@@ -63,5 +87,11 @@ public class VerificationCodeRepository {
 
     private String key(String type, VerificationPurpose purpose, String value) {
         return "verify:" + type + ":" + purpose.name().toLowerCase() + ":" + value;
+    }
+
+    public enum CodeCheckResult {
+        VERIFIED,           // 맞음 (인증번호 삭제됨)
+        INVALID,            // 없거나 틀림
+        TOO_MANY_ATTEMPTS   // 시도 횟수 초과 (인증번호 삭제됨)
     }
 }
