@@ -13,6 +13,9 @@ import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
+import com.example.ddangddangddang.domain.auth.verification.VerificationErrorCode;
+import com.example.ddangddangddang.domain.auth.verification.VerificationPurpose;
+import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
@@ -67,17 +70,21 @@ class AuthServiceTest {
     @Mock
     private PointService pointService;
 
+    @Mock
+    private VerificationService verificationService;
+
     @Nested
     @DisplayName("회원가입")
     class Signup {
 
-        private final SignupRequest request = new SignupRequest("user@test.com", "Abcd1234!", "경매왕");
-
+        private final SignupRequest request =
+                new SignupRequest("user@test.com", "Abcd1234!", "경매왕", "01012345678", "phone-token");
         @Test
         @DisplayName("성공하면 비밀번호를 암호화해서 저장하고 포인트 지갑을 만든다")
         void success() {
             given(userRepository.existsByEmail(request.email())).willReturn(false);
             given(userRepository.existsByNickname(request.nickname())).willReturn(false);
+            given(verificationService.consumeToken(VerificationPurpose.SIGNUP_PHONE, "phone-token")).willReturn("01012345678");
             given(passwordEncoder.encode(request.password())).willReturn("encoded");
             given(userRepository.save(any(User.class))).willAnswer(invocation -> {
                 User saved = invocation.getArgument(0);
@@ -115,6 +122,38 @@ class AuthServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(UserErrorCode.DUPLICATE_NICKNAME);
+            verify(userRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("회원가입 휴대폰 인증")
+    class SignupPhone {
+
+        private final SignupRequest request =
+                new SignupRequest("user@test.com", "Abcd1234!", "경매왕", "01012345678", "phone-token");
+
+        @Test
+        @DisplayName("휴대폰 번호가 이미 가입돼 있으면 토큰을 쓰기 전에 예외가 발생한다")
+        void duplicatePhone() {
+            given(userRepository.existsByPhoneNumber("01012345678")).willReturn(true);
+
+            assertThatThrownBy(() -> authService.signup(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.DUPLICATE_PHONE_NUMBER);
+            verify(verificationService, never()).consumeToken(any(), any());
+        }
+
+        @Test
+        @DisplayName("토큰으로 인증된 번호와 가입 요청 번호가 다르면 예외가 발생한다")
+        void tokenForOtherPhone() {
+            given(verificationService.consumeToken(VerificationPurpose.SIGNUP_PHONE, "phone-token")).willReturn("01099999999");
+
+            assertThatThrownBy(() -> authService.signup(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
             verify(userRepository, never()).save(any());
         }
     }

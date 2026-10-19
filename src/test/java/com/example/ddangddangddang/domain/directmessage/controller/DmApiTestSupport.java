@@ -1,9 +1,11 @@
 package com.example.ddangddangddang.domain.directmessage.controller;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
+import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.directmessage.repository.DmRateLimitRepository;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
+import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * 1:1 채팅 API 테스트 공통 설정.
- *
+ * <p>
  * 서비스가 저장을 TransactionTemplate으로 따로 커밋하므로 테스트 트랜잭션(@Transactional)으로 감싸지 않는다.
  * 대신 테스트마다 새 회원을 만들어 다른 테스트의 데이터와 섞이지 않게 한다.
  */
@@ -51,11 +53,15 @@ abstract class DmApiTestSupport {
     @MockitoBean
     protected StompBroadcaster stompBroadcaster;
 
+    @MockitoBean
+    protected VerificationService verificationService;
+
     protected Member alice;
     protected Member bob;
 
     @BeforeEach
     void setUpMembers() throws Exception {
+        SignupFixture.stubPhoneVerification(verificationService);
         alice = signupAndLogin("앨리스");
         bob = signupAndLogin("밥");
     }
@@ -100,7 +106,7 @@ abstract class DmApiTestSupport {
         String nickname = name + seq + suffix.substring(0, 4);
         String signup = mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\": \"" + email + "\", \"password\": \"Abcd1234!\", \"nickname\": \"" + nickname + "\"}"))
+                        .content(SignupFixture.signupBody(email, "Abcd1234!", nickname)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         Long id = ((Number) JsonPath.read(signup, "$.data.userId")).longValue();

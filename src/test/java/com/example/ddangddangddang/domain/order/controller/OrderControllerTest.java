@@ -1,9 +1,11 @@
 package com.example.ddangddangddang.domain.order.controller;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
+import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.service.OrderService;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
+import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,12 +42,16 @@ class OrderControllerTest {
     @MockitoBean
     private TokenBlacklistRepository tokenBlacklistRepository;
 
+    @MockitoBean
+    private VerificationService verificationService;
+
     private TestUser buyer;
     private TestUser seller;
     private TestUser stranger;
 
     @BeforeEach
     void setUp() throws Exception {
+        SignupFixture.stubPhoneVerification(verificationService);
         buyer = signupAndLogin("buyer@test.com", "구매자");
         seller = signupAndLogin("seller@test.com", "판매자");
         stranger = signupAndLogin("stranger@test.com", "제삼자");
@@ -365,9 +371,7 @@ class OrderControllerTest {
     private TestUser signupAndLogin(String email, String nickname) throws Exception {
         String signup = mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"email": "%s", "password": "Abcd1234!", "nickname": "%s"}
-                                """.formatted(email, nickname)))
+                        .content(SignupFixture.signupBody(email, "Abcd1234!", nickname)))
                 .andReturn().getResponse().getContentAsString();
         String login = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
