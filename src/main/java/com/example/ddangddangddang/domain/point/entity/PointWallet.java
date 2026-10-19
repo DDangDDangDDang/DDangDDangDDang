@@ -1,6 +1,8 @@
 package com.example.ddangddangddang.domain.point.entity;
 
+import com.example.ddangddangddang.domain.point.exception.PointErrorCode;
 import com.example.ddangddangddang.global.entity.BaseTimeEntity;
+import com.example.ddangddangddang.global.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -49,6 +51,29 @@ public class PointWallet extends BaseTimeEntity {
         return new PointWallet(userId);
     }
 
+    /** 빼거나 더할 포인트의 수량이 양수가 되게 검증 **/
+    public void validatePositiveAmount(long amount) {
+        if( amount < 0 ) {
+            throw new BusinessException(PointErrorCode.INVALID_POINT_AMOUNT);
+        }
+    }
+
+    /** 현금으로 포인트를 충전할때 사용 **/
+    public void addBalance(long amount) {
+        validatePositiveAmount(amount);
+        this.balance = Math.addExact(this.balance, amount);
+    }
+
+    /** 포인트에서 현금으로 전환할때 사용 **/
+    public void subBalance(long amount) {
+
+        validatePositiveAmount(amount);
+
+        if ( this.balance - this.heldBalance < amount) {
+            throw new BusinessException(PointErrorCode.INSUFFICIENT_POINT);
+        }
+
+        this.balance -= amount;
     /** 충전: 사용 가능 + */
     public void charge(long amount) {
         validateAmount(amount);

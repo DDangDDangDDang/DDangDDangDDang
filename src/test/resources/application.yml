@@ -27,6 +27,16 @@ livekit:
 websocket:
   broadcast: local
 
+portone:
+  api-url: http://localhost
+  api-secret: test-secret
+
+point:
+  payout:
+    provider: fake
+  exchange:
+    worker:
+      enabled: false   # 테스트 중 스케줄러가 끼어들지 않게 끈다
 # 테스트에서는 LiveKit·Redis에 주기적으로 접속하지 않도록 시청자 수 집계를 끈다. 집계는 LiveViewerStatsCollectorTest에서 직접 호출해 확인한다.
 live-stream:
   viewer-stats:
