@@ -36,14 +36,25 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private UserRole role;
 
-    private User(String email, String password, String nickname, UserRole role) {
+    @Column(unique = true, length = 11)
+    private String phoneNumber;
+
+    private User(String email, String password, String nickname, String phoneNumber, UserRole role) {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
+        this.phoneNumber = phoneNumber;
         this.role = role;
     }
 
+    public static User create(String email, String encodedPassword, String nickname, String phoneNumber) {
+        return new User(email, encodedPassword, nickname, phoneNumber, UserRole.USER);
+    }
+
+    /**
+     * 휴대폰 번호 없이 만든다. 휴대폰 인증이 필요 없는 테스트용
+     */
     public static User create(String email, String encodedPassword, String nickname) {
-        return new User(email, encodedPassword, nickname, UserRole.USER);
+        return create(email, encodedPassword, nickname, null);
     }
 }
