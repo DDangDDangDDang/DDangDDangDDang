@@ -1,6 +1,12 @@
 package com.example.ddangddangddang.domain.auth.verification;
 
 import com.example.ddangddangddang.global.exception.BusinessException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -141,6 +147,42 @@ class VerificationServiceTest {
             assertThatThrownBy(() -> verificationService.verifyCode(VerificationPurpose.FIND_EMAIL, PHONE, code))
                     .extracting("errorCode")
                     .isEqualTo(VerificationErrorCode.INVALID_CODE);
+        }
+
+        /**
+         * 확인(GET)과 삭제(DEL)를 따로 하면, 맞는 인증번호로 동시에 요청했을 때
+         * 둘 다 "아직 남아 있음"을 보고 통과해 토큰이 여러 개 발급된다.
+         */
+        @Test
+        @DisplayName("맞는 인증번호로 동시에 여러 번 요청해도 토큰은 하나만 발급된다")
+        void concurrentVerify() throws Exception {
+            String code = verificationService.issueCode(VerificationPurpose.FIND_EMAIL, PHONE);
+            int threadCount = 10;
+            ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<Boolean>> results = new ArrayList<>();
+
+            for (int i = 0; i < threadCount; i++) {
+                results.add(executor.submit(() -> {
+                    start.await();
+                    try {
+                        verificationService.verifyCode(VerificationPurpose.FIND_EMAIL, PHONE, code);
+                        return true;
+                    } catch (BusinessException e) {
+                        return false;
+                    }
+                }));
+            }
+            start.countDown();
+            int issued = 0;
+            for (Future<Boolean> result : results) {
+                if (result.get()) {
+                    issued++;
+                }
+            }
+            executor.shutdown();
+
+            assertThat(issued).isEqualTo(1);
         }
 
         @Test
