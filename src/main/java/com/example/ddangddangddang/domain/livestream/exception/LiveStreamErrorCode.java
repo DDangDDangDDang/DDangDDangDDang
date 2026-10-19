@@ -15,7 +15,12 @@ public enum LiveStreamErrorCode implements ErrorCode {
     NOT_LIVE(HttpStatus.CONFLICT, "LIVESTREAM_004", "진행 중인 방송이 아닙니다."),
     ALREADY_LIVE(HttpStatus.CONFLICT, "LIVESTREAM_005", "이미 진행 중인 방송이 있습니다."),
     CONCURRENT_UPDATE(HttpStatus.CONFLICT, "LIVESTREAM_006", "다른 요청이 먼저 처리되었습니다. 다시 시도해 주세요."),
-    MEDIA_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "LIVESTREAM_007", "방송 서버와 통신하지 못했습니다.");
+    MEDIA_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "LIVESTREAM_007", "방송 서버와 통신하지 못했습니다."),
+    ALREADY_ENDED(HttpStatus.CONFLICT, "LIVESTREAM_008", "종료된 방송은 수정할 수 없습니다."),
+    CONTENT_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "LIVESTREAM_009", "방송 정보에 사용할 수 없는 내용이 포함되어 있습니다."),
+    ACTIVE_STREAM_EXISTS(HttpStatus.CONFLICT, "LIVESTREAM_010", "종료되지 않은 방송이 있습니다. 그 방송을 시작하거나 종료한 뒤 새로 만들어 주세요."),
+    SCHEDULE_CHANGE_NOT_ALLOWED(HttpStatus.CONFLICT, "LIVESTREAM_011", "방송 시작 예정 시간은 방송을 시작하기 전에만 바꿀 수 있습니다."),
+    INVALID_SCHEDULED_START(HttpStatus.BAD_REQUEST, "LIVESTREAM_012", "방송 시작 예정 시간은 지금부터 30일 이내로 정해 주세요.");
 
     private final HttpStatus status;
     private final String code;

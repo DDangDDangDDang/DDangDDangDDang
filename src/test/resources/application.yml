@@ -22,6 +22,7 @@ livekit:
   api-key: test-api-key
   api-secret: test-api-secret-test-api-secret-test
 
+
 # Redis 없이 테스트하도록 이 서버의 구독자에게만 보낸다. 서버 간 전달은 RedisStompBroadcastTest에서 Testcontainers로 확인한다.
 websocket:
   broadcast: local
@@ -36,3 +37,7 @@ point:
   exchange:
     worker:
       enabled: false   # 테스트 중 스케줄러가 끼어들지 않게 끈다
+# 테스트에서는 LiveKit·Redis에 주기적으로 접속하지 않도록 시청자 수 집계를 끈다. 집계는 LiveViewerStatsCollectorTest에서 직접 호출해 확인한다.
+live-stream:
+  viewer-stats:
+    enabled: false

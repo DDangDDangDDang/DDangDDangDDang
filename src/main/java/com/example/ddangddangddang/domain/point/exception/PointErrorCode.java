@@ -29,6 +29,9 @@ public enum PointErrorCode implements ErrorCode {
     EXCHANGE_AMOUNT_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "POINT_044", "환전 금액은 1,000 이상 1,000,000 이하여야 합니다."),
     INVALID_BANK_ACCOUNT(HttpStatus.BAD_REQUEST, "POINT_045", "계좌 정보가 올바르지 않습니다."),
     INVALID_PAYOUT_ID(HttpStatus.BAD_REQUEST, "POINT_046", "송금 ID가 올바르지 않습니다.");
+    INVALID_AMOUNT(HttpStatus.BAD_REQUEST, "POINT_003", "포인트 금액은 0보다 커야 합니다."),
+    INSUFFICIENT_BALANCE(HttpStatus.BAD_REQUEST, "POINT_004", "사용 가능한 포인트가 부족합니다."),
+    INSUFFICIENT_HELD_BALANCE(HttpStatus.CONFLICT, "POINT_005", "홀딩된 포인트가 부족합니다.");
 
     private final HttpStatus status;
     private final String code;

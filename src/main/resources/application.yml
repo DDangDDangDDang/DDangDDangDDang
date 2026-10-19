@@ -7,6 +7,10 @@ spring:
     username: ${DB_USERNAME:ddang}
     password: ${DB_PASSWORD:ddang}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # 비관적 락을 기다리는 최대 시간(초). MySQL 기본값은 50초
+      # 락을 기다리는 동안 커넥션을 붙잡고 있으므로, 길면 요청이 몰릴 때 커넥션 풀이 고갈
+      connection-init-sql: SET SESSION innodb_lock_wait_timeout = ${DB_LOCK_WAIT_TIMEOUT_SECONDS:3}
 
   jpa:
     hibernate:
@@ -16,6 +20,19 @@ spring:
       hibernate:
         format_sql: true
         default_batch_fetch_size: 100
+
+  mail:
+    # Gmail SMTP. 구글 계정 2단계 인증을 켠 뒤 발급한 "앱 비밀번호"를 MAIL_APP_PASSWORD로 주입한다.
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_APP_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
 
   data:
     redis:
@@ -63,3 +80,31 @@ point:
       pending-delay-ms: 10000      # PENDING 처리 주기 (10초)
       recovery-delay-ms: 60000     # 복구 확인 주기 (1분)
       stuck-threshold-minutes: 10  # PROCESSING에 10분 넘게 머물면 복구 대상
+livekit:
+  # 로컬은 livekit-server --dev 기본값. 운영 환경에서는 반드시 환경변수로 주입
+  api-url: ${LIVEKIT_API_URL:http://localhost:7880}
+  ws-url: ${LIVEKIT_WS_URL:ws://localhost:7880}
+  api-key: ${LIVEKIT_API_KEY:devkey}
+  api-secret: ${LIVEKIT_API_SECRET:secret}
+
+toss:
+  # 토스페이먼츠 테스트 시크릿 키. 운영 환경에서는 반드시 환경변수로 주입
+  secret-key: ${TOSS_SECRET_KEY:test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6}
+  base-url: https://api.tosspayments.com
+  connect-timeout: 3s
+  read-timeout: 30s
+
+app:
+  mail:
+    # false면 메일을 실제로 보내지 않고 서버 로그에만 출력한다. (로컬 개발용)
+    enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:no-reply@ddangddangddang.com}
+  sms:
+    # false면 문자를 실제로 보내지 않고 서버 로그에만 출력한다. (로컬 개발용)
+    enabled: ${SMS_ENABLED:false}
+    solapi:
+      base-url: https://api.solapi.com
+      api-key: ${SOLAPI_API_KEY:}
+      api-secret: ${SOLAPI_API_SECRET:}
+      # SOLAPI 콘솔에 미리 등록한 발신번호. 하이픈 없이 숫자만 (예: 01012345678)
+      sender: ${SOLAPI_SENDER:}
