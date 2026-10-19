@@ -9,9 +9,10 @@ on:
     branches: [dev, main]
 
 # 같은 PR(브랜치)에 새 커밋이 올라오면 이전 실행은 취소한다.
+# dev·main 푸시 실행은 PR 실행 때문에 취소되지 않도록 PR일 때만 취소한다.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -23,7 +24,10 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # 빌드·테스트 코드가 GITHUB_TOKEN을 읽지 못하도록 git 설정에 남기지 않는다.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@v4
         with:
