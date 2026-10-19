@@ -74,6 +74,8 @@ public class PointWallet extends BaseTimeEntity {
         }
 
         this.balance -= amount;
+    }
+
     /** 충전: 사용 가능 + */
     public void charge(long amount) {
         validateAmount(amount);
