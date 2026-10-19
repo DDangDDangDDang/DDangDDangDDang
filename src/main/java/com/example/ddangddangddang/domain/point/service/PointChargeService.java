@@ -9,7 +9,7 @@ import com.example.ddangddangddang.domain.point.entity.PointHistoryType;
 import com.example.ddangddangddang.domain.point.entity.PointReferenceType;
 import com.example.ddangddangddang.domain.point.entity.PointWallet;
 import com.example.ddangddangddang.domain.point.exception.PointErrorCode;
-import com.example.ddangddangddang.domain.point.infra.PaymentClient;
+import com.example.ddangddangddang.domain.point.infra.PaymentGateway;
 import com.example.ddangddangddang.domain.point.infra.PaymentInfo;
 import com.example.ddangddangddang.domain.point.repository.PointChargeRepository;
 import com.example.ddangddangddang.domain.point.repository.PointHistoryRepository;
@@ -40,7 +40,7 @@ public class PointChargeService {
     private final PointChargeRepository pointChargeRepository;
     private final PointWalletRepository pointWalletRepository;
     private final PointHistoryRepository pointHistoryRepository;
-    private final PaymentClient paymentClient;
+    private final PaymentGateway paymentGateway;
 
     @Transactional
     public PointChargeResponse createChargeRequest(Long userId, PointChargeRequest request) {
@@ -100,7 +100,7 @@ public class PointChargeService {
         }
 
         String paymentId = charge.getPaymentId();
-        PaymentInfo payment = paymentClient.getPayment(paymentId);
+        PaymentInfo payment = paymentGateway.getPayment(paymentId);
 
         // 아직 결제가 끝나지 않음 (가상계좌 입금 대기 등) → 상태 유지
         if (payment.isInProgress()) {
@@ -118,7 +118,7 @@ public class PointChargeService {
         if (!charge.matchesAmount(payment.totalAmount())) {
             log.warn("결제 금액 불일치 paymentId={}, expected={}, actual={}",
                     paymentId, charge.getAmount(), payment.totalAmount());
-            paymentClient.cancelPayment(paymentId, "결제 금액 불일치");
+            paymentGateway.cancelPayment(paymentId, "결제 금액 불일치");
             charge.fail();
             return null;
         }
@@ -129,14 +129,14 @@ public class PointChargeService {
 
     /**
      * 지갑에 포인트 지급 + 충전 완료 처리 + 이력 저장.
-     * 지갑 동시 수정은 PointWallet의 @Version(낙관적 락)이 막아준다.
-     * 충돌 시 트랜잭션 전체가 롤백되어 charge는 PENDING으로 남고, 다시 호출(또는 웹훅 재전송)하면 된다.
+     * 팀 규칙(PointWalletRepository)대로 잔액을 바꿀 때는 지갑에 비관적 락을 건다.
+     * 락 순서는 "충전 요청 → 지갑"이고, 입찰 쪽은 지갑만 잠그므로 데드락이 생기지 않는다.
      */
     private PointWallet applyCharge(PointCharge charge) {
-        PointWallet wallet = pointWalletRepository.findByUserId(charge.getUserId())
+        PointWallet wallet = pointWalletRepository.findByUserIdForUpdate(charge.getUserId())
                 .orElseThrow(() -> new BusinessException(PointErrorCode.WALLET_NOT_FOUND));
 
-        wallet.addBalance(charge.getAmount());
+        wallet.charge(charge.getAmount());
         charge.complete();
         pointHistoryRepository.save(PointHistory.of(
                 wallet, PointHistoryType.CHARGE, charge.getAmount(),

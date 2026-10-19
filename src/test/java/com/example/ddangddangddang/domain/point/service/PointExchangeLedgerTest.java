@@ -45,7 +45,7 @@ class PointExchangeLedgerTest {
     @DisplayName("차감: 잔액이 줄고 EXCHANGE 이력이 환전 id와 함께 남는다")
     void deduct() {
         PointWallet wallet = wallet(50_000L);
-        given(pointWalletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
+        given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
 
         ledger.deduct(exchange());
 
@@ -60,12 +60,12 @@ class PointExchangeLedgerTest {
     @Test
     @DisplayName("차감: 잔액이 부족하면 예외가 나고 이력을 남기지 않는다")
     void deductInsufficient() {
-        given(pointWalletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet(5_000L)));
+        given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet(5_000L)));
 
         assertThatThrownBy(() -> ledger.deduct(exchange()))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
-                .isEqualTo(PointErrorCode.INSUFFICIENT_POINT);
+                .isEqualTo(PointErrorCode.INSUFFICIENT_BALANCE);
         verify(pointHistoryRepository, never()).save(any());
     }
 
@@ -73,7 +73,7 @@ class PointExchangeLedgerTest {
     @DisplayName("환불: 잔액이 늘고 EXCHANGE_REFUND 이력이 남는다")
     void refund() {
         PointWallet wallet = wallet(40_000L);
-        given(pointWalletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
+        given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
 
         ledger.refund(exchange());
 
