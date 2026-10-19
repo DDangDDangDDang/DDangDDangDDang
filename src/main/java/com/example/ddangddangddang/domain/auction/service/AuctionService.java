@@ -14,10 +14,12 @@ import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.IllegalFormatCodePointException;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -73,5 +75,42 @@ public class AuctionService {
         );
 
         return AuctionResponse.from(auction);
+    }
+
+    //경매 취소(본인 경매이며 대기OR진행 중이며 입찰이 0건일시에만 취소가 가능합니다)
+    public void cancelAuction (Long sellerId, Long auctionId){
+
+        //경매가 존재 하는지
+        Auction auction = auctionRepository.findById(auctionId).orElseThrow(
+                () -> new BusinessException(AuctionErrorCode.NOT_FOUND)
+        );
+
+        //본인 경매인지
+        if (!auction.getProduct().getSeller().getId().equals(sellerId)) {
+            throw new BusinessException(AuctionErrorCode.NOT_OWNER);
+        }
+
+        //경매 상태가 READY OR ONGOING 인지 검증
+        if (auction.getStatus() != AuctionStatus.READY && auction.getStatus() !=AuctionStatus.ONGOING){
+            throw new BusinessException(AuctionErrorCode.NOT_CANCELABLE_STATUS);
+        }
+
+        //입찰 건수가 1건이라도 있는지
+        if (auction.getBidCount() > 0){
+            throw new BusinessException(AuctionErrorCode.HAS_BIDS);
+        }
+
+        auction.cancel();
+        flushWithVersionCheck(auction);
+
+    }
+
+    // 동시 같은 경매 수정시 먼저 반영 요청을 성공후 나머지는 409 CONCURRENT_UPDATE 응답
+    private void flushWithVersionCheck(Auction auction){
+        try {
+            auctionRepository.saveAndFlush(auction);
+        } catch (ObjectOptimisticLockingFailureException e){
+            throw new BusinessException(AuctionErrorCode.CONCURRENT_UPDATE, e);
+        }
     }
 }

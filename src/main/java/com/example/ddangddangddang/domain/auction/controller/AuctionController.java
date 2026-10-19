@@ -35,12 +35,14 @@ public class AuctionController {
         return ResponseEntity.ok(ApiResponse.ok(auctionService.findAddBy(auctionId))) ;
     }
 
-//    //카테고리 삭제(관리자만)
-//    @DeleteMapping("/admin/categories/{categoryId}")
-//    ResponseEntity<Void> delete(@PathVariable Long categoryId){
-//        auctionService.delete(categoryId);
-//        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-//    }
+    //경매 취소(본인 경매만)
+    @PostMapping("/auctions/{auctionId}/cancel")
+    ResponseEntity<Void> cancelAuction(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long auctionId){
+        auctionService.cancelAuction(authUser.id(), auctionId);
+        return ResponseEntity.noContent().build();
+    }
 
 
 }
