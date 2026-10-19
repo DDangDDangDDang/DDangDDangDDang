@@ -6,5 +6,6 @@ public enum PointReferenceType {
      */
     CHARGE,
     AUCTION,
-    ORDER
+    ORDER,
+    EXCHANGE
 }

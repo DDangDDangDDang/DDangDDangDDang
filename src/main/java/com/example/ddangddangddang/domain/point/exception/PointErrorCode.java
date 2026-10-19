@@ -28,7 +28,10 @@ public enum PointErrorCode implements ErrorCode {
     INVALID_EXCHANGE_STATUS(HttpStatus.BAD_REQUEST, "POINT_043", "현재 상태에서는 처리할 수 없는 환전 신청입니다."),
     EXCHANGE_AMOUNT_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "POINT_044", "환전 금액은 1,000 이상 1,000,000 이하여야 합니다."),
     INVALID_BANK_ACCOUNT(HttpStatus.BAD_REQUEST, "POINT_045", "계좌 정보가 올바르지 않습니다."),
-    INVALID_PAYOUT_ID(HttpStatus.BAD_REQUEST, "POINT_046", "송금 ID가 올바르지 않습니다.");
+    INVALID_PAYOUT_ID(HttpStatus.BAD_REQUEST, "POINT_046", "송금 ID가 올바르지 않습니다."),
+
+    INVALID_WEBHOOK_SIGNATURE(HttpStatus.UNAUTHORIZED, "POINT_051", "웹훅 서명이 올바르지 않습니다."),
+    INVALID_WEBHOOK_PAYLOAD(HttpStatus.BAD_REQUEST, "POINT_052", "웹훅 본문을 해석할 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

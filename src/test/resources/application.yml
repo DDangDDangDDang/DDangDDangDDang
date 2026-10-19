@@ -29,6 +29,8 @@ websocket:
 portone:
   api-url: http://localhost
   api-secret: test-secret
+  webhook-secret: whsec_dGVzdC13ZWJob29rLXNlY3JldA==
+
 
 point:
   payout:
