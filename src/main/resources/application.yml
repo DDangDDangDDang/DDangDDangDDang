@@ -21,6 +21,19 @@ spring:
         format_sql: true
         default_batch_fetch_size: 100
 
+  mail:
+    # Gmail SMTP. 구글 계정 2단계 인증을 켠 뒤 발급한 "앱 비밀번호"를 MAIL_APP_PASSWORD로 주입한다.
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_APP_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -50,3 +63,18 @@ toss:
   base-url: https://api.tosspayments.com
   connect-timeout: 3s
   read-timeout: 30s
+
+app:
+  mail:
+    # false면 메일을 실제로 보내지 않고 서버 로그에만 출력한다. (로컬 개발용)
+    enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:no-reply@ddangddangddang.com}
+  sms:
+    # false면 문자를 실제로 보내지 않고 서버 로그에만 출력한다. (로컬 개발용)
+    enabled: ${SMS_ENABLED:false}
+    solapi:
+      base-url: https://api.solapi.com
+      api-key: ${SOLAPI_API_KEY:}
+      api-secret: ${SOLAPI_API_SECRET:}
+      # SOLAPI 콘솔에 미리 등록한 발신번호. 하이픈 없이 숫자만 (예: 01012345678)
+      sender: ${SOLAPI_SENDER:}

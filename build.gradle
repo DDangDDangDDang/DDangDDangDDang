@@ -61,6 +61,9 @@ dependencies {
 
     // Anthropic (AI 채팅 모더레이션)
     implementation 'com.anthropic:anthropic-java:2.68.0'
+
+    // Mail
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
 }
 
 tasks.named('test') {
