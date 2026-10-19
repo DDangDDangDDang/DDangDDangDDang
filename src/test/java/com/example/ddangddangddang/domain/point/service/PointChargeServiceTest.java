@@ -10,7 +10,7 @@ import com.example.ddangddangddang.domain.point.entity.PointHistoryType;
 import com.example.ddangddangddang.domain.point.entity.PointReferenceType;
 import com.example.ddangddangddang.domain.point.entity.PointWallet;
 import com.example.ddangddangddang.domain.point.exception.PointErrorCode;
-import com.example.ddangddangddang.domain.point.infra.PaymentClient;
+import com.example.ddangddangddang.domain.point.infra.PaymentGateway;
 import com.example.ddangddangddang.domain.point.infra.PaymentInfo;
 import com.example.ddangddangddang.domain.point.infra.PaymentStatus;
 import com.example.ddangddangddang.domain.point.repository.PointChargeRepository;
@@ -59,7 +59,7 @@ class PointChargeServiceTest {
     private PointHistoryRepository pointHistoryRepository;
 
     @Mock
-    private PaymentClient paymentClient;
+    private PaymentGateway paymentGateway;
 
     @Nested
     @DisplayName("충전 요청 생성")
@@ -96,8 +96,8 @@ class PointChargeServiceTest {
             PointCharge charge = pendingCharge();
             PointWallet wallet = wallet();
             given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
-            given(paymentClient.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.PAID, AMOUNT));
-            given(pointWalletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
+            given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.PAID, AMOUNT));
+            given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
 
             PointChargeCompleteResponse response = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
 
@@ -123,7 +123,7 @@ class PointChargeServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(PointErrorCode.CHARGE_NOT_FOUND);
-            verify(paymentClient, never()).getPayment(anyString());
+            verify(paymentGateway, never()).getPayment(anyString());
         }
 
         @Test
@@ -136,7 +136,7 @@ class PointChargeServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(PointErrorCode.CHARGE_ACCESS_DENIED);
-            verify(paymentClient, never()).getPayment(anyString());
+            verify(paymentGateway, never()).getPayment(anyString());
         }
 
         @Test
@@ -154,7 +154,7 @@ class PointChargeServiceTest {
             assertThat(response.status()).isEqualTo(PointChargeType.COMPLETE);
             assertThat(response.balance()).isEqualTo(AMOUNT);
             assertThat(wallet.getBalance()).isEqualTo(AMOUNT);
-            verify(paymentClient, never()).getPayment(anyString());
+            verify(paymentGateway, never()).getPayment(anyString());
             verify(pointHistoryRepository, never()).save(any());
         }
 
@@ -163,14 +163,14 @@ class PointChargeServiceTest {
         void inProgress() {
             PointCharge charge = pendingCharge();
             given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
-            given(paymentClient.getPayment(PAYMENT_ID))
+            given(paymentGateway.getPayment(PAYMENT_ID))
                     .willReturn(payment(PaymentStatus.VIRTUAL_ACCOUNT_ISSUED, AMOUNT));
 
             PointChargeCompleteResponse response = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
 
             assertThat(response.status()).isEqualTo(PointChargeType.PENDING);
             assertThat(response.balance()).isNull();
-            verify(pointWalletRepository, never()).findByUserId(anyLong());
+            verify(pointWalletRepository, never()).findByUserIdForUpdate(anyLong());
         }
 
         @Test
@@ -178,13 +178,13 @@ class PointChargeServiceTest {
         void paymentFailed() {
             PointCharge charge = pendingCharge();
             given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
-            given(paymentClient.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.FAILED, AMOUNT));
+            given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.FAILED, AMOUNT));
 
             PointChargeCompleteResponse response = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
 
             assertThat(response.status()).isEqualTo(PointChargeType.FAILED);
-            verify(pointWalletRepository, never()).findByUserId(anyLong());
-            verify(paymentClient, never()).cancelPayment(anyString(), anyString());
+            verify(pointWalletRepository, never()).findByUserIdForUpdate(anyLong());
+            verify(paymentGateway, never()).cancelPayment(anyString(), anyString());
         }
 
         @Test
@@ -192,13 +192,13 @@ class PointChargeServiceTest {
         void amountMismatch() {
             PointCharge charge = pendingCharge();
             given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
-            given(paymentClient.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.PAID, 1_000L));
+            given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.PAID, 1_000L));
 
             PointChargeCompleteResponse response = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
 
             assertThat(response.status()).isEqualTo(PointChargeType.FAILED);
-            verify(paymentClient).cancelPayment(eq(PAYMENT_ID), anyString());
-            verify(pointWalletRepository, never()).findByUserId(anyLong());
+            verify(paymentGateway).cancelPayment(eq(PAYMENT_ID), anyString());
+            verify(pointWalletRepository, never()).findByUserIdForUpdate(anyLong());
         }
 
         @Test
@@ -206,8 +206,8 @@ class PointChargeServiceTest {
         void walletNotFound() {
             given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID))
                     .willReturn(Optional.of(pendingCharge()));
-            given(paymentClient.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.PAID, AMOUNT));
-            given(pointWalletRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+            given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.PAID, AMOUNT));
+            given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> pointChargeService.completeCharge(USER_ID, PAYMENT_ID))
                     .isInstanceOf(BusinessException.class)

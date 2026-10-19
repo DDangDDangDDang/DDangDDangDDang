@@ -13,8 +13,6 @@ import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import com.example.ddangddangddang.domain.point.exception.PointErrorCode;
-import com.example.ddangddangddang.global.exception.BusinessException;
 
 @Getter
 @Entity
@@ -51,29 +49,6 @@ public class PointWallet extends BaseTimeEntity {
         return new PointWallet(userId);
     }
 
-    /** 빼거나 더할 포인트의 수량이 양수가 되게 검증 **/
-    public void validatePositiveAmount(long amount) {
-        if( amount < 0 ) {
-            throw new BusinessException(PointErrorCode.INVALID_POINT_AMOUNT);
-        }
-    }
-
-    /** 현금으로 포인트를 충전할때 사용 **/
-    public void addBalance(long amount) {
-        validatePositiveAmount(amount);
-        this.balance = Math.addExact(this.balance, amount);
-    }
-
-    /** 포인트에서 현금으로 전환할때 사용 **/
-    public void subBalance(long amount) {
-
-        validatePositiveAmount(amount);
-
-        if ( this.balance - this.heldBalance < amount) {
-            throw new BusinessException(PointErrorCode.INSUFFICIENT_POINT);
-        }
-
-        this.balance -= amount;
     /** 충전: 사용 가능 + */
     public void charge(long amount) {
         validateAmount(amount);
@@ -116,6 +91,21 @@ public class PointWallet extends BaseTimeEntity {
 
     /** 구매 확정 정산: 판매자 사용 가능 + */
     public void settle(long amount) {
+        validateAmount(amount);
+        this.balance += amount;
+    }
+
+    /** 환전 신청: 사용 가능 포인트 차감 (홀딩된 포인트는 환전할 수 없다) */
+    public void exchange(long amount) {
+        validateAmount(amount);
+        if (balance < amount) {
+            throw new BusinessException(PointErrorCode.INSUFFICIENT_BALANCE);
+        }
+        this.balance -= amount;
+    }
+
+    /** 환전 취소·송금 실패: 차감했던 포인트를 사용 가능으로 돌려준다 */
+    public void refundExchange(long amount) {
         validateAmount(amount);
         this.balance += amount;
     }

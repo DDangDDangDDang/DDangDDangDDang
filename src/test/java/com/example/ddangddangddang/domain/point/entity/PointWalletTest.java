@@ -105,6 +105,42 @@ class PointWalletTest {
                 .isEqualTo(PointErrorCode.INVALID_AMOUNT);
     }
 
+    @Test
+    @DisplayName("환전하면 사용 가능 포인트만 차감되고 홀딩 포인트는 그대로다")
+    void exchange() {
+        PointWallet wallet = walletWithBalance(10_000L);
+        wallet.hold(3_000L);
+
+        wallet.exchange(7_000L);
+
+        assertThat(wallet.getBalance()).isZero();
+        assertThat(wallet.getHeldBalance()).isEqualTo(3_000L);
+    }
+
+    @Test
+    @DisplayName("홀딩된 포인트까지 환전할 수는 없다")
+    void exchangeInsufficient() {
+        PointWallet wallet = walletWithBalance(10_000L);
+        wallet.hold(3_000L);
+
+        assertThatThrownBy(() -> wallet.exchange(7_001L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PointErrorCode.INSUFFICIENT_BALANCE);
+        assertThat(wallet.getBalance()).isEqualTo(7_000L);
+    }
+
+    @Test
+    @DisplayName("환전 환불하면 사용 가능 포인트로 돌아온다")
+    void refundExchange() {
+        PointWallet wallet = walletWithBalance(10_000L);
+        wallet.exchange(10_000L);
+
+        wallet.refundExchange(10_000L);
+
+        assertThat(wallet.getBalance()).isEqualTo(10_000L);
+    }
+
     private PointWallet walletWithBalance(long balance) {
         PointWallet wallet = PointWallet.create(1L);
         if (balance > 0) {
