@@ -29,7 +29,21 @@ public class SmtpEmailSender implements EmailSender {
         try {
             mailSender.send(message);
         } catch (MailException e) {
-            log.error("메일 발송 실패: to={}", to, e);
+            log.error("메일 발송 실패: to={}", maskEmail(to), e);
         }
+    }
+
+    /**
+     * user@example.com → u***@example.com
+     */
+    static String maskEmail(String email) {
+        if (email == null) {
+            return "****";
+        }
+        int at = email.indexOf('@');
+        if (at <= 0) {
+            return "****";
+        }
+        return email.charAt(0) + "***" + email.substring(at);
     }
 }
