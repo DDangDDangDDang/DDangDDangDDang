@@ -9,10 +9,10 @@ on:
     branches: [dev, main]
 
 # 같은 PR에 새 커밋이 올라오면 이전 실행은 취소한다.
-# PR 실행은 PR 번호로, 푸시 실행은 브랜치로 그룹을 나눠 dev → main PR이 dev 푸시 실행을 밀어내지 않게 하고,
-# dev·main 푸시 실행은 취소하지 않는다.
+# dev·main 푸시 실행은 실행마다 그룹을 따로 둬서(run_id) 취소되거나 새 실행으로 대체되지 않게 한다.
+# 머지가 연달아 들어와도 머지마다 빌드 결과가 남아 어느 머지에서 깨졌는지 알 수 있다.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
