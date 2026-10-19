@@ -6,6 +6,11 @@ import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.RefreshTokenCookieProvider;
+import com.example.ddangddangddang.domain.auth.dto.CodeSentResponse;
+import com.example.ddangddangddang.domain.auth.dto.PhoneCodeRequest;
+import com.example.ddangddangddang.domain.auth.dto.PhoneVerifyRequest;
+import com.example.ddangddangddang.domain.auth.dto.VerificationTokenResponse;
+import com.example.ddangddangddang.domain.auth.service.SignupVerificationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -21,6 +26,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final RefreshTokenCookieProvider refreshTokenCookieProvider;
+    private final SignupVerificationService signupVerificationService;
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
@@ -57,5 +63,17 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookieProvider.create(result.refreshToken()).toString())
                 .body(ApiResponse.ok(result.response()));
+    }
+
+    @PostMapping("/signup/phone/code")
+    public ResponseEntity<ApiResponse<CodeSentResponse>> sendSignupPhoneCode(@Valid @RequestBody PhoneCodeRequest request) {
+        long expiresIn = signupVerificationService.sendCode(request.phoneNumber());
+        return ResponseEntity.ok(ApiResponse.ok(new CodeSentResponse(expiresIn)));
+    }
+
+    @PostMapping("/signup/phone/verify")
+    public ResponseEntity<ApiResponse<VerificationTokenResponse>> verifySignupPhone(@Valid @RequestBody PhoneVerifyRequest request) {
+        String token = signupVerificationService.verifyCode(request.phoneNumber(), request.code());
+        return ResponseEntity.ok(ApiResponse.ok(new VerificationTokenResponse(token)));
     }
 }

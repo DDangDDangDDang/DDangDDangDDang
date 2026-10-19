@@ -11,6 +11,9 @@ import com.example.ddangddangddang.domain.auth.exception.AuthErrorCode;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
+import com.example.ddangddangddang.domain.auth.verification.VerificationErrorCode;
+import com.example.ddangddangddang.domain.auth.verification.VerificationPurpose;
+import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -34,21 +37,30 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final TokenBlacklistRepository tokenBlacklistRepository;
     private final PointService pointService;
+    private final VerificationService verificationService;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
-            throw new BusinessException(UserErrorCode.DUPLICATE_EMAIL);
-        }
         if (userRepository.existsByNickname(request.nickname())) {
             throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME);
+        }
+        if (userRepository.existsByPhoneNumber(request.phoneNumber())) {
+            throw new BusinessException(UserErrorCode.DUPLICATE_PHONE_NUMBER);
+        }
+        // 중복 검사를 먼저 해야 이메일 중복 같은 실패로 인증 토큰을 헛되이 쓰지 않는다
+        String verifiedPhoneNumber = verificationService.consumeToken(
+                VerificationPurpose.SIGNUP_PHONE, request.phoneVerificationToken());
+        if (!verifiedPhoneNumber.equals(request.phoneNumber())) {
+            throw new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
         }
 
         User user = User.create(
                 request.email(),
                 passwordEncoder.encode(request.password()),
-                request.nickname()
+                request.nickname(),
+                request.phoneNumber()
         );
+
         User savedUser = userRepository.save(user);
         pointService.createWallet(savedUser.getId());
 
@@ -83,7 +95,7 @@ public class AuthService {
     /**
      * Refresh Token Rotation: 재발급할 때마다 Refresh Token도 새로 발급하고 이전 것은 폐기한다.
      * 이미 교체된(폐기된) Refresh Token으로 요청이 오면 탈취로 보고 저장된 토큰까지 삭제해 강제 로그아웃시킨다.
-     *
+     * <p>
      * 저장된 토큰 확인과 교체는 Redis에서 한 번에 실행한다(rotate).
      * 따로 하면 "확인 → (로그아웃이 토큰 삭제) → 새 토큰 저장" 순서로 겹쳐 로그아웃 뒤에도 새 토큰이 살아남는다.
      */
