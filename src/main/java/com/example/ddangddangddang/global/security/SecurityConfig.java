@@ -42,6 +42,9 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/reissue"
                         ).permitAll()
+                        // 브라우저는 WebSocket 핸드셰이크에 Authorization 헤더를 붙일 수 없다.
+                        // 핸드셰이크는 열어 두고 인증은 STOMP CONNECT 프레임에서 한다. (StompAuthChannelInterceptor)
+                        .requestMatchers(HttpMethod.GET, "/ws").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 );

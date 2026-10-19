@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.auth.service;
 
 import com.example.ddangddangddang.domain.auth.dto.*;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
+import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository.RotateResult;
 import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
@@ -71,6 +72,10 @@ public class AuthService {
         String refreshToken = jwtProvider.createRefreshToken(user.getId());
         refreshTokenRepository.save(user.getId(), refreshToken, jwtProvider.getRefreshTokenValidity());
 
+        return toLoginResult(user, accessToken, refreshToken);
+    }
+
+    private LoginResult toLoginResult(User user, String accessToken, String refreshToken) {
         long expiresIn = jwtProvider.getAccessTokenValidity().toSeconds();
         return new LoginResult(LoginResponse.of(accessToken, expiresIn, user), refreshToken);
     }
@@ -78,22 +83,27 @@ public class AuthService {
     /**
      * Refresh Token Rotation: 재발급할 때마다 Refresh Token도 새로 발급하고 이전 것은 폐기한다.
      * 이미 교체된(폐기된) Refresh Token으로 요청이 오면 탈취로 보고 저장된 토큰까지 삭제해 강제 로그아웃시킨다.
+     *
+     * 저장된 토큰 확인과 교체는 Redis에서 한 번에 실행한다(rotate).
+     * 따로 하면 "확인 → (로그아웃이 토큰 삭제) → 새 토큰 저장" 순서로 겹쳐 로그아웃 뒤에도 새 토큰이 살아남는다.
      */
     public LoginResult reissue(String refreshToken) {
         Long userId = extractUserId(refreshToken);
 
-        String savedToken = refreshTokenRepository.findByUserId(userId)
-                .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN));
-
-        if (!savedToken.equals(refreshToken)) {
-            refreshTokenRepository.deleteByUserId(userId);
-            throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
-        }
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN));
 
-        return issueTokens(user);
+        String accessToken = jwtProvider.createAccessToken(user);
+        String newRefreshToken = jwtProvider.createRefreshToken(userId);
+
+        RotateResult result = refreshTokenRepository.rotate(
+                userId, refreshToken, newRefreshToken, jwtProvider.getRefreshTokenValidity());
+        if (result != RotateResult.ROTATED) {
+            // NOT_FOUND: 로그아웃·만료, REUSED: 재사용 감지(저장된 토큰은 rotate에서 이미 삭제됨)
+            throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        return toLoginResult(user, accessToken, newRefreshToken);
     }
 
     private Long extractUserId(String refreshToken) {

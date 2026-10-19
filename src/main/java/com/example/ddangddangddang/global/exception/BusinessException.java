@@ -1,6 +1,5 @@
 package com.example.ddangddangddang.global.exception;
 
-import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
 import lombok.Getter;
 
 @Getter
@@ -15,6 +14,11 @@ public class BusinessException extends RuntimeException {
 
     public BusinessException(ErrorCode errorCode, Throwable cause) {
         super(errorCode.getMessage(), cause);
+        this.errorCode = errorCode;
+    }
+
+    public BusinessException(ErrorCode errorCode, String message) {
+        super(message);
         this.errorCode = errorCode;
     }
 }

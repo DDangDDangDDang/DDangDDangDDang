@@ -1,5 +1,8 @@
 package com.example.ddangddangddang.domain.livestream.infra;
 
+import java.util.Collection;
+import java.util.Map;
+
 /**
  * 미디어 서버(LiveKit) 연동 추상화.
  * 서비스가 LiveKit SDK에 직접 의존하지 않게 해서 테스트에서 쉽게 대체하고,
@@ -19,4 +22,10 @@ public interface MediaServerClient {
 
     /** 브라우저가 접속할 LiveKit 주소 */
     String getWsUrl();
+
+    /**
+     * 방별 시청자 수 (방 이름 → 시청자 수). identity가 viewerIdentityPrefix로 시작하는 참가자만 센다. (판매자 제외)
+     * 미디어 서버에 없는 방(아직 아무도 접속하지 않았거나 이미 지워진 방)은 결과에 없다.
+     */
+    Map<String, Integer> getViewerCounts(Collection<String> roomNames, String viewerIdentityPrefix);
 }

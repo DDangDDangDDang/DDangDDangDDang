@@ -1,0 +1,189 @@
+package com.example.ddangddangddang.domain.auth.verification;
+
+import com.example.ddangddangddang.global.exception.BusinessException;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+/**
+ * 재전송 제한(SET NX), 시도 횟수(INCR), 일회용 토큰(GETDEL)은 Redis 명령의 동작에 기대므로 실제 Redis에서 확인한다.
+ * Docker가 실행 중이어야 한다.
+ */
+@Testcontainers
+class VerificationServiceTest {
+
+    private static final String PHONE = "01012345678";
+
+    @Container
+    private static final GenericContainer<?> REDIS =
+            new GenericContainer<>(DockerImageName.parse("redis:7.4")).withExposedPorts(6379);
+
+    private static LettuceConnectionFactory connectionFactory;
+    private static StringRedisTemplate redisTemplate;
+    private static VerificationService verificationService;
+
+    @BeforeAll
+    static void setUpRedis() {
+        connectionFactory = new LettuceConnectionFactory(REDIS.getHost(), REDIS.getMappedPort(6379));
+        connectionFactory.afterPropertiesSet();
+        connectionFactory.start();
+        redisTemplate = new StringRedisTemplate(connectionFactory);
+        redisTemplate.afterPropertiesSet();
+        verificationService = new VerificationService(new VerificationCodeRepository(redisTemplate));
+    }
+
+    @AfterAll
+    static void tearDownRedis() {
+        connectionFactory.destroy();
+    }
+
+    @BeforeEach
+    void clear() {
+        redisTemplate.getConnectionFactory().getConnection().serverCommands().flushAll();
+    }
+
+    @Nested
+    @DisplayName("인증번호 발급")
+    class IssueCode {
+
+        @Test
+        @DisplayName("6자리 숫자 인증번호를 발급한다")
+        void sixDigits() {
+            String code = verificationService.issueCode(VerificationPurpose.FIND_EMAIL, PHONE);
+
+            assertThat(code).matches("\\d{6}");
+        }
+
+        @Test
+        @DisplayName("1분 안에 다시 요청하면 예외가 발생한다")
+        void resendTooSoon() {
+            verificationService.issueCode(VerificationPurpose.FIND_EMAIL, PHONE);
+
+            assertThatThrownBy(() -> verificationService.issueCode(VerificationPurpose.FIND_EMAIL, PHONE))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.RESEND_TOO_SOON);
+        }
+
+        @Test
+        @DisplayName("용도가 다르면 재전송 제한을 따로 적용한다")
+        void cooldownPerPurpose() {
+            verificationService.issueCode(VerificationPurpose.FIND_EMAIL, PHONE);
+
+            String code = verificationService.issueCode(VerificationPurpose.SIGNUP_PHONE, PHONE);
+
+            assertThat(code).hasSize(6);
+        }
+    }
+
+    @Nested
+    @DisplayName("인증번호 검증")
+    class VerifyCode {
+
+        @Test
+        @DisplayName("맞으면 인증 완료 토큰을 주고, 토큰으로 인증 대상을 꺼낼 수 있다")
+        void success() {
+            String code = verificationService.issueCode(VerificationPurpose.FIND_EMAIL, PHONE);
+
+            String token = verificationService.verifyCode(VerificationPurpose.FIND_EMAIL, PHONE, code);
+
+            assertThat(verificationService.consumeToken(VerificationPurpose.FIND_EMAIL, token)).isEqualTo(PHONE);
+        }
+
+        @Test
+        @DisplayName("한 번 쓴 인증번호는 다시 쓸 수 없다")
+        void codeIsOneTime() {
+            String code = verificationService.issueCode(VerificationPurpose.FIND_EMAIL, PHONE);
+            verificationService.verifyCode(VerificationPurpose.FIND_EMAIL, PHONE, code);
+
+            assertThatThrownBy(() -> verificationService.verifyCode(VerificationPurpose.FIND_EMAIL, PHONE, code))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.INVALID_CODE);
+        }
+
+        @Test
+        @DisplayName("틀리면 INVALID_CODE")
+        void wrongCode() {
+            String code = verificationService.issueCode(VerificationPurpose.FIND_EMAIL, PHONE);
+
+            assertThatThrownBy(() -> verificationService.verifyCode(VerificationPurpose.FIND_EMAIL, PHONE, wrong(code)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.INVALID_CODE);
+        }
+
+        @Test
+        @DisplayName("5번 틀리면 6번째는 맞는 번호여도 거부하고 인증번호를 지운다")
+        void tooManyAttempts() {
+            String code = verificationService.issueCode(VerificationPurpose.FIND_EMAIL, PHONE);
+            for (int i = 0; i < VerificationService.MAX_ATTEMPTS; i++) {
+                assertThatThrownBy(() -> verificationService.verifyCode(VerificationPurpose.FIND_EMAIL, PHONE, wrong(code)))
+                        .extracting("errorCode")
+                        .isEqualTo(VerificationErrorCode.INVALID_CODE);
+            }
+
+            assertThatThrownBy(() -> verificationService.verifyCode(VerificationPurpose.FIND_EMAIL, PHONE, code))
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.TOO_MANY_ATTEMPTS);
+            assertThatThrownBy(() -> verificationService.verifyCode(VerificationPurpose.FIND_EMAIL, PHONE, code))
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.INVALID_CODE);
+        }
+
+        @Test
+        @DisplayName("발급받지 않은 대상이면 INVALID_CODE")
+        void notIssued() {
+            assertThatThrownBy(() -> verificationService.verifyCode(VerificationPurpose.FIND_EMAIL, PHONE, "123456"))
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.INVALID_CODE);
+        }
+    }
+
+    @Nested
+    @DisplayName("인증 완료 토큰")
+    class ConsumeToken {
+
+        @Test
+        @DisplayName("한 번 쓰면 다시 쓸 수 없다")
+        void oneTime() {
+            String token = verifiedToken(VerificationPurpose.RESET_PASSWORD, "user@test.com");
+            verificationService.consumeToken(VerificationPurpose.RESET_PASSWORD, token);
+
+            assertThatThrownBy(() -> verificationService.consumeToken(VerificationPurpose.RESET_PASSWORD, token))
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+        }
+
+        @Test
+        @DisplayName("다른 용도로 받은 토큰은 쓸 수 없다")
+        void otherPurpose() {
+            String token = verifiedToken(VerificationPurpose.SIGNUP_PHONE, PHONE);
+
+            assertThatThrownBy(() -> verificationService.consumeToken(VerificationPurpose.RESET_PASSWORD, token))
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+        }
+
+        private String verifiedToken(VerificationPurpose purpose, String target) {
+            String code = verificationService.issueCode(purpose, target);
+            return verificationService.verifyCode(purpose, target, code);
+        }
+    }
+
+    private static String wrong(String code) {
+        return code.equals("000000") ? "111111" : "000000";
+    }
+}
