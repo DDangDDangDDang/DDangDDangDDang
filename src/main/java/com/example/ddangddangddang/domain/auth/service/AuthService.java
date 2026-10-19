@@ -41,6 +41,9 @@ public class AuthService {
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
+        if (userRepository.existsByEmail(request.email())) {
+            throw new BusinessException(UserErrorCode.DUPLICATE_EMAIL);
+        }
         if (userRepository.existsByNickname(request.nickname())) {
             throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME);
         }
