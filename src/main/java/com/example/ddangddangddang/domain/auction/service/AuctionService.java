@@ -1,7 +1,9 @@
 package com.example.ddangddangddang.domain.auction.service;
 
 import com.example.ddangddangddang.domain.auction.dto.request.AuctionCreateRequest;
+import com.example.ddangddangddang.domain.auction.dto.request.AuctionSearchCondition;
 import com.example.ddangddangddang.domain.auction.dto.request.LiveAuctionCreateRequest;
+import com.example.ddangddangddang.domain.auction.dto.response.AuctionListResponse;
 import com.example.ddangddangddang.domain.auction.dto.response.AuctionResponse;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
@@ -19,11 +21,14 @@ import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.channels.spi.AbstractSelectableChannel;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.IllegalFormatCodePointException;
@@ -128,6 +133,12 @@ public class AuctionService {
         Auction save = auctionRepository.save(auction);
 
         return AuctionResponse.from(save);
+    }
+
+    //목록 조회 및 검색(조건이 없을시 상태가 대기,진행 중인 경매들 중 최신순으로 정렬)
+    @Transactional(readOnly = true)
+    public Page<AuctionListResponse> searchAuctions(AuctionSearchCondition condition, Pageable pageable){
+        return auctionRepository.search(condition, pageable);
     }
 
     // 동시 같은 경매 수정시 먼저 반영 요청을 성공후 나머지는 409 CONCURRENT_UPDATE 응답

@@ -1,19 +1,24 @@
 package com.example.ddangddangddang.domain.auction.controller;
 
+
 import com.example.ddangddangddang.domain.auction.dto.request.AuctionCreateRequest;
+import com.example.ddangddangddang.domain.auction.dto.request.AuctionSearchCondition;
 import com.example.ddangddangddang.domain.auction.dto.request.LiveAuctionCreateRequest;
+import com.example.ddangddangddang.domain.auction.dto.response.AuctionListResponse;
 import com.example.ddangddangddang.domain.auction.dto.response.AuctionResponse;
 import com.example.ddangddangddang.domain.auction.service.AuctionService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -52,6 +57,14 @@ public class AuctionController {
             @Valid @RequestBody LiveAuctionCreateRequest request
     ){
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(auctionService.createLiveAuction(authUser.id(),liveId,request)));
+    }
+
+    //경매 목록 조회 및 검색(누구나)
+    @GetMapping("/auctions")
+    ResponseEntity<ApiResponse<Page<AuctionListResponse>>> searchAuctions(
+            @ModelAttribute AuctionSearchCondition condition,
+            @PageableDefault(size = 30) Pageable pageable){
+        return ResponseEntity.ok(ApiResponse.ok(auctionService.searchAuctions(condition,pageable)));
     }
 
 
