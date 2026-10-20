@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.livestream.controller;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
+import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveViewerStatsRepository;
@@ -8,6 +9,7 @@ import com.example.ddangddangddang.domain.livestream.repository.LiveViewerStatsR
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
+import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -62,6 +64,9 @@ class LiveStreamControllerTest {
 
     @MockitoBean
     private MediaServerClient mediaServerClient;
+
+    @MockitoBean
+    private VerificationService verificationService;
 
     // 시청자 수 순위(Redis)는 정해 둔 값을 돌려준다. 실제 Redis 동작은 LiveViewerStatsRepositoryTest에서 확인한다.
     @MockitoBean
@@ -194,8 +199,9 @@ class LiveStreamControllerTest {
         String suffix = UUID.randomUUID().toString().substring(0, 6);
         String email = "ls" + seq + "-" + suffix + "@test.com";
         String nickname = "판매자" + seq + suffix.substring(0, 4);
+        SignupFixture.stubPhoneVerification(verificationService);
         String signup = mockMvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\": \"" + email + "\", \"password\": \"Abcd1234!\", \"nickname\": \"" + nickname + "\"}"))
+                        .content(SignupFixture.signupBody(email, "Abcd1234!", nickname)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         Long id = ((Number) JsonPath.read(signup, "$.data.userId")).longValue();

@@ -1,6 +1,8 @@
 package com.example.ddangddangddang.domain.point.entity;
 
+import com.example.ddangddangddang.domain.point.exception.PointErrorCode;
 import com.example.ddangddangddang.global.entity.BaseTimeEntity;
+import com.example.ddangddangddang.global.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -11,8 +13,6 @@ import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import com.example.ddangddangddang.domain.point.exception.PointErrorCode;
-import com.example.ddangddangddang.global.exception.BusinessException;
 
 @Getter
 @Entity
@@ -91,6 +91,21 @@ public class PointWallet extends BaseTimeEntity {
 
     /** 구매 확정 정산: 판매자 사용 가능 + */
     public void settle(long amount) {
+        validateAmount(amount);
+        this.balance += amount;
+    }
+
+    /** 환전 신청: 사용 가능 포인트 차감 (홀딩된 포인트는 환전할 수 없다) */
+    public void exchange(long amount) {
+        validateAmount(amount);
+        if (balance < amount) {
+            throw new BusinessException(PointErrorCode.INSUFFICIENT_BALANCE);
+        }
+        this.balance -= amount;
+    }
+
+    /** 환전 취소·송금 실패: 차감했던 포인트를 사용 가능으로 돌려준다 */
+    public void refundExchange(long amount) {
         validateAmount(amount);
         this.balance += amount;
     }

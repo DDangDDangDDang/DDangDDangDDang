@@ -1,0 +1,51 @@
+# PR과 dev·main 브랜치에 올라온 코드를 빌드하고 테스트한다.
+# Redis 테스트는 Testcontainers로 띄우므로 Docker가 있는 GitHub 호스티드 Ubuntu 러너에서 그대로 돈다.
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+# 같은 PR에 새 커밋이 올라오면 이전 실행은 취소한다.
+# dev·main 푸시 실행은 실행마다 그룹을 따로 둬서(run_id) 취소되거나 새 실행으로 대체되지 않게 한다.
+# 머지가 연달아 들어와도 머지마다 빌드 결과가 남아 어느 머지에서 깨졌는지 알 수 있다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: 빌드 · 테스트
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # 빌드·테스트 코드가 GITHUB_TOKEN을 읽지 못하도록 git 설정에 남기지 않는다.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Gradle 의존성·빌드 캐시와 Gradle Wrapper 검증
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: 빌드 및 테스트
+        run: ./gradlew build
+
+      # 실패한 테스트를 확인할 수 있도록 테스트 리포트를 남긴다.
+      - name: 테스트 리포트 업로드
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: build/reports/tests/test
+          retention-days: 7
