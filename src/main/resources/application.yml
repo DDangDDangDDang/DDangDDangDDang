@@ -1,3 +1,8 @@
+server:
+  # 로드밸런서·리버스 프록시 뒤에서 실제 클라이언트 IP를 얻기 위한 설정.
+  # 사설망(10.x, 192.168.x 등)에서 온 요청의 X-Forwarded-For만 믿는다. 외부에서 직접 보낸 X-Forwarded-For는 무시한다.
+  forward-headers-strategy: native
+
 spring:
   application:
     name: DDangDDangDDang

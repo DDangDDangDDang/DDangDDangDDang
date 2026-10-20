@@ -26,15 +26,22 @@ public class VerificationService {
     public static final Duration TOKEN_TTL = Duration.ofMinutes(10);
     public static final Duration RESEND_COOLDOWN = Duration.ofMinutes(1);
     public static final int MAX_ATTEMPTS = 5;
+    public static final int DAILY_LIMIT_PER_TARGET = 10;
+    public static final Duration DAILY_WINDOW = Duration.ofDays(1);
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final VerificationCodeRepository verificationCodeRepository;
+    private final VerificationRateLimitRepository rateLimitRepository;
 
     public String issueCode(VerificationPurpose purpose, String target) {
         if (!verificationCodeRepository.tryStartCooldown(purpose, target, RESEND_COOLDOWN)) {
             throw new BusinessException(VerificationErrorCode.RESEND_TOO_SOON);
         }
+        if (rateLimitRepository.increaseTargetCount(target, DAILY_WINDOW) > DAILY_LIMIT_PER_TARGET) {
+            throw new BusinessException(VerificationErrorCode.DAILY_LIMIT_EXCEEDED);
+        }
+
         String code = String.format("%06d", RANDOM.nextInt(1_000_000));
         verificationCodeRepository.saveCode(purpose, target, code, CODE_TTL);
         return code;
