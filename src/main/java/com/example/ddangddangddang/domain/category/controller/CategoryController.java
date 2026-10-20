@@ -27,6 +27,7 @@ public class CategoryController {
 
     //카테고리 생성(관리자만)
     @PostMapping("/admin/categories")
+    @ResponseStatus(HttpStatus.CREATED)
     ResponseEntity<ApiResponse<CategoryResponse>> creation(@Valid @RequestBody CategoryRequest request){
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(categoryService.creation(request)));
     }
@@ -39,7 +40,7 @@ public class CategoryController {
 
     //카테고리 삭제(관리자만)
     @DeleteMapping("/admin/categories/{categoryId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT) // API 명세에 204로 표시하기 위함 (실제 응답은 아래 ResponseEntity)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     ResponseEntity<Void> delete(@PathVariable Long categoryId){
         categoryService.delete(categoryId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();

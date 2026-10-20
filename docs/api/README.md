@@ -23,7 +23,9 @@ IntelliJ에서 테스트를 실행해도 같습니다. 명세 테스트만 빠�
 CI(`빌드 · 테스트`)에서는 파일을 쓰지 않고 비교만 합니다. 바뀐 명세를 커밋하지 않고 push하면 CI가 실패하니, 로컬에서 테스트를 돌리고 바뀐 파일을 커밋하세요.
 
 API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주세요.
-- **본문 없이 204로 응답하는 API**(`ResponseEntity.noContent()` 등)에는 메서드에 `@ResponseStatus(HttpStatus.NO_CONTENT)`를 붙입니다. 없으면 명세에 200으로 나옵니다.
+- **200이 아닌 성공 코드로 응답하는 API**에는 메서드에 `@ResponseStatus`를 붙입니다. 명세는 `ResponseEntity.status(...)`의 값을 알 수 없어서, 없으면 200으로 나옵니다.
+  - 생성(`HttpStatus.CREATED`) → `@ResponseStatus(HttpStatus.CREATED)`
+  - 본문 없음(`HttpStatus.NO_CONTENT`, `noContent()`) → `@ResponseStatus(HttpStatus.NO_CONTENT)`
 - **토큰 없이 호출하는 POST API**는 `SecurityConfig.PUBLIC_POST_APIS`에 추가합니다. 보안 설정과 명세의 "인증 불필요" 표시가 이 목록 하나로 같이 바뀝니다.
 
 ### 보기

@@ -23,6 +23,7 @@ public class AuctionController {
 
     //경매(일반) 생성
     @PostMapping("/auctions")
+    @ResponseStatus(HttpStatus.CREATED)
     ResponseEntity<ApiResponse<AuctionResponse>> auctionCreate(
             @AuthenticationPrincipal AuthUser authUser,
             @Valid @RequestBody AuctionCreateRequest request){
@@ -37,7 +38,7 @@ public class AuctionController {
 
     //경매 취소(본인 경매만)
     @PostMapping("/auctions/{auctionId}/cancel")
-    @ResponseStatus(HttpStatus.NO_CONTENT) // API 명세에 204로 표시하기 위함 (실제 응답은 아래 ResponseEntity)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     ResponseEntity<Void> cancelAuction(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long auctionId){
@@ -47,6 +48,7 @@ public class AuctionController {
 
     // 라이브 중 경매 생성(방송 주인 및, 생성 즉시 AuctionStatus는 ONGOING변환)
     @PostMapping("/lives/{liveId}/auctions")
+    @ResponseStatus(HttpStatus.CREATED)
     ResponseEntity<ApiResponse<AuctionResponse>> createLiveAuction(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long liveId,

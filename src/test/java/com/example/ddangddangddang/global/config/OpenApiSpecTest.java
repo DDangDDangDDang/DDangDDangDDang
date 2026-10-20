@@ -68,9 +68,12 @@ class OpenApiSpecTest {
     }
 
     @Test
-    @DisplayName("본문 없이 204로 응답하는 API는 명세에도 204로 표시된다")
-    void noContentResponses() throws Exception {
+    @DisplayName("201·204로 응답하는 API는 명세에도 그 코드로 표시된다")
+    void nonOkSuccessResponses() throws Exception {
         JsonNode paths = currentSpec().path("paths");
+        assertThat(paths.path("/api/v1/auth/signup").path("post").path("responses").has("201")).isTrue();
+        assertThat(paths.path("/api/v1/auctions").path("post").path("responses").has("201")).isTrue();
+        assertThat(paths.path("/api/v1/auctions").path("post").path("responses").has("200")).isFalse();
         assertThat(paths.path("/api/v1/auctions/{auctionId}/cancel").path("post").path("responses").has("204")).isTrue();
         assertThat(paths.path("/api/v1/products/{productId}").path("delete").path("responses").has("204")).isTrue();
         assertThat(paths.path("/api/v1/admin/categories/{categoryId}").path("delete").path("responses").has("204")).isTrue();

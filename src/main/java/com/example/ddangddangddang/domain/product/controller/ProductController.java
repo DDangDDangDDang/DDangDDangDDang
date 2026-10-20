@@ -39,6 +39,7 @@ public class ProductController {
     }
     // 상품 생성(판매자는 현재 로그인한 사용자 지정)
     @PostMapping("/products")
+    @ResponseStatus(HttpStatus.CREATED)
     ResponseEntity<ApiResponse<ProductResponse>> creation(@AuthenticationPrincipal AuthUser authUser,
                                                           @Valid @RequestBody ProductRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(categoryService.creation(authUser.id(), request)));
@@ -54,7 +55,7 @@ public class ProductController {
 
     //상품 수정(본인만 삭제 가능, 데이터는 남겨두되 조회시 목록에서 제외 )
     @DeleteMapping("/products/{productId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT) // API 명세에 204로 표시하기 위함 (실제 응답은 아래 ResponseEntity)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     ResponseEntity<Void> delete(@AuthenticationPrincipal AuthUser authUser,
                                 @PathVariable Long productId){
         categoryService.delete(authUser.id(),productId);
