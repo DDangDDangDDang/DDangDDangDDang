@@ -14,6 +14,7 @@ export {
   REALTIME,
   type ChatMessage,
   type LiveStreamUpdatedMessage,
+  type ModerationAlert,
   type RealtimeConnection,
   type RealtimeError,
   type RealtimeStatus,

@@ -2,6 +2,7 @@
 export { Button, type ButtonProps } from './Button';
 export { buttonVariants } from './button-variants';
 export { Input, type InputProps } from './Input';
+export { Textarea, type TextareaProps } from './Textarea';
 export { Badge, type BadgeProps } from './Badge';
 export { Card, CardHeader, CardTitle, CardBody } from './Card';
 export { Skeleton, EmptyState, ErrorState } from './States';

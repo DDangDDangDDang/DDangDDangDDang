@@ -6,10 +6,10 @@ import { ApiError, api, call, errorMessage, isErrorCode, type ChatMessage, type 
 import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime } from '@/lib/format';
 import { AuctionPanel } from './AuctionPanel';
-import { LiveChat } from './LiveChat';
-import { appendChatMessage } from './live-room';
+import { LiveChat } from '@/components/live/LiveChat';
+import { appendChatMessage } from '@/lib/live-room';
 import { LiveVideo } from './LiveVideo';
-import { useLiveRealtime } from './use-live-realtime';
+import { useLiveRealtime } from '@/lib/use-live-realtime';
 import { useLiveVideo } from './use-live-video';
 
 type LiveStream = Schema<'LiveStreamResponse'>;

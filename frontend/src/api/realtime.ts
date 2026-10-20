@@ -34,6 +34,22 @@ export type LiveStreamUpdatedMessage = {
   liveStream: components['schemas']['LiveStreamResponse'];
 };
 
+/** AI가 확인이 필요하다고 본 채팅 (`/user/queue/moderation`). 방송 판매자에게만 온다. */
+export type ModerationAlert = {
+  liveStreamId: number;
+  /** 문제의 채팅 messageId */
+  messageId: string;
+  senderId: number;
+  nickname: string;
+  content: string;
+  category: 'EXTERNAL_TRADE' | 'SCAM' | 'HARASSMENT' | 'HATE' | 'SEXUAL' | 'SPAM' | 'PERSONAL_INFO';
+  /** 화면에 보여줄 분류 이름 */
+  categoryLabel: string;
+  /** 판단 이유 */
+  reason: string;
+  detectedAt: string;
+};
+
 /** 나에게만 오는 오류 (`/user/queue/errors`). 채팅 전송 실패 등 */
 export type RealtimeError = components['schemas']['ErrorResponse'];
 
@@ -41,6 +57,7 @@ export const REALTIME = {
   liveChat: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}/chat`,
   liveStream: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}`,
   errors: '/user/queue/errors',
+  moderation: '/user/queue/moderation',
   sendLiveChat: (liveStreamId: number) => `/app/live-streams/${liveStreamId}/chat`,
 } as const;
 

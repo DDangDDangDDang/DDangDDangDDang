@@ -1,7 +1,7 @@
 import type { ChatMessage } from '@/api';
 
 /*
- * 방송 시청 화면의 계산 로직. (화면과 분리해 단위 테스트한다)
+ * 방송 시청·판매자 스튜디오 화면이 같이 쓰는 계산 로직. (화면과 분리해 단위 테스트한다)
  */
 
 // LiveKit 참가자 identity 앞부분. 백엔드 LiveStreamService의 publisherIdentity / VIEWER_IDENTITY_PREFIX와 같다.
@@ -25,6 +25,15 @@ export function summarizeParticipants(remote: Iterable<Participant>): { sellerNa
     }
   }
   return { sellerName, viewerCount };
+}
+
+/** 판매자가 보는 시청자 수: 방의 다른 참가자 중 시청자만 센다. (판매자 자신은 넣지 않음) */
+export function countViewers(remote: Iterable<Participant>): number {
+  let count = 0;
+  for (const participant of remote) {
+    if (participant.identity.startsWith(VIEWER_IDENTITY_PREFIX)) count += 1;
+  }
+  return count;
 }
 
 /** 화면에 남겨 둘 채팅 수. 오래된 메시지부터 지운다. */
