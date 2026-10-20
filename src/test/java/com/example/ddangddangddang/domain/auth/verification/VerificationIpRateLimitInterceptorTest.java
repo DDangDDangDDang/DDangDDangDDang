@@ -54,6 +54,7 @@ class VerificationIpRateLimitInterceptorTest {
         given(rateLimitRepository.increaseIpCount("203.0.113.7", VerificationIpRateLimitInterceptor.WINDOW)).willReturn(1L);
 
         assertThat(interceptor.preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
+        org.mockito.Mockito.verify(rateLimitRepository).increaseIpCount("203.0.113.7", VerificationIpRateLimitInterceptor.WINDOW);
     }
 
     private MockHttpServletRequest request(String remoteAddr) {
