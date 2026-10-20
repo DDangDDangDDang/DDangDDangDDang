@@ -6,6 +6,7 @@ import { LoginPage } from '@/pages/auth/LoginPage';
 import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
 import { SignupPage } from '@/pages/auth/SignupPage';
 import { CategoryAdminPage } from '@/pages/admin/CategoryAdminPage';
+import { DmReportsPage } from '@/pages/admin/DmReportsPage';
 import { AuctionDetailPage } from '@/pages/auctions/AuctionDetailPage';
 import { AuctionListPage } from '@/pages/auctions/AuctionListPage';
 import { DevComponentsPage } from '@/pages/DevComponentsPage';
@@ -13,6 +14,7 @@ import { HomePage } from '@/pages/HomePage';
 import { LiveListPage } from '@/pages/live/LiveListPage';
 import { LiveWatchPage } from '@/pages/live/LiveWatchPage';
 import { MyInfoPage } from '@/pages/me/MyInfoPage';
+import { MessagesPage } from '@/pages/messages/MessagesPage';
 import { PointsPage } from '@/pages/me/PointsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { OrderDetailPage } from '@/pages/orders/OrderDetailPage';
@@ -52,6 +54,8 @@ export const router = createBrowserRouter([
           { path: '/orders', element: <OrdersPage /> },
           { path: '/orders/:orderId', element: <OrderDetailPage /> },
           { path: '/studio', element: <SellerStudioPage /> },
+          { path: '/messages', element: <MessagesPage /> },
+          { path: '/messages/:userId', element: <MessagesPage /> },
           { path: '/auctions', element: <AuctionListPage /> },
           { path: '/auctions/:auctionId', element: <AuctionDetailPage /> },
           { path: '/me/products', element: <MyProductsPage /> },
@@ -60,6 +64,7 @@ export const router = createBrowserRouter([
           { path: '/products/:productId/auction', element: <ProductAuctionPage /> },
           // 관리자 (역할은 화면 안에서 확인하고, 서버도 ADMIN만 허용한다)
           { path: '/admin/categories', element: <CategoryAdminPage /> },
+          { path: '/admin/dm-reports', element: <DmReportsPage /> },
         ],
       },
 

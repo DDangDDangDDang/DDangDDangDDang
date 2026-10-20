@@ -79,3 +79,14 @@ export const PRODUCT_STATUS_LABEL: Record<ProductStatus, string> = {
   SOLD: '판매 완료',
   DELETED: '삭제됨',
 };
+
+export type DmReportReason = NonNullable<Schema<'DmReportRequest'>['reason']>;
+
+export const DM_REPORT_REASON_LABEL: Record<DmReportReason, string> = {
+  EXTERNAL_TRADE: '외부 거래 유도',
+  SCAM: '사기·사칭',
+  HARASSMENT: '욕설·괴롭힘',
+  SEXUAL: '성적인 내용',
+  SPAM: '광고·스팸',
+  OTHER: '기타',
+};
