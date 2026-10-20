@@ -72,6 +72,11 @@ public class AccessTokenAuthenticator {
             throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
         }
 
+        // 비밀번호를 바꾸기 전에 발급된 토큰이면 막는다. (탈취된 토큰이 만료 전까지 계속 쓰이는 것 방지)
+        if (tokenBlacklistRepository.isInvalidatedForUser(Long.valueOf(claims.getSubject()), claims.getIssuedAt().toInstant())) {
+            throw new BusinessException(AuthErrorCode.PASSWORD_CHANGED);
+        }
+
         return claims;
     }
 

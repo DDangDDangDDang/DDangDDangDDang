@@ -15,6 +15,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.ddangddangddang.global.security.jwt.JwtProvider;
+import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
+
+import java.time.Instant;
 
 import java.util.Optional;
 
@@ -34,6 +38,8 @@ public class AccountRecoveryService {
     private final PasswordEncoder passwordEncoder;
     private final SmsSender smsSender;
     private final EmailSender emailSender;
+    private final TokenBlacklistRepository tokenBlacklistRepository;
+    private final JwtProvider jwtProvider;
 
     /**
      * 가입 여부와 상관없이 인증번호를 보냄
@@ -73,6 +79,8 @@ public class AccountRecoveryService {
 
     /**
      * 비밀번호를 바꾸고 모든 기기에서 로그아웃
+     * - Refresh Token 삭제: 토큰 재발급을 막는다.
+     * - 지금 이전에 발급된 Access Token 무효화: 이미 받은 Access Token도 만료(최대 30분)를 기다리지 않고 바로 막는다.
      */
     @Transactional
     public void resetPassword(String verificationToken, String newPassword) {
@@ -82,6 +90,8 @@ public class AccountRecoveryService {
 
         user.changePassword(passwordEncoder.encode(newPassword));
         refreshTokenRepository.deleteByUserId(user.getId());
+        tokenBlacklistRepository.invalidateTokensIssuedBefore(
+                user.getId(), Instant.now(), jwtProvider.getAccessTokenValidity());
     }
 
     /**

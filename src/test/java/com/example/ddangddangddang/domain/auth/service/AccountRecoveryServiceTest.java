@@ -22,7 +22,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import com.example.ddangddangddang.global.security.jwt.JwtProvider;
+import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -36,6 +40,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.any;
+
 
 @ExtendWith(MockitoExtension.class)
 class AccountRecoveryServiceTest {
@@ -63,6 +69,12 @@ class AccountRecoveryServiceTest {
 
     @Mock
     private EmailSender emailSender;
+
+    @Mock
+    private TokenBlacklistRepository tokenBlacklistRepository;
+
+    @Mock
+    private JwtProvider jwtProvider;
 
     @Nested
     @DisplayName("이메일 찾기")
@@ -132,17 +144,22 @@ class AccountRecoveryServiceTest {
         }
 
         @Test
-        @DisplayName("비밀번호를 바꾸고 Refresh Token을 지워 모든 기기에서 로그아웃시킨다")
+        @DisplayName("비밀번호를 바꾸고 Refresh Token 삭제, 이전에 발급된 Access Token 무효화로 모든 기기에서 로그아웃시킨다")
         void reset() {
             User user = user();
             given(verificationService.consumeToken(VerificationPurpose.RESET_PASSWORD, "token")).willReturn(EMAIL);
             given(userRepository.findByEmail(EMAIL)).willReturn(Optional.of(user));
             given(passwordEncoder.encode("NewPass123!")).willReturn("new-encoded");
+            given(jwtProvider.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
+            Instant before = Instant.now();
 
             accountRecoveryService.resetPassword("token", "NewPass123!");
 
             assertThat(user.getPassword()).isEqualTo("new-encoded");
             verify(refreshTokenRepository).deleteByUserId(1L);
+            // 지금 시각 기준으로, Access Token 유효시간 동안 기록한다
+            verify(tokenBlacklistRepository).invalidateTokensIssuedBefore(
+                    eq(1L), org.mockito.ArgumentMatchers.argThat(at -> !at.isBefore(before)), eq(Duration.ofMinutes(30)));
         }
 
         @Test
@@ -156,6 +173,7 @@ class AccountRecoveryServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
             verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
+            verify(tokenBlacklistRepository, never()).invalidateTokensIssuedBefore(anyLong(), any(), any());
         }
     }
 
