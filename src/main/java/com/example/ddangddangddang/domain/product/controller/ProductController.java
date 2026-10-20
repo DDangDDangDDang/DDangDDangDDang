@@ -8,6 +8,7 @@ import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -27,7 +28,7 @@ public class ProductController {
     // 내 판매 상품 목록 조회(삭제된 상품은 조회X)
     @GetMapping("/users/me/products")
     ResponseEntity<ApiResponse<Page<ProductResponse>>> myProducts(@AuthenticationPrincipal AuthUser authUser,
-                                                                  @PageableDefault(size = 10, sort = "createdAt",
+                                                                  @ParameterObject @PageableDefault(size = 10, sort = "createdAt",
                                                                           direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(categoryService.myProducts(authUser.id(), pageable)));
     }
@@ -38,6 +39,7 @@ public class ProductController {
     }
     // 상품 생성(판매자는 현재 로그인한 사용자 지정)
     @PostMapping("/products")
+    @ResponseStatus(HttpStatus.CREATED)
     ResponseEntity<ApiResponse<ProductResponse>> creation(@AuthenticationPrincipal AuthUser authUser,
                                                           @Valid @RequestBody ProductRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(categoryService.creation(authUser.id(), request)));
@@ -53,6 +55,7 @@ public class ProductController {
 
     //상품 수정(본인만 삭제 가능, 데이터는 남겨두되 조회시 목록에서 제외 )
     @DeleteMapping("/products/{productId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     ResponseEntity<Void> delete(@AuthenticationPrincipal AuthUser authUser,
                                 @PathVariable Long productId){
         categoryService.delete(authUser.id(),productId);

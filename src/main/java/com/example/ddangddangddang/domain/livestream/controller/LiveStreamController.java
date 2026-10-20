@@ -30,6 +30,7 @@ public class LiveStreamController {
     private final LiveStreamListService liveStreamListService;
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<ApiResponse<LiveStreamResponse>> create(
             @AuthenticationPrincipal AuthUser authUser,
             @Valid @RequestBody LiveStreamCreateRequest request) {
