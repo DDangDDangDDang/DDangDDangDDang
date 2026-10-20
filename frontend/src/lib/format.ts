@@ -18,6 +18,24 @@ export function formatRemaining(totalSeconds: number): string {
   return h > 0 ? `${h}:${mmss}` : mmss;
 }
 
+/** 서버 날짜(시각)를 "2026. 10. 20." 형식으로 */
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('ko-KR');
+}
+
+/** 휴대폰 번호에 하이픈: 01012345678 → "010-1234-5678" */
+export function formatPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return phone;
+}
+
+/** 입력값에서 숫자만 남긴다. (휴대폰 번호, 인증번호, 송장번호 입력) */
+export function onlyDigits(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
 /**
  * 서버 시각 문자열을 한국어 날짜·시간으로: "2026-10-20T20:00:00" → "10월 20일 (화) 20:00"
  * 서버는 시간대 없는 서울 시각을 보낸다. (docs/api/README.md)

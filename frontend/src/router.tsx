@@ -1,11 +1,21 @@
 import { createBrowserRouter } from 'react-router';
+import { RequireAuth } from '@/components/auth/RequireAuth';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { FindEmailPage } from '@/pages/auth/FindEmailPage';
+import { LoginPage } from '@/pages/auth/LoginPage';
+import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
+import { SignupPage } from '@/pages/auth/SignupPage';
 import { DevComponentsPage } from '@/pages/DevComponentsPage';
 import { HomePage } from '@/pages/HomePage';
+import { MyInfoPage } from '@/pages/me/MyInfoPage';
+import { PointsPage } from '@/pages/me/PointsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { OrderDetailPage } from '@/pages/orders/OrderDetailPage';
+import { OrdersPage } from '@/pages/orders/OrdersPage';
 
 /**
  * 화면 목록. 새 화면은 src/pages에 만들고 여기에 경로를 추가한다.
+ * 로그인해야 하는 화면은 RequireAuth 아래에 둔다.
  * 화면 구성은 디자인 캔버스(와이어프레임, 고해상도 시안)를 따른다. (frontend/CLAUDE.md)
  */
 export const router = createBrowserRouter([
@@ -13,7 +23,26 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       { path: '/', element: <HomePage /> },
-      // 공통 컴포넌트 모음. 개발 중 확인용이라 빌드에는 남아도 메뉴에는 노출하지 않는다.
+
+      // 로그인 전
+      { path: '/login', element: <LoginPage /> },
+      { path: '/signup', element: <SignupPage /> },
+      { path: '/find-email', element: <FindEmailPage /> },
+      // 로그인 전 재설정 + 내 정보의 [비밀번호 변경]이 같은 화면을 쓴다.
+      { path: '/password-reset', element: <PasswordResetPage /> },
+
+      // 로그인 후
+      {
+        element: <RequireAuth />,
+        children: [
+          { path: '/me', element: <MyInfoPage /> },
+          { path: '/points', element: <PointsPage /> },
+          { path: '/orders', element: <OrdersPage /> },
+          { path: '/orders/:orderId', element: <OrderDetailPage /> },
+        ],
+      },
+
+      // 공통 컴포넌트 모음. 개발 중 확인용이라 메뉴에는 노출하지 않는다.
       { path: '/dev/components', element: <DevComponentsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
