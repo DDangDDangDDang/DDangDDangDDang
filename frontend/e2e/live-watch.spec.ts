@@ -86,7 +86,7 @@ test.describe('방송 시청', () => {
     // 홈: 방송 섹션이 보이고, 전체 보기 → 검색으로 방금 연 방송을 찾는다.
     await page.goto('/');
     await expect(page.getByRole('heading', { name: '지금 인기 라이브' })).toBeVisible();
-    await page.getByRole('link', { name: '전체 보기' }).first().click();
+    await page.getByRole('region', { name: '지금 인기 라이브' }).getByRole('link', { name: '전체 보기' }).click();
     await expect(page).toHaveURL(/\/lives/);
     await page.getByRole('searchbox', { name: '방송 검색' }).fill(stream.title);
     await page.getByRole('button', { name: '검색' }).click();

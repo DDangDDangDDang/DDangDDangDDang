@@ -1,4 +1,4 @@
-import type { Schema } from '@/api';
+import type { paths, Schema } from '@/api';
 
 /*
  * 서버 enum 값을 화면 문구로 바꾸는 표. 화면에서는 서버 값(ESCROW 등)을 그대로 보여주지 않는다.
@@ -51,4 +51,31 @@ export const LIVE_STREAM_STATUS_LABEL: Record<LiveStreamStatus, string> = {
   SCHEDULED: '방송 예정',
   LIVE: 'LIVE',
   ENDED: '방송 종료',
+};
+
+export type AuctionStatus = NonNullable<Schema<'AuctionResponse'>['status']>;
+
+export const AUCTION_STATUS_LABEL: Record<AuctionStatus, string> = {
+  READY: '시작 전',
+  ONGOING: '진행 중',
+  ENDED: '낙찰',
+  FAILED: '유찰',
+  CANCELED: '취소됨',
+};
+
+export type AuctionSort = NonNullable<NonNullable<NonNullable<paths['/api/v1/auctions']['get']['parameters']['query']>['sortType']>>;
+
+export const AUCTION_SORT_LABEL: Record<AuctionSort, string> = {
+  LATEST: '최신 등록순',
+  ENDING_SOON: '마감 임박순',
+  PRICE_ASC: '낮은 가격순',
+  PRICE_DESC: '높은 가격순',
+};
+
+export type ProductStatus = NonNullable<Schema<'ProductResponse'>['status']>;
+
+export const PRODUCT_STATUS_LABEL: Record<ProductStatus, string> = {
+  ACTIVE: '판매 중',
+  SOLD: '판매 완료',
+  DELETED: '삭제됨',
 };

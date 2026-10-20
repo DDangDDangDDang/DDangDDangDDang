@@ -3,6 +3,7 @@ import { Gavel } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, useSession, type Schema } from '@/api';
+import { AuctionCard, AuctionCardSkeleton } from '@/components/auction/AuctionBits';
 import { LiveStreamCard, LiveStreamCardSkeleton } from '@/components/live/LiveStreamCard';
 import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime } from '@/lib/format';
@@ -11,12 +12,18 @@ import { formatDateTime } from '@/lib/format';
 const SECTION_SIZE = 8;
 
 /**
- * 홈: 인기 라이브 · 시청자 급상승 · 방송 예정.
+ * 홈: 인기 라이브 · 시청자 급상승 · 방송 예정 · 인기 경매.
  * 방송 API는 로그인해야 쓸 수 있어서, 로그인 전에는 서비스 소개와 로그인 안내만 보여준다.
  */
 export function HomePage() {
   const session = useSession();
-  return session ? <LiveHome /> : <GuestHome />;
+  if (!session) return <GuestHome />;
+  return (
+    <div className="flex flex-col gap-12">
+      <LiveHome />
+      <PopularAuctions />
+    </div>
+  );
 }
 
 function GuestHome() {
@@ -126,6 +133,38 @@ function LiveHome() {
         </Section>
       )}
     </div>
+  );
+}
+
+/** 인기 경매: 진행 중인 경매 중 입찰이 많은 순. 방송 섹션과 따로 불러와 한쪽이 실패해도 다른 쪽은 보인다. */
+function PopularAuctions() {
+  const query = useQuery({
+    queryKey: ['auctions', 'popular', 4],
+    queryFn: async () => (await call(api.GET('/api/v1/auctions/popular', { params: { query: { size: 4 } } }))) ?? [],
+  });
+
+  return (
+    <Section title="인기 경매" description="지금 입찰이 몰리는 경매예요." moreTo="/auctions?status=ONGOING">
+      {query.isPending ? (
+        <CardGrid>
+          {Array.from({ length: 4 }, (_, i) => (
+            <AuctionCardSkeleton key={i} />
+          ))}
+        </CardGrid>
+      ) : query.isError ? (
+        <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />
+      ) : query.data.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-neutral-200 px-5 py-8 text-center text-body text-neutral-500">
+          지금 진행 중인 경매가 없어요. 판매자가 경매를 열면 여기에 나와요.
+        </p>
+      ) : (
+        <CardGrid>
+          {query.data.map((auction) => (
+            <AuctionCard key={auction.auctionId} auction={auction} />
+          ))}
+        </CardGrid>
+      )}
+    </Section>
   );
 }
 

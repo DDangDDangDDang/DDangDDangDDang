@@ -1,18 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Gavel, Pencil, RefreshCw } from 'lucide-react';
+import { Eye, Pencil, RefreshCw } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { ApiError, api, call, errorMessage, isErrorCode, type ChatMessage, type ModerationAlert, type Schema } from '@/api';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { LiveChat } from '@/components/live/LiveChat';
-import { Badge, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { Badge, Button, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { appendChatMessage } from '@/lib/live-room';
 import { useLiveRealtime } from '@/lib/use-live-realtime';
+import { LiveAuctionProducts, LiveAuctionStatus } from './LiveAuctionPanel';
 import { ModerationPanel } from './ModerationPanel';
 import { StreamForm } from './StreamForm';
 import { prependModerationAlert } from './studio';
 import { StudioStage } from './StudioStage';
+import { useLiveAuctions } from './use-live-auctions';
 import { useLocalMedia } from './use-local-media';
 import { usePublisher } from './use-publisher';
 
@@ -116,6 +118,9 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
 
   // 카메라·마이크와 송출 (LiveKit)
   const media = useLocalMedia();
+  // 방송 중 경매
+  const liveAuctions = useLiveAuctions(liveStreamId);
+
   const publisher = usePublisher(liveStreamId, isLive, { camera: media.camera.track, microphone: media.microphone.track }, reload);
 
   const start = useMutation({
@@ -209,10 +214,11 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             {start.isError && <Notice tone="error">{errorMessage(start.error)}</Notice>}
           </div>
 
-          <AuctionPlaceholder />
+          <LiveAuctionProducts live={isLive} auctions={liveAuctions} />
         </section>
 
-        <aside aria-label="검토 알림과 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
+        <aside aria-label="경매 현황과 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
+          <LiveAuctionStatus auctions={liveAuctions} />
           <ModerationPanel alerts={alerts} onDismiss={(messageId) => setAlerts((list) => list.filter((a) => a.messageId !== messageId))} />
           <LiveChat
             messages={messages}
@@ -301,25 +307,6 @@ function StudioHeader({ liveStream, viewerCount, editing, onEdit }: { liveStream
       </div>
       {liveStream.description && !editing && <p className="text-body whitespace-pre-line text-neutral-700">{liveStream.description}</p>}
     </div>
-  );
-}
-
-/**
- * 경매 상품 자리. 방송과 경매는 별개 도메인이고, 방송 화면에서 경매를 시작·취소하는 API가 아직 없어서 자리만 두고 안내한다.
- */
-function AuctionPlaceholder() {
-  return (
-    <Card aria-labelledby="studio-auction-title">
-      <CardHeader>
-        <CardTitle id="studio-auction-title">경매 상품</CardTitle>
-      </CardHeader>
-      <CardBody className="flex items-center gap-4">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-neutral-50 text-neutral-400">
-          <Gavel className="size-6" aria-hidden="true" />
-        </span>
-        <p className="text-body text-neutral-700">방송 중에 경매를 시작하고 진행 상황을 보는 기능은 준비하고 있어요. 지금은 방송 송출과 채팅을 할 수 있어요.</p>
-      </CardBody>
-    </Card>
   );
 }
 

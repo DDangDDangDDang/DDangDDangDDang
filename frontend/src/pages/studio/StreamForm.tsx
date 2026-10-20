@@ -3,7 +3,6 @@ import { useState, type FormEvent } from 'react';
 import { api, call, errorMessage, isErrorCode, type Schema } from '@/api';
 import { Button, Input, Notice, Textarea } from '@/components/ui';
 import {
-  dateTimeInputOf,
   DESCRIPTION_MAX_LENGTH,
   formValuesOf,
   SCHEDULE_LIMIT_DAYS,
@@ -14,6 +13,7 @@ import {
   type StreamFormErrors,
   type StreamFormValues,
 } from './studio';
+import { dateTimeInputOf } from '@/lib/datetime-input';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
 

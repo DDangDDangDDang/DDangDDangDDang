@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ModerationAlert, Schema } from '@/api';
 import {
-  dateTimeInputOf,
   formValuesOf,
   mediaErrorMessage,
   prependModerationAlert,
@@ -72,12 +71,6 @@ describe('toUpdateRequest', () => {
     expect(toUpdateRequest(scheduled, { ...formValuesOf(scheduled), scheduledStartAt: '' })).toBeNull();
     const live = { ...scheduled, status: 'LIVE' as const };
     expect(toUpdateRequest(live, { ...formValuesOf(live), scheduledStartAt: '2026-10-22T09:30' })).toBeNull();
-  });
-});
-
-describe('dateTimeInputOf', () => {
-  it('datetime-local 입력값 형식으로 바꾼다', () => {
-    expect(dateTimeInputOf(new Date(2026, 0, 5, 7, 3))).toBe('2026-01-05T07:03');
   });
 });
 
