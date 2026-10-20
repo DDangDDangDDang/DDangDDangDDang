@@ -19,6 +19,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 
 @RestController
 @RequiredArgsConstructor
@@ -66,6 +68,10 @@ public class AuctionController {
             @PageableDefault(size = 30) Pageable pageable){
         return ResponseEntity.ok(ApiResponse.ok(auctionService.searchAuctions(condition,pageable)));
     }
-
+    @GetMapping("/auctions/popular")
+    ResponseEntity<ApiResponse<List<AuctionListResponse>>> popularAuctions(
+            @RequestParam(defaultValue = "10") int size){
+        return ResponseEntity.ok(ApiResponse.ok(auctionService.popularAuctions(size)));
+    }
 
 }

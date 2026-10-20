@@ -141,6 +141,13 @@ public class AuctionService {
         return auctionRepository.search(condition, pageable);
     }
 
+    //인기 경매 : 진행 중인 경매 중 입찰 횟수 많은 순 조회(개수 1~50 제한)
+    @Transactional(readOnly = true)
+    public List<AuctionListResponse> popularAuctions(int size){
+       int limit= Math.min(Math.max(size,1),50);
+        return auctionRepository.findPopular(limit);
+    }
+
     // 동시 같은 경매 수정시 먼저 반영 요청을 성공후 나머지는 409 CONCURRENT_UPDATE 응답
     private void flushWithVersionCheck(Auction auction) {
         try {
