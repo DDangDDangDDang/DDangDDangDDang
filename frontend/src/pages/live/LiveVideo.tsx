@@ -155,5 +155,9 @@ function TrackAudio({ track, muted }: { track: RemoteTrack; muted: boolean }) {
       track.detach(element);
     };
   }, [track]);
-  return <audio ref={ref} autoPlay muted={muted} />;
+  // attach()가 요소의 muted 값을 바꿀 수 있으므로, 연결한 뒤와 음소거를 바꿀 때마다 화면의 값을 다시 적용한다.
+  useEffect(() => {
+    if (ref.current) ref.current.muted = muted;
+  }, [track, muted]);
+  return <audio ref={ref} autoPlay />;
 }
