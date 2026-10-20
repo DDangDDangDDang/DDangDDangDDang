@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.global.config;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
+import com.example.ddangddangddang.global.security.SecurityConfig;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,36 @@ class OpenApiSpecTest {
     void specAndSwaggerUiArePublic() throws Exception {
         mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
         mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("토큰 없이 호출하는 API는 명세에서 인증 불필요로, 나머지는 토큰 필요로 표시된다")
+    void publicApisHaveNoSecurity() throws Exception {
+        JsonNode spec = currentSpec();
+        for (String path : SecurityConfig.PUBLIC_POST_APIS) {
+            JsonNode post = spec.path("paths").path(path).path("post");
+            assertThat(post.isMissingNode()).as("명세에 POST %s가 없습니다. PUBLIC_POST_APIS의 경로를 확인하세요.", path).isFalse();
+            assertThat(post.path("security").isArray() && post.path("security").isEmpty())
+                    .as("POST %s는 security가 빈 배열이어야 합니다.", path).isTrue();
+        }
+        // 보호된 API는 operation에 security를 두지 않아 최상위의 bearerAuth 요구를 따른다.
+        assertThat(spec.path("paths").path("/api/v1/auctions/{auctionId}/cancel").path("post").has("security")).isFalse();
+        assertThat(spec.path("security").get(0).has(OpenApiConfig.BEARER_AUTH)).isTrue();
+    }
+
+    @Test
+    @DisplayName("본문 없이 204로 응답하는 API는 명세에도 204로 표시된다")
+    void noContentResponses() throws Exception {
+        JsonNode paths = currentSpec().path("paths");
+        assertThat(paths.path("/api/v1/auctions/{auctionId}/cancel").path("post").path("responses").has("204")).isTrue();
+        assertThat(paths.path("/api/v1/products/{productId}").path("delete").path("responses").has("204")).isTrue();
+        assertThat(paths.path("/api/v1/admin/categories/{categoryId}").path("delete").path("responses").has("204")).isTrue();
+    }
+
+    private JsonNode currentSpec() throws Exception {
+        return JSON.readTree(mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8));
     }
 
     @Test

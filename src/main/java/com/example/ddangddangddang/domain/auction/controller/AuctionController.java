@@ -37,6 +37,7 @@ public class AuctionController {
 
     //경매 취소(본인 경매만)
     @PostMapping("/auctions/{auctionId}/cancel")
+    @ResponseStatus(HttpStatus.NO_CONTENT) // API 명세에 204로 표시하기 위함 (실제 응답은 아래 ResponseEntity)
     ResponseEntity<Void> cancelAuction(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long auctionId){

@@ -2,9 +2,11 @@ package com.example.ddangddangddang.global.config;
 
 import com.example.ddangddangddang.global.common.ErrorResponse;
 import com.example.ddangddangddang.global.exception.ErrorCode;
+import com.example.ddangddangddang.global.security.SecurityConfig;
 import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.media.BooleanSchema;
 import io.swagger.v3.oas.models.media.Content;
@@ -62,8 +64,27 @@ public class OpenApiConfig {
                         .scheme("bearer")
                         .bearerFormat("JWT")
                         .description("로그인·토큰 재발급 응답의 accessToken")))
-                // 로그인 전 API(회원가입, 로그인 등)도 표시되지만, 토큰 없이 호출해도 된다. (SecurityConfig의 permitAll 참고)
+                // 기본은 토큰 필요. 토큰 없이 호출하는 API는 publicApiCustomizer가 표시를 지운다.
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH));
+    }
+
+    /**
+     * SecurityConfig.PUBLIC_POST_APIS(회원가입, 로그인, 토큰 재발급, 결제 웹훅 등)는 operation의 security를 빈 배열로 둔다.
+     * OpenAPI에서 빈 배열은 "인증 불필요"라서, 명세로 만든 클라이언트가 로그인 전에 토큰을 요구하지 않는다.
+     */
+    @Bean
+    public OpenApiCustomizer publicApiCustomizer() {
+        return openApi -> {
+            if (openApi.getPaths() == null) {
+                return;
+            }
+            for (String path : SecurityConfig.PUBLIC_POST_APIS) {
+                PathItem item = openApi.getPaths().get(path);
+                if (item != null && item.getPost() != null) {
+                    item.getPost().setSecurity(List.of());
+                }
+            }
+        };
     }
 
     /**

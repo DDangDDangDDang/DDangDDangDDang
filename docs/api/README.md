@@ -19,6 +19,10 @@ API(컨트롤러, 요청·응답 DTO, 에러 코드)를 바꾸면 명세를 다�
 
 갱신하지 않으면 `OpenApiSpecTest`가 실패해 PR의 CI(`빌드 · 테스트`)가 통과하지 않습니다.
 
+API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주세요.
+- **본문 없이 204로 응답하는 API**(`ResponseEntity.noContent()` 등)에는 메서드에 `@ResponseStatus(HttpStatus.NO_CONTENT)`를 붙입니다. 없으면 명세에 200으로 나옵니다.
+- **토큰 없이 호출하는 POST API**는 `SecurityConfig.PUBLIC_POST_APIS`에 추가합니다. 보안 설정과 명세의 "인증 불필요" 표시가 이 목록 하나로 같이 바뀝니다.
+
 ### 보기
 
 로컬에서 서버를 띄운 뒤 브라우저로 엽니다. 운영(prod)에서는 꺼져 있습니다.
@@ -30,10 +34,11 @@ API(컨트롤러, 요청·응답 DTO, 에러 코드)를 바꾸면 명세를 다�
 
 ### 명세에 담긴 규칙
 
-- **응답 형식**: 모든 응답은 `ApiResponse` 형태입니다.
+- **응답 형식**: 본문이 있는 응답은 모두 `ApiResponse` 형태입니다.
   - 성공: `{ "success": true, "data": { ... }, "error": null }`
   - 실패: `{ "success": false, "data": null, "error": { "code": "AUCTION_001", "message": "..." } }`
   - 실패 응답은 모든 API에 `4XX`·`5XX` 응답(`ApiErrorResponse`)으로 들어 있습니다.
+  - **예외: `204 No Content`** (경매 취소, 상품 삭제, 카테고리 삭제 등)는 본문이 없습니다. JSON으로 파싱하지 마세요. 명세에 `204`로 표시됩니다.
 - **에러 코드 목록**: 명세 최상위의 `x-error-codes`에 모든 에러 코드의 코드, HTTP 상태, 기본 메시지가 있습니다. 화면에 보여줄 문구는 `error.code`를 기준으로 정합니다. (`message`는 검증 오류 등에서 내용이 바뀔 수 있음)
 - **인증**: `Authorization: Bearer {accessToken}`. 로그인 전 API(회원가입, 로그인, 토큰 재발급 등)는 토큰 없이 호출합니다.
 - **토큰 재발급**: 리프레시 토큰은 HttpOnly 쿠키(`refreshToken`)로 주고받습니다. 프론트는 쿠키를 직접 다루지 않고, 같은 주소(로컬은 Vite 프록시)로 요청해 브라우저가 쿠키를 보내게 합니다.
