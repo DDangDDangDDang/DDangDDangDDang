@@ -132,3 +132,9 @@ management:
     # 메일은 선택 기능(MAIL_ENABLED)이라, 설정이 없을 때 전체 상태가 DOWN이 되지 않도록 점검에서 뺀다.
     mail:
       enabled: false
+
+springdoc:
+  # 명세 파일(docs/api/openapi.json)의 키 순서를 고정해, 실제 변경만 diff에 보이게 한다.
+  writer-with-order-by-keys: true
+  # 실제 API만 명세에 넣는다. (actuator 제외)
+  paths-to-match: /api/**

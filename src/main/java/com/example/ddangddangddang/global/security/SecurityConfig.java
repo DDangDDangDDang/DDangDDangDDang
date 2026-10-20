@@ -55,6 +55,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/points/charges/webhook").permitAll()
                         // 로드밸런서(ALB)가 토큰 없이 서버 상태를 확인한다. 노출 범위는 application.yml의 management 설정 참고
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
+                        // API 명세와 Swagger UI. 운영(prod)에서는 springdoc 설정으로 꺼져 있어 404가 된다.
+                        .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 );

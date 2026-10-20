@@ -8,6 +8,7 @@ import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -27,7 +28,7 @@ public class ProductController {
     // 내 판매 상품 목록 조회(삭제된 상품은 조회X)
     @GetMapping("/users/me/products")
     ResponseEntity<ApiResponse<Page<ProductResponse>>> myProducts(@AuthenticationPrincipal AuthUser authUser,
-                                                                  @PageableDefault(size = 10, sort = "createdAt",
+                                                                  @ParameterObject @PageableDefault(size = 10, sort = "createdAt",
                                                                           direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(categoryService.myProducts(authUser.id(), pageable)));
     }

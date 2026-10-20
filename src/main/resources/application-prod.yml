@@ -25,6 +25,13 @@ logging:
 jwt:
   secret: ${JWT_SECRET}
 
+# API 명세·Swagger UI는 개발용이라 운영에서는 끈다. (프론트엔드는 저장소의 docs/api/openapi.json을 쓴다)
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 livekit:
   api-url: ${LIVEKIT_API_URL}
   ws-url: ${LIVEKIT_WS_URL}
