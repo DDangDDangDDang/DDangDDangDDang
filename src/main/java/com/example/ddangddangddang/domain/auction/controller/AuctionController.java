@@ -35,12 +35,24 @@ public class AuctionController {
         return ResponseEntity.ok(ApiResponse.ok(auctionService.findAddBy(auctionId))) ;
     }
 
-//    //카테고리 삭제(관리자만)
-//    @DeleteMapping("/admin/categories/{categoryId}")
-//    ResponseEntity<Void> delete(@PathVariable Long categoryId){
-//        auctionService.delete(categoryId);
-//        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-//    }
+    //경매 취소(본인 경매만)
+    @PostMapping("/auctions/{auctionId}/cancel")
+    ResponseEntity<Void> cancelAuction(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long auctionId){
+        auctionService.cancelAuction(authUser.id(), auctionId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // 라이브 중 경매 생성(방송 주인 및, 생성 즉시 AuctionStatus는 ONGOING변환)
+    @PostMapping("/lives/{liveId}/auctions")
+    ResponseEntity<ApiResponse<AuctionResponse>> createLiveAuction(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveId,
+            @Valid @RequestBody LiveAuctionCreateRequest request
+    ){
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(auctionService.createLiveAuction(authUser.id(),liveId,request)));
+    }
 
 
 }
