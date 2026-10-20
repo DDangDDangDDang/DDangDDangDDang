@@ -41,7 +41,7 @@ public class AccountRecoveryService {
      */
     public long sendFindEmailCode(String phoneNumber) {
         String code = verificationService.issueCode(VerificationPurpose.FIND_EMAIL, phoneNumber);
-        smsSender.send(phoneNumber, "[땅땅땅] 이메일 찾기 인증번호 [" + code + "]를 입력해 주새요.");
+        smsSender.send(phoneNumber, "[땅땅땅] 이메일 찾기 인증번호 [" + code + "]를 입력해 주세요.");
 
         return VerificationService.CODE_TTL.toSeconds();
     }
