@@ -79,4 +79,9 @@ public class Auction extends BaseTimeEntity {
         this.canceledAt=LocalDateTime.now();
     }
 
+    //경매 시작. AuctionStatus를 ONGOING로 변환(라이브 중 경매 생성시,일반 경매는 시작 시간에 변환 예정)
+    public void start(){
+        this.status=AuctionStatus.ONGOING;
+    }
+
 }

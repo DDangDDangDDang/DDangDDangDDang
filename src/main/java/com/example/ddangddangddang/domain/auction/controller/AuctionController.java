@@ -44,5 +44,15 @@ public class AuctionController {
         return ResponseEntity.noContent().build();
     }
 
+    // 라이브 중 경매 생성(방송 주인 및, 생성 즉시 AuctionStatus는 ONGOING변환)
+    @PostMapping("/lives/{liveId}/auctions")
+    ResponseEntity<ApiResponse<AuctionResponse>> createLiveAuction(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveId,
+            @Valid @RequestBody LiveAuctionCreateRequest request
+    ){
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(auctionService.createLiveAuction(authUser.id(),liveId,request)));
+    }
+
 
 }
