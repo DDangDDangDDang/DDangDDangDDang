@@ -8,6 +8,8 @@ import com.example.ddangddangddang.domain.auth.verification.VerificationPurpose;
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.global.message.SmsSender;
 import com.example.ddangddangddang.support.SignupFixture;
+import com.example.ddangddangddang.domain.auth.verification.VerificationRateLimitRepository;
+import static org.mockito.Mockito.never;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -55,6 +57,10 @@ class AuthControllerTest {
 
     @MockitoBean
     private SmsSender smsSender;
+
+    // 인증번호 요청 횟수(Redis). 기본값 0이라 제한에 걸리지 않는다.
+    @MockitoBean
+    private VerificationRateLimitRepository verificationRateLimitRepository;
 
     @BeforeEach
     void stubPhoneVerification() {
@@ -266,6 +272,39 @@ class AuthControllerTest {
                                     """))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+        }
+
+        @Test
+        @DisplayName("같은 IP에서 시간당 20번을 넘게 요청하면 429 VERIFY_005, 문자를 보내지 않는다")
+        void tooManyRequestsFromIp() throws Exception {
+            given(verificationRateLimitRepository.increaseIpCount(eq("203.0.113.7"), any())).willReturn(21L);
+
+            mockMvc.perform(post("/api/v1/auth/signup/phone/code")
+                            .with(request -> {
+                                request.setRemoteAddr("203.0.113.7");
+                                return request;
+                            })
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"phoneNumber": "01012345678"}
+                                    """))
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(jsonPath("$.error.code").value("VERIFY_005"));
+
+            verify(verificationService, never()).issueCode(any(), anyString());
+            verify(smsSender, never()).send(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("인증번호를 보내는 API만 IP 횟수를 세고, 인증번호 확인 API는 세지 않는다")
+        void verifyIsNotCounted() throws Exception {
+            mockMvc.perform(post("/api/v1/auth/signup/phone/verify")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                                    {"phoneNumber": "01012345678", "code": "123456"}
+                                    """));
+
+            verify(verificationRateLimitRepository, never()).increaseIpCount(anyString(), any());
         }
 
         @Test

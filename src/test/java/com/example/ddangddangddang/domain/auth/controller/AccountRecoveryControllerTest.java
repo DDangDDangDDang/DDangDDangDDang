@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.auth.controller;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.auth.verification.VerificationPurpose;
+import com.example.ddangddangddang.domain.auth.verification.VerificationRateLimitRepository;
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.global.message.EmailSender;
 import com.example.ddangddangddang.global.message.SmsSender;
@@ -54,6 +55,10 @@ class AccountRecoveryControllerTest {
 
     @MockitoBean
     private EmailSender emailSender;
+
+    // 인증번호 요청 횟수(Redis). 기본값 0이라 제한에 걸리지 않는다.
+    @MockitoBean
+    private VerificationRateLimitRepository verificationRateLimitRepository;
 
     @BeforeEach
     void setUp() throws Exception {
