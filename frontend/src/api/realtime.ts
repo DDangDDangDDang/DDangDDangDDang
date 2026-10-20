@@ -94,6 +94,8 @@ export function connectRealtime(onStatus: (status: RealtimeStatus) => void): Rea
     },
     onStompError: () => {
       refreshBeforeConnect = true;
+      // 서버는 ERROR 프레임 뒤에 연결을 닫지만, 닫히지 않는 경우에도 재연결(토큰 재발급)이 되도록 직접 끊는다.
+      client.forceDisconnect();
     },
     onWebSocketClose: () => {
       entries.forEach((entry) => (entry.subscription = undefined));

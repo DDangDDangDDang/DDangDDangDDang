@@ -159,5 +159,6 @@ function TrackAudio({ track, muted }: { track: RemoteTrack; muted: boolean }) {
   useEffect(() => {
     if (ref.current) ref.current.muted = muted;
   }, [track, muted]);
-  return <audio ref={ref} autoPlay />;
+  // 처음 그릴 때부터 음소거 상태로 둔다. (attach()가 연결하면서 바로 재생을 시작하므로)
+  return <audio ref={ref} autoPlay muted={muted} />;
 }
