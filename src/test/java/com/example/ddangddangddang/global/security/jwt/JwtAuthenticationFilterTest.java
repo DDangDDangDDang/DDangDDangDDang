@@ -26,6 +26,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -118,6 +120,27 @@ class JwtAuthenticationFilterTest {
                         .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.createAccessToken(user(1L, UserRole.USER)))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("AUTH_004"));
+    }
+
+    @Test
+    @DisplayName("비밀번호를 바꾸기 전에 발급된 토큰이면 401 AUTH_009")
+    void tokenIssuedBeforePasswordChange() throws Exception {
+        given(tokenBlacklistRepository.isInvalidatedForUser(eq(1L), any())).willReturn(true);
+
+        mockMvc.perform(get("/api/v1/test/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.createAccessToken(user(1L, UserRole.USER)))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_009"));
+    }
+
+    @Test
+    @DisplayName("다른 회원이 비밀번호를 바꿔도 내 토큰은 그대로 쓸 수 있다")
+    void otherUserPasswordChanged() throws Exception {
+        given(tokenBlacklistRepository.isInvalidatedForUser(eq(2L), any())).willReturn(true);
+
+        mockMvc.perform(get("/api/v1/test/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.createAccessToken(user(1L, UserRole.USER)))))
+                .andExpect(status().isOk());
     }
 
     @Test

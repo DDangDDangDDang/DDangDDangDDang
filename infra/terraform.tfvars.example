@@ -1,0 +1,17 @@
+# 이 파일을 terraform.tfvars 로 복사해 값을 채운다. (terraform.tfvars는 커밋하지 않는다)
+
+# LiveKit Cloud 프로젝트 주소 (LiveKit Cloud 콘솔 → Settings → Project URL)
+livekit_url = "wss://<프로젝트>.livekit.cloud"
+
+# 배포 구성. 개발 중에는 EC2 한 대, 운영 전환 때 ECS (docs/deploy.md "ECS로 전환")
+ec2_enabled = true
+ecs_enabled = false
+
+# 이 AWS 계정에 GitHub OIDC 공급자가 이미 있으면 false
+# create_github_oidc_provider = false
+
+# ---- ECS 구성 옵션 ----
+# 도메인을 연결한 뒤 ACM 인증서를 발급받으면 넣는다. 비워 두면 HTTP로만 서비스한다.
+# certificate_arn = "arn:aws:acm:ap-northeast-2:<계정 ID>:certificate/<ID>"
+# 서버(컨테이너) 수
+# app_desired_count = 2

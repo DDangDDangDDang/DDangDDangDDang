@@ -47,8 +47,8 @@ class VerificationServiceTest {
         connectionFactory.start();
         redisTemplate = new StringRedisTemplate(connectionFactory);
         redisTemplate.afterPropertiesSet();
-        verificationService = new VerificationService(new VerificationCodeRepository(redisTemplate));
-    }
+        verificationService = new VerificationService(
+                new VerificationCodeRepository(redisTemplate), new VerificationRateLimitRepository(redisTemplate));    }
 
     @AfterAll
     static void tearDownRedis() {
@@ -81,6 +81,39 @@ class VerificationServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(VerificationErrorCode.RESEND_TOO_SOON);
+        }
+
+        @Test
+        @DisplayName("같은 대상에는 하루 10번까지만 발급하고, 용도를 바꿔도 같이 센다")
+        void dailyLimitPerTarget() {
+            for (int i = 0; i < VerificationService.DAILY_LIMIT_PER_TARGET; i++) {
+                VerificationPurpose purpose = i % 2 == 0 ? VerificationPurpose.FIND_EMAIL : VerificationPurpose.SIGNUP_PHONE;
+                verificationService.issueCode(purpose, PHONE);
+                clearCooldown(purpose);
+            }
+
+            assertThatThrownBy(() -> verificationService.issueCode(VerificationPurpose.FIND_EMAIL, PHONE))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.DAILY_LIMIT_EXCEEDED);
+        }
+
+        @Test
+        @DisplayName("하루 제한은 대상마다 따로 센다")
+        void dailyLimitIsPerTarget() {
+            for (int i = 0; i < VerificationService.DAILY_LIMIT_PER_TARGET; i++) {
+                verificationService.issueCode(VerificationPurpose.FIND_EMAIL, PHONE);
+                clearCooldown(VerificationPurpose.FIND_EMAIL);
+            }
+
+            String code = verificationService.issueCode(VerificationPurpose.FIND_EMAIL, "01099999999");
+
+            assertThat(code).hasSize(6);
+        }
+
+        // 1분 재전송 제한을 기다리지 않고 다음 발급을 하기 위해 대기 키만 지운다
+        private void clearCooldown(VerificationPurpose purpose) {
+            redisTemplate.delete("verify:cooldown:" + purpose.name().toLowerCase() + ":" + PHONE);
         }
 
         @Test

@@ -52,9 +52,13 @@ public class User extends BaseTimeEntity {
     }
 
     /**
-     * 휴대폰 번호 없이 만든다. 휴대폰 인증이 필요 없는 테스트용
+     * 휴대폰 인증이 필요 없는 테스트용
      */
     public static User create(String email, String encodedPassword, String nickname) {
         return create(email, encodedPassword, nickname, null);
+    }
+
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
     }
 }

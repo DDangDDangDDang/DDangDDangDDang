@@ -1,0 +1,10 @@
+.git
+.gradle
+.idea
+build
+infra
+test-client
+docs
+*.iml
+*.md
+.env*

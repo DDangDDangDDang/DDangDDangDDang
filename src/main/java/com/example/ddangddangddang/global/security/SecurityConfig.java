@@ -41,6 +41,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/signup",
                                 "/api/v1/auth/signup/phone/code",
                                 "/api/v1/auth/signup/phone/verify",
+                                "/api/v1/auth/find-email/code",
+                                "/api/v1/auth/find-email/verify",
+                                "/api/v1/auth/password-reset/code",
+                                "/api/v1/auth/password-reset/verify",
+                                "/api/v1/auth/password-reset",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/reissue"
                         ).permitAll()
@@ -48,6 +53,8 @@ public class SecurityConfig {
                         // 핸드셰이크는 열어 두고 인증은 STOMP CONNECT 프레임에서 한다. (StompAuthChannelInterceptor)
                         .requestMatchers(HttpMethod.GET, "/ws").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/points/charges/webhook").permitAll()
+                        // 로드밸런서(ALB)가 토큰 없이 서버 상태를 확인한다. 노출 범위는 application.yml의 management 설정 참고
+                        .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 );

@@ -1,3 +1,8 @@
+server:
+  # 로드밸런서·리버스 프록시 뒤에서 실제 클라이언트 IP를 얻기 위한 설정.
+  # 사설망(10.x, 192.168.x 등)에서 온 요청의 X-Forwarded-For만 믿는다. 외부에서 직접 보낸 X-Forwarded-For는 무시한다.
+  forward-headers-strategy: native
+
 spring:
   application:
     name: DDangDDangDDang
@@ -109,3 +114,21 @@ app:
       api-secret: ${SOLAPI_API_SECRET:}
       # SOLAPI 콘솔에 미리 등록한 발신번호. 하이픈 없이 숫자만 (예: 01012345678)
       sender: ${SOLAPI_SENDER:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # 헬스 체크만 공개한다. (env, beans 등 다른 엔드포인트는 노출하지 않음)
+        include: health
+  endpoint:
+    health:
+      # /actuator/health/liveness: 서버 프로세스가 살아 있는지만 본다. ALB 헬스 체크용
+      # /actuator/health/readiness: 요청을 받을 준비가 됐는지 본다.
+      # DB·Redis가 잠깐 끊겨도 서버를 재시작하지 않도록 ALB는 liveness만 확인한다.
+      probes:
+        enabled: true
+  health:
+    # 메일은 선택 기능(MAIL_ENABLED)이라, 설정이 없을 때 전체 상태가 DOWN이 되지 않도록 점검에서 뺀다.
+    mail:
+      enabled: false
