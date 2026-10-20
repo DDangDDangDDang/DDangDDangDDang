@@ -1,0 +1,71 @@
+# EC2 한 대 구성: 앱·MySQL·Redis를 한 서버에서 실행한다.
+# Terraform이 SSM 파라미터로 올리고, deploy.sh가 배포할 때마다 받아서 쓴다. (서버에서 직접 고치지 않는다)
+# .env(APP_IMAGE, DB 계정)와 app.env(앱 환경변수)는 deploy.sh가 Secrets Manager에서 읽어 만든다.
+name: ddang
+
+services:
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE가 필요합니다}
+    env_file: [app.env]
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/ddang?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    ports:
+      - "80:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 1g
+    stop_grace_period: 30s
+    restart: unless-stopped
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ddang
+      MYSQL_USER: ${DB_USERNAME:?DB_USERNAME이 필요합니다}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD가 필요합니다}
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # 서버 메모리(2GB)를 앱과 나눠 쓰므로 버퍼 풀을 작게 둔다.
+      - --innodb-buffer-pool-size=256M
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u\"$$MYSQL_USER\" -p\"$$MYSQL_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    mem_limit: 640m
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:7.4
+    # 리프레시 토큰이 서버 재시작 후에도 남도록 디스크에 기록한다.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 256m
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  mysql-data:
+  redis-data:

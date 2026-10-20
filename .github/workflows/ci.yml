@@ -1,12 +1,14 @@
-# PR과 dev·main 브랜치에 올라온 코드를 빌드하고 테스트한다.
+# PR과 dev 브랜치에 올라온 코드를 빌드하고 테스트한다.
 # Redis 테스트는 Testcontainers로 띄우므로 Docker가 있는 GitHub 호스티드 Ubuntu 러너에서 그대로 돈다.
+# main 푸시는 배포 워크플로(deploy.yml)가 이 워크플로를 불러 테스트한 뒤 배포하므로 여기서는 돌리지 않는다.
 name: CI
 
 on:
   pull_request:
     branches: [dev, main]
   push:
-    branches: [dev, main]
+    branches: [dev]
+  workflow_call:
 
 # 같은 PR에 새 커밋이 올라오면 이전 실행은 취소한다.
 # dev·main 푸시 실행은 실행마다 그룹을 따로 둬서(run_id) 취소되거나 새 실행으로 대체되지 않게 한다.

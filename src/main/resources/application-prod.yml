@@ -1,0 +1,32 @@
+# 운영(AWS ECS) 설정. SPRING_PROFILES_ACTIVE=prod 로 켠다.
+# application.yml 위에 덮어쓰며, 값은 ECS 작업 정의의 환경변수·Secrets Manager에서 주입된다. (infra/ecs.tf)
+# 로컬 기본값을 운영에서 그대로 쓰지 않도록, 비밀값은 기본값 없이 적어 두어 빠지면 서버가 뜨지 않게 한다.
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    properties:
+      hibernate:
+        format_sql: false
+
+server:
+  # ALB가 붙이는 X-Forwarded-* 헤더로 원래 요청의 scheme·호스트를 알아낸다.
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+logging:
+  level:
+    org.hibernate.SQL: info
+
+jwt:
+  secret: ${JWT_SECRET}
+
+livekit:
+  api-url: ${LIVEKIT_API_URL}
+  ws-url: ${LIVEKIT_WS_URL}
+  api-key: ${LIVEKIT_API_KEY}
+  api-secret: ${LIVEKIT_API_SECRET}

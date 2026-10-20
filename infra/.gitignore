@@ -1,0 +1,7 @@
+# Terraform 상태 파일에는 DB 비밀번호 등이 들어 있으므로 커밋하지 않는다.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
