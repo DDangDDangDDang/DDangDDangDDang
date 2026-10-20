@@ -1,0 +1,29 @@
+import { api, call, refreshAccessToken } from './client';
+import type { components } from './generated/schema';
+import { setSession } from './session';
+
+export type LoginRequest = components['schemas']['LoginRequest'];
+
+/** 로그인. 리프레시 토큰은 서버가 쿠키로 내려준다. */
+export async function login(body: LoginRequest) {
+  const data = await call(api.POST('/api/v1/auth/login', { body }));
+  if (data?.accessToken && data.user) {
+    setSession({ accessToken: data.accessToken, user: data.user });
+  }
+  return data;
+}
+
+/** 로그아웃. 서버 요청이 실패해도 화면에서는 로그아웃 상태로 만든다. */
+export async function logout() {
+  try {
+    // Authorization 헤더는 클라이언트가 붙인다. (명세상 필수 파라미터라 빈 값으로 둔다)
+    await call(api.POST('/api/v1/auth/logout', { params: { header: { Authorization: '' } } }));
+  } finally {
+    setSession(null);
+  }
+}
+
+/** 앱 시작 시 한 번 호출한다. 리프레시 토큰 쿠키가 살아 있으면 로그인 상태를 되살린다. */
+export function restoreSession() {
+  return refreshAccessToken();
+}
