@@ -72,9 +72,4 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
-    // -PupdateOpenApi: OpenApiSpecTest가 docs/api/openapi.json을 지금 코드 기준으로 다시 쓴다.
-    if (project.hasProperty('updateOpenApi')) {
-        systemProperty 'openapi.update', 'true'
-        outputs.upToDateWhen { false }
-    }
 }

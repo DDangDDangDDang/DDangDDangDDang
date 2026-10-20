@@ -23,10 +23,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 저장소의 API 명세 파일(docs/api/openapi.json)이 지금 코드와 같은지 확인한다.
- * 프론트엔드는 이 파일로 타입과 API 호출 코드를 만들기 때문에, API를 바꾸고 파일을 갱신하지 않으면 CI에서 실패한다.
+ * API 명세 파일(docs/api/openapi.json)을 코드와 맞춘다. 프론트엔드는 이 파일로 타입과 API 호출 코드를 만든다.
  *
- * 갱신: ./gradlew test --tests '*OpenApiSpecTest' -PupdateOpenApi
+ * - 로컬: 테스트를 돌리면 명세가 바뀌었을 때 파일을 자동으로 다시 쓴다. 바뀐 파일을 함께 커밋한다.
+ * - CI(환경변수 CI=true): 파일을 쓰지 않고 비교만 한다. 커밋하지 않았으면 실패한다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -85,22 +85,26 @@ class OpenApiSpecTest {
     @Test
     @DisplayName("docs/api/openapi.json이 지금 코드의 API 명세와 같다")
     void specFileIsUpToDate() throws Exception {
-        String body = mockMvc.perform(get("/v3/api-docs"))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
-        JsonNode actual = JSON.readTree(body);
+        JsonNode actual = currentSpec();
+        JsonNode saved = Files.exists(SPEC_FILE) ? JSON.readTree(Files.readString(SPEC_FILE, StandardCharsets.UTF_8)) : null;
 
-        if (Boolean.getBoolean("openapi.update")) {
-            Files.createDirectories(SPEC_FILE.getParent());
-            Files.writeString(SPEC_FILE, JSON.writeValueAsString(actual) + "\n", StandardCharsets.UTF_8);
+        if (!isCi()) {
+            // 로컬: 명세가 바뀌었을 때만 파일을 다시 쓴다. 바뀐 파일은 git status에 보이니 함께 커밋하면 된다.
+            if (!actual.equals(saved)) {
+                Files.createDirectories(SPEC_FILE.getParent());
+                Files.writeString(SPEC_FILE, JSON.writeValueAsString(actual) + "\n", StandardCharsets.UTF_8);
+            }
+            return;
         }
 
-        assertThat(Files.exists(SPEC_FILE))
-                .as("%s가 없습니다. ./gradlew test --tests '*OpenApiSpecTest' -PupdateOpenApi 로 만드세요.", SPEC_FILE)
-                .isTrue();
-        JsonNode expected = JSON.readTree(Files.readString(SPEC_FILE, StandardCharsets.UTF_8));
-        assertThat(actual)
-                .as("API가 바뀌었는데 %s가 갱신되지 않았습니다. ./gradlew test --tests '*OpenApiSpecTest' -PupdateOpenApi 로 갱신한 뒤 함께 커밋하세요.", SPEC_FILE)
-                .isEqualTo(expected);
+        // CI: 파일을 쓰지 않고 커밋된 명세가 코드와 같은지만 확인한다.
+        assertThat(saved)
+                .as("API가 바뀌었는데 %s가 커밋되지 않았습니다. 로컬에서 테스트(./gradlew test)를 돌리면 파일이 갱신되니, 바뀐 파일을 함께 커밋하세요.", SPEC_FILE)
+                .isEqualTo(actual);
+    }
+
+    /** GitHub Actions 등 CI는 환경변수 CI=true를 넣어 준다. */
+    private static boolean isCi() {
+        return "true".equalsIgnoreCase(System.getenv("CI"));
     }
 }

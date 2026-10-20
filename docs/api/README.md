@@ -11,13 +11,16 @@
 
 ### 갱신하기
 
-API(컨트롤러, 요청·응답 DTO, 에러 코드)를 바꾸면 명세를 다시 만들어 **같은 커밋에 포함**합니다.
+따로 할 일은 없습니다. **로컬에서 테스트를 돌리면** `OpenApiSpecTest`가 명세가 바뀌었을 때 `openapi.json`을 자동으로 다시 씁니다.
+API(컨트롤러, 요청·응답 DTO, 에러 코드)를 바꿨다면 `git status`에 `docs/api/openapi.json`이 바뀐 것으로 나오니, **같은 커밋에 포함**하면 됩니다.
 
 ```bash
-./gradlew test --tests '*OpenApiSpecTest' -PupdateOpenApi
+./gradlew test
 ```
 
-갱신하지 않으면 `OpenApiSpecTest`가 실패해 PR의 CI(`빌드 · 테스트`)가 통과하지 않습니다.
+IntelliJ에서 테스트를 실행해도 같습니다. 명세 테스트만 빠르게 돌리려면 `./gradlew test --tests '*OpenApiSpecTest'`를 쓰면 됩니다. (Docker 불필요)
+
+CI(`빌드 · 테스트`)에서는 파일을 쓰지 않고 비교만 합니다. 바뀐 명세를 커밋하지 않고 push하면 CI가 실패하니, 로컬에서 테스트를 돌리고 바뀐 파일을 커밋하세요.
 
 API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주세요.
 - **본문 없이 204로 응답하는 API**(`ResponseEntity.noContent()` 등)에는 메서드에 `@ResponseStatus(HttpStatus.NO_CONTENT)`를 붙입니다. 없으면 명세에 200으로 나옵니다.
