@@ -21,9 +21,13 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       // API는 생성된 클라이언트(src/api)로만 호출한다. 직접 fetch하면 명세와 어긋나도 컴파일러가 잡지 못한다.
+      // checkGlobalObject: window.fetch, globalThis.fetch 같은 우회 호출도 막는다.
       'no-restricted-globals': [
         'error',
-        { name: 'fetch', message: 'API는 @/api의 api 클라이언트로 호출하세요. (frontend/CLAUDE.md)' },
+        {
+          globals: [{ name: 'fetch', message: 'API는 @/api의 api 클라이언트로 호출하세요. (frontend/CLAUDE.md)' }],
+          checkGlobalObject: true,
+        },
       ],
     },
   },

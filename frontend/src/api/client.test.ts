@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, call } from './client';
+import { api, call, refreshAccessToken } from './client';
 import { ApiError, errorMessage } from './errors';
 import { getAccessToken, setSession } from './session';
 
@@ -31,6 +31,29 @@ describe('API 클라이언트', () => {
     expect(data).toEqual({ id: 7 });
     const request = fetchMock.mock.calls[0]![0] as Request;
     expect(request.headers.get('Authorization')).toBe('Bearer token-1');
+  });
+
+  it('값이 빈 Authorization 헤더도 Access Token으로 채운다 (로그아웃 요청)', async () => {
+    setSession({ accessToken: 'token-1', user });
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    await call(api.POST('/api/v1/auth/logout', { params: { header: { Authorization: '' } } }));
+
+    const request = fetchMock.mock.calls[0]![0] as Request;
+    expect(request.headers.get('Authorization')).toBe('Bearer token-1');
+    expect(fetchMock).toHaveBeenCalledTimes(1); // 401 → 재발급이 일어나지 않음
+  });
+
+  it('재발급을 기다리는 사이 로그아웃하면 늦게 온 재발급 결과로 로그인 상태가 되살아나지 않는다', async () => {
+    let finishReissue!: (res: Response) => void;
+    fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => (finishReissue = resolve)));
+
+    const refreshing = refreshAccessToken();
+    setSession(null); // 로그아웃
+    finishReissue(json(200, { success: true, data: { accessToken: 'late-token', expiresIn: 1800, user } }));
+
+    await expect(refreshing).resolves.toBeNull();
+    expect(getAccessToken()).toBeNull();
   });
 
   it('401이면 재발급한 뒤 원래 요청을 새 토큰으로 다시 보낸다', async () => {

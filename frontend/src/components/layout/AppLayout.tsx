@@ -25,7 +25,7 @@ function AppHeader() {
           <span className="flex size-8 items-center justify-center rounded-md bg-brand-500 text-neutral-0">
             <Gavel className="size-[18px]" aria-hidden="true" />
           </span>
-          <span className="text-[20px] font-bold tracking-tight">땅땅땅</span>
+          <span className="text-logo font-bold tracking-tight">땅땅땅</span>
         </Link>
 
         {session ? (

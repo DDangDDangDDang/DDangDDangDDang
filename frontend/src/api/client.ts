@@ -1,7 +1,7 @@
 import createClient, { type Middleware } from 'openapi-fetch';
 import { ApiError, networkError } from './errors';
 import type { paths } from './generated/schema';
-import { getAccessToken, setSession } from './session';
+import { getAccessToken, getSessionVersion, setSession, type Session } from './session';
 
 /*
  * 백엔드 API 클라이언트. 경로·파라미터·응답 타입은 모두 docs/api/openapi.json에서 생성된다.
@@ -30,21 +30,34 @@ const pending = new Map<string, Request>();
 // 동시에 여러 요청이 401을 받아도 재발급은 한 번만 한다.
 let refreshing: Promise<string | null> | null = null;
 
+/** 재발급 응답을 이 시간 안에 받지 못하면 로그아웃 상태로 보고 진행한다. (첫 화면이 멈추지 않게) */
+const REISSUE_TIMEOUT_MS = 5000;
+
 /** 리프레시 토큰 쿠키로 새 Access Token을 받는다. 실패하면 로그아웃 상태로 만든다. */
 export function refreshAccessToken(): Promise<string | null> {
   refreshing ??= (async () => {
+    // 재발급을 기다리는 사이 로그아웃·로그인이 일어나면 그 결과를 덮어쓰지 않는다.
+    const startedVersion = getSessionVersion();
+    const apply = (next: Session): boolean => {
+      if (getSessionVersion() !== startedVersion) return false;
+      setSession(next);
+      return true;
+    };
     try {
-      const res = await fetch(REISSUE_PATH, { method: 'POST', credentials: 'same-origin' });
+      const res = await fetch(REISSUE_PATH, {
+        method: 'POST',
+        credentials: 'same-origin',
+        signal: AbortSignal.timeout(REISSUE_TIMEOUT_MS),
+      });
       const body = res.ok ? await res.json() : null;
       const data = body?.data;
       if (!data?.accessToken || !data.user) {
-        setSession(null);
+        apply(null);
         return null;
       }
-      setSession({ accessToken: data.accessToken, user: data.user });
-      return data.accessToken as string;
+      return apply({ accessToken: data.accessToken, user: data.user }) ? (data.accessToken as string) : null;
     } catch {
-      setSession(null);
+      apply(null);
       return null;
     } finally {
       refreshing = null;
@@ -56,7 +69,8 @@ export function refreshAccessToken(): Promise<string | null> {
 const authMiddleware: Middleware = {
   onRequest({ request, id }) {
     const token = getAccessToken();
-    if (token && !request.headers.has('Authorization')) {
+    // 값이 빈 Authorization 헤더(명세상 필수라 비워서 보내는 경우)도 토큰으로 채운다.
+    if (token && !request.headers.get('Authorization')) {
       request.headers.set('Authorization', `Bearer ${token}`);
     }
     pending.set(id, request.clone());

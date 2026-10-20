@@ -5,14 +5,25 @@
 
 ## 실행
 
+API까지 쓰려면 백엔드를 먼저 띄웁니다. **아래 두 명령은 저장소 루트**(`frontend`가 아닌 상위 폴더)에서 실행합니다.
+
 ```bash
-cd frontend
+# 저장소 루트에서
+docker compose up -d   # MySQL·Redis·LiveKit (MySQL을 PC에 직접 설치했다면: docker compose up -d redis livekit)
+./gradlew bootRun      # 백엔드 (8080)
+```
+
+그다음 **다른 터미널에서 `frontend` 폴더**로 이동해 프론트를 띄웁니다.
+
+```bash
+# frontend 폴더에서
 npm install
 npm run dev
 ```
 
-- http://localhost:5173 을 엽니다. 백엔드(`./gradlew bootRun`, 8080)와 MySQL·Redis(`docker compose up -d`)가 떠 있어야 API가 동작합니다.
+- http://localhost:5173 을 엽니다. 화면만 볼 때는 백엔드 없이도 됩니다. (로그인 복구 요청이 실패한 오류가 콘솔에 남는 건 정상)
 - 공통 컴포넌트 모음: http://localhost:5173/dev/components
+- 백엔드를 다른 포트로 띄웠다면 `frontend/.env.local`에 `BACKEND_URL=http://localhost:8081`을 적습니다.
 
 ## 자주 쓰는 명령
 
