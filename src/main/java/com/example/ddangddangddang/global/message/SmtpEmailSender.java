@@ -36,7 +36,7 @@ public class SmtpEmailSender implements EmailSender {
     /**
      * user@example.com → u***@example.com
      */
-    static String maskEmail(String email) {
+    public static String maskEmail(String email) {
         if (email == null) {
             return "****";
         }
