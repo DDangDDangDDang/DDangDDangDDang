@@ -4,6 +4,7 @@ import { api, call, errorMessage, login, useSession } from '@/api';
 import { VerificationField } from '@/components/auth/VerificationField';
 import { AuthCard } from '@/components/layout/PageHeader';
 import { Button, Input, Notice } from '@/components/ui';
+import type { LoginLocationState } from './LoginPage';
 
 export function SignupPage() {
   const session = useSession();
@@ -30,13 +31,19 @@ export function SignupPage() {
           body: { email, password, nickname, phoneNumber: verified.phoneNumber, phoneVerificationToken: verified.token },
         }),
       );
-      // 가입하면 바로 로그인한다.
-      await login({ email, password });
-      navigate('/', { replace: true });
     } catch (e) {
       setError(errorMessage(e));
-    } finally {
       setSubmitting(false);
+      return;
+    }
+
+    // 가입하면 바로 로그인한다. 로그인만 실패하면 가입은 끝났으므로 로그인 화면으로 보낸다. (다시 가입하지 않게)
+    try {
+      await login({ email, password });
+      navigate('/', { replace: true });
+    } catch {
+      const state: LoginLocationState = { notice: '가입을 완료했어요. 로그인해 주세요.' };
+      navigate('/login', { replace: true, state });
     }
   }
 

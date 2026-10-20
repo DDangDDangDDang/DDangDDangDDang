@@ -31,7 +31,8 @@ export function setSession(next: Session) {
   listeners.forEach((listener) => listener());
 }
 
-function subscribe(listener: () => void) {
+/** 세션이 바뀔 때마다 호출된다. 구독을 끊는 함수를 돌려준다. */
+export function subscribeSession(listener: () => void) {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
@@ -40,5 +41,5 @@ function subscribe(listener: () => void) {
 
 /** 화면에서 로그인 상태를 읽는다. 로그인·로그아웃·재발급 때 다시 그려진다. */
 export function useSession(): Session {
-  return useSyncExternalStore(subscribe, getSession, getSession);
+  return useSyncExternalStore(subscribeSession, getSession, getSession);
 }

@@ -54,9 +54,11 @@ function AppHeader() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={async () => {
-                await logout();
-                navigate('/');
+              onClick={() => {
+                // 서버 요청이 실패해도 logout()이 이 화면의 로그인 상태는 지운다. 어떤 경우든 홈으로 간다.
+                void logout()
+                  .catch(() => undefined)
+                  .finally(() => navigate('/'));
               }}
             >
               로그아웃

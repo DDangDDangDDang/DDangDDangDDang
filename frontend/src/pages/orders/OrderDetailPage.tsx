@@ -14,12 +14,14 @@ type Order = Schema<'OrderResponse'>;
 /** 주문 상세. 로그인한 회원이 구매자인지 판매자인지에 따라 다른 내용을 보여준다. */
 export function OrderDetailPage() {
   const orderId = Number(useParams().orderId);
+  // 주소가 /orders/abc, /orders/0 처럼 잘못되면 서버에 묻지 않고 바로 안내한다.
+  const validId = Number.isInteger(orderId) && orderId > 0;
   const session = useSession();
 
   const query = useQuery({
     queryKey: ['orders', 'detail', orderId],
     queryFn: () => call(api.GET('/api/v1/orders/{orderId}', { params: { path: { orderId } } })),
-    enabled: Number.isFinite(orderId),
+    enabled: validId,
   });
 
   const order = query.data;
@@ -35,7 +37,11 @@ export function OrderDetailPage() {
         주문 내역
       </Link>
 
-      {query.isPending ? (
+      {!validId ? (
+        <Card>
+          <ErrorState message="주문을 찾을 수 없어요." />
+        </Card>
+      ) : query.isPending ? (
         <div className="flex flex-col gap-4">
           <Skeleton className="h-36" />
           <Skeleton className="h-48" />

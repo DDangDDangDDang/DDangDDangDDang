@@ -16,8 +16,9 @@ describe('VerificationField', () => {
     await user.click(screen.getByRole('button', { name: '인증번호 받기' }));
 
     expect(sendCode).toHaveBeenCalledWith('01012345678');
-    expect(screen.getByText('05:00')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /다시 받기 01:00/ })).toBeDisabled();
+    // 응답이 화면에 반영될 때까지 기다린다. 그 사이 1초가 지날 수 있어 범위로 확인한다.
+    expect(await screen.findByText(/^0(5:00|4:5\d)$/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /다시 받기 0(1:00|0:5\d)/ })).toBeDisabled();
   });
 
   it('6자리를 입력해야 [확인]을 누를 수 있고, 실패하면 서버 안내 문구를 보여준다', async () => {
@@ -28,7 +29,7 @@ describe('VerificationField', () => {
     await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678');
     await user.click(screen.getByRole('button', { name: '인증번호 받기' }));
 
-    const confirm = screen.getByRole('button', { name: '확인' });
+    const confirm = await screen.findByRole('button', { name: '확인' });
     await user.type(screen.getByLabelText('인증번호'), '12345');
     expect(confirm).toBeDisabled();
     await user.type(screen.getByLabelText('인증번호'), '6');
