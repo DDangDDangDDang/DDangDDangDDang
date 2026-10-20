@@ -117,5 +117,6 @@ resource "aws_ecs_service" "app" {
     ignore_changes = [task_definition]
   }
 
-  depends_on = [aws_lb_listener.http]
+  # HTTPS를 켜면 대상 그룹을 ALB에 연결하는 것은 HTTPS 리스너이므로 두 리스너가 모두 만들어진 뒤 서비스를 만든다.
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
 }

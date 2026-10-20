@@ -10,6 +10,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,5 +45,12 @@ class HealthCheckTest {
     void otherActuatorPathsRequireAuth() throws Exception {
         mockMvc.perform(get("/actuator/env"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("헬스 체크 외 actuator 엔드포인트는 로그인해도 노출되지 않는다")
+    void otherActuatorEndpointsNotExposed() throws Exception {
+        mockMvc.perform(get("/actuator/env").with(user("tester")))
+                .andExpect(status().isNotFound());
     }
 }

@@ -13,6 +13,12 @@ resource "random_password" "db" {
 
 # ---------- RDS MySQL (ECS 구성) ----------
 
+# ECS 구성을 껐다 켰다 반복해도 최종 스냅샷 이름이 겹치지 않도록, RDS를 만들 때마다 새 접미사를 붙인다.
+resource "random_id" "db_final_snapshot" {
+  count       = var.ecs_enabled ? 1 : 0
+  byte_length = 4
+}
+
 resource "aws_db_subnet_group" "main" {
   count      = var.ecs_enabled ? 1 : 0
   name       = "${var.project}-db"
@@ -66,7 +72,7 @@ resource "aws_db_instance" "main" {
   backup_retention_period   = 7
   deletion_protection       = var.db_deletion_protection
   skip_final_snapshot       = false
-  final_snapshot_identifier = "${var.project}-mysql-final"
+  final_snapshot_identifier = "${var.project}-mysql-final-${random_id.db_final_snapshot[0].hex}"
 
   auto_minor_version_upgrade = true
   apply_immediately          = true
