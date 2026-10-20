@@ -30,10 +30,14 @@ const pending = new Map<string, Request>();
 // 동시에 여러 요청이 401을 받아도 재발급은 한 번만 한다.
 let refreshing: Promise<string | null> | null = null;
 
-/** 재발급 응답을 이 시간 안에 받지 못하면 로그아웃 상태로 보고 진행한다. (첫 화면이 멈추지 않게) */
+/** 재발급 응답을 이 시간 안에 받지 못하면 실패로 보고 진행한다. (첫 화면이 멈추지 않게) */
 const REISSUE_TIMEOUT_MS = 5000;
 
-/** 리프레시 토큰 쿠키로 새 Access Token을 받는다. 실패하면 로그아웃 상태로 만든다. */
+/**
+ * 리프레시 토큰 쿠키로 새 Access Token을 받는다. 받지 못하면 null.
+ * - 4xx(리프레시 토큰 없음·만료·무효): 로그아웃 상태로 만든다.
+ * - 5xx·네트워크 오류·시간 초과: 일시적인 문제일 수 있으므로 지금 세션은 그대로 둔다.
+ */
 export function refreshAccessToken(): Promise<string | null> {
   refreshing ??= (async () => {
     // 재발급을 기다리는 사이 로그아웃·로그인이 일어나면 그 결과를 덮어쓰지 않는다.
@@ -49,15 +53,19 @@ export function refreshAccessToken(): Promise<string | null> {
         credentials: 'same-origin',
         signal: AbortSignal.timeout(REISSUE_TIMEOUT_MS),
       });
-      const body = res.ok ? await res.json() : null;
-      const data = body?.data;
+      if (res.status >= 400 && res.status < 500) {
+        apply(null);
+        return null;
+      }
+      if (!res.ok) return null;
+
+      const data = (await res.json())?.data;
       if (!data?.accessToken || !data.user) {
         apply(null);
         return null;
       }
       return apply({ accessToken: data.accessToken, user: data.user }) ? (data.accessToken as string) : null;
     } catch {
-      apply(null);
       return null;
     } finally {
       refreshing = null;

@@ -84,6 +84,17 @@ describe('API 클라이언트', () => {
     expect(getAccessToken()).toBeNull();
   });
 
+  it('재발급이 서버 오류(5xx)나 네트워크 오류로 실패하면 지금 세션을 지우지 않는다', async () => {
+    setSession({ accessToken: 'token-1', user });
+    fetchMock.mockResolvedValueOnce(json(503, { success: false, error: { code: 'COMMON_500', message: '점검 중' } }));
+    await expect(refreshAccessToken()).resolves.toBeNull();
+    expect(getAccessToken()).toBe('token-1');
+
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await expect(refreshAccessToken()).resolves.toBeNull();
+    expect(getAccessToken()).toBe('token-1');
+  });
+
   it('실패 응답은 서버의 에러 코드와 메시지를 담은 ApiError가 된다', async () => {
     fetchMock.mockResolvedValueOnce(json(404, { success: false, error: { code: 'AUCTION_001', message: '경매가 존재하지 않습니다.' } }));
 
