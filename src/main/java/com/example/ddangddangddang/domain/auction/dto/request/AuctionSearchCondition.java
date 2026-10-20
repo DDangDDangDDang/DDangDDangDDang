@@ -9,6 +9,6 @@ public record AuctionSearchCondition(
         Long minPrice, //최소가
         Long maxPrice, //최대가
         AuctionStatus status, //경매 상태값
-        AuctionSort sort //없을시 LATEST(최신)
+        AuctionSort sortType //없을시 LATEST(최신)
 ) {
 }

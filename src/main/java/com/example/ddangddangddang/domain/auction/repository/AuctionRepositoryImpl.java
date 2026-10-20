@@ -49,7 +49,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
                         priceGoe(auction, condition.minPrice()),
                         priceLoe(auction, condition.maxPrice()),
                         statusEq(auction,condition.status()))
-                .orderBy(orderBy(auction,condition.sort()))
+                .orderBy(orderBy(auction,condition.sortType()))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
