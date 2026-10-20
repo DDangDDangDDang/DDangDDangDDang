@@ -133,6 +133,7 @@ class AccountRecoveryControllerTest {
                     .andExpect(status().isOk());
 
             verify(refreshTokenRepository).deleteByUserId(any());
+            verify(tokenBlacklistRepository).invalidateTokensIssuedBefore(any(), any(), any());
             login("Abcd1234!").andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.error.code").value("AUTH_008"));
             login("NewPass123!").andExpect(status().isOk());
