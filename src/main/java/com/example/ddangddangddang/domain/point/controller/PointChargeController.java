@@ -22,6 +22,7 @@ public class PointChargeController {
     private final PointChargeService pointChargeService;
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<ApiResponse<PointChargeResponse>> createChargeRequest(
             @AuthenticationPrincipal AuthUser authUser,
             @Valid @RequestBody PointChargeRequest request) {

@@ -68,6 +68,7 @@ public class DirectMessageController {
     }
 
     @PostMapping("/rooms/{roomId}/messages")
+    @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<ApiResponse<DmMessageResponse>> send(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long roomId,
@@ -92,6 +93,7 @@ public class DirectMessageController {
      * 대화 상대 또는 상대의 메시지를 신고한다.
      */
     @PostMapping("/rooms/{roomId}/reports")
+    @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<ApiResponse<DmReportResponse>> report(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long roomId,
