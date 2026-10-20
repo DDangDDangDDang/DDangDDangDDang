@@ -1,5 +1,6 @@
 import { Client, type StompSubscription } from '@stomp/stompjs';
 import { refreshAccessToken } from './client';
+import type { ErrorCode } from './generated/error-codes';
 import type { components } from './generated/schema';
 import { getAccessToken } from './session';
 
@@ -57,6 +58,9 @@ export type RealtimeConnection = {
 
 const RECONNECT_DELAY_MS = 3000;
 
+/** 구독·전송 경로가 허용되지 않음 (StompAuthChannelInterceptor) */
+const INVALID_DESTINATION: ErrorCode = 'COMMON_005';
+
 function brokerUrl(): string {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
   // 같은 주소로 연결한다. (로컬은 Vite 프록시가 /ws를 백엔드로 넘김)
@@ -92,9 +96,18 @@ export function connectRealtime(onStatus: (status: RealtimeStatus) => void): Rea
       entries.forEach(subscribeEntry);
       onStatus('connected');
     },
-    onStompError: () => {
-      refreshBeforeConnect = true;
-      // 서버는 ERROR 프레임 뒤에 연결을 닫지만, 닫히지 않는 경우에도 재연결(토큰 재발급)이 되도록 직접 끊는다.
+    // 서버는 ERROR 프레임의 message 헤더에 에러 코드를 담는다. (StompErrorHandler)
+    onStompError: (frame) => {
+      const code = frame.headers.message ?? '';
+      if (code === INVALID_DESTINATION) {
+        // 허용되지 않은 경로는 다시 연결해도 같으므로 멈춘다. (REALTIME 경로가 서버와 어긋난 코드 오류)
+        console.error('[realtime] 서버가 허용하지 않는 경로입니다. REALTIME 경로를 docs/api/README.md와 맞춰 주세요.');
+        void client.deactivate();
+        return;
+      }
+      // 인증 오류(만료·로그아웃된 토큰 등)면 다음 연결 전에 토큰을 재발급한다. 그 밖의 오류(서버 오류)는 그대로 다시 연결한다.
+      if (code.startsWith('AUTH_')) refreshBeforeConnect = true;
+      // 서버는 ERROR 프레임 뒤에 연결을 닫지만, 닫히지 않는 경우에도 다시 연결되도록 직접 끊는다.
       client.forceDisconnect();
     },
     onWebSocketClose: () => {
