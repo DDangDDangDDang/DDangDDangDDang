@@ -41,6 +41,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/signup",
                                 "/api/v1/auth/signup/phone/code",
                                 "/api/v1/auth/signup/phone/verify",
+                                "/api/v1/auth/find-email/code",
+                                "/api/v1/auth/find-email/verify",
+                                "/api/v1/auth/password-reset/code",
+                                "/api/v1/auth/password-reset/verify",
+                                "/api/v1/auth/password-reset",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/reissue"
                         ).permitAll()
