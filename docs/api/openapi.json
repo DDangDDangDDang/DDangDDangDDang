@@ -1696,18 +1696,82 @@
         "tags" : [ "auction-controller" ],
         "operationId" : "auctionSearchAuctions",
         "parameters" : [ {
-          "name" : "condition",
+          "name" : "productName",
           "in" : "query",
-          "required" : true,
+          "required" : false,
           "schema" : {
-            "$ref" : "#/components/schemas/AuctionSearchCondition"
+            "type" : "string"
           }
         }, {
-          "name" : "pageable",
+          "name" : "categoryId",
           "in" : "query",
-          "required" : true,
+          "required" : false,
           "schema" : {
-            "$ref" : "#/components/schemas/Pageable"
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "minPrice",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "maxPrice",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "READY", "ONGOING", "ENDED", "FAILED", "CANCELED" ]
+          }
+        }, {
+          "name" : "sortType",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "LATEST", "ENDING_SOON", "PRICE_ASC", "PRICE_DESC" ]
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "description" : "Zero-based page index (0..N)",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "description" : "The size of the page to be returned",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 30,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         } ],
         "responses" : {
@@ -5089,55 +5153,6 @@
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "AuctionSearchCondition" : {
-        "type" : "object",
-        "properties" : {
-          "productName" : {
-            "type" : "string"
-          },
-          "categoryId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "minPrice" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "maxPrice" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "status" : {
-            "type" : "string",
-            "enum" : [ "READY", "ONGOING", "ENDED", "FAILED", "CANCELED" ]
-          },
-          "sort" : {
-            "type" : "string",
-            "enum" : [ "LATEST", "ENDING_SOON", "PRICE_ASC", "PRICE_DESC" ]
-          }
-        }
-      },
-      "Pageable" : {
-        "type" : "object",
-        "properties" : {
-          "page" : {
-            "type" : "integer",
-            "format" : "int32",
-            "minimum" : 0
-          },
-          "size" : {
-            "type" : "integer",
-            "format" : "int32",
-            "minimum" : 1
-          },
-          "sort" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
           }
         }
       },
