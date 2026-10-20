@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bankName, EMPTY_EXCHANGE_FORM, toExchangeRequest, validateExchangeForm } from './exchange';
+import { bankName, EMPTY_EXCHANGE_FORM, hasFinishedExchange, toExchangeRequest, validateExchangeForm } from './exchange';
 
 const valid = { amount: '50,000', bankCode: '004', accountNumber: '123-456-789012', accountHolder: ' 홍길동 ' };
 
@@ -34,5 +34,21 @@ describe('bankName', () => {
   it('코드를 은행 이름으로', () => {
     expect(bankName('088')).toBe('신한은행');
     expect(bankName('999')).toBe('은행');
+  });
+});
+
+describe('hasFinishedExchange', () => {
+  const previous = new Map<number, string | undefined>([
+    [1, 'PENDING'],
+    [2, 'PROCESSING'],
+    [3, 'COMPLETE'],
+  ]);
+
+  it('처리 중이던 신청이 하나라도 끝나면 true', () => {
+    expect(hasFinishedExchange(previous, [{ exchangeId: 1, status: 'PENDING' }, { exchangeId: 2, status: 'FAILED' }])).toBe(true);
+  });
+
+  it('여전히 처리 중이거나, 처음 보는 신청이거나, 원래 끝난 신청이면 false', () => {
+    expect(hasFinishedExchange(previous, [{ exchangeId: 1, status: 'PROCESSING' }, { exchangeId: 3, status: 'COMPLETE' }, { exchangeId: 9, status: 'FAILED' }])).toBe(false);
   });
 });

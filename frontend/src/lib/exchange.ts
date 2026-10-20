@@ -53,3 +53,18 @@ export function toExchangeRequest(values: ExchangeFormValues): Schema<'PointExch
 export function bankName(code?: string): string {
   return (code && BANK_LABEL[code]) || '은행';
 }
+
+type ExchangeRow = Pick<Schema<'PointExchangeResponse'>, 'exchangeId' | 'status'>;
+
+/** 서버가 아직 처리 중인 상태 (신청됨·송금 중) */
+export function isExchangeInFlight(status?: string): boolean {
+  return status === 'PENDING' || status === 'PROCESSING';
+}
+
+/**
+ * 이전에 처리 중이던 신청 중 하나라도 끝났는지(송금 완료·실패·취소). 신청마다 이전 상태와 비교한다.
+ * 끝났으면 잔액·포인트 내역이 바뀌었을 수 있다. (실패·취소면 포인트를 돌려받음)
+ */
+export function hasFinishedExchange(previous: ReadonlyMap<number, string | undefined>, rows: ExchangeRow[]): boolean {
+  return rows.some((row) => row.exchangeId !== undefined && isExchangeInFlight(previous.get(row.exchangeId)) && !isExchangeInFlight(row.status));
+}

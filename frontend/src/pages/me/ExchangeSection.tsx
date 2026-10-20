@@ -1,8 +1,19 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, call, errorMessage, isErrorCode, type Schema } from '@/api';
 import { Badge, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, EmptyState, ErrorState, Input, Notice, Select, Skeleton, type BadgeProps } from '@/components/ui';
-import { bankName, EMPTY_EXCHANGE_FORM, EXCHANGE_MAX, EXCHANGE_MIN, toExchangeRequest, validateExchangeForm, type ExchangeFormErrors, type ExchangeFormValues } from '@/lib/exchange';
+import {
+  bankName,
+  EMPTY_EXCHANGE_FORM,
+  EXCHANGE_MAX,
+  EXCHANGE_MIN,
+  hasFinishedExchange,
+  isExchangeInFlight,
+  toExchangeRequest,
+  validateExchangeForm,
+  type ExchangeFormErrors,
+  type ExchangeFormValues,
+} from '@/lib/exchange';
 import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
 import { BANK_LABEL, EXCHANGE_STATUS_LABEL, type ExchangeStatus } from '@/lib/labels';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
@@ -167,11 +178,22 @@ function ExchangeList() {
     queryFn: ({ pageParam }) => call(api.GET('/api/v1/points/exchanges', { params: { query: { cursor: pageParam, size: PAGE_SIZE } } })),
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (last) => (last?.hasNext ? last.nextCursor : undefined),
-    refetchInterval: (q) =>
-      q.state.data?.pages.some((page) => page?.content?.some((row) => row.status === 'PENDING' || row.status === 'PROCESSING')) ? REFRESH_MS : false,
+    refetchInterval: (q) => (q.state.data?.pages.some((page) => page?.content?.some((row) => isExchangeInFlight(row.status))) ? REFRESH_MS : false),
   });
   const sentinelRef = useInfiniteScroll(query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage);
   const rows = query.data?.pages.flatMap((page) => page?.content ?? []) ?? [];
+
+  // 처리 중이던 신청이 끝나면(송금 완료·실패) 잔액·포인트 내역도 바뀌었으니 다시 불러온다. 신청마다 이전 상태와 비교한다.
+  const previousStatusRef = useRef(new Map<number, string | undefined>());
+  useEffect(() => {
+    if (!query.data) return;
+    const current = query.data.pages.flatMap((page) => page?.content ?? []);
+    if (hasFinishedExchange(previousStatusRef.current, current)) {
+      void queryClient.invalidateQueries({ queryKey: ['points', 'wallet'] });
+      void queryClient.invalidateQueries({ queryKey: ['points', 'histories'] });
+    }
+    previousStatusRef.current = new Map(current.filter((row) => row.exchangeId !== undefined).map((row) => [row.exchangeId as number, row.status]));
+  }, [query.data, queryClient]);
 
   const cancel = useMutation({
     mutationFn: (exchangeId: number) => call(api.POST('/api/v1/points/exchanges/{exchangeId}/cancel', { params: { path: { exchangeId } } })),
