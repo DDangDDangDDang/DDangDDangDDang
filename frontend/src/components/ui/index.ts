@@ -5,3 +5,6 @@ export { Input, type InputProps } from './Input';
 export { Badge, type BadgeProps } from './Badge';
 export { Card, CardHeader, CardTitle, CardBody } from './Card';
 export { Skeleton, EmptyState, ErrorState } from './States';
+export { Select, type SelectProps } from './Select';
+export { ConfirmDialog } from './ConfirmDialog';
+export { Notice } from './Notice';

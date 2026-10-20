@@ -83,7 +83,11 @@
   - 모서리: `rounded-sm` 배지 · `rounded-md` 버튼·입력 · `rounded-lg` 카드·영상
   - **금액·남은 시간·인원 같은 숫자에는 `num` 클래스**를 붙입니다. (숫자 전용 글꼴 + 고정폭 숫자)
 - 새 토큰이 필요하면 `src/styles/index.css`의 `@theme`에 추가하고 이유를 주석으로 남깁니다.
-- **공통 컴포넌트를 먼저 씁니다.** `@/components/ui`: `Button`, `Input`, `Badge`, `Card`, `Skeleton`, `EmptyState`, `ErrorState`
+- **공통 컴포넌트를 먼저 씁니다.** `@/components/ui`: `Button`, `Input`, `Select`, `Badge`, `Card`, `Notice`(한 줄 안내·오류), `ConfirmDialog`(되돌릴 수 없는 동작 확인), `Skeleton`, `EmptyState`, `ErrorState`
+  - 인증번호(휴대폰·이메일) 입력은 `@/components/auth/VerificationField` (5분 타이머, 1분 재요청 대기 포함)
+  - 로그인해야 하는 화면은 `src/router.tsx`에서 `RequireAuth` 아래에 둡니다.
+  - 목록 무한 스크롤은 TanStack `useInfiniteQuery` + `@/lib/use-infinite-scroll`
+  - 서버 enum 값(주문 상태, 포인트 종류, 택배사)은 `@/lib/labels`의 표로 화면 문구를 만듭니다.
   - 링크를 버튼 모양으로: `<Link className={buttonVariants({ variant: 'outline' })}>` (버튼을 링크로 감싸지 않음)
   - 비슷한 컴포넌트를 새로 만들기 전에 기존 것에 `variant`를 추가할 수 있는지 봅니다.
 - 전체 모양은 `/dev/components` 화면에서 확인할 수 있습니다.
