@@ -3841,6 +3841,9 @@
           "description" : {
             "type" : "string"
           },
+          "notice" : {
+            "type" : "string"
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "SCHEDULED", "LIVE", "ENDED" ]
@@ -4760,6 +4763,11 @@
           "scheduledStartAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "notice" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
           }
         }
       },

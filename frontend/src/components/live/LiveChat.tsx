@@ -1,4 +1,4 @@
-import { SendHorizontal } from 'lucide-react';
+import { Megaphone, SendHorizontal, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { useSession, type ChatMessage, type RealtimeStatus } from '@/api';
 import { Badge, Notice } from '@/components/ui';
@@ -21,14 +21,19 @@ type Props = {
    * 로그인하면 afterLogin으로 입력칸에 다시 포커스해 쓰던 채팅을 이어서 보낼 수 있게 한다.
    */
   requireLogin?: (afterLogin: () => void) => void;
+  /** 판매자가 채팅창 위에 고정한 공지 (LiveStreamResponse.notice) */
+  notice?: string;
 };
 
 /** 스크롤이 맨 아래에서 이만큼(px) 안에 있으면 새 메시지가 올 때 따라 내려간다. */
 const STICK_TO_BOTTOM_PX = 48;
 
 /** 실시간 채팅: 메시지 목록 + 입력. 메시지는 접속한 뒤부터 쌓인다. (이전 채팅 API 없음) 방송 시청·판매자 스튜디오가 같이 쓴다. */
-export function LiveChat({ messages, sellerId, canChat, status, error, onSend, flaggedIds, requireLogin }: Props) {
+export function LiveChat({ messages, sellerId, canChat, status, error, onSend, flaggedIds, requireLogin, notice }: Props) {
   const session = useSession();
+  // [X]로 닫은 공지. 이 화면에서만 기억해서, 다시 들어오면(새로 그리면) 다시 보인다. 판매자가 공지를 바꾸면 새 공지는 보인다.
+  const [dismissedNotice, setDismissedNotice] = useState<string>();
+  const showNotice = notice && notice !== dismissedNotice;
   const [draft, setDraft] = useState('');
   const [notSent, setNotSent] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
@@ -88,6 +93,24 @@ export function LiveChat({ messages, sellerId, canChat, status, error, onSend, f
         </h2>
         <span className="text-caption text-neutral-500">5초에 5개까지</span>
       </div>
+
+      {showNotice && (
+        <div role="note" aria-label="판매자 공지" className="flex items-start gap-2.5 border-b border-neutral-100 bg-brand-50 px-5 py-3 text-brand-700">
+          <Megaphone className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p className="min-w-0 flex-1 text-label leading-relaxed whitespace-pre-line break-words text-neutral-900">
+            <strong className="mr-1.5 font-semibold text-brand-700">공지</strong>
+            {notice}
+          </p>
+          <button
+            type="button"
+            aria-label="공지 닫기"
+            onClick={() => setDismissedNotice(notice)}
+            className="-mr-1.5 flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-brand-100 hover:text-neutral-900"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
       <ul
         ref={listRef}

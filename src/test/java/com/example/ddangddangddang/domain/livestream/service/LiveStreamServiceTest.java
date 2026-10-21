@@ -126,6 +126,43 @@ class LiveStreamServiceTest {
         }
 
         @Test
+        @DisplayName("공지를 올리면 저장하고 변경 이벤트로 시청자 화면에 알린다. 빈 문자열이면 공지를 내린다")
+        void notice() {
+            LiveStream liveStream = liveStream(true);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            LiveStreamResponse posted = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest(null, null, null, "  오늘 9시에 한정판 경매가 있어요  "));
+            assertThat(posted.notice()).isEqualTo("오늘 9시에 한정판 경매가 있어요");
+            assertThat(posted.title()).isEqualTo("테스트 방송");
+
+            LiveStreamResponse cleared = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest(null, null, null, ""));
+            assertThat(cleared.notice()).isNull();
+            then(eventPublisher).should(org.mockito.Mockito.times(2)).publishEvent(any(LiveStreamUpdatedEvent.class));
+        }
+
+        @Test
+        @DisplayName("공지에도 연락처 같은 막힌 내용은 넣을 수 없다 (LIVESTREAM_009)")
+        void noticeContentNotAllowed() {
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(true)));
+            given(contentFilter.findViolation(any())).willAnswer(invocation -> "카톡 문의 010-1234-5678".equals(invocation.getArgument(0))
+                    ? Optional.of(ContentViolation.PHONE_NUMBER) : Optional.empty());
+
+            assertUpdateError(SELLER_ID, new LiveStreamUpdateRequest(null, null, null, "카톡 문의 010-1234-5678"), LiveStreamErrorCode.CONTENT_NOT_ALLOWED);
+        }
+
+        @Test
+        @DisplayName("다른 사람의 방송에는 공지를 올릴 수 없다 (LIVESTREAM_002)")
+        void noticeNotOwner() {
+            LiveStream liveStream = liveStream(true);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            assertUpdateError(2L, new LiveStreamUpdateRequest(null, null, null, "공지"), LiveStreamErrorCode.NOT_OWNER);
+            assertThat(liveStream.getNotice()).isNull();
+        }
+
+        @Test
         @DisplayName("바뀐 값이 없으면 저장하지 않고 이벤트도 발행하지 않는다")
         void nothingChanged() {
             given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(true)));

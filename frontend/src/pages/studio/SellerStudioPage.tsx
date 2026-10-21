@@ -9,6 +9,7 @@ import { LiveChat } from '@/components/live/LiveChat';
 import { Badge, Button, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { LiveAuctionProducts, LiveAuctionStatus } from './LiveAuctionPanel';
+import { ChatNoticeEditor } from './ChatNoticeEditor';
 import { ModerationPanel } from './ModerationPanel';
 import { StreamForm } from './StreamForm';
 import { StudioStage } from './StudioStage';
@@ -198,9 +199,11 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
         <aside aria-label="경매 현황과 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
           <LiveAuctionStatus auctions={liveAuctions} />
           <ModerationPanel alerts={alerts} onDismiss={dismissAlert} />
+          <ChatNoticeEditor liveStream={liveStream} onSaved={onChange} />
           <LiveChat
             messages={chat.messages}
             sellerId={liveStream.sellerId}
+            notice={liveStream.notice}
             canChat={isLive}
             status={chat.status}
             error={chat.error}

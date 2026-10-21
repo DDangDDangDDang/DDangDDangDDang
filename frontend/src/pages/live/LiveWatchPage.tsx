@@ -3,6 +3,7 @@ import { RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ApiError, api, call, errorMessage, isErrorCode, useSession, type ChatMessage, type Schema } from '@/api';
+import { BidDialog } from '@/components/auction/BidDialog';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime } from '@/lib/format';
@@ -46,6 +47,9 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
     () => void queryClient.invalidateQueries({ queryKey: ['live-stream', liveStreamId] }),
     [queryClient, liveStreamId],
   );
+
+  // 입찰 창에 연 경매. 방송을 떠나지 않고 입찰한다. (입찰은 로그인해야 함)
+  const [bidAuctionId, setBidAuctionId] = useState<number>();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatError, setChatError] = useState<string>();
@@ -92,10 +96,11 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
         </section>
 
         <aside aria-label="경매와 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
-          <AuctionPanel liveStreamId={liveStreamId} />
+          <AuctionPanel liveStreamId={liveStreamId} onOpen={(auctionId, ongoing) => (ongoing ? guard(() => setBidAuctionId(auctionId)) : setBidAuctionId(auctionId))} />
           <LiveChat
             messages={messages}
             sellerId={liveStream.sellerId}
+            notice={liveStream.notice}
             canChat={isLive}
             status={realtime.status}
             error={chatError}
@@ -108,6 +113,7 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
         </aside>
       </div>
       {loginDialog}
+      <BidDialog auctionId={bidAuctionId} onClose={() => setBidAuctionId(undefined)} />
     </div>
   );
 }

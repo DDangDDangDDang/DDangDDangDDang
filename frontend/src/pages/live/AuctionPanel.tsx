@@ -1,8 +1,7 @@
 import { Gavel } from 'lucide-react';
-import { Link } from 'react-router';
 import { errorMessage } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
-import { buttonVariants, Card, CardBody, CardHeader, CardTitle, ErrorState, Skeleton } from '@/components/ui';
+import { Button, Card, CardBody, CardHeader, CardTitle, ErrorState, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { formatNumber, formatPoint } from '@/lib/format';
 import { useLiveStreamAuctions } from '@/lib/use-live-stream-auctions';
@@ -13,9 +12,9 @@ const REFRESH_MS = 5000;
 
 /**
  * 이 방송에 올라간 경매 중 시작 전·진행 중인 것. 판매자가 경매를 열거나 방송에 올리면 바로 나온다. (경매 변경 알림)
- * 방송과 경매는 별개 도메인이라 방송 화면은 보여주기만 하고, 입찰은 경매 상세 화면에서 한다.
+ * 방송과 경매는 별개 도메인이라 방송 화면은 보여주기만 한다. 입찰은 방송을 떠나지 않도록 입찰 창(onOpen)에서 한다.
  */
-export function AuctionPanel({ liveStreamId }: { liveStreamId: number }) {
+export function AuctionPanel({ liveStreamId, onOpen }: { liveStreamId: number; onOpen: (auctionId: number, ongoing: boolean) => void }) {
   const query = useLiveStreamAuctions(liveStreamId, REFRESH_MS);
   const now = useNow(1000);
   const open = (query.data ?? []).filter((a) => {
@@ -58,7 +57,10 @@ export function AuctionPanel({ liveStreamId }: { liveStreamId: number }) {
                       <AuctionPhaseBadge phase={phase} />
                       <strong className="truncate text-body font-semibold">{auction.productName || '이름 없는 상품'}</strong>
                     </span>
-                    <AuctionTime status={auction.status} startAt={auction.startAt} endAt={auction.endAt} />
+                    {/* 상품명이 길어도 남은 시간은 한 줄로 */}
+                    <span className="shrink-0 whitespace-nowrap">
+                      <AuctionTime status={auction.status} startAt={auction.startAt} endAt={auction.endAt} />
+                    </span>
                   </div>
                   <div className="flex items-end justify-between gap-2">
                     <div className="flex flex-col">
@@ -68,9 +70,14 @@ export function AuctionPanel({ liveStreamId }: { liveStreamId: number }) {
                         입찰 <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
                       </span>
                     </div>
-                    <Link to={`/auctions/${auction.id}`} className={buttonVariants({ size: 'sm', variant: phase === 'ONGOING' ? 'primary' : 'outline' })}>
-                      {phase === 'ONGOING' ? '입찰하러 가기' : '경매 보기'}
-                    </Link>
+                    <Button
+                      size="sm"
+                      variant={phase === 'ONGOING' ? 'primary' : 'outline'}
+                      aria-label={`${auction.productName || '상품'} ${phase === 'ONGOING' ? '입찰하기' : '경매 보기'}`}
+                      onClick={() => auction.id && onOpen(auction.id, phase === 'ONGOING')}
+                    >
+                      {phase === 'ONGOING' ? '입찰하기' : '경매 보기'}
+                    </Button>
                   </div>
                 </li>
               );
