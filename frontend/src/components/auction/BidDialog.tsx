@@ -69,8 +69,12 @@ function BidForm({ auctionId }: { auctionId: number }) {
     const next = validateBid(amount, auction);
     setError(next);
     if (next || value === undefined) return;
-    // 잔액을 확인한 뒤에만 다음 단계로 간다. (아직 불러오는 중이면 기다린다)
-    if (balance === undefined) return;
+    // 잔액을 확인한 뒤에만 다음 단계로 간다. (아직 불러오는 중이면 기다리고, 불러오지 못했으면 다시 불러온다)
+    if (balance === undefined) {
+      if (session === null) setError('로그인한 뒤 입찰할 수 있어요.');
+      else if (wallet.isError) void wallet.refetch();
+      return;
+    }
     if (value > balance) {
       setError('사용 가능 포인트가 부족해요. 포인트 화면에서 충전할 수 있어요.');
       return;
@@ -153,8 +157,16 @@ function BidForm({ auctionId }: { auctionId: number }) {
           {!error && value !== undefined && balance !== undefined && value > balance && (
             <Notice tone="error">사용 가능 포인트가 부족해요. 포인트 화면에서 충전할 수 있어요.</Notice>
           )}
+          {wallet.isError && (
+            <Notice tone="error">
+              내 포인트를 불러오지 못했어요. {errorMessage(wallet.error)}{' '}
+              <button type="button" onClick={() => void wallet.refetch()} className="font-semibold underline">
+                다시 불러오기
+              </button>
+            </Notice>
+          )}
           {submitted && <Notice>입찰 기능을 준비하고 있어요. 곧 이 창에서 바로 입찰할 수 있어요.</Notice>}
-          <Button type="submit" size="lg" loading={session !== null && wallet.isPending}>
+          <Button type="submit" size="lg" loading={session !== null && (wallet.isPending || wallet.isRefetching)}>
             {value ? `${formatPoint(value)} 입찰하기` : '입찰하기'}
           </Button>
         </>
