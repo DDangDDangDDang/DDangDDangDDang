@@ -20,6 +20,7 @@ type DialogProps = {
 export function Dialog({ open, title, description, onClose, closeDisabled = false, children, className }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     const dialog = ref.current;
@@ -32,6 +33,7 @@ export function Dialog({ open, title, description, onClose, closeDisabled = fals
     <dialog
       ref={ref}
       aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
       onCancel={(event) => {
         event.preventDefault();
         if (!closeDisabled) onClose();
@@ -43,7 +45,11 @@ export function Dialog({ open, title, description, onClose, closeDisabled = fals
           <h2 id={titleId} className="text-title-md font-bold">
             {title}
           </h2>
-          {description && <div className="text-body text-neutral-500">{description}</div>}
+          {description && (
+            <div id={descriptionId} className="text-body text-neutral-500">
+              {description}
+            </div>
+          )}
         </div>
         <button
           type="button"

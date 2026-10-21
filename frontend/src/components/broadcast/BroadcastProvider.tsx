@@ -35,10 +35,11 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
     setStudioOpenState(open);
   }, []);
 
-  // 이 탭이 송출을 맡았는지: 스튜디오를 열면 맡고, 방송이 없어지면 내려놓는다. (새로고침해도 이 탭에 남음)
+  // 이 탭이 송출을 맡았는지: 스튜디오를 열면 맡고, 방송이 없어지거나 방송 전에 스튜디오를 떠나면 내려놓는다. (새로고침해도 이 탭에 남음)
+  // 방송 전에 떠난 탭이 맡은 채로 남으면, 다른 탭에서 방송을 시작할 때 이 탭도 송출해 서로 빼앗는다.
   const [ownerId, setOwnerId] = useState(readBroadcastOwner);
   if (studioOpen && liveStreamId !== undefined && ownerId !== liveStreamId) setOwnerId(liveStreamId);
-  if (active.isSuccess && liveStreamId === undefined && ownerId !== undefined) setOwnerId(undefined);
+  if (active.isSuccess && ownerId !== undefined && (liveStreamId === undefined || (!live && !studioOpen))) setOwnerId(undefined);
   useEffect(() => writeBroadcastOwner(ownerId), [ownerId]);
   const publishing = live && ownerId === liveStreamId;
 
@@ -68,7 +69,9 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
     if (studioOpen) setUnseen({ chats: 0, alerts: 0 });
   }
 
-  const realtime = useLiveRealtime(liveStreamId, {
+  // 채팅·검토 알림은 송출을 맡은 탭과 스튜디오를 연 탭만 받는다. (다른 탭은 쓰지 않으므로 연결하지 않음)
+  const realtimeStreamId = liveStreamId !== undefined && (ownerId === liveStreamId || studioOpen) ? liveStreamId : undefined;
+  const realtime = useLiveRealtime(realtimeStreamId, {
     onChat: (message) => {
       setMessages((list) => appendChatMessage(list, message));
       if (message.type === 'CHAT' && !studioOpenRef.current) setUnseen((prev) => ({ ...prev, chats: prev.chats + 1 }));
