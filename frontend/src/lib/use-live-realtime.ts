@@ -4,6 +4,7 @@ import {
   REALTIME,
   type ChatMessage,
   type LiveStreamUpdatedMessage,
+  type ModerationAlert,
   type RealtimeConnection,
   type RealtimeError,
   type RealtimeStatus,
@@ -13,11 +14,13 @@ type Handlers = {
   onChat: (message: ChatMessage) => void;
   onUpdated: (message: LiveStreamUpdatedMessage) => void;
   onError: (error: RealtimeError) => void;
+  /** 판매자 화면만 넘긴다. 넘기면 AI 검토 알림(/user/queue/moderation)도 구독한다. */
+  onModeration?: (alert: ModerationAlert) => void;
 };
 
 /**
- * 방송 하나의 실시간 메시지: 채팅, 방송 정보 변경, 내 채팅 전송 실패. (docs/api/README.md "실시간 메시지")
- * 화면을 떠나면 연결을 닫는다.
+ * 방송 하나의 실시간 메시지: 채팅, 방송 정보 변경, 내 채팅 전송 실패, (판매자) AI 검토 알림. (docs/api/README.md "실시간 메시지")
+ * 방송 시청 화면과 판매자 스튜디오가 같이 쓴다. 화면을 떠나면 연결을 닫는다.
  */
 export function useLiveRealtime(liveStreamId: number, handlers: Handlers) {
   const [status, setStatus] = useState<RealtimeStatus>('connecting');
@@ -26,6 +29,7 @@ export function useLiveRealtime(liveStreamId: number, handlers: Handlers) {
   useEffect(() => {
     handlersRef.current = handlers;
   });
+  const withModeration = handlers.onModeration !== undefined;
 
   useEffect(() => {
     const connection = connectRealtime(setStatus);
@@ -35,11 +39,17 @@ export function useLiveRealtime(liveStreamId: number, handlers: Handlers) {
       if (message.type === 'UPDATED') handlersRef.current.onUpdated(message);
     });
     connection.subscribe<RealtimeError>(REALTIME.errors, (error) => handlersRef.current.onError(error));
+    if (withModeration) {
+      connection.subscribe<ModerationAlert>(REALTIME.moderation, (alert) => {
+        // 판매자 한 명에게 오는 알림이라 다른 방송(지난 방송 등)의 알림은 건너뛴다.
+        if (alert.liveStreamId === liveStreamId) handlersRef.current.onModeration?.(alert);
+      });
+    }
     return () => {
       connection.close();
       connectionRef.current = null;
     };
-  }, [liveStreamId]);
+  }, [liveStreamId, withModeration]);
 
   /** 채팅을 보낸다. 연결돼 있지 않으면 false */
   const sendChat = useCallback(

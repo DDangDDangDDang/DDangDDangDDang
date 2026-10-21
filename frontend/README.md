@@ -41,14 +41,17 @@ npm run dev
 
 ## E2E 테스트 (Playwright)
 
-로그인 → 홈 → 방송 시청 → 채팅 전송 흐름을 **로컬 백엔드**에 대고 실행합니다. 백엔드(MySQL·Redis·LiveKit 포함)를 먼저 띄웁니다.
+두 흐름을 **로컬 백엔드**에 대고 실행합니다. 백엔드(MySQL·Redis·LiveKit 포함)를 먼저 띄웁니다.
+
+- 방송 시청: 로그인 → 홈 → 방송 시청 → 채팅 전송
+- 판매자 송출: 스튜디오에서 방송 만들기 → 가짜 카메라로 방송 시작 → 시청 화면에 영상이 나옴 → 새로고침 뒤 이어서 송출 → 채팅 → 방송 종료
 
 1. 테스트 계정 두 개(판매자·시청자)를 회원가입 화면에서 만듭니다. 로컬은 휴대폰 인증번호가 **백엔드 로그**에 찍힙니다. (`LogSmsSender ... 인증번호 [123456]`)
 2. `frontend/.env.e2e.local`에 계정을 적습니다. (`*.local`이라 커밋되지 않음)
    ```
    E2E_EMAIL=시청자 이메일
    E2E_PASSWORD=시청자 비밀번호
-   E2E_SELLER_EMAIL=판매자 이메일      # 없으면 시청자 계정으로 방송을 엶
+   E2E_SELLER_EMAIL=판매자 이메일      # 없으면 시청자 계정으로 방송을 엶 (판매자 송출 테스트는 건너뜀)
    E2E_SELLER_PASSWORD=판매자 비밀번호
    E2E_BROWSER_CHANNEL=chrome          # PC의 Chrome 사용. 비우면 npx playwright install chromium 필요
    ```
@@ -57,4 +60,6 @@ npm run dev
    npm run e2e
    ```
 
-테스트는 판매자 계정으로 방송을 만들어 시작하고(API), 끝나면 그 방송을 종료합니다. 결과 보고서는 `playwright-report/`에 남습니다.
+테스트는 판매자 계정으로 방송을 만들어 시작하고, 끝나면 테스트가 시작한 방송만 종료합니다. (판매자 계정에 종료되지 않은 방송이 있으면 그 방송을 씀)
+카메라·마이크는 Chrome의 가짜 장치(`--use-fake-device-for-media-stream`, 테스트 패턴 영상)를 쓰므로 PC에 카메라가 없어도 됩니다.
+결과 보고서는 `playwright-report/`에 남고, 판매자 송출 테스트는 송출 중인 스튜디오·시청 화면 스크린샷을 보고서에 붙입니다.

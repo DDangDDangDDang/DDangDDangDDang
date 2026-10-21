@@ -29,7 +29,19 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, channel } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 },
+        channel,
+        // 판매자 송출 테스트: 실제 장치 대신 Chrome의 가짜 카메라·마이크(테스트 패턴 영상·삐 소리)를 쓰고, 권한은 미리 허용한다.
+        permissions: ['camera', 'microphone'],
+        launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] },
+      },
+    },
+  ],
   webServer: {
     command: 'npm run dev',
     url: baseURL,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChatMessage } from '@/api';
-import { appendChatMessage, isSendableChat, summarizeParticipants } from './live-room';
+import { appendChatMessage, countViewers, isSendableChat, summarizeParticipants } from './live-room';
 
 const chat = (messageId: string): ChatMessage => ({
   messageId,
@@ -28,6 +28,16 @@ describe('summarizeParticipants', () => {
 
   it('판매자도 시청자도 아닌 참가자는 세지 않는다', () => {
     expect(summarizeParticipants([{ identity: 'egress-1' }]).viewerCount).toBe(1);
+  });
+});
+
+describe('countViewers', () => {
+  it('시청자만 세고 판매자·그 밖의 참가자는 넣지 않는다', () => {
+    expect(countViewers([{ identity: 'viewer-2' }, { identity: 'viewer-3' }, { identity: 'seller-1' }, { identity: 'egress-1' }])).toBe(2);
+  });
+
+  it('아무도 없으면 0명이다', () => {
+    expect(countViewers([])).toBe(0);
   });
 });
 

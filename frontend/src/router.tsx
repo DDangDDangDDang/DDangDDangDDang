@@ -14,6 +14,7 @@ import { PointsPage } from '@/pages/me/PointsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { OrderDetailPage } from '@/pages/orders/OrderDetailPage';
 import { OrdersPage } from '@/pages/orders/OrdersPage';
+import { SellerStudioPage } from '@/pages/studio/SellerStudioPage';
 
 /**
  * 화면 목록. 새 화면은 src/pages에 만들고 여기에 경로를 추가한다.
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
           { path: '/points', element: <PointsPage /> },
           { path: '/orders', element: <OrdersPage /> },
           { path: '/orders/:orderId', element: <OrderDetailPage /> },
+          { path: '/studio', element: <SellerStudioPage /> },
         ],
       },
 

@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 're
 import { useSession, type ChatMessage, type RealtimeStatus } from '@/api';
 import { Badge, Notice } from '@/components/ui';
 import { cn } from '@/lib/cn';
-import { CHAT_MAX_LENGTH, isSendableChat } from './live-room';
+import { CHAT_MAX_LENGTH, isSendableChat } from '@/lib/live-room';
 
 type Props = {
   messages: ChatMessage[];
@@ -14,13 +14,15 @@ type Props = {
   /** 채팅 전송 실패 안내 (/user/queue/errors) */
   error?: string;
   onSend: (content: string) => boolean;
+  /** AI 검토 알림이 온 채팅의 messageId. 판매자 화면에서만 넘겨 해당 채팅에 표시한다. */
+  flaggedIds?: ReadonlySet<string>;
 };
 
 /** 스크롤이 맨 아래에서 이만큼(px) 안에 있으면 새 메시지가 올 때 따라 내려간다. */
 const STICK_TO_BOTTOM_PX = 48;
 
-/** 실시간 채팅: 메시지 목록 + 입력. 메시지는 접속한 뒤부터 쌓인다. (이전 채팅 API 없음) */
-export function LiveChat({ messages, sellerId, canChat, status, error, onSend }: Props) {
+/** 실시간 채팅: 메시지 목록 + 입력. 메시지는 접속한 뒤부터 쌓인다. (이전 채팅 API 없음) 방송 시청·판매자 스튜디오가 같이 쓴다. */
+export function LiveChat({ messages, sellerId, canChat, status, error, onSend, flaggedIds }: Props) {
   const session = useSession();
   const [draft, setDraft] = useState('');
   const [notSent, setNotSent] = useState(false);
@@ -78,7 +80,13 @@ export function LiveChat({ messages, sellerId, canChat, status, error, onSend }:
           </li>
         ) : (
           messages.map((message) => (
-            <ChatLine key={message.messageId} message={message} isSeller={message.senderId === sellerId} isMine={message.senderId === session?.user.userId} />
+            <ChatLine
+                key={message.messageId}
+                message={message}
+                isSeller={message.senderId === sellerId}
+                isMine={message.senderId === session?.user.userId}
+                flagged={flaggedIds?.has(message.messageId) ?? false}
+              />
           ))
         )}
       </ul>
@@ -126,12 +134,17 @@ export function LiveChat({ messages, sellerId, canChat, status, error, onSend }:
   );
 }
 
-function ChatLine({ message, isSeller, isMine }: { message: ChatMessage; isSeller: boolean; isMine: boolean }) {
+function ChatLine({ message, isSeller, isMine, flagged }: { message: ChatMessage; isSeller: boolean; isMine: boolean; flagged: boolean }) {
   if (message.type === 'SYSTEM') {
     return <li className="self-center rounded-full bg-neutral-50 px-3 py-1 text-caption text-neutral-500">{message.content}</li>;
   }
   return (
-    <li className="leading-relaxed break-words">
+    <li className={cn('leading-relaxed break-words', flagged && '-mx-2 rounded-md bg-brand-50 px-2 py-1')}>
+      {flagged && (
+        <Badge variant="warning" className="mr-1 h-4.5 px-1.5 align-[1px]">
+          확인 필요
+        </Badge>
+      )}
       {isSeller && (
         <Badge variant="live" className="mr-1 h-4.5 px-1.5 align-[1px]">
           판매자
