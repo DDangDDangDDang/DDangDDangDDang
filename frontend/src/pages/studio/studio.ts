@@ -1,4 +1,5 @@
 import type { ModerationAlert, Schema } from '@/api';
+import { fromDateTimeInput, toDateTimeInput } from '@/lib/datetime-input';
 
 /*
  * 판매자 스튜디오 화면의 계산 로직. (화면과 분리해 단위 테스트한다)
@@ -16,22 +17,6 @@ export const SCHEDULE_LIMIT_DAYS = 30;
 /** 방송 만들기·수정 입력값. scheduledStartAt은 <input type="datetime-local">의 값("2026-10-20T20:00") 또는 빈 문자열 */
 export type StreamFormValues = { title: string; description: string; scheduledStartAt: string };
 export type StreamFormErrors = Partial<Record<keyof StreamFormValues, string>>;
-
-/** 서버 시각("2026-10-20T20:00:00")을 datetime-local 입력값("2026-10-20T20:00")으로 */
-export function toDateTimeInput(serverTime?: string): string {
-  return serverTime ? serverTime.slice(0, 16) : '';
-}
-
-/** datetime-local 입력값을 서버 시각 문자열로. 서버는 시간대 없는 서울 시각을 받는다. (docs/api/README.md) */
-export function fromDateTimeInput(value: string): string | undefined {
-  return value ? `${value}:00` : undefined;
-}
-
-/** 지금 시각을 datetime-local 입력값 형식으로 (입력의 min·max에 쓴다) */
-export function dateTimeInputOf(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 export function formValuesOf(liveStream?: LiveStream): StreamFormValues {
   return {

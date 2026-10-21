@@ -40,15 +40,26 @@ function AppHeader() {
               <NavLink to="/lives" className={navClass}>
                 라이브
               </NavLink>
+              <NavLink to="/auctions" className={navClass}>
+                경매
+              </NavLink>
               <NavLink to="/studio" className={navClass}>
                 방송하기
+              </NavLink>
+              <NavLink to="/me/products" className={navClass}>
+                내 상품
               </NavLink>
               <NavLink to="/orders" className={navClass}>
                 주문 내역
               </NavLink>
-              <NavLink to="/me" className={navClass}>
+              <NavLink to="/me" end className={navClass}>
                 내 정보
               </NavLink>
+              {session.user.role === 'ADMIN' && (
+                <NavLink to="/admin/categories" className={navClass}>
+                  카테고리 관리
+                </NavLink>
+              )}
             </nav>
           )}
         </div>

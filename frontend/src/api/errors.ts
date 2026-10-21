@@ -17,7 +17,22 @@ export class ApiError extends Error {
  * 화면에 보여줄 문구를 서버 기본 메시지 대신 바꾸고 싶을 때 여기에 적는다.
  * 적지 않은 코드는 서버 메시지를 그대로 쓴다.
  */
-const USER_MESSAGES: Partial<Record<ErrorCode, string>> = {};
+const USER_MESSAGES: Partial<Record<ErrorCode, string>> = {
+  AUCTION_002: '판매 중인 상품만 경매에 올릴 수 있어요.',
+  AUCTION_003: '이 상품은 이미 시작 전이거나 진행 중인 경매가 있어요.',
+  AUCTION_004: '마감 시각은 시작 시각보다 뒤여야 해요.',
+  AUCTION_005: '즉시구매가는 시작가보다 커야 해요.',
+  AUCTION_006: '내 경매만 취소할 수 있어요.',
+  AUCTION_007: '시작 전이거나 진행 중인 경매만 취소할 수 있어요.',
+  AUCTION_008: '입찰이 있는 경매는 취소할 수 없어요.',
+  AUCTION_009: '경매 정보가 바뀌었어요. 새로 불러온 뒤 다시 시도해 주세요.',
+  PRODUCT_002: '내 상품만 수정하거나 삭제할 수 있어요.',
+  PRODUCT_003: '소분류 카테고리를 골라 주세요.',
+  PRODUCT_004: '시작 전이거나 진행 중인 경매가 있는 상품은 수정하거나 삭제할 수 없어요.',
+  CATEGORY_004: '하위 카테고리가 있어 삭제할 수 없어요.',
+  CATEGORY_005: '이 카테고리에 등록된 상품이 있어 삭제할 수 없어요.',
+  CATEGORY_006: '상품이 등록된 카테고리에는 하위 카테고리를 만들 수 없어요.',
+};
 
 const NETWORK_ERROR = 'NETWORK_ERROR';
 
