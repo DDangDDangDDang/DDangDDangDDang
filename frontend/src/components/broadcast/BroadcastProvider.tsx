@@ -70,6 +70,8 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
     if (liveStreamId !== undefined) {
       setAutoEnded(undefined);
       setGraceStreamId(undefined);
+      // 새 방송에 이전 방송 제목이 남지 않게 한다. (이전 방송이 끝날 때까지는 유예 연결에서 이 제목을 쓴다)
+      setIdleTitle(undefined);
     } else if (idleEndsAt !== undefined) {
       setGraceStreamId(prevStreamId);
     }

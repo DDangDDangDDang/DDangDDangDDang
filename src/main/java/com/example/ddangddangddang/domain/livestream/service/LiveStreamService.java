@@ -244,6 +244,10 @@ public class LiveStreamService {
 
     private LiveStreamResponse end(Long liveStreamId, Long sellerId, boolean idle) {
         LiveStream liveStream = findById(liveStreamId);
+        // 자동 종료는 방송 중일 때만 한다. 감시가 겹쳐(잠금 만료 등) 이미 끝난 방송을 다시 끝내면 방 삭제·종료 안내가 두 번 나가므로 막는다.
+        if (idle && liveStream.getStatus() != LiveStreamStatus.LIVE) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_LIVE);
+        }
         liveStream.end(sellerId);
         flushWithVersionCheck(liveStream);
 

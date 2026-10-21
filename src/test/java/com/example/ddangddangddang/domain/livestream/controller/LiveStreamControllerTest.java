@@ -255,6 +255,12 @@ class LiveStreamControllerTest {
 
         mockMvc.perform(get("/api/v1/live-streams/{liveStreamId}", liveStreamId))
                 .andExpect(jsonPath("$.data.status").value("ENDED"));
+        // 감시가 겹쳐 한 번 더 불러도 이미 끝난 방송은 다시 끝내지 않는다. (방 삭제·종료 안내 중복 방지)
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> liveStreamService.endForIdle(liveStreamId, seller.id()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode.NOT_LIVE);
+        verify(mediaServerClient, times(1)).deleteRoom(anyString());
         mockMvc.perform(get("/api/v1/live-streams/me/active").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
                 .andExpect(jsonPath("$.data").doesNotExist());
     }
