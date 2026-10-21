@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/api';
 import { SignupPage } from './SignupPage';
 
@@ -48,6 +48,7 @@ describe('SignupPage', () => {
   beforeEach(() => {
     server.signup = () => undefined;
   });
+  afterEach(() => vi.restoreAllMocks());
 
   it.each([
     ['USER_004', '이미 가입된 휴대폰 번호입니다.'],
@@ -65,6 +66,16 @@ describe('SignupPage', () => {
     // 이미 쓴 인증번호 입력은 지우고 [인증번호 받기]부터 다시 하게 한다.
     expect(screen.queryByLabelText('인증번호')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '가입하기' })).toBeDisabled();
+
+    // 다른 번호로 다시 인증하면 이전 가입 실패 안내가 사라진다.
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 61_000);
+    await user.clear(screen.getByLabelText('휴대폰 번호'));
+    await user.type(screen.getByLabelText('휴대폰 번호'), '01087654321');
+    await user.click(await screen.findByRole('button', { name: '인증번호 받기' }, { timeout: 3000 }));
+    await user.type(await screen.findByLabelText('인증번호'), '654321');
+    await user.click(screen.getByRole('button', { name: '확인' }));
+    expect(await screen.findByText('휴대폰 인증을 완료했어요.')).toBeInTheDocument();
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
   });
 
   it('이메일 중복(USER_001)이면 휴대폰 인증은 그대로 두어 이메일만 고쳐 다시 가입할 수 있다', async () => {

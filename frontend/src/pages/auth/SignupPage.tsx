@@ -100,7 +100,11 @@ export function SignupPage() {
           }}
           verify={async (phoneNumber, code) => {
             const data = await call(api.POST('/api/v1/auth/signup/phone/verify', { body: { phoneNumber, code } }));
-            if (data?.verificationToken) setVerified({ phoneNumber, token: data.verificationToken });
+            if (data?.verificationToken) {
+              setVerified({ phoneNumber, token: data.verificationToken });
+              // 다시 인증했으면 이전 가입 실패 안내(인증 만료 등)를 지운다.
+              setError(undefined);
+            }
           }}
           verifiedMessage="휴대폰 인증을 완료했어요."
         />

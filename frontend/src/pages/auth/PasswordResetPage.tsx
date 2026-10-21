@@ -67,7 +67,11 @@ export function PasswordResetPage() {
         }}
         verify={async (email, code) => {
           const data = await call(api.POST('/api/v1/auth/password-reset/verify', { body: { email, code } }));
-          if (data?.verificationToken) setToken(data.verificationToken);
+          if (data?.verificationToken) {
+            setToken(data.verificationToken);
+            // 같은 이메일로 다시 인증했으면 이전 만료 안내를 지운다.
+            setError(undefined);
+          }
         }}
       />
 
