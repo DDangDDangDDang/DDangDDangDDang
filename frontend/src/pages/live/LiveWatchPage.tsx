@@ -8,6 +8,7 @@ import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime } from '@/lib/format';
 import { AuctionPanel } from './AuctionPanel';
+import { Hashtags } from '@/components/live/Hashtags';
 import { LiveChat } from '@/components/live/LiveChat';
 import { appendChatMessage } from '@/lib/live-room';
 import { LiveVideo } from './LiveVideo';
@@ -134,7 +135,10 @@ function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStr
 
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="text-title-lg font-bold tracking-tight">{liveStream.title || '제목 없는 방송'}</h1>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-title-lg font-bold tracking-tight">{liveStream.title || '제목 없는 방송'}</h1>
+        <Hashtags tags={liveStream.hashtags} />
+      </div>
       <div className="flex items-center gap-3">
         <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700">
           {name.slice(0, 1)}

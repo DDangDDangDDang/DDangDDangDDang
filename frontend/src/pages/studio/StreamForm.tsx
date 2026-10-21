@@ -14,6 +14,7 @@ import {
   type StreamFormValues,
 } from './studio';
 import { dateTimeInputOf } from '@/lib/datetime-input';
+import { HashtagField } from './HashtagField';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
 
@@ -22,7 +23,7 @@ type Props =
   | { mode: 'edit'; liveStream: LiveStream; onSaved: (liveStream: LiveStream) => void; onCancel: () => void };
 
 /**
- * 방송 만들기·수정 입력. 제목(필수)·설명·시작 예정 시간.
+ * 방송 만들기·수정 입력. 제목(필수)·설명·해시태그·시작 예정 시간.
  * 시작 예정 시간은 방송 시작 전에만 정하거나 바꿀 수 있다.
  */
 export function StreamForm(props: Props) {
@@ -48,6 +49,10 @@ export function StreamForm(props: Props) {
     onError: (error) => {
       if (isErrorCode(error, 'LIVESTREAM_012') || isErrorCode(error, 'LIVESTREAM_011')) {
         setErrors({ scheduledStartAt: errorMessage(error) });
+        return;
+      }
+      if (isErrorCode(error, 'LIVESTREAM_015')) {
+        setErrors({ hashtags: errorMessage(error) });
         return;
       }
       if (props.mode === 'create' && isErrorCode(error, 'LIVESTREAM_010')) {
@@ -106,6 +111,7 @@ export function StreamForm(props: Props) {
           </span>
         }
       />
+      <HashtagField tags={values.hashtags} onChange={(hashtags) => update({ hashtags })} error={errors.hashtags} />
       {canSchedule && (
         <div className="w-[320px]">
           <Input

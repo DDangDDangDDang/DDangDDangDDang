@@ -4,6 +4,7 @@ import type { Schema } from '@/api';
 import { Badge, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { LIVE_STREAM_STATUS_LABEL } from '@/lib/labels';
+import { Hashtags } from './Hashtags';
 
 type Card = Schema<'LiveStreamCard'>;
 
@@ -42,6 +43,7 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
         <strong className="line-clamp-2 text-body-lg font-semibold group-hover:underline">{card.title || '제목 없는 방송'}</strong>
         <span className="text-label text-neutral-500">{card.sellerNickname || '판매자'}</span>
         <StartTime card={card} />
+        <Hashtags tags={card.hashtags} className="mt-0.5" />
       </div>
     </Link>
   );

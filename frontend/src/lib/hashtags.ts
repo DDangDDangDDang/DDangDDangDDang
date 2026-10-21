@@ -1,0 +1,29 @@
+/*
+ * 방송 해시태그 규칙. 서버(LiveStreamHashtags)와 같은 규칙으로 입력 단계에서 먼저 알려 준다.
+ * 화면에는 "#나이키"처럼 #을 붙여 보여 주고, 서버에는 # 없이 보낸다.
+ */
+
+export const HASHTAG_MAX_COUNT = 5;
+export const HASHTAG_MAX_LENGTH = 20;
+
+const TAG = new RegExp(`^[\\p{L}\\p{N}_]{1,${HASHTAG_MAX_LENGTH}}$`, 'u');
+
+export type HashtagAddResult = { tags: string[]; error?: string };
+
+/**
+ * 입력한 글을 태그 목록에 더한다. 앞의 #과 앞뒤 공백은 뺀다.
+ * 빈 글이면 그대로, 대소문자만 다른 같은 태그가 이미 있으면 더하지 않는다.
+ */
+export function addHashtag(tags: string[], input: string): HashtagAddResult {
+  const tag = input.trim().replace(/^#+/, '').trim();
+  if (!tag) return { tags };
+  if (!TAG.test(tag)) return { tags, error: `해시태그는 한글·영문·숫자·밑줄(_)로 ${HASHTAG_MAX_LENGTH}자까지 쓸 수 있어요.` };
+  if (tags.some((t) => t.toLowerCase() === tag.toLowerCase())) return { tags };
+  if (tags.length >= HASHTAG_MAX_COUNT) return { tags, error: `해시태그는 ${HASHTAG_MAX_COUNT}개까지 넣을 수 있어요.` };
+  return { tags: [...tags, tag] };
+}
+
+/** 두 태그 목록이 순서까지 같은지 (수정할 때 바뀐 것만 보내기) */
+export function sameHashtags(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((tag, i) => tag === b[i]);
+}

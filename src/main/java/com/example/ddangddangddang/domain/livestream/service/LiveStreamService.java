@@ -6,6 +6,7 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamHashtags;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamEndedEvent;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -61,15 +63,18 @@ public class LiveStreamService {
     public LiveStreamResponse create(Long sellerId, LiveStreamCreateRequest request) {
         String title = requireTitle(request.title());
         String description = blankToNull(request.description());
+        List<String> hashtags = LiveStreamHashtags.normalize(request.hashtags());
         validateContent(title);
         validateContent(description);
+        validateHashtags(hashtags);
         validateScheduledStartAt(request.scheduledStartAt(), LocalDateTime.now());
         if (liveStreamRepository.existsByActiveSellerId(sellerId)) {
             throw new BusinessException(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS);
         }
         try {
-            LiveStream liveStream = liveStreamRepository.saveAndFlush(
-                    LiveStream.create(sellerId, title, description, request.scheduledStartAt()));
+            LiveStream created = LiveStream.create(sellerId, title, description, request.scheduledStartAt());
+            created.changeHashtags(hashtags);
+            LiveStream liveStream = liveStreamRepository.saveAndFlush(created);
             return LiveStreamResponse.from(liveStream);
         } catch (DataIntegrityViolationException e) {
             // 판매자당 하나 규칙의 유니크 제약에 걸린 경우만 안내로 바꾼다. 다른 제약 위반(버그)은 그대로 드러나게 다시 던진다.
@@ -112,15 +117,21 @@ public class LiveStreamService {
         // null은 그대로 두기, 빈 문자열(공백만 포함)은 설명 지우기
         String description = request.description() == null ? null : request.description().strip();
         String notice = request.notice() == null ? null : request.notice().strip();
+        // null은 그대로 두기, 빈 목록은 해시태그 지우기
+        List<String> hashtags = request.hashtags() == null ? null : LiveStreamHashtags.normalize(request.hashtags());
         validateContent(title);
         validateContent(description);
         validateContent(notice);
+        validateHashtags(hashtags);
         validateScheduledStartAt(request.scheduledStartAt(), LocalDateTime.now());
 
         boolean changed = liveStream.update(sellerId, title, description, request.scheduledStartAt());
-        // update가 주인·종료 여부를 확인한 뒤에 공지를 바꾼다.
+        // update가 주인·종료 여부를 확인한 뒤에 공지·해시태그를 바꾼다.
         if (notice != null) {
             changed = liveStream.changeNotice(notice) || changed;
+        }
+        if (hashtags != null) {
+            changed = liveStream.changeHashtags(hashtags) || changed;
         }
         if (!changed) {
             return LiveStreamResponse.from(liveStream);
@@ -153,6 +164,13 @@ public class LiveStreamService {
         contentFilter.findViolation(content).ifPresent(violation -> {
             throw new BusinessException(LiveStreamErrorCode.CONTENT_NOT_ALLOWED, violation.getMessage());
         });
+    }
+
+    // 해시태그도 제목·설명처럼 막힌 내용(연락처 등)을 넣을 수 없다. 태그를 이어 붙여 한 번에 검사한다.
+    private void validateHashtags(List<String> hashtags) {
+        if (hashtags != null && !hashtags.isEmpty()) {
+            validateContent(String.join(" ", hashtags));
+        }
     }
 
     /**

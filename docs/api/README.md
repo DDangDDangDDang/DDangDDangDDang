@@ -88,7 +88,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | `messageId` | string | 메시지 ID (UUID). 검토 알림이 가리키는 메시지를 찾을 때 씀 |
-| `type` | `"CHAT"` \| `"SYSTEM"` | `SYSTEM`은 서버 안내(방송 종료 등). 이때 `senderId`, `nickname`은 null |
+| `type` | `"CHAT"` \| `"SYSTEM"` | `SYSTEM`은 서버 안내(방송 시작·종료 등). 이때 `senderId`, `nickname`은 null |
 | `liveStreamId` | number | |
 | `senderId` | number \| null | |
 | `nickname` | string \| null | |
@@ -97,6 +97,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 
 **LiveStreamUpdatedMessage**: `{ "type": "UPDATED", "liveStream": LiveStreamResponse }`
 - `liveStream`은 REST의 `LiveStreamResponse`와 같은 형식입니다. 바뀐 값만이 아니라 전체 정보이므로 받은 값으로 화면을 덮어쓰면 됩니다.
+- 방송 정보 수정뿐 아니라 방송을 시작할 때도 옵니다. (`status`가 `LIVE`) 방송 예정 화면에서 기다리던 시청자는 새로고침 없이 영상에 접속하고, 채팅에 `SYSTEM` "방송이 시작되었습니다." 안내도 옵니다.
 
 **LiveAuctionChangedMessage**: `{ "type": "CHANGED", "auctionId": number }`
 - 바뀐 경매 번호만 옵니다. 받으면 방송의 경매 목록(`GET /api/v1/lives/{liveId}/auctions`)을 다시 불러옵니다.

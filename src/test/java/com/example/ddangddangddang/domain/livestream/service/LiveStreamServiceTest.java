@@ -33,6 +33,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -169,6 +170,36 @@ class LiveStreamServiceTest {
             assertThat(cleared.notice()).isNull();
             then(liveStreamRepository).should(org.mockito.Mockito.times(2)).saveAndFlush(liveStream);
             then(eventPublisher).should(org.mockito.Mockito.times(2)).publishEvent(any(LiveStreamUpdatedEvent.class));
+        }
+
+        @Test
+        @DisplayName("해시태그를 보내면 그 목록으로 바꾸고, 빈 목록이면 지우고, 보내지 않으면 그대로 둔다")
+        void hashtags() {
+            LiveStream liveStream = liveStream(true);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            LiveStreamResponse tagged = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest(null, null, null, null, List.of("#나이키", "운동화")));
+            assertThat(tagged.hashtags()).containsExactly("나이키", "운동화");
+
+            LiveStreamResponse kept = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID, new LiveStreamUpdateRequest("새 제목", null));
+            assertThat(kept.hashtags()).containsExactly("나이키", "운동화");
+
+            LiveStreamResponse cleared = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest(null, null, null, null, List.of()));
+            assertThat(cleared.hashtags()).isEmpty();
+            then(eventPublisher).should(org.mockito.Mockito.times(3)).publishEvent(any(LiveStreamUpdatedEvent.class));
+        }
+
+        @Test
+        @DisplayName("해시태그에도 연락처 같은 막힌 내용은 넣을 수 없다 (LIVESTREAM_009)")
+        void hashtagContentNotAllowed() {
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(true)));
+            given(contentFilter.findViolation(any())).willAnswer(invocation -> "나이키 01012345678".equals(invocation.getArgument(0))
+                    ? Optional.of(ContentViolation.PHONE_NUMBER) : Optional.empty());
+
+            assertUpdateError(SELLER_ID, new LiveStreamUpdateRequest(null, null, null, null, List.of("나이키", "01012345678")),
+                    LiveStreamErrorCode.CONTENT_NOT_ALLOWED);
         }
 
         @Test
