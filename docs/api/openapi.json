@@ -12,6 +12,146 @@
     "bearerAuth" : [ ]
   } ],
   "paths" : {
+    "/api/v1/sellers/{sellerId}/subscription" : {
+      "put" : {
+        "tags" : [ "seller-controller" ],
+        "operationId" : "sellerSubscribe",
+        "parameters" : [ {
+          "name" : "sellerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSubscriptionResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "seller-controller" ],
+        "operationId" : "sellerUnsubscribe",
+        "parameters" : [ {
+          "name" : "sellerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSubscriptionResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/seller-applications" : {
+      "post" : {
+        "tags" : [ "seller-application-controller" ],
+        "operationId" : "sellerApplicationApply",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SellerApplicationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSellerApplicationResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/products" : {
       "post" : {
         "tags" : [ "product-controller" ],
@@ -342,6 +482,91 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponsePointChargeCompleteResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{notificationId}/read" : {
+      "post" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "notificationRead",
+        "parameters" : [ {
+          "name" : "notificationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read-all" : {
+      "post" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "notificationReadAll",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUnreadNotificationCountResponse"
                 }
               }
             }
@@ -1998,6 +2223,110 @@
         }
       }
     },
+    "/api/v1/admin/seller-applications/{applicationId}/reject" : {
+      "post" : {
+        "tags" : [ "admin-seller-application-controller" ],
+        "operationId" : "adminSellerApplicationReject",
+        "parameters" : [ {
+          "name" : "applicationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SellerRejectRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSellerApplicationResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/seller-applications/{applicationId}/approve" : {
+      "post" : {
+        "tags" : [ "admin-seller-application-controller" ],
+        "operationId" : "adminSellerApplicationApprove",
+        "parameters" : [ {
+          "name" : "applicationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSellerApplicationResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/categories" : {
       "post" : {
         "tags" : [ "category-controller" ],
@@ -2630,6 +2959,44 @@
         }
       }
     },
+    "/api/v1/users/me/subscriptions" : {
+      "get" : {
+        "tags" : [ "seller-controller" ],
+        "operationId" : "sellerGetMySubscriptions",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSubscribedSellerResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/me/products" : {
       "get" : {
         "tags" : [ "product-controller" ],
@@ -2712,6 +3079,157 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseListAuctionResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sellers/{sellerId}/profile" : {
+      "get" : {
+        "tags" : [ "seller-controller" ],
+        "operationId" : "sellerGetProfile",
+        "parameters" : [ {
+          "name" : "sellerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSellerProfileResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/v1/sellers/{sellerId}/auctions" : {
+      "get" : {
+        "tags" : [ "seller-controller" ],
+        "operationId" : "sellerGetAuctions",
+        "parameters" : [ {
+          "name" : "sellerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 10
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseSellerAuctionResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/v1/seller-applications/me" : {
+      "get" : {
+        "tags" : [ "seller-application-controller" ],
+        "operationId" : "sellerApplicationGetMine",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSellerApplicationResponse"
                 }
               }
             }
@@ -3008,6 +3526,100 @@
         }
       }
     },
+    "/api/v1/notifications" : {
+      "get" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "notificationGetNotifications",
+        "parameters" : [ {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseNotificationResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/unread-count" : {
+      "get" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "notificationCountUnread",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUnreadNotificationCountResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live-streams/me/active" : {
       "get" : {
         "tags" : [ "live-stream-controller" ],
@@ -3269,6 +3881,70 @@
         "security" : [ ]
       }
     },
+    "/api/v1/admin/seller-applications" : {
+      "get" : {
+        "tags" : [ "admin-seller-application-controller" ],
+        "operationId" : "adminSellerApplicationGetApplications",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "APPROVED", "REJECTED" ]
+          }
+        }, {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseSellerApplicationResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/dm/reports" : {
       "get" : {
         "tags" : [ "admin-dm-report-controller" ],
@@ -3439,6 +4115,116 @@
   },
   "components" : {
     "schemas" : {
+      "ApiResponseSubscriptionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SubscriptionResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "ErrorResponse" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SubscriptionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "sellerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "subscribed" : {
+            "type" : "boolean"
+          },
+          "subscriberCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SellerApplicationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "storeName" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "introduction" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "introduction", "storeName" ]
+      },
+      "ApiResponseSellerApplicationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SellerApplicationResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "SellerApplicationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "storeName" : {
+            "type" : "string"
+          },
+          "introduction" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "APPROVED", "REJECTED" ]
+          },
+          "rejectReason" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reviewedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "ProductRequest" : {
         "type" : "object",
         "properties" : {
@@ -3468,16 +4254,6 @@
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "ErrorResponse" : {
-        "properties" : {
-          "code" : {
-            "type" : "string"
-          },
-          "message" : {
-            "type" : "string"
           }
         }
       },
@@ -3677,6 +4453,77 @@
             "enum" : [ "PENDING", "COMPLETE", "FAILED" ]
           },
           "balance" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ApiResponseNotificationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/NotificationResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "NotificationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "LIVE_STARTED" ]
+          },
+          "sellerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sellerNickname" : {
+            "type" : "string"
+          },
+          "liveStreamId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "liveTitle" : {
+            "type" : "string"
+          },
+          "read" : {
+            "type" : "boolean"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ApiResponseUnreadNotificationCountResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/UnreadNotificationCountResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "UnreadNotificationCountResponse" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
             "type" : "integer",
             "format" : "int64"
           }
@@ -4484,6 +5331,17 @@
         },
         "required" : [ "bidUnit", "endAt", "productId", "startAt", "startPrice" ]
       },
+      "SellerRejectRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "reason" ]
+      },
       "CategoryRequest" : {
         "type" : "object",
         "properties" : {
@@ -4785,6 +5643,45 @@
           }
         }
       },
+      "ApiResponseListSubscribedSellerResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SubscribedSellerResponse"
+            }
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "SubscribedSellerResponse" : {
+        "type" : "object",
+        "properties" : {
+          "sellerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "verifiedSeller" : {
+            "type" : "boolean"
+          },
+          "liveStreamId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "liveTitle" : {
+            "type" : "string"
+          }
+        }
+      },
       "ApiResponsePageProductResponse" : {
         "type" : "object",
         "properties" : {
@@ -4899,6 +5796,175 @@
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "ApiResponseSellerProfileResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SellerProfileResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "SellerProfileResponse" : {
+        "type" : "object",
+        "properties" : {
+          "sellerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "verifiedSeller" : {
+            "type" : "boolean"
+          },
+          "storeName" : {
+            "type" : "string"
+          },
+          "introduction" : {
+            "type" : "string"
+          },
+          "verifiedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "joinedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "subscriberCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "subscribed" : {
+            "type" : "boolean"
+          },
+          "liveStreamId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "firstBroadcastAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "broadcastCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalBroadcastSeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "trust" : {
+            "$ref" : "#/components/schemas/Trust"
+          }
+        }
+      },
+      "Trust" : {
+        "type" : "object",
+        "properties" : {
+          "phoneVerified" : {
+            "type" : "boolean"
+          },
+          "soldAuctionCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failedAuctionCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "canceledAuctionCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "completedOrderCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "averageShippingHours" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "ApiResponseCursorResponseSellerAuctionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseSellerAuctionResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CursorResponseSellerAuctionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SellerAuctionResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "SellerAuctionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "productName" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "READY", "ONGOING", "ENDED", "FAILED", "CANCELED" ]
+          },
+          "startPrice" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "currentPrice" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bidCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "startAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "liveStreamId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -5093,6 +6159,38 @@
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "ApiResponseCursorResponseNotificationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseNotificationResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CursorResponseNotificationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NotificationResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
           }
         }
       },
@@ -5444,6 +6542,38 @@
           }
         }
       },
+      "ApiResponseCursorResponseSellerApplicationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseSellerApplicationResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CursorResponseSellerApplicationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SellerApplicationResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ApiResponseCursorResponseDmReportResponse" : {
         "type" : "object",
         "properties" : {
@@ -5752,6 +6882,10 @@
     "status" : 429,
     "message" : "시청 입장 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
   }, {
+    "code" : "NOTIFICATION_001",
+    "status" : 404,
+    "message" : "알림을 찾을 수 없습니다."
+  }, {
     "code" : "ORDER_001",
     "status" : 404,
     "message" : "주문을 찾을 수 없습니다."
@@ -5887,6 +7021,30 @@
     "code" : "PRODUCT_004",
     "status" : 409,
     "message" : "경매 상태가 대기 OR 진행 중인 상품은 수정,삭제 불가능합니다."
+  }, {
+    "code" : "SELLER_001",
+    "status" : 409,
+    "message" : "판매자 신청을 심사하고 있습니다. 결과가 나온 뒤 다시 신청해 주세요."
+  }, {
+    "code" : "SELLER_002",
+    "status" : 409,
+    "message" : "이미 판매자 인증을 받았습니다."
+  }, {
+    "code" : "SELLER_003",
+    "status" : 404,
+    "message" : "판매자 신청을 찾을 수 없습니다."
+  }, {
+    "code" : "SELLER_004",
+    "status" : 409,
+    "message" : "이미 심사한 신청입니다."
+  }, {
+    "code" : "SELLER_005",
+    "status" : 400,
+    "message" : "자기 자신은 구독할 수 없습니다."
+  }, {
+    "code" : "SELLER_006",
+    "status" : 400,
+    "message" : "판매자 정보에 사용할 수 없는 내용이 포함되어 있습니다."
   }, {
     "code" : "USER_001",
     "status" : 409,

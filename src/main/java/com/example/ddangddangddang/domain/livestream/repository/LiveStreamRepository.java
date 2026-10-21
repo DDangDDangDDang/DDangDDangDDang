@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +25,12 @@ public interface LiveStreamRepository extends JpaRepository<LiveStream, Long> {
 
     // 시청자 수 집계 대상 (진행 중인 방송 전체)
     List<LiveStream> findAllByStatus(LiveStreamStatus status);
+
+    // 구독한 판매자 중 방송 중인 판매자 (홈 화면 구독 목록의 LIVE 표시)
+    List<LiveStream> findBySellerIdInAndStatus(Collection<Long> sellerIds, LiveStreamStatus status);
+
+    // 판매자 프로필: 시작한 적 있는 방송 (첫 방송일, 방송 수, 방송한 시간 합)
+    List<LiveStream> findBySellerIdAndStartedAtIsNotNull(Long sellerId);
 
     // 홈 화면에서 시청자 수 정보가 아직 없을 때 채우는 용도. 최근 시작한 방송부터
     List<LiveStream> findByStatusOrderByStartedAtDesc(LiveStreamStatus status, Pageable pageable);
