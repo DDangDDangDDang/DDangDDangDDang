@@ -110,11 +110,18 @@ public class LiveStreamService {
         String title = request.title() == null ? null : requireTitle(request.title());
         // null은 그대로 두기, 빈 문자열(공백만 포함)은 설명 지우기
         String description = request.description() == null ? null : request.description().strip();
+        String notice = request.notice() == null ? null : request.notice().strip();
         validateContent(title);
         validateContent(description);
+        validateContent(notice);
         validateScheduledStartAt(request.scheduledStartAt(), LocalDateTime.now());
 
-        if (!liveStream.update(sellerId, title, description, request.scheduledStartAt())) {
+        boolean changed = liveStream.update(sellerId, title, description, request.scheduledStartAt());
+        // update가 주인·종료 여부를 확인한 뒤에 공지를 바꾼다.
+        if (notice != null) {
+            changed = liveStream.changeNotice(notice) || changed;
+        }
+        if (!changed) {
             return LiveStreamResponse.from(liveStream);
         }
         flushWithVersionCheck(liveStream);
