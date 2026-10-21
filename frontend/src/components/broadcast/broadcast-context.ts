@@ -6,6 +6,9 @@ import type { usePublisher } from './use-publisher';
 /** 내 종료되지 않은 방송 (GET /live-streams/me/active). 판매자당 하나만 둘 수 있다. (LIVESTREAM_010) */
 export const ACTIVE_STREAM_KEY = ['studio', 'active'] as const;
 
+/** 방송 시작 요청 (POST /start). 요청 중에 스튜디오를 떠나도 송출 담당을 내려놓지 않도록 이름을 붙인다. */
+export const START_STREAM_KEY = ['studio', 'start'] as const;
+
 export type ActiveLiveStream = Schema<'LiveStreamResponse'> & { id: number };
 
 /**

@@ -1,10 +1,10 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, api, call, errorMessage, useSession, type ChatMessage, type ModerationAlert } from '@/api';
 import { readBroadcastOwner, writeBroadcastOwner } from '@/lib/broadcast-owner';
 import { appendChatMessage, prependModerationAlert } from '@/lib/live-room';
 import { useLiveRealtime } from '@/lib/use-live-realtime';
-import { ACTIVE_STREAM_KEY, BroadcastContext, type ActiveLiveStream, type Broadcast } from './broadcast-context';
+import { ACTIVE_STREAM_KEY, BroadcastContext, START_STREAM_KEY, type ActiveLiveStream, type Broadcast } from './broadcast-context';
 import { useLocalMedia } from './use-local-media';
 import { usePublisher } from './use-publisher';
 
@@ -39,7 +39,9 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   // 방송 전에 떠난 탭이 맡은 채로 남으면, 다른 탭에서 방송을 시작할 때 이 탭도 송출해 서로 빼앗는다.
   const [ownerId, setOwnerId] = useState(readBroadcastOwner);
   if (studioOpen && liveStreamId !== undefined && ownerId !== liveStreamId) setOwnerId(liveStreamId);
-  if (active.isSuccess && ownerId !== undefined && (liveStreamId === undefined || (!live && !studioOpen))) setOwnerId(undefined);
+  // [방송 시작]을 누르고 응답 전에 스튜디오를 떠났으면, 곧 방송 중이 되므로 내려놓지 않는다.
+  const starting = useIsMutating({ mutationKey: START_STREAM_KEY }) > 0;
+  if (active.isSuccess && ownerId !== undefined && (liveStreamId === undefined || (!live && !studioOpen && !starting))) setOwnerId(undefined);
   useEffect(() => writeBroadcastOwner(ownerId), [ownerId]);
   const publishing = live && ownerId === liveStreamId;
 

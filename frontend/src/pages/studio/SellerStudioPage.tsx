@@ -3,7 +3,7 @@ import { Eye, Pencil, RefreshCw } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, isErrorCode, type Schema } from '@/api';
-import { ACTIVE_STREAM_KEY, useBroadcast, useStudioPresence } from '@/components/broadcast/broadcast-context';
+import { ACTIVE_STREAM_KEY, START_STREAM_KEY, useBroadcast, useStudioPresence } from '@/components/broadcast/broadcast-context';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { LiveChat } from '@/components/live/LiveChat';
 import { Badge, Button, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
@@ -101,6 +101,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
   const liveAuctions = useLiveAuctions(liveStreamId);
 
   const start = useMutation({
+    mutationKey: START_STREAM_KEY,
     mutationFn: () => call(api.POST('/api/v1/live-streams/{liveStreamId}/start', { params: { path: { liveStreamId } } })),
     onSuccess: (token) => {
       publisher.handOffToken(token);
