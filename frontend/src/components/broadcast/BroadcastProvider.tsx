@@ -110,6 +110,8 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
       if (!studioOpenRef.current) setUnseen((prev) => ({ ...prev, alerts: prev.alerts + 1 }));
     },
     onIdle: (message) => {
+      // 방송이 바뀌는 순간 이전 방송의 늦은 알림이 지금 방송 상태를 바꾸지 않도록, 지금 연결한 방송의 알림만 받는다.
+      if (message.liveStreamId !== realtimeStreamId) return;
       if (message.type === 'IDLE_WARNING') {
         setIdleEndsAt(message.endsAt ?? undefined);
         setIdleTitle(liveStream?.title || '방송');
