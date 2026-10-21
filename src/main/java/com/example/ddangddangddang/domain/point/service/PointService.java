@@ -105,6 +105,26 @@ public class PointService {
         record(wallet, PointHistoryType.PURCHASE, amount, PointReferenceType.AUCTION, auctionId);
     }
 
+    /**
+     * 즉시구매(기존 최고 입찰자가 있을 때): 기존 최고 입찰자의 홀딩을 풀고 구매자의 포인트를 차감한다.
+     *
+     * release()와 purchase()를 따로 부르면 지갑을 "기존 입찰자 → 구매자" 순서로 잠가서,
+     * replaceHold(userId 작은 순)와 순서가 엇갈려 데드락이 날 수 있다. 그래서 같은 정렬 잠금을 쓴다.
+     * 구매자가 곧 기존 최고 입찰자여도 지갑 하나만 잠그고 순서대로 처리된다.
+     */
+    @Transactional
+    public void releaseAndPurchase(Long prevBidderId, long prevAmount, Long buyerId, long price, Long auctionId) {
+        Map<Long, PointWallet> wallets = findWalletsForUpdate(prevBidderId, buyerId);
+
+        PointWallet prevWallet = wallets.get(prevBidderId);
+        prevWallet.release(prevAmount);
+        record(prevWallet, PointHistoryType.RELEASE, prevAmount, PointReferenceType.AUCTION, auctionId);
+
+        PointWallet buyerWallet = wallets.get(buyerId);
+        buyerWallet.purchase(price);
+        record(buyerWallet, PointHistoryType.PURCHASE, price, PointReferenceType.AUCTION, auctionId);
+    }
+
     /** 즉시구매: 사용 가능 포인트를 바로 차감한다. */
     @Transactional
     public void purchase(Long userId, long amount, Long auctionId) {

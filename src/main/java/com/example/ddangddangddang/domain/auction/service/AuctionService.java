@@ -9,7 +9,6 @@ import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
-import com.example.ddangddangddang.domain.livechat.exception.LiveChatErrorCode;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
@@ -19,19 +18,14 @@ import com.example.ddangddangddang.domain.product.entity.Status;
 import com.example.ddangddangddang.domain.product.exception.ProductErrorCode;
 import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.channels.spi.AbstractSelectableChannel;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.IllegalFormatCodePointException;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -44,7 +38,7 @@ public class AuctionService {
 
     //경매(일반) 생성 : 본인 상품이고 판매 중이며 대기 or 진행 중인 경매가 아닐때 생성이 가능합니다
     public AuctionResponse auctionCreate(Long sellerId, AuctionCreateRequest request) {
-        //삼품 검증(공통)
+        //삼품 검증(공통) - 상품 락을 잡는 이 조회가 트랜잭션의 첫 조회여야 한다 (createLiveAuction 주석 참고)
         Product product=productVerification(sellerId,request.productId());
 
         //시작 시간< 종료 시간
@@ -102,6 +96,13 @@ public class AuctionService {
     // 라이브 중 경매 생성 : 방송 주인이 라이브 중 경매 생성,생성 즉시 AuctionStatus는 ONGOING변환
     public AuctionResponse createLiveAuction (Long sellerId, Long liveId,LiveAuctionCreateRequest request){
 
+        // 상품 검증(공통) - 반드시 이 트랜잭션의 첫 조회여야 한다 (동시성)
+        // productVerification은 상품 행을 비관적 락으로 잡은 뒤 "대기/진행 중 경매가 있는지" 확인한다.
+        // MySQL(REPEATABLE READ)은 트랜잭션의 첫 일반 조회 시점에 스냅샷을 고정한다.
+        // 방송을 먼저 조회하면 그 시점에 스냅샷이 고정돼서, 락을 기다리는 동안 다른 요청이 만든 경매를
+        // 존재 확인에서 보지 못하고 같은 상품에 경매가 두 개 생긴다. 그래서 상품 락을 먼저 잡는다.
+        Product product = productVerification(sellerId, request.productId());
+
         // 방송 존재 여부
         LiveStream liveStream = liveStreamRepository.findById(liveId).orElseThrow(
                 () -> new BusinessException(LiveStreamErrorCode.NOT_FOUND)
@@ -116,8 +117,6 @@ public class AuctionService {
         if (liveStream.getStatus() != LiveStreamStatus.LIVE){
             throw new BusinessException(LiveStreamErrorCode.NOT_LIVE);
         }
-        // 상품 검증(공통)
-        Product product = productVerification(sellerId, request.productId());
         // 즉시 구매가
         immediatePurchaseVerification(request.buyNowPrice(),request.startPrice());
 
