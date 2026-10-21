@@ -33,6 +33,12 @@ export function LiveChat({ messages, sellerId, canChat, status, error, onSend, f
   const session = useSession();
   // [X]로 닫은 공지. 이 화면에서만 기억해서, 다시 들어오면(새로 그리면) 다시 보인다. 판매자가 공지를 바꾸면 새 공지는 보인다.
   const [dismissedNotice, setDismissedNotice] = useState<string>();
+  // 판매자가 공지를 내렸다가 같은 문구로 다시 올리면 새 공지로 보고 다시 보인다.
+  const [prevNotice, setPrevNotice] = useState(notice);
+  if (prevNotice !== notice) {
+    setPrevNotice(notice);
+    if (!notice) setDismissedNotice(undefined);
+  }
   const showNotice = notice && notice !== dismissedNotice;
   const [draft, setDraft] = useState('');
   const [notSent, setNotSent] = useState(false);

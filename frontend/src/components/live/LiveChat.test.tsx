@@ -26,6 +26,15 @@ describe('LiveChat 고정 공지', () => {
     expect(screen.getByRole('note', { name: '판매자 공지' })).toHaveTextContent('바뀐 공지');
   });
 
+  it('판매자가 공지를 내렸다가 같은 문구로 다시 올리면 다시 보인다', async () => {
+    const { rerender } = render(<Chat notice="같은 공지" />);
+    await userEvent.click(screen.getByRole('button', { name: '공지 닫기' }));
+
+    rerender(<Chat />);
+    rerender(<Chat notice="같은 공지" />);
+    expect(screen.getByRole('note', { name: '판매자 공지' })).toHaveTextContent('같은 공지');
+  });
+
   it('닫아도 다시 들어오면(새로 그리면) 다시 보인다', async () => {
     const { unmount } = render(<Chat notice="공지" />);
     await userEvent.click(screen.getByRole('button', { name: '공지 닫기' }));

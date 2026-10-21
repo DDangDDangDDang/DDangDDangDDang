@@ -139,6 +139,7 @@ class LiveStreamServiceTest {
             LiveStreamResponse cleared = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
                     new LiveStreamUpdateRequest(null, null, null, ""));
             assertThat(cleared.notice()).isNull();
+            then(liveStreamRepository).should(org.mockito.Mockito.times(2)).saveAndFlush(liveStream);
             then(eventPublisher).should(org.mockito.Mockito.times(2)).publishEvent(any(LiveStreamUpdatedEvent.class));
         }
 

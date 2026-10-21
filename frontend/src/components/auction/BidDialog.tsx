@@ -31,7 +31,8 @@ function BidForm({ auctionId }: { auctionId: number }) {
   const query = useQuery({
     queryKey: ['auction', auctionId],
     queryFn: () => call(api.GET('/api/v1/auctions/{auctionId}', { params: { path: { auctionId } } })),
-    refetchInterval: (q) => (q.state.data?.status === 'ONGOING' ? REFRESH_MS : false),
+    // 시작 전 경매도 다시 불러와, 창을 연 채로 경매가 시작되면 바로 입찰할 수 있게 한다.
+    refetchInterval: (q) => (q.state.data?.status === 'ONGOING' || q.state.data?.status === 'READY' ? REFRESH_MS : false),
   });
   const wallet = useQuery({
     queryKey: ['points', 'wallet'],
@@ -67,7 +68,13 @@ function BidForm({ auctionId }: { auctionId: number }) {
     e.preventDefault();
     const next = validateBid(amount, auction);
     setError(next);
-    if (next) return;
+    if (next || value === undefined) return;
+    // 잔액을 확인한 뒤에만 다음 단계로 간다. (아직 불러오는 중이면 기다린다)
+    if (balance === undefined) return;
+    if (value > balance) {
+      setError('사용 가능 포인트가 부족해요. 포인트 화면에서 충전할 수 있어요.');
+      return;
+    }
     setSubmitted(true);
   };
 
@@ -143,11 +150,11 @@ function BidForm({ auctionId }: { auctionId: number }) {
               setSubmitted(false);
             }}
           />
-          {value !== undefined && balance !== undefined && value > balance && (
+          {!error && value !== undefined && balance !== undefined && value > balance && (
             <Notice tone="error">사용 가능 포인트가 부족해요. 포인트 화면에서 충전할 수 있어요.</Notice>
           )}
           {submitted && <Notice>입찰 기능을 준비하고 있어요. 곧 이 창에서 바로 입찰할 수 있어요.</Notice>}
-          <Button type="submit" size="lg">
+          <Button type="submit" size="lg" loading={session !== null && wallet.isPending}>
             {value ? `${formatPoint(value)} 입찰하기` : '입찰하기'}
           </Button>
         </>
