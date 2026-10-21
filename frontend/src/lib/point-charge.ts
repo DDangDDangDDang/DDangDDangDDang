@@ -1,7 +1,7 @@
 import { parseAmount } from './auction';
 
 /** 충전 금액 바로 고르기 */
-export const CHARGE_PRESETS = [10_000, 30_000, 50_000, 100_000] as const;
+export const CHARGE_PRESETS = [1_000, 10_000, 50_000] as const;
 /** 한 번에 충전할 수 있는 금액 (원 = 포인트). 서버는 0보다 크면 받지만, 결제 수단 최소 금액과 실수 방지를 위해 화면에서 정한다. */
 export const CHARGE_MIN = 1_000;
 export const CHARGE_MAX = 1_000_000;
@@ -19,7 +19,7 @@ export type PortOneConfig = { storeId: string; channelKey: string };
 
 /**
  * 포트원 결제창 설정 (frontend/.env.local의 VITE_PORTONE_STORE_ID, VITE_PORTONE_CHANNEL_KEY).
- * 둘 다 포트원 콘솔에서 보이는 공개 값이다. 없으면 undefined (충전 버튼을 막고 안내한다)
+ * 둘 다 포트원 콘솔에서 보이는 공개 값이다. 없으면 undefined (결제창을 띄우지 않고 "충전 설정이 필요합니다"라고 안내한다)
  */
 export function portOneConfig(env: Record<string, string | undefined> = import.meta.env): PortOneConfig | undefined {
   const storeId = env.VITE_PORTONE_STORE_ID?.trim();
