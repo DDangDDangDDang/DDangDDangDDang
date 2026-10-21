@@ -128,6 +128,8 @@ test.describe('방송 시청', () => {
       await expect(guest.getByRole('heading', { level: 1, name: stream.title })).toBeVisible();
       await expect(guest.getByText('판매자 화면을 기다리고 있어요').or(guest.locator('video'))).toBeVisible({ timeout: 20_000 });
       await expect(guest.getByText('방송에 연결하지 못했어요')).toBeHidden();
+      // 손님 채팅 연결(구독)이 끝난 뒤에 회원 채팅을 보낸다. (입력란은 연결돼야 켜짐, 채팅 이력은 없음)
+      await expect(guest.getByLabel('채팅 입력')).toBeEnabled({ timeout: 20_000 });
 
       // 다른 회원이 보낸 채팅이 손님 화면에 나온다.
       await loginOnPage(member, seller);

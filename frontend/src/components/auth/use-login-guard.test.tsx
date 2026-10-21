@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useLoginGuard } from './use-login-guard';
 
@@ -19,12 +19,18 @@ function Chat({ onSend }: { onSend: () => void }) {
   );
 }
 
+/** 회원가입 화면으로 넘어온 주소의 쿼리를 보여준다. */
+function SignupProbe() {
+  const { search } = useLocation();
+  return <p>회원가입 화면 {search}</p>;
+}
+
 function renderAt(onSend: () => void) {
   return render(
     <MemoryRouter initialEntries={['/lives/7']}>
       <Routes>
         <Route path="/lives/:id" element={<Chat onSend={onSend} />} />
-        <Route path="/signup" element={<p>회원가입 화면</p>} />
+        <Route path="/signup" element={<SignupProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -77,6 +83,6 @@ describe('useLoginGuard', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '채팅 보내기' }));
     await userEvent.click(screen.getByRole('button', { name: '회원가입' }));
-    expect(screen.getByText('회원가입 화면')).toBeInTheDocument();
+    expect(screen.getByText('회원가입 화면 ?redirect=%2Flives%2F7')).toBeInTheDocument();
   });
 });
