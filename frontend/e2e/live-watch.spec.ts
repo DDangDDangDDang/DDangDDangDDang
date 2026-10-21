@@ -3,6 +3,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from '@
 /*
  * 1. 로그인 → 홈 → 방송 시청 → 채팅 전송
  * 2. 판매자 스튜디오에서 가짜 카메라로 송출 → 시청 화면에 영상이 나온다 (playwright.config.ts의 가짜 장치 설정)
+ *    방송 중 다른 화면으로 가도 송출이 이어지고(작은 방송 창), 스튜디오 안에서 상품을 등록해 바로 경매를 시작한다.
  *
  * 로컬 백엔드(MySQL·Redis·LiveKit 포함)가 떠 있어야 한다. 계정은 환경변수로 받는다. (frontend/README.md "E2E 테스트")
  * - E2E_EMAIL / E2E_PASSWORD: 시청자 계정 (화면에서 로그인)
@@ -157,8 +158,14 @@ test.describe('판매자 송출', () => {
       // 판매자 화면에 시청자 수가 반영된다.
       await expect(studio.getByText(/시청\s*1\s*명/)).toBeVisible({ timeout: 20_000 });
 
-      // 판매자가 새로고침해도 송출 토큰을 다시 받아(/publisher-token) 이어서 송출한다.
+      // 판매자가 새로고침하면 "송출이 멈춰요" 확인 창이 뜨고, 새로고침해도 송출 토큰을 다시 받아(/publisher-token) 이어서 송출한다.
+      let askedBeforeUnload = false;
+      studio.once('dialog', (dialog) => {
+        askedBeforeUnload = dialog.type() === 'beforeunload';
+        void dialog.accept();
+      });
       await studio.reload();
+      expect(askedBeforeUnload, '방송 중 새로고침 전에 확인 창이 떠야 합니다.').toBe(true);
       await expect(studio.getByText('LIVE 송출 중')).toBeVisible({ timeout: 20_000 });
       await expect.poll(() => videoWidth(video), { timeout: 30_000 }).toBeGreaterThan(0);
       // 송출 중인 두 화면을 보고서(playwright-report)에 남긴다.
@@ -172,6 +179,44 @@ test.describe('판매자 송출', () => {
       await chatInput.fill(content);
       await watch.getByRole('button', { name: '채팅 전송' }).click();
       await expect(studio.getByRole('list', { name: '채팅 메시지' }).getByText(content)).toBeVisible();
+
+      // 방송 중 다른 화면(경매 목록)으로 가도 송출이 이어지고, 작은 방송 창이 뜬다.
+      await studio.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '경매', exact: true }).click();
+      await expect(studio).toHaveURL(/\/auctions$/);
+      const mini = studio.getByRole('complementary', { name: '방송 중' });
+      await expect(mini).toBeVisible();
+      await expect.poll(() => videoWidth(mini.getByLabel('내 카메라 화면')), { timeout: 10_000 }).toBeGreaterThan(0);
+      // 시청자 영상은 끊기지 않고 계속 재생된다.
+      const playedAt = await videoTime(video);
+      await expect.poll(() => videoTime(video), { timeout: 10_000 }).toBeGreaterThan(playedAt + 1);
+      await expect(watch.getByText('판매자 화면을 기다리고 있어요')).toBeHidden();
+      // 스튜디오를 떠나 있는 동안 온 채팅 수가 보인다.
+      await watch.getByLabel('채팅 입력').fill(`E2E 자리 비운 동안 채팅 ${Date.now()}`);
+      await watch.getByRole('button', { name: '채팅 전송' }).click();
+      await expect(mini.getByText(/새 채팅\s*1/)).toBeVisible();
+      await test.info().attach('다른 화면의 작은 방송 창', { body: await studio.screenshot(), contentType: 'image/png' });
+      await mini.getByRole('link', { name: '스튜디오로 돌아가기' }).click();
+      await expect(studio.getByText('LIVE 송출 중')).toBeVisible();
+
+      // 스튜디오를 떠나지 않고 상품을 등록하면 그 상품의 경매 조건 입력이 바로 열리고, 경매를 시작할 수 있다.
+      await studio.getByRole('button', { name: '상품 등록' }).click();
+      const productDialog = studio.getByRole('dialog', { name: '상품 등록' });
+      const category = productDialog.getByLabel('카테고리');
+      await expect(category.or(productDialog.getByText('아직 상품을 등록할 카테고리가 없어요'))).toBeVisible();
+      if (await category.isVisible()) {
+        await category.selectOption((await category.locator('option').nth(1).getAttribute('value')) ?? '');
+        const productName = `E2E 방송 상품 ${Date.now()}`;
+        await productDialog.getByLabel('상품명 (50자 이하)').fill(productName);
+        await productDialog.getByRole('button', { name: '상품 등록' }).click();
+        await expect(productDialog).toBeHidden();
+        const conditions = studio.getByRole('form', { name: `${productName} 경매 조건` });
+        await conditions.getByLabel('시작가', { exact: true }).fill('10000');
+        await conditions.getByLabel('최소 입찰 단위').fill('1000');
+        await conditions.getByRole('button', { name: '이 조건으로 경매 시작' }).click();
+        await expect(studio.getByRole('list', { name: '이 방송의 경매' }).getByText(productName)).toBeVisible();
+      } else {
+        await productDialog.getByRole('button', { name: '닫기' }).click();
+      }
 
       if (endAfter) {
         // 방송 종료: 확인 창에서 종료하면 시청 화면에도 종료가 나온다.
@@ -198,6 +243,11 @@ async function loginOnPage(page: Page, account: { email: string; password: strin
   await page.getByLabel('비밀번호').fill(account.password);
   await page.getByRole('button', { name: '로그인', exact: true }).click();
   await expect(page.getByRole('button', { name: '로그아웃' })).toBeVisible();
+}
+
+/** 영상 요소의 재생 위치(초). 재생이 이어지는지 볼 때 쓴다. */
+async function videoTime(locator: Locator) {
+  return locator.first().evaluate((element) => (element as unknown as { currentTime: number }).currentTime).catch(() => 0);
 }
 
 /** 영상 요소의 실제 영상 폭. 영상이 아직 나오지 않으면 0 */

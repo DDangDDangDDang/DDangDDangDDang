@@ -1,6 +1,6 @@
 import { createLocalAudioTrack, createLocalVideoTrack, Room, VideoPresets, type LocalAudioTrack, type LocalVideoTrack } from 'livekit-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { mediaErrorMessage, type MediaKind } from './studio';
+import { mediaErrorMessage, type MediaKind } from '@/lib/media';
 
 type TrackOf = { camera: LocalVideoTrack; microphone: LocalAudioTrack };
 
@@ -36,9 +36,10 @@ function createTrack<K extends MediaKind>(kind: K, deviceId?: string): Promise<T
 
 /**
  * 판매자의 카메라·마이크. 방송 시작 전에도 미리보기와 장치 선택을 할 수 있게 방(LiveKit)과 따로 둔다.
- * 송출은 usePublisher가 이 트랙을 방에 올려서 한다. 화면을 떠나면 장치를 멈춘다.
+ * 송출은 usePublisher가 이 트랙을 방에 올려서 한다. enabled가 false가 되면(방송이 끝나고 스튜디오를 떠남) 장치를 멈춘다.
+ * 앱 전체에 하나만 둔다. (BroadcastProvider)
  */
-export function useLocalMedia() {
+export function useLocalMedia(enabled: boolean) {
   const [state, setState] = useState<State>(INITIAL);
   const tracksRef = useRef<{ camera?: LocalVideoTrack; microphone?: LocalAudioTrack }>({});
   const unmountedRef = useRef(false);
@@ -77,6 +78,10 @@ export function useLocalMedia() {
   );
 
   useEffect(() => {
+    if (!enabled) {
+      setState(INITIAL);
+      return;
+    }
     unmountedRef.current = false;
     void start('camera');
     void start('microphone');
@@ -89,7 +94,7 @@ export function useLocalMedia() {
       tracksRef.current.microphone?.stop();
       tracksRef.current = {};
     };
-  }, [start, refreshDevices]);
+  }, [enabled, start, refreshDevices]);
 
   /** 켜기·끄기. 장치를 열지 못했던 경우에는 다시 열어 본다. */
   const toggle = useCallback(

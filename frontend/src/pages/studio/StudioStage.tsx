@@ -4,9 +4,9 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { errorMessage } from '@/api';
 import { Badge, Button, Notice, Select } from '@/components/ui';
 import { cn } from '@/lib/cn';
-import type { MediaKind } from './studio';
-import type { LocalDevice } from './use-local-media';
-import type { PublisherState } from './use-publisher';
+import type { MediaKind } from '@/lib/media';
+import type { LocalDevice } from '@/components/broadcast/use-local-media';
+import type { PublisherState } from '@/components/broadcast/use-publisher';
 
 type Props = {
   live: boolean;

@@ -6,8 +6,8 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Button, buttonVariants, Card, CardBody, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { useCategories } from '@/lib/use-categories';
 import type { ProductNoticeState } from './ProductCreatePage';
-import { ProductFields } from './ProductFields';
-import { productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from './product-form';
+import { ProductFields } from '@/components/product/ProductFields';
+import { productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
 
 /** 상품 수정. 시작 전이거나 진행 중인 경매가 있는 상품은 서버가 막는다. (PRODUCT_004) */
 export function ProductEditPage() {

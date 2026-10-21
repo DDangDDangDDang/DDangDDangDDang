@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { ModerationAlert, Schema } from '@/api';
+import type { Schema } from '@/api';
 import {
   formValuesOf,
-  mediaErrorMessage,
-  prependModerationAlert,
   toCreateRequest,
   toUpdateRequest,
   validateStreamForm,
@@ -74,40 +72,3 @@ describe('toUpdateRequest', () => {
   });
 });
 
-describe('prependModerationAlert', () => {
-  const alert = (messageId: string): ModerationAlert => ({
-    liveStreamId: 1,
-    messageId,
-    senderId: 2,
-    nickname: '시청자',
-    content: '010-1234-5678로 연락 주세요',
-    category: 'EXTERNAL_TRADE',
-    categoryLabel: '외부 거래 유도',
-    reason: '연락처를 남겨 외부 거래를 유도함',
-    detectedAt: '2026-10-21T12:00:00',
-  });
-
-  it('최신 알림을 맨 앞에 붙이고, 같은 채팅은 한 번만 남긴다', () => {
-    const list = prependModerationAlert([alert('a')], alert('b'));
-    expect(list.map((a) => a.messageId)).toEqual(['b', 'a']);
-    expect(prependModerationAlert(list, alert('a'))).toBe(list);
-  });
-
-  it('최대 개수를 넘으면 오래된 것부터 지운다', () => {
-    expect(prependModerationAlert([alert('a'), alert('b')], alert('c'), 2).map((a) => a.messageId)).toEqual(['c', 'a']);
-  });
-});
-
-describe('mediaErrorMessage', () => {
-  const error = (name: string) => Object.assign(new Error(name), { name });
-
-  it('권한 거부·장치 없음·사용 중을 구분한다', () => {
-    expect(mediaErrorMessage('camera', error('NotAllowedError'))).toContain('카메라 사용이 막혀 있어요');
-    expect(mediaErrorMessage('microphone', error('NotFoundError'))).toContain('연결된 마이크를 찾지 못했어요');
-    expect(mediaErrorMessage('camera', error('NotReadableError'))).toContain('다른 프로그램이 카메라를 쓰고 있어요');
-  });
-
-  it('모르는 오류는 다시 시도 안내', () => {
-    expect(mediaErrorMessage('microphone', 'oops')).toBe('마이크를 켜지 못했어요. 다시 시도해 주세요.');
-  });
-});

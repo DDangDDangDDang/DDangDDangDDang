@@ -1,20 +1,25 @@
-import { Gavel } from 'lucide-react';
+import { Gavel, Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { errorMessage, type Schema } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
 import { AuctionConditionFields } from '@/components/auction/AuctionConditionFields';
-import { Button, buttonVariants, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { auctionPhase, EMPTY_AUCTION_CONDITION, validateAuctionCondition, type AuctionConditionErrors, type AuctionConditionValues } from '@/lib/auction';
 import { formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
+import { ProductCreateDialog } from './ProductCreateDialog';
 import type { LiveAuctions } from './use-live-auctions';
 
 type Product = Schema<'ProductResponse'>;
 
-/** 경매 상품: 내 판매 중 상품 목록에서 [경매 시작] → 시작가·입찰 단위·진행 시간을 정해 방송 중 경매를 연다. */
+/**
+ * 경매 상품: 내 판매 중 상품 목록에서 [경매 시작] → 시작가·입찰 단위·진행 시간을 정해 방송 중 경매를 연다.
+ * [상품 등록]은 창으로 열어 스튜디오를 떠나지 않고 등록하고, 방송 중이면 그 상품의 경매 조건 입력을 바로 연다.
+ */
 export function LiveAuctionProducts({ live, auctions }: { live: boolean; auctions: LiveAuctions }) {
   const [selected, setSelected] = useState<number>();
+  const [creating, setCreating] = useState(false);
   const products = auctions.products;
 
   return (
@@ -24,9 +29,10 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
           <CardTitle id="studio-auction-title">경매 상품</CardTitle>
           <span className="text-caption text-neutral-500">여러 상품을 동시에 경매할 수 있어요. 시작하면 바로 진행되고 정한 시간이 지나면 마감돼요.</span>
         </div>
-        <Link to="/products/new" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+        <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+          <Plus className="size-4" aria-hidden="true" />
           상품 등록
-        </Link>
+        </Button>
       </CardHeader>
       <CardBody>
         {!live && <Notice className="mb-3">방송을 시작하면 상품을 골라 바로 경매를 열 수 있어요.</Notice>}
@@ -40,7 +46,7 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
         ) : (products.data ?? []).length === 0 ? (
           <div className="flex items-center gap-4 rounded-md bg-neutral-25 px-4 py-4">
             <Gavel className="size-6 shrink-0 text-neutral-400" aria-hidden="true" />
-            <p className="text-body text-neutral-700">경매에 올릴 판매 중인 상품이 없어요. 상품을 먼저 등록해 주세요.</p>
+            <p className="text-body text-neutral-700">경매에 올릴 판매 중인 상품이 없어요. [상품 등록]으로 바로 등록할 수 있어요.</p>
           </div>
         ) : (
           <ul className="divide-y divide-neutral-100">
@@ -60,6 +66,7 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
           </ul>
         )}
       </CardBody>
+      <ProductCreateDialog open={creating} live={live} onClose={() => setCreating(false)} onCreated={(productId) => live && setSelected(productId)} />
     </Card>
   );
 }

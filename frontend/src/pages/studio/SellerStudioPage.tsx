@@ -2,41 +2,35 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, Pencil, RefreshCw } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { ApiError, api, call, errorMessage, isErrorCode, type ChatMessage, type ModerationAlert, type Schema } from '@/api';
+import { api, call, errorMessage, isErrorCode, type Schema } from '@/api';
+import { ACTIVE_STREAM_KEY, START_STREAM_KEY, useBroadcast, useStudioPresence } from '@/components/broadcast/broadcast-context';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { LiveChat } from '@/components/live/LiveChat';
 import { Badge, Button, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
-import { appendChatMessage } from '@/lib/live-room';
-import { useLiveRealtime } from '@/lib/use-live-realtime';
 import { LiveAuctionProducts, LiveAuctionStatus } from './LiveAuctionPanel';
 import { ModerationPanel } from './ModerationPanel';
 import { StreamForm } from './StreamForm';
-import { prependModerationAlert } from './studio';
 import { StudioStage } from './StudioStage';
 import { useLiveAuctions } from './use-live-auctions';
-import { useLocalMedia } from './use-local-media';
-import { usePublisher } from './use-publisher';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
-
-/** 내 종료되지 않은 방송. 판매자당 하나만 둘 수 있다. (LIVESTREAM_010) */
-const ACTIVE_KEY = ['studio', 'active'] as const;
 
 /**
  * 판매자 스튜디오: 방송 만들기·수정 → 카메라·마이크 미리보기 → 방송 시작(LiveKit 송출) → 채팅·AI 검토 알림 → 방송 종료.
  * 종료되지 않은 방송이 없으면 방송 만들기를 보여준다.
+ * 송출·채팅 연결은 앱 전체(BroadcastProvider)에 있어 이 화면을 떠나도 방송이 이어진다. 이 화면은 그 상태를 보여주고 조작한다.
  */
 export function SellerStudioPage() {
   const queryClient = useQueryClient();
   const query = useQuery({
-    queryKey: ACTIVE_KEY,
+    queryKey: ACTIVE_STREAM_KEY,
     queryFn: () => call(api.GET('/api/v1/live-streams/me/active')),
   });
   /** 방금 종료한 방송 제목. 방송 만들기 위에 안내로 보여준다. */
   const [endedTitle, setEndedTitle] = useState<string>();
 
-  const reload = useCallback(() => void queryClient.invalidateQueries({ queryKey: ACTIVE_KEY }), [queryClient]);
+  const reload = useCallback(() => void queryClient.invalidateQueries({ queryKey: ACTIVE_STREAM_KEY }), [queryClient]);
 
   if (query.isPending) return <StudioSkeleton />;
   if (query.isError) return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
@@ -48,7 +42,7 @@ export function SellerStudioPage() {
         endedTitle={endedTitle}
         onCreated={(created) => {
           setEndedTitle(undefined);
-          queryClient.setQueryData(ACTIVE_KEY, created);
+          queryClient.setQueryData(ACTIVE_STREAM_KEY, created);
         }}
         onActiveExists={reload}
       />
@@ -59,10 +53,10 @@ export function SellerStudioPage() {
     <Studio
       key={liveStream.id}
       liveStream={liveStream as LiveStream & { id: number }}
-      onChange={(next) => queryClient.setQueryData(ACTIVE_KEY, next)}
+      onChange={(next) => queryClient.setQueryData(ACTIVE_STREAM_KEY, next)}
       onEnded={(ended) => {
         setEndedTitle(ended.title || '방송');
-        queryClient.setQueryData(ACTIVE_KEY, null);
+        queryClient.setQueryData(ACTIVE_STREAM_KEY, null);
       }}
       reload={reload}
     />
@@ -99,31 +93,15 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
   const [editing, setEditing] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
 
-  // 채팅·검토 알림 (STOMP)
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [chatError, setChatError] = useState<string>();
-  const [alerts, setAlerts] = useState<ModerationAlert[]>([]);
+  // 카메라·마이크, 송출(LiveKit), 채팅·검토 알림(STOMP)은 앱 전체에서 이어진다. (BroadcastProvider)
+  useStudioPresence();
+  const { media, publisher, chat, alerts, dismissAlert } = useBroadcast();
   const flaggedIds = useMemo(() => new Set(alerts.map((a) => a.messageId)), [alerts]);
-
-  const realtime = useLiveRealtime(liveStreamId, {
-    onChat: (message) => {
-      setMessages((list) => appendChatMessage(list, message));
-      // 서버 안내(방송 종료 등)가 오면 방송 상태가 바뀌었을 수 있으므로 다시 불러온다.
-      if (message.type === 'SYSTEM') reload();
-    },
-    onUpdated: (message) => onChange(message.liveStream),
-    onError: (error) => setChatError(errorMessage(new ApiError(error.code ?? '', error.message ?? '', 0))),
-    onModeration: (alert) => setAlerts((list) => prependModerationAlert(list, alert)),
-  });
-
-  // 카메라·마이크와 송출 (LiveKit)
-  const media = useLocalMedia();
   // 방송 중 경매
   const liveAuctions = useLiveAuctions(liveStreamId);
 
-  const publisher = usePublisher(liveStreamId, isLive, { camera: media.camera.track, microphone: media.microphone.track }, reload);
-
   const start = useMutation({
+    mutationKey: START_STREAM_KEY,
     mutationFn: () => call(api.POST('/api/v1/live-streams/{liveStreamId}/start', { params: { path: { liveStreamId } } })),
     onSuccess: (token) => {
       publisher.handOffToken(token);
@@ -155,7 +133,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {realtime.status === 'reconnecting' && (
+      {isLive && chat.status === 'reconnecting' && (
         <div role="status" className="flex items-center gap-2.5 rounded-md bg-neutral-900 px-4 py-2.5 text-label text-neutral-0">
           <RefreshCw className="size-4 animate-spin" aria-hidden="true" />
           <span>
@@ -219,18 +197,15 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
 
         <aside aria-label="경매 현황과 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
           <LiveAuctionStatus auctions={liveAuctions} />
-          <ModerationPanel alerts={alerts} onDismiss={(messageId) => setAlerts((list) => list.filter((a) => a.messageId !== messageId))} />
+          <ModerationPanel alerts={alerts} onDismiss={dismissAlert} />
           <LiveChat
-            messages={messages}
+            messages={chat.messages}
             sellerId={liveStream.sellerId}
             canChat={isLive}
-            status={realtime.status}
-            error={chatError}
+            status={chat.status}
+            error={chat.error}
             flaggedIds={flaggedIds}
-            onSend={(content) => {
-              setChatError(undefined);
-              return realtime.sendChat(content);
-            }}
+            onSend={chat.send}
           />
         </aside>
       </div>
