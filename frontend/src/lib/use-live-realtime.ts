@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   connectRealtime,
   useSession,
@@ -35,7 +35,8 @@ export function useLiveRealtime(liveStreamId: number | undefined, handlers: Hand
   const userId = useSession()?.user.userId;
   const guest = userId === undefined;
 
-  useEffect(() => {
+  // 로그인 직후 입력 이벤트가 이전 손님 연결로 보내지지 않도록, 화면을 그린 즉시(useLayoutEffect) 연결을 바꾼다.
+  useLayoutEffect(() => {
     if (liveStreamId === undefined) return;
     const connection = connectRealtime(setStatus, { guest });
     connectionRef.current = connection;
