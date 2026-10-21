@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.auction.dto.response.AuctionListRespon
 import com.example.ddangddangddang.domain.auction.dto.response.AuctionResponse;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
+import com.example.ddangddangddang.domain.auction.event.LiveAuctionEvent;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.livechat.exception.LiveChatErrorCode;
@@ -21,6 +22,7 @@ import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -41,6 +43,7 @@ public class AuctionService {
     private final AuctionRepository auctionRepository;
     private final ProductRepository productRepository;
     private final LiveStreamRepository liveStreamRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     //경매(일반) 생성 : 본인 상품이고 판매 중이며 대기 or 진행 중인 경매가 아닐때 생성이 가능합니다
     public AuctionResponse auctionCreate(Long sellerId, AuctionCreateRequest request) {
@@ -96,26 +99,18 @@ public class AuctionService {
 
         auction.cancel();
         flushWithVersionCheck(auction);
+        //방송에 올라간 경매면 시청 화면의 경매 목록을 갱신
+        if (auction.getLiveStream() != null) {
+            eventPublisher.publishEvent(LiveAuctionEvent.of(auction, LiveAuctionEvent.Type.CHANGED));
+        }
 
     }
 
     // 라이브 중 경매 생성 : 방송 주인이 라이브 중 경매 생성,생성 즉시 AuctionStatus는 ONGOING변환
     public AuctionResponse createLiveAuction (Long sellerId, Long liveId,LiveAuctionCreateRequest request){
 
-        // 방송 존재 여부
-        LiveStream liveStream = liveStreamRepository.findById(liveId).orElseThrow(
-                () -> new BusinessException(LiveStreamErrorCode.NOT_FOUND)
-        );
-
-        //방송 주인인지
-        if (!liveStream.getSellerId().equals(sellerId)){
-            throw new BusinessException(LiveStreamErrorCode.NOT_OWNER);
-        }
-
-        // LiveStreamStatus==LIVE 인지
-        if (liveStream.getStatus() != LiveStreamStatus.LIVE){
-            throw new BusinessException(LiveStreamErrorCode.NOT_LIVE);
-        }
+        // 방송 검증(존재, 방송 주인, 방송 중)
+        LiveStream liveStream = ownLiveStream(sellerId, liveId);
         // 상품 검증(공통)
         Product product = productVerification(sellerId, request.productId());
         // 즉시 구매가
@@ -131,8 +126,62 @@ public class AuctionService {
         auction.start();
 
         Auction save = auctionRepository.save(auction);
+        //커밋 뒤 시청 화면 경매 목록 갱신 + 채팅 안내
+        eventPublisher.publishEvent(LiveAuctionEvent.of(save, LiveAuctionEvent.Type.STARTED));
 
         return AuctionResponse.from(save);
+    }
+
+    // 방송에 올리기 : 이미 만든 시작 전·진행 중 경매를 방송 화면에 보여준다. 경매 일정·상태는 바꾸지 않는다.
+    public AuctionResponse showOnLive(Long sellerId, Long liveId, Long auctionId) {
+        LiveStream liveStream = ownLiveStream(sellerId, liveId);
+
+        Auction auction = auctionRepository.findById(auctionId).orElseThrow(
+                () -> new BusinessException(AuctionErrorCode.NOT_FOUND)
+        );
+
+        //본인 경매인지
+        if (!auction.getProduct().getSeller().getId().equals(sellerId)) {
+            throw new BusinessException(AuctionErrorCode.NOT_OWNER);
+        }
+
+        LiveStream current = auction.getLiveStream();
+        //이미 이 방송에 올라가 있으면(그 뒤 끝났더라도) 그대로 돌려준다
+        if (current != null && current.getId().equals(liveStream.getId())) {
+            return AuctionResponse.from(auction);
+        }
+
+        //새로 올리거나 옮길 때만 : 시작 전이거나 진행 중(마감 시각 전)인지
+        boolean open = auction.getStatus() == AuctionStatus.READY || auction.getStatus() == AuctionStatus.ONGOING;
+        if (!open || !auction.getEndAt().isAfter(LocalDateTime.now())) {
+            throw new BusinessException(AuctionErrorCode.NOT_SHOWABLE_STATUS);
+        }
+        //다른 방송이 아직 진행 중이면 옮기지 않는다(끝난 방송이면 이 방송으로 옮김)
+        if (current != null && current.getStatus() == LiveStreamStatus.LIVE) {
+            throw new BusinessException(AuctionErrorCode.ON_OTHER_LIVE);
+        }
+
+        auction.showOn(liveStream);
+        flushWithVersionCheck(auction);
+        eventPublisher.publishEvent(LiveAuctionEvent.of(auction, LiveAuctionEvent.Type.SHOWN));
+
+        return AuctionResponse.from(auction);
+    }
+
+    // 이 방송에 올라간 경매(누구나) : 최신순, 끝난 경매도 포함
+    @Transactional(readOnly = true)
+    public List<AuctionResponse> liveAuctions(Long liveId) {
+        if (!liveStreamRepository.existsById(liveId)) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_FOUND);
+        }
+        return auctionRepository.findTop50ByLiveStreamIdOrderByIdDesc(liveId).stream().map(AuctionResponse::from).toList();
+    }
+
+    // 내 시작 전·진행 중 경매 : 스튜디오에서 방송에 올릴 경매를 고를 때 쓴다
+    @Transactional(readOnly = true)
+    public List<AuctionResponse> myOpenAuctions(Long sellerId) {
+        return auctionRepository.findTop50ByProductSellerIdAndStatusInOrderByIdDesc(sellerId, List.of(AuctionStatus.READY, AuctionStatus.ONGOING))
+                .stream().map(AuctionResponse::from).toList();
     }
 
     //목록 조회 및 검색(조건이 없을시 상태가 대기,진행 중인 경매들 중 최신순으로 정렬)
@@ -180,6 +229,22 @@ public class AuctionService {
         }
 
         return product;
+    }
+
+    //방송 검증 : 존재 여부, 방송 주인, 방송 중(LIVE)
+    private LiveStream ownLiveStream(Long sellerId, Long liveId) {
+        LiveStream liveStream = liveStreamRepository.findById(liveId).orElseThrow(
+                () -> new BusinessException(LiveStreamErrorCode.NOT_FOUND)
+        );
+
+        if (!liveStream.getSellerId().equals(sellerId)){
+            throw new BusinessException(LiveStreamErrorCode.NOT_OWNER);
+        }
+
+        if (liveStream.getStatus() != LiveStreamStatus.LIVE){
+            throw new BusinessException(LiveStreamErrorCode.NOT_LIVE);
+        }
+        return liveStream;
     }
 
     //즉시 구매가 검증(즉시구매가>시작가격)

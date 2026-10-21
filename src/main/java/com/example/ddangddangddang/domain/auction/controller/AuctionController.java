@@ -65,6 +65,29 @@ public class AuctionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(auctionService.createLiveAuction(authUser.id(), liveId, request)));
     }
 
+    // 이 방송에 올라간 경매(누구나). 최신순 50개, 끝난 경매도 포함
+    @GetMapping("/lives/{liveId}/auctions")
+    ResponseEntity<ApiResponse<List<AuctionResponse>>> liveAuctions(
+            @PathVariable Long liveId) {
+        return ResponseEntity.ok(ApiResponse.ok(auctionService.liveAuctions(liveId)));
+    }
+
+    // 이미 만든 시작 전·진행 중 경매를 이 방송에 올리기(방송 주인, 방송 중). 경매 일정·상태는 그대로
+    @PostMapping("/lives/{liveId}/auctions/{auctionId}")
+    ResponseEntity<ApiResponse<AuctionResponse>> showOnLive(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveId,
+            @PathVariable Long auctionId) {
+        return ResponseEntity.ok(ApiResponse.ok(auctionService.showOnLive(authUser.id(), liveId, auctionId)));
+    }
+
+    // 내 시작 전·진행 중 경매(최신순 50개). 스튜디오에서 방송에 올릴 경매를 고를 때 쓴다
+    @GetMapping("/users/me/auctions")
+    ResponseEntity<ApiResponse<List<AuctionResponse>>> myOpenAuctions(
+            @AuthenticationPrincipal AuthUser authUser) {
+        return ResponseEntity.ok(ApiResponse.ok(auctionService.myOpenAuctions(authUser.id())));
+    }
+
     //경매 목록 조회 및 검색(누구나)
     @GetMapping("/auctions")
     ResponseEntity<ApiResponse<Page<AuctionListResponse>>> searchAuctions(

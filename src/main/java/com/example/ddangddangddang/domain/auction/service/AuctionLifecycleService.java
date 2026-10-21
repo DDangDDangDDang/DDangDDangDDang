@@ -3,7 +3,10 @@ package com.example.ddangddangddang.domain.auction.service;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.event.AuctionEndedEvent;
+import com.example.ddangddangddang.domain.auction.event.LiveAuctionEvent;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
 import org.springframework.context.ApplicationEventPublisher;
@@ -30,7 +33,11 @@ public class AuctionLifecycleService {
             return;
         }
         auction.start();
-
+        //방송 중인 방송에 올라간 경매면 시청 화면에 시작을 알린다
+        LiveStream liveStream = auction.getLiveStream();
+        if (liveStream != null && liveStream.getStatus() == LiveStreamStatus.LIVE) {
+            eventPublisher.publishEvent(LiveAuctionEvent.of(auction, LiveAuctionEvent.Type.STARTED));
+        }
     }
 
     //경매 마감 (ONGOING-> ENDED/FAILED) + 종료 이벤트 발생
@@ -48,5 +55,8 @@ public class AuctionLifecycleService {
         }
         auction.close();
         eventPublisher.publishEvent(AuctionEndedEvent.from(auction));
+        if (auction.getLiveStream() != null) {
+            eventPublisher.publishEvent(LiveAuctionEvent.of(auction, LiveAuctionEvent.Type.CHANGED));
+        }
     }
 }

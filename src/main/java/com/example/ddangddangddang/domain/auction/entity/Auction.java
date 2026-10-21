@@ -95,6 +95,11 @@ public class Auction extends BaseTimeEntity {
         this.status=AuctionStatus.ONGOING;
     }
 
+    //방송에 올리기 : 이미 만든 경매를 방송 화면에 보여준다(경매 일정·상태는 그대로)
+    public void showOn(LiveStream liveStream){
+        this.liveStream=liveStream;
+    }
+
     //경매 마감 : 입찰이 있을시 ENDED,없으면 FAILED
     public void close(){
         if (this.bidCount > 0){
