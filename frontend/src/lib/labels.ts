@@ -45,6 +45,14 @@ export const COURIER_LABEL: Record<Courier, string> = {
   ETC: '기타',
 };
 
+export type LiveStreamStatus = NonNullable<Schema<'LiveStreamResponse'>['status']>;
+
+export const LIVE_STREAM_STATUS_LABEL: Record<LiveStreamStatus, string> = {
+  SCHEDULED: '방송 예정',
+  LIVE: 'LIVE',
+  ENDED: '방송 종료',
+};
+
 export type ExchangeStatus = NonNullable<Schema<'PointExchangeResponse'>['status']>;
 
 export const EXCHANGE_STATUS_LABEL: Record<ExchangeStatus, string> = {

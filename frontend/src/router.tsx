@@ -7,6 +7,8 @@ import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
 import { SignupPage } from '@/pages/auth/SignupPage';
 import { DevComponentsPage } from '@/pages/DevComponentsPage';
 import { HomePage } from '@/pages/HomePage';
+import { LiveListPage } from '@/pages/live/LiveListPage';
+import { LiveWatchPage } from '@/pages/live/LiveWatchPage';
 import { MyInfoPage } from '@/pages/me/MyInfoPage';
 import { PointsPage } from '@/pages/me/PointsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -35,6 +37,8 @@ export const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
+          { path: '/lives', element: <LiveListPage /> },
+          { path: '/lives/:liveStreamId', element: <LiveWatchPage /> },
           { path: '/me', element: <MyInfoPage /> },
           { path: '/points', element: <PointsPage /> },
           { path: '/orders', element: <OrdersPage /> },
