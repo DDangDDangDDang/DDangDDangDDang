@@ -13,6 +13,7 @@ export {
   connectRealtime,
   REALTIME,
   type ChatMessage,
+  type DmEvent,
   type LiveStreamUpdatedMessage,
   type ModerationAlert,
   type RealtimeConnection,

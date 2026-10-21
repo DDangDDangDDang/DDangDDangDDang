@@ -51,6 +51,18 @@ export type ModerationAlert = {
   detectedAt: string;
 };
 
+/**
+ * 1:1 채팅 이벤트 (`/user/queue/dm`). 내가 보낸 메시지도 온다. (같은 계정의 다른 탭·기기)
+ * MESSAGE: message가 새 메시지 · READ: readerId가 lastReadMessageId까지 읽음 (보낸 사람 화면의 "1"을 지운다)
+ */
+export type DmEvent = {
+  type: 'MESSAGE' | 'READ';
+  roomId: number;
+  message: components['schemas']['DmMessageResponse'] | null;
+  readerId: number | null;
+  lastReadMessageId: number | null;
+};
+
 /** 나에게만 오는 오류 (`/user/queue/errors`). 채팅 전송 실패 등 */
 export type RealtimeError = components['schemas']['ErrorResponse'];
 
@@ -59,6 +71,7 @@ export const REALTIME = {
   liveStream: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}`,
   errors: '/user/queue/errors',
   moderation: '/user/queue/moderation',
+  dm: '/user/queue/dm',
   sendLiveChat: (liveStreamId: number) => `/app/live-streams/${liveStreamId}/chat`,
 } as const;
 

@@ -56,6 +56,9 @@
 
 채팅, 방송 정보 변경, 판매자 검토 알림, 1:1 채팅은 STOMP로 받습니다. 경로와 메시지 형식은 `docs/api/README.md`의 "실시간 메시지"를 따릅니다. 이 부분은 자동 생성되지 않으니 문서의 필드 이름을 정확히 씁니다.
 
+- 연결은 `@/api`의 `connectRealtime`, 방송 하나의 채팅·정보 변경·검토 알림은 `@/lib/use-live-realtime`을 씁니다.
+- 1:1 채팅(`/user/queue/dm`)은 앱 전체에 연결 하나(`DmRealtime`, AppLayout)만 두고, 화면은 `@/lib/dm-events`의 `useDmEvent`로 받습니다. 화면마다 따로 연결하지 않습니다.
+
 ## 오류 처리
 
 - 실패는 `ApiError`(`code`, `status`, `message`)로 옵니다.

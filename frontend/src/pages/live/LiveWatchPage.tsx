@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
-import { ApiError, api, call, errorMessage, isErrorCode, type ChatMessage, type Schema } from '@/api';
+import { ApiError, api, call, errorMessage, isErrorCode, useSession, type ChatMessage, type Schema } from '@/api';
 import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime } from '@/lib/format';
 import { AuctionPanel } from './AuctionPanel';
@@ -106,7 +106,9 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
 }
 
 function StreamInfo({ liveStream, sellerNickname }: { liveStream: LiveStream; sellerNickname?: string }) {
+  const session = useSession();
   const name = sellerNickname || '판매자';
+  const canAsk = liveStream.sellerId !== undefined && liveStream.sellerId !== session?.user.userId;
   const time =
     liveStream.status === 'LIVE' && liveStream.startedAt
       ? `${formatDateTime(liveStream.startedAt)} 시작`
@@ -127,6 +129,11 @@ function StreamInfo({ liveStream, sellerNickname }: { liveStream: LiveStream; se
           <strong className="text-body-lg font-semibold">{name}</strong>
           {time && <span className="text-label text-neutral-500">{time}</span>}
         </div>
+        {canAsk && (
+          <Link to={`/messages/${liveStream.sellerId}`} className={buttonVariants({ variant: 'outline', size: 'sm', className: 'ml-2' })}>
+            판매자에게 문의
+          </Link>
+        )}
       </div>
       {liveStream.description && (
         <p className="rounded-lg border border-neutral-100 bg-neutral-0 px-5 py-4 text-body whitespace-pre-line text-neutral-700">

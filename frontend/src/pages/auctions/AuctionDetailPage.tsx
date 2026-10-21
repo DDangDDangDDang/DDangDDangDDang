@@ -127,6 +127,11 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
                 방송 보러 가기
               </Link>
             )}
+            {!isMine && auction.sellerId && (
+              <Link to={`/messages/${auction.sellerId}`} className={buttonVariants({ variant: 'outline' })}>
+                판매자에게 문의
+              </Link>
+            )}
             {cancelable && (
               <Button variant="outline" onClick={() => setConfirmCancel(true)}>
                 경매 취소
