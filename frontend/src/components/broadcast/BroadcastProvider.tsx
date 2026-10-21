@@ -116,7 +116,8 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
       }
       if (message.type === 'IDLE_RESUMED') setIdleEndsAt(undefined);
       if (message.type === 'IDLE_ENDED') {
-        setAutoEnded(idleTitle ?? liveStream?.title ?? '방송');
+        // 경고 뒤 제목을 바꿨을 수 있으므로 지금 방송 제목을 먼저 쓰고, 방송이 이미 사라졌으면 경고 때 기억한 제목을 쓴다.
+        setAutoEnded(liveStream?.title || idleTitle || '방송');
         setIdleEndsAt(undefined);
         setGraceStreamId(undefined);
         reload();
