@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { api, call, clearSession, errorMessage, useSession } from '@/api';
+import { api, call, clearSession, errorMessage, isErrorCode, useSession } from '@/api';
 import { VerificationField } from '@/components/auth/VerificationField';
 import { AuthCard } from '@/components/layout/PageHeader';
 import { Button, Input, Notice } from '@/components/ui';
@@ -33,7 +33,13 @@ export function PasswordResetPage() {
       const state: LoginLocationState = { notice: '비밀번호를 변경했어요. 다시 로그인해 주세요.' };
       navigate('/login', { replace: true, state });
     } catch (e) {
-      setError(errorMessage(e));
+      if (isErrorCode(e, 'VERIFY_004')) {
+        // 인증 후 10분이 지났으면 이메일 인증부터 다시 한다. (이메일 입력이 다시 열림)
+        setToken(null);
+        setError('인증이 만료됐어요. 다시 인증해 주세요.');
+      } else {
+        setError(errorMessage(e));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -49,7 +55,10 @@ export function PasswordResetPage() {
       <VerificationField
         kind="email"
         verified={token !== null}
-        onTargetChange={() => setToken(null)}
+        onTargetChange={() => {
+          setToken(null);
+          setError(undefined);
+        }}
         sentMessage="메일을 보냈습니다. 받은 인증번호를 5분 안에 입력해 주세요."
         verifiedMessage="인증을 완료했어요. 새 비밀번호를 입력해 주세요."
         sendCode={async (email) => {
@@ -90,6 +99,8 @@ export function PasswordResetPage() {
           </Button>
         </form>
       )}
+      {/* 인증이 만료돼 새 비밀번호 입력이 닫혀도 이유를 보여준다. */}
+      {!token && error && <Notice tone="error">{error}</Notice>}
     </AuthCard>
   );
 }
