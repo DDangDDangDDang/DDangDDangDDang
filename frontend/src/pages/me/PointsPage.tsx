@@ -1,13 +1,15 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { api, call, errorMessage, type Schema } from '@/api';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardBody, CardHeader, CardTitle, EmptyState, ErrorState, Select, Skeleton } from '@/components/ui';
+import { Button, Card, CardBody, CardHeader, CardTitle, EmptyState, ErrorState, Select, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatDateTime, formatPoint } from '@/lib/format';
 import { POINT_HISTORY_INCREASES, POINT_HISTORY_LABEL, type PointHistoryType } from '@/lib/labels';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 import { ExchangeSection } from './ExchangeSection';
+import { PointChargeDialog } from './PointChargeDialog';
 
 const PAGE_SIZE = 20;
 const TYPE_OPTIONS = [
@@ -15,7 +17,7 @@ const TYPE_OPTIONS = [
   ...(Object.entries(POINT_HISTORY_LABEL) as [PointHistoryType, string][]).map(([value, label]) => ({ value, label })),
 ];
 
-/** 포인트: 잔액(사용 가능·입찰로 묶임·합계) + 환전 신청·내역 + 포인트 내역(스크롤하면 계속 불러오기, 종류 필터) */
+/** 포인트: 잔액(사용 가능·입찰로 묶임·합계, [충전하기] 창) + 환전 신청·내역 + 포인트 내역(스크롤하면 계속 불러오기, 종류 필터) */
 export function PointsPage() {
   return (
     <div className="mx-auto max-w-[880px]">
@@ -28,6 +30,7 @@ export function PointsPage() {
 }
 
 function WalletSummary() {
+  const [charging, setCharging] = useState(false);
   const query = useQuery({
     queryKey: ['points', 'wallet'],
     queryFn: () => call(api.GET('/api/v1/points/wallet')),
@@ -52,13 +55,21 @@ function WalletSummary() {
       <dl className="grid grid-cols-3 divide-x divide-neutral-100">
         {items.map((item) => (
           <div key={item.label} className="flex flex-col gap-1 px-6 py-5">
-            <dt className="text-label text-neutral-500">{item.label}</dt>
+            <dt className="flex h-8 items-center justify-between gap-2 text-label text-neutral-500">
+              {item.label}
+              {item.emphasis && (
+                <Button size="sm" onClick={() => setCharging(true)}>
+                  충전하기
+                </Button>
+              )}
+            </dt>
             <dd className={cn('num font-bold', item.emphasis ? 'text-price-lg' : 'text-title-md')}>
               {query.isPending ? <Skeleton className="h-8 w-32" /> : formatPoint(item.value ?? 0)}
             </dd>
           </div>
         ))}
       </dl>
+      <PointChargeDialog open={charging} onClose={() => setCharging(false)} />
     </Card>
   );
 }
@@ -110,7 +121,7 @@ function PointHistory() {
                 <th scope="col" className="px-5 py-2.5 text-left font-semibold">날짜</th>
                 <th scope="col" className="px-5 py-2.5 text-left font-semibold">종류</th>
                 <th scope="col" className="px-5 py-2.5 text-right font-semibold">금액</th>
-                <th scope="col" className="px-5 py-2.5 text-right font-semibold">변동 후 잔액</th>
+                <th scope="col" className="px-5 py-2.5 text-right font-semibold">변동 후 포인트</th>
               </tr>
             </thead>
             <tbody>
@@ -142,7 +153,11 @@ function HistoryRow({ row }: { row: Schema<'PointHistoryResponse'> }) {
         {increases ? '+' : '−'}
         {formatPoint(amount)}
       </td>
-      <td className="num px-5 py-3.5 text-right">{formatPoint(row.balanceAfter ?? 0)}</td>
+      {/* 낙찰(묶인 포인트에서 결제)처럼 사용 가능 포인트는 그대로이고 묶인 포인트만 바뀌는 내역이 있어 둘 다 보여준다. */}
+      <td className="px-5 py-3.5 text-right">
+        <span className="num">사용 가능 {formatPoint(row.balanceAfter ?? 0)}</span>
+        <span className="num block text-caption text-neutral-500">묶임 {formatPoint(row.heldBalanceAfter ?? 0)}</span>
+      </td>
     </tr>
   );
 }
