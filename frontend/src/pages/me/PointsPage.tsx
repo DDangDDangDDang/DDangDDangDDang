@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn';
 import { formatDateTime, formatPoint } from '@/lib/format';
 import { POINT_HISTORY_INCREASES, POINT_HISTORY_LABEL, type PointHistoryType } from '@/lib/labels';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
+import { ExchangeSection } from './ExchangeSection';
 
 const PAGE_SIZE = 20;
 const TYPE_OPTIONS = [
@@ -14,12 +15,13 @@ const TYPE_OPTIONS = [
   ...(Object.entries(POINT_HISTORY_LABEL) as [PointHistoryType, string][]).map(([value, label]) => ({ value, label })),
 ];
 
-/** 포인트: 잔액(사용 가능·입찰로 묶임·합계) + 내역(스크롤하면 계속 불러오기, 종류 필터) */
+/** 포인트: 잔액(사용 가능·입찰로 묶임·합계) + 환전 신청·내역 + 포인트 내역(스크롤하면 계속 불러오기, 종류 필터) */
 export function PointsPage() {
   return (
     <div className="mx-auto max-w-[880px]">
       <PageHeader title="포인트" />
       <WalletSummary />
+      <ExchangeSection />
       <PointHistory />
     </div>
   );
