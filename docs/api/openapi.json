@@ -502,7 +502,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       },
       "post" : {
         "tags" : [ "live-stream-controller" ],
@@ -689,7 +690,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/v1/live-streams/{liveStreamId}/end" : {
@@ -1805,7 +1807,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       },
       "post" : {
         "tags" : [ "auction-controller" ],
@@ -2070,7 +2073,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       },
       "delete" : {
         "tags" : [ "product-controller" ],
@@ -2371,7 +2375,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       },
       "patch" : {
         "tags" : [ "live-stream-controller" ],
@@ -2947,7 +2952,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/v1/dm/unread-count" : {
@@ -3023,7 +3029,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/v1/auctions/{auctionId}" : {
@@ -3070,7 +3077,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/v1/auctions/popular" : {
@@ -3118,7 +3126,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/v1/admin/dm/reports" : {
@@ -5566,6 +5575,10 @@
     "code" : "LIVESTREAM_012",
     "status" : 400,
     "message" : "방송 시작 예정 시간은 지금부터 30일 이내로 정해 주세요."
+  }, {
+    "code" : "LIVESTREAM_013",
+    "status" : 429,
+    "message" : "시청 입장 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
   }, {
     "code" : "ORDER_001",
     "status" : 404,

@@ -230,10 +230,18 @@ class LiveChatControllerTest {
     }
 
     @Test
-    @DisplayName("토큰 없이 연결하면 AUTH_001 에러로 연결이 거부된다")
-    void connectWithoutToken() throws Exception {
-        connectAsync(null);
+    @DisplayName("토큰 없이 연결한 손님은 방송 채팅을 받을 수 있지만, 보내면 AUTH_001 에러로 연결이 끊긴다")
+    void guestCanReadButNotSend() throws Exception {
+        Long liveStreamId = liveStream(99L, true);
+        StompSession guest = connect(null);
+        BlockingQueue<Map<String, Object>> guestMessages = subscribe(guest, chatTopic(liveStreamId));
+        StompSession member = connect(bearer(accessToken(1L)));
 
+        Map<String, Object> received = sendUntilReceived(member, chatApp(liveStreamId), Map.of("content", "손님도 보여요"), guestMessages);
+        assertThat(received).isNotNull();
+        assertThat(received.get("content")).isEqualTo("손님도 보여요");
+
+        guest.send(chatApp(liveStreamId), Map.of("content", "손님 채팅"));
         assertThat(errorCodes.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS)).isEqualTo("AUTH_001");
     }
 

@@ -112,11 +112,14 @@ public class LiveStreamController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    /** 시청 입장. 로그인하지 않았으면 손님으로 입장한다. (SecurityConfig.PUBLIC_POST_APIS) */
     @PostMapping("/{liveStreamId}/join")
     public ResponseEntity<ApiResponse<LiveStreamTokenResponse>> join(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long liveStreamId) {
-        LiveStreamTokenResponse response = liveStreamService.join(liveStreamId, authUser.id(), authUser.nickname());
+        LiveStreamTokenResponse response = authUser == null
+                ? liveStreamService.joinAsGuest(liveStreamId)
+                : liveStreamService.join(liveStreamId, authUser.id(), authUser.nickname());
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
