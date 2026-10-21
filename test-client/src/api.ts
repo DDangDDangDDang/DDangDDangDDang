@@ -178,8 +178,53 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return res;
 }
 
-export function signup(email: string, password: string, nickname: string): Promise<unknown> {
-  return request('POST', '/api/v1/auth/signup', { email, password, nickname });
+export type CodeSent = { expiresIn: number };
+export type VerificationToken = { verificationToken: string };
+
+/** 회원가입 휴대폰 인증번호 발송. 로컬에서는 문자가 가지 않고 백엔드 로그에 "[문자 발송 생략]"으로 찍힌다. */
+export function sendSignupPhoneCode(phoneNumber: string): Promise<CodeSent> {
+  return request('POST', '/api/v1/auth/signup/phone/code', { phoneNumber });
+}
+
+/** 인증번호가 맞으면 회원가입 요청에 넣을 인증 완료 토큰(10분, 1회용)을 받는다. */
+export function verifySignupPhone(phoneNumber: string, code: string): Promise<VerificationToken> {
+  return request('POST', '/api/v1/auth/signup/phone/verify', { phoneNumber, code });
+}
+
+export type FoundEmail = { maskedEmail: string; joinedAt: string };
+
+/** 이메일 찾기: 가입한 휴대폰 번호로 인증번호 발송. */
+export function sendFindEmailCode(phoneNumber: string): Promise<CodeSent> {
+  return request('POST', '/api/v1/auth/find-email/code', { phoneNumber });
+}
+
+/** 인증번호가 맞으면 마스킹된 이메일과 가입일을 돌려준다. */
+export function findEmail(phoneNumber: string, code: string): Promise<FoundEmail> {
+  return request('POST', '/api/v1/auth/find-email/verify', { phoneNumber, code });
+}
+
+/** 비밀번호 재설정: 이메일로 인증번호 발송. 로컬에서는 백엔드 로그에 "[메일 발송 생략]"으로 찍힌다. */
+export function sendPasswordResetCode(email: string): Promise<CodeSent> {
+  return request('POST', '/api/v1/auth/password-reset/code', { email });
+}
+
+export function verifyPasswordResetCode(email: string, code: string): Promise<VerificationToken> {
+  return request('POST', '/api/v1/auth/password-reset/verify', { email, code });
+}
+
+/** 재설정하면 기존 로그인 세션은 모두 끊긴다. */
+export function resetPassword(verificationToken: string, newPassword: string): Promise<unknown> {
+  return request('POST', '/api/v1/auth/password-reset', { verificationToken, newPassword });
+}
+
+export function signup(
+    email: string,
+    password: string,
+    nickname: string,
+    phoneNumber: string,
+    phoneVerificationToken: string,
+): Promise<unknown> {
+  return request('POST', '/api/v1/auth/signup', { email, password, nickname, phoneNumber, phoneVerificationToken });
 }
 
 export async function logout(): Promise<void> {
