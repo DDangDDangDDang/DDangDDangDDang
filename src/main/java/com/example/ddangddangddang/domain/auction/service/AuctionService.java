@@ -145,16 +145,16 @@ public class AuctionService {
             throw new BusinessException(AuctionErrorCode.NOT_OWNER);
         }
 
-        //시작 전이거나 진행 중(마감 시각 전)인지
+        LiveStream current = auction.getLiveStream();
+        //이미 이 방송에 올라가 있으면(그 뒤 끝났더라도) 그대로 돌려준다
+        if (current != null && current.getId().equals(liveStream.getId())) {
+            return AuctionResponse.from(auction);
+        }
+
+        //새로 올리거나 옮길 때만 : 시작 전이거나 진행 중(마감 시각 전)인지
         boolean open = auction.getStatus() == AuctionStatus.READY || auction.getStatus() == AuctionStatus.ONGOING;
         if (!open || !auction.getEndAt().isAfter(LocalDateTime.now())) {
             throw new BusinessException(AuctionErrorCode.NOT_SHOWABLE_STATUS);
-        }
-
-        LiveStream current = auction.getLiveStream();
-        //이미 이 방송에 올라가 있으면 그대로 돌려준다
-        if (current != null && current.getId().equals(liveStream.getId())) {
-            return AuctionResponse.from(auction);
         }
         //다른 방송이 아직 진행 중이면 옮기지 않는다(끝난 방송이면 이 방송으로 옮김)
         if (current != null && current.getStatus() == LiveStreamStatus.LIVE) {
