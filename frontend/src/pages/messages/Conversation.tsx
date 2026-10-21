@@ -342,7 +342,7 @@ function MessageItem({ message, mine, unread, newDay, onReport }: { message: Mes
             aria-label="이 메시지 신고"
             title="신고"
             onClick={onReport}
-            className="invisible flex size-7 items-center justify-center rounded-md text-neutral-400 group-hover:visible hover:bg-neutral-50 hover:text-brand-700 focus-visible:visible"
+            className="flex size-7 items-center justify-center rounded-md text-neutral-400 opacity-0 group-hover:opacity-100 hover:bg-neutral-50 hover:text-brand-700 focus-visible:opacity-100"
           >
             <Flag className="size-3.5" aria-hidden="true" />
           </button>
