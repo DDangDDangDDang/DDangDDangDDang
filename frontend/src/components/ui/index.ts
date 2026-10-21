@@ -2,9 +2,12 @@
 export { Button, type ButtonProps } from './Button';
 export { buttonVariants } from './button-variants';
 export { Input, type InputProps } from './Input';
+export { Textarea, type TextareaProps } from './Textarea';
 export { Badge, type BadgeProps } from './Badge';
 export { Card, CardHeader, CardTitle, CardBody } from './Card';
 export { Skeleton, EmptyState, ErrorState } from './States';
 export { Select, type SelectProps } from './Select';
 export { ConfirmDialog } from './ConfirmDialog';
+export { Dialog } from './Dialog';
 export { Notice } from './Notice';
+export { Pagination } from './Pagination';

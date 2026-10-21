@@ -9,3 +9,14 @@ export type { ErrorCode } from './generated/error-codes';
 import type { components } from './generated/schema';
 /** 명세의 스키마 타입을 이름으로 꺼낸다. 예: Schema<'AuctionResponse'> */
 export type Schema<Name extends keyof components['schemas']> = components['schemas'][Name];
+export {
+  connectRealtime,
+  REALTIME,
+  type ChatMessage,
+  type DmEvent,
+  type LiveStreamUpdatedMessage,
+  type ModerationAlert,
+  type RealtimeConnection,
+  type RealtimeError,
+  type RealtimeStatus,
+} from './realtime';

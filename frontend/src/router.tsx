@@ -5,13 +5,25 @@ import { FindEmailPage } from '@/pages/auth/FindEmailPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
 import { SignupPage } from '@/pages/auth/SignupPage';
+import { CategoryAdminPage } from '@/pages/admin/CategoryAdminPage';
+import { DmReportsPage } from '@/pages/admin/DmReportsPage';
+import { AuctionDetailPage } from '@/pages/auctions/AuctionDetailPage';
+import { AuctionListPage } from '@/pages/auctions/AuctionListPage';
 import { DevComponentsPage } from '@/pages/DevComponentsPage';
 import { HomePage } from '@/pages/HomePage';
+import { LiveListPage } from '@/pages/live/LiveListPage';
+import { LiveWatchPage } from '@/pages/live/LiveWatchPage';
 import { MyInfoPage } from '@/pages/me/MyInfoPage';
+import { MessagesPage } from '@/pages/messages/MessagesPage';
 import { PointsPage } from '@/pages/me/PointsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { OrderDetailPage } from '@/pages/orders/OrderDetailPage';
 import { OrdersPage } from '@/pages/orders/OrdersPage';
+import { MyProductsPage } from '@/pages/products/MyProductsPage';
+import { ProductAuctionPage } from '@/pages/products/ProductAuctionPage';
+import { ProductCreatePage } from '@/pages/products/ProductCreatePage';
+import { ProductEditPage } from '@/pages/products/ProductEditPage';
+import { SellerStudioPage } from '@/pages/studio/SellerStudioPage';
 
 /**
  * 화면 목록. 새 화면은 src/pages에 만들고 여기에 경로를 추가한다.
@@ -35,10 +47,24 @@ export const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
+          { path: '/lives', element: <LiveListPage /> },
+          { path: '/lives/:liveStreamId', element: <LiveWatchPage /> },
           { path: '/me', element: <MyInfoPage /> },
           { path: '/points', element: <PointsPage /> },
           { path: '/orders', element: <OrdersPage /> },
           { path: '/orders/:orderId', element: <OrderDetailPage /> },
+          { path: '/studio', element: <SellerStudioPage /> },
+          { path: '/messages', element: <MessagesPage /> },
+          { path: '/messages/:userId', element: <MessagesPage /> },
+          { path: '/auctions', element: <AuctionListPage /> },
+          { path: '/auctions/:auctionId', element: <AuctionDetailPage /> },
+          { path: '/me/products', element: <MyProductsPage /> },
+          { path: '/products/new', element: <ProductCreatePage /> },
+          { path: '/products/:productId/edit', element: <ProductEditPage /> },
+          { path: '/products/:productId/auction', element: <ProductAuctionPage /> },
+          // 관리자 (역할은 화면 안에서 확인하고, 서버도 ADMIN만 허용한다)
+          { path: '/admin/categories', element: <CategoryAdminPage /> },
+          { path: '/admin/dm-reports', element: <DmReportsPage /> },
         ],
       },
 

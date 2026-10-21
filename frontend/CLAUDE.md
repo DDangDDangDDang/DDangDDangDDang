@@ -56,6 +56,10 @@
 
 채팅, 방송 정보 변경, 판매자 검토 알림, 1:1 채팅은 STOMP로 받습니다. 경로와 메시지 형식은 `docs/api/README.md`의 "실시간 메시지"를 따릅니다. 이 부분은 자동 생성되지 않으니 문서의 필드 이름을 정확히 씁니다.
 
+- 연결은 `@/api`의 `connectRealtime`, 방송 하나의 채팅·정보 변경·검토 알림은 `@/lib/use-live-realtime`을 씁니다.
+- 1:1 채팅(`/user/queue/dm`)은 앱 전체에 연결 하나(`DmRealtime`, AppLayout)만 두고, 화면은 `@/lib/dm-events`의 `useDmEvent`로 받습니다. 화면마다 따로 연결하지 않습니다.
+- 판매자 송출(카메라·마이크, LiveKit, 내 방송 채팅·검토 알림)은 앱 전체에 하나(`BroadcastProvider`, AppLayout)만 두어 방송 중 다른 화면으로 가도 이어집니다. 화면은 `@/components/broadcast/broadcast-context`의 `useBroadcast()`로 씁니다. 송출은 스튜디오를 연 탭만 맡습니다. (`@/lib/broadcast-owner`)
+
 ## 오류 처리
 
 - 실패는 `ApiError`(`code`, `status`, `message`)로 옵니다.
@@ -83,11 +87,13 @@
   - 모서리: `rounded-sm` 배지 · `rounded-md` 버튼·입력 · `rounded-lg` 카드·영상
   - **금액·남은 시간·인원 같은 숫자에는 `num` 클래스**를 붙입니다. (숫자 전용 글꼴 + 고정폭 숫자)
 - 새 토큰이 필요하면 `src/styles/index.css`의 `@theme`에 추가하고 이유를 주석으로 남깁니다.
-- **공통 컴포넌트를 먼저 씁니다.** `@/components/ui`: `Button`, `Input`, `Select`, `Badge`, `Card`, `Notice`(한 줄 안내·오류), `ConfirmDialog`(되돌릴 수 없는 동작 확인), `Skeleton`, `EmptyState`, `ErrorState`
+- **공통 컴포넌트를 먼저 씁니다.** `@/components/ui`: `Button`, `Input`, `Textarea`, `Select`, `Badge`, `Card`, `Notice`(한 줄 안내·오류), `ConfirmDialog`(되돌릴 수 없는 동작 확인), `Dialog`(화면을 옮기지 않고 입력받는 창), `Skeleton`, `EmptyState`, `ErrorState`, `Pagination`(번호로 넘기는 목록)
   - 인증번호(휴대폰·이메일) 입력은 `@/components/auth/VerificationField` (5분 타이머, 1분 재요청 대기 포함)
   - 로그인해야 하는 화면은 `src/router.tsx`에서 `RequireAuth` 아래에 둡니다.
-  - 목록 무한 스크롤은 TanStack `useInfiniteQuery` + `@/lib/use-infinite-scroll`
-  - 서버 enum 값(주문 상태, 포인트 종류, 택배사)은 `@/lib/labels`의 표로 화면 문구를 만듭니다.
+  - 목록 무한 스크롤은 TanStack `useInfiniteQuery` + `@/lib/use-infinite-scroll`. 서버가 페이지 번호(`page`·`totalPages`)로 주는 목록은 `Pagination`
+  - 경매 표시는 `@/components/auction` (`AuctionCard`, `AuctionPhaseBadge`, `AuctionTime`, 조건 입력 `AuctionConditionFields`), 계산은 `@/lib/auction`
+  - 서버 시각 ↔ `datetime-local` 입력 변환은 `@/lib/datetime-input`, 매초 바뀌는 표시는 `@/lib/use-now`
+  - 서버 enum 값(주문 상태, 포인트 종류, 택배사, 경매·상품 상태)은 `@/lib/labels`의 표로 화면 문구를 만듭니다.
   - 링크를 버튼 모양으로: `<Link className={buttonVariants({ variant: 'outline' })}>` (버튼을 링크로 감싸지 않음)
   - 비슷한 컴포넌트를 새로 만들기 전에 기존 것에 `variant`를 추가할 수 있는지 봅니다.
 - 전체 모양은 `/dev/components` 화면에서 확인할 수 있습니다.
