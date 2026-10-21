@@ -15,7 +15,7 @@ const seller = {
 test.describe('경매 등록', () => {
   test.skip(!seller.email || !seller.password, 'E2E_SELLER_EMAIL, E2E_SELLER_PASSWORD 환경변수가 필요합니다.');
 
-  test('상품을 등록하며 경매 일정을 잡고, 목록에서 찾은 뒤 취소한다', async ({ page }) => {
+  test('상품을 등록하며 경매 일정을 잡고, 목록에서 찾은 뒤 취소한다', async ({ page, browser }) => {
     await login(page);
     await page.goto('/products/new');
 
@@ -43,6 +43,17 @@ test.describe('경매 등록', () => {
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
     await expect(page.getByText('10,000 P').first()).toBeVisible();
     const detailUrl = page.url();
+
+    // 로그인하지 않아도 경매 상세를 볼 수 있고, [판매자에게 문의]를 누르면 로그인 창이 뜬다.
+    const guestContext = await browser.newContext();
+    const guest = await guestContext.newPage();
+    await guest.goto(detailUrl);
+    await expect(guest.getByRole('heading', { level: 1, name })).toBeVisible();
+    await guest.getByRole('link', { name: '판매자에게 문의' }).click();
+    await expect(guest.getByRole('dialog', { name: '로그인이 필요합니다' })).toBeVisible();
+    await guest.getByRole('dialog').getByRole('button', { name: '취소' }).click();
+    await expect(guest).toHaveURL(detailUrl);
+    await guestContext.close();
 
     // 경매 목록에서 상품명으로 찾는다.
     await page.goto('/auctions');

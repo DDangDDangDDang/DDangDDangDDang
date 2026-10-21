@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from '@
 
 /*
  * 1. 로그인 → 홈 → 방송 시청 → 채팅 전송
+ *    로그인하지 않은 손님: 홈·방송 시청·채팅 보기 → 보내려 하면 "로그인이 필요합니다" 창 → 창에서 로그인 → 쓰던 채팅 그대로 보내기
  * 2. 판매자 스튜디오에서 가짜 카메라로 송출 → 시청 화면에 영상이 나온다 (playwright.config.ts의 가짜 장치 설정)
  *    방송 중 다른 화면으로 가도 송출이 이어지고(작은 방송 창), 스튜디오 안에서 상품을 등록해 바로 경매를 시작한다.
  *
@@ -106,6 +107,60 @@ test.describe('방송 시청', () => {
     await page.getByRole('button', { name: '채팅 전송' }).click();
     await expect(page.getByRole('list', { name: '채팅 메시지' }).getByText(content)).toBeVisible();
     await expect(chatInput).toHaveValue('');
+  });
+
+  test('로그인하지 않아도 방송과 채팅을 보고, 채팅을 보내려 하면 로그인 창에서 로그인한 뒤 이어서 보낸다', async ({ browser }) => {
+    if (!prepared) throw new Error('방송이 준비되지 않았습니다.');
+    const { stream } = prepared;
+    const guestContext = await browser.newContext();
+    const memberContext = await browser.newContext();
+    const guest = await guestContext.newPage();
+    const member = await memberContext.newPage();
+
+    try {
+      // 손님: 홈에 소개와 방송 섹션이 함께 보인다.
+      await guest.goto('/');
+      await expect(guest.getByRole('heading', { name: '라이브로 보고, 실시간으로 입찰하세요' })).toBeVisible();
+      await expect(guest.getByRole('heading', { name: '지금 인기 라이브' })).toBeVisible();
+
+      // 손님: 방송 시청 화면에 들어가 영상에 입장하고(손님 토큰) 채팅을 본다.
+      await guest.goto(`/lives/${stream.id}`);
+      await expect(guest.getByRole('heading', { level: 1, name: stream.title })).toBeVisible();
+      await expect(guest.getByText('판매자 화면을 기다리고 있어요').or(guest.locator('video'))).toBeVisible({ timeout: 20_000 });
+      await expect(guest.getByText('방송에 연결하지 못했어요')).toBeHidden();
+
+      // 다른 회원이 보낸 채팅이 손님 화면에 나온다.
+      await loginOnPage(member, seller);
+      await member.goto(`/lives/${stream.id}`);
+      const memberInput = member.getByLabel('채팅 입력');
+      await expect(memberInput).toBeEnabled({ timeout: 20_000 });
+      const hello = `E2E 회원 채팅 ${Date.now()}`;
+      await memberInput.fill(hello);
+      await member.getByRole('button', { name: '채팅 전송' }).click();
+      await expect(guest.getByRole('list', { name: '채팅 메시지' }).getByText(hello)).toBeVisible();
+
+      // 손님이 보내려고 하면 로그인 창이 뜨고, 창에서 로그인하면 같은 화면에서 쓰던 채팅을 이어서 보낸다.
+      const guestInput = guest.getByLabel('채팅 입력');
+      const draft = `E2E 손님이 쓴 채팅 ${Date.now()}`;
+      await guestInput.fill(draft);
+      await guest.getByRole('button', { name: '채팅 전송' }).click();
+      const dialog = guest.getByRole('dialog', { name: '로그인이 필요합니다' });
+      await expect(dialog.getByText('로그인이 필요합니다. 로그인 하시겠습니까?')).toBeVisible();
+      await dialog.getByRole('button', { name: '로그인' }).click();
+      await dialog.getByLabel('이메일').fill(viewer.email);
+      await dialog.getByLabel('비밀번호').fill(viewer.password);
+      await dialog.getByRole('button', { name: '로그인' }).click();
+      await expect(dialog).toBeHidden();
+      await expect(guest).toHaveURL(new RegExp(`/lives/${stream.id}$`));
+      await expect(guest.getByRole('button', { name: '로그아웃' })).toBeVisible();
+      await expect(guestInput).toHaveValue(draft);
+      await expect(guestInput).toBeFocused();
+      await guest.getByRole('button', { name: '채팅 전송' }).click();
+      await expect(member.getByRole('list', { name: '채팅 메시지' }).getByText(draft)).toBeVisible();
+    } finally {
+      await guestContext.close();
+      await memberContext.close();
+    }
   });
 });
 

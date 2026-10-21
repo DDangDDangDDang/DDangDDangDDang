@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Gavel, MessageCircle, Wallet } from 'lucide-react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { api, call, logout, useSession } from '@/api';
 import { BroadcastProvider } from '@/components/broadcast/BroadcastProvider';
 import { MiniBroadcast } from '@/components/broadcast/MiniBroadcast';
@@ -35,6 +35,10 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 function AppHeader() {
   const session = useSession();
   const navigate = useNavigate();
+  // 로그인·회원가입 뒤 지금 보던 화면으로 돌아온다. (로그인·회원가입 화면 자체에서는 그대로)
+  const location = useLocation();
+  const here = location.pathname + location.search;
+  const back = ['/login', '/signup'].includes(location.pathname) ? '' : `?redirect=${encodeURIComponent(here)}`;
 
   return (
     <header className="border-b border-neutral-100 bg-neutral-0">
@@ -46,38 +50,40 @@ function AppHeader() {
             </span>
             <span className="text-logo font-bold tracking-tight">땅땅땅</span>
           </Link>
-          {session && (
-            <nav aria-label="내 메뉴" className="flex items-center">
-              <NavLink to="/lives" className={navClass}>
-                라이브
-              </NavLink>
-              <NavLink to="/auctions" className={navClass}>
-                경매
-              </NavLink>
-              <NavLink to="/studio" className={navClass}>
-                방송하기
-              </NavLink>
-              <NavLink to="/me/products" className={navClass}>
-                내 상품
-              </NavLink>
-              <NavLink to="/orders" className={navClass}>
-                주문 내역
-              </NavLink>
-              <NavLink to="/me" end className={navClass}>
-                내 정보
-              </NavLink>
-              {session.user.role === 'ADMIN' && (
-                <>
-                  <NavLink to="/admin/categories" className={navClass}>
-                    카테고리 관리
-                  </NavLink>
-                  <NavLink to="/admin/dm-reports" className={navClass}>
-                    채팅 신고
-                  </NavLink>
-                </>
-              )}
-            </nav>
-          )}
+          <nav aria-label="내 메뉴" className="flex items-center">
+            <NavLink to="/lives" className={navClass}>
+              라이브
+            </NavLink>
+            <NavLink to="/auctions" className={navClass}>
+              경매
+            </NavLink>
+            {session && (
+              <>
+                <NavLink to="/studio" className={navClass}>
+                  방송하기
+                </NavLink>
+                <NavLink to="/me/products" className={navClass}>
+                  내 상품
+                </NavLink>
+                <NavLink to="/orders" className={navClass}>
+                  주문 내역
+                </NavLink>
+                <NavLink to="/me" end className={navClass}>
+                  내 정보
+                </NavLink>
+                {session.user.role === 'ADMIN' && (
+                  <>
+                    <NavLink to="/admin/categories" className={navClass}>
+                      카테고리 관리
+                    </NavLink>
+                    <NavLink to="/admin/dm-reports" className={navClass}>
+                      채팅 신고
+                    </NavLink>
+                  </>
+                )}
+              </>
+            )}
+          </nav>
         </div>
 
         {session ? (
@@ -100,10 +106,10 @@ function AppHeader() {
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <Link to="/login" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+            <Link to={`/login${back}`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
               로그인
             </Link>
-            <Link to="/signup" className={buttonVariants({ variant: 'primary', size: 'sm' })}>
+            <Link to={`/signup${back}`} className={buttonVariants({ variant: 'primary', size: 'sm' })}>
               회원가입
             </Link>
           </div>

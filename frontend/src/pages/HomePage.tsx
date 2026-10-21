@@ -13,30 +13,33 @@ const SECTION_SIZE = 8;
 
 /**
  * 홈: 인기 라이브 · 시청자 급상승 · 방송 예정 · 인기 경매.
- * 방송 API는 로그인해야 쓸 수 있어서, 로그인 전에는 서비스 소개와 로그인 안내만 보여준다.
+ * 로그인하지 않아도 방송·경매를 둘러볼 수 있다. 로그인 전에는 맨 위에 서비스 소개와 로그인 안내를 함께 보여준다.
  */
 export function HomePage() {
   const session = useSession();
-  if (!session) return <GuestHome />;
   return (
     <div className="flex flex-col gap-12">
+      {!session && <GuestIntro />}
       <LiveHome />
       <PopularAuctions />
     </div>
   );
 }
 
-function GuestHome() {
+/** 로그인 전 맨 위 소개. 아래 방송·경매는 로그인 없이도 볼 수 있다. */
+function GuestIntro() {
   return (
-    <section className="flex flex-col items-center gap-4 rounded-lg border border-neutral-100 bg-neutral-0 px-8 py-20 text-center shadow-sm">
-      <span className="flex size-14 items-center justify-center rounded-lg bg-brand-500 text-neutral-0">
+    <section className="flex items-center gap-6 rounded-lg border border-neutral-100 bg-neutral-0 px-8 py-8 shadow-sm">
+      <span className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-neutral-0">
         <Gavel className="size-7" aria-hidden="true" />
       </span>
-      <h1 className="text-display font-bold tracking-tight">라이브로 보고, 실시간으로 입찰하세요</h1>
-      <p className="text-body-lg text-neutral-500">판매자의 방송을 보며 채팅하고, 마음에 드는 상품에 바로 입찰할 수 있어요.</p>
-      <div className="mt-2 flex gap-2">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <h1 className="text-title-lg font-bold tracking-tight">라이브로 보고, 실시간으로 입찰하세요</h1>
+        <p className="text-body text-neutral-500">방송과 경매는 로그인 없이 둘러볼 수 있어요. 채팅과 입찰은 로그인한 뒤에 할 수 있어요.</p>
+      </div>
+      <div className="flex shrink-0 gap-2">
         <Link to="/login" className={buttonVariants({ variant: 'primary', size: 'lg' })}>
-          로그인하고 방송 보기
+          로그인
         </Link>
         <Link to="/signup" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
           회원가입
