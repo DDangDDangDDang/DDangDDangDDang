@@ -37,7 +37,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         //목록 조회 : 입력한 조건에 맞게 정렬후 한페이지 만큼 가져오기
         List<AuctionListResponse> content =queryFactory
                 .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,
-                        auction.currentPrice,auction.bidCount,auction.status,auction.endAt,
+                        auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,
                         auction.liveStream.isNotNull())) // 라이중의 경매 생성인 경우에는 true(일반 경매 상품은 false)
                 .from(auction)
                 .join(auction.product,product)
@@ -82,7 +82,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         QCategory category = QCategory.category;
 
         return queryFactory
-                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.endAt,auction.liveStream.isNotNull())).
+                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,auction.liveStream.isNotNull())).
                 from(auction)
                 .join(auction.product, product)
                 .join(product.category,category)
@@ -125,7 +125,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         return auction.status.eq(status);
     }
 
-    //정렬 : 안보낼시 기본 최신순,값이 같을 경우 id 순으로
+    //정렬 : 안보낼시 기본 최신순,값이 같을 경우 id 순으로,인기순은 입찰 횟수 많은순
     private OrderSpecifier<?>[] orderBy(QAuction auction, AuctionSort sort){
         if (sort ==null){
             sort = AuctionSort.LATEST;
@@ -135,6 +135,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
             case PRICE_ASC -> new OrderSpecifier<?>[]{auction.currentPrice.asc(),auction.id.desc()};
             case PRICE_DESC -> new OrderSpecifier<?>[]{auction.currentPrice.desc(),auction.id.desc()};
             case ENDING_SOON -> new OrderSpecifier<?>[]{auction.endAt.asc(),auction.id.desc()};
+            case POPULAR -> new OrderSpecifier<?>[]{auction.bidCount.desc(), auction.id.desc()};
         };
     }
 }
