@@ -243,6 +243,28 @@ class LiveStreamControllerTest {
         liveStreamService.end(liveStreamId, seller.id());
     }
 
+    @Test
+    @DisplayName("송출이 없어 자동 종료하면(endForIdle) 방송이 끝나고, 판매자가 새 방송을 만들 수 있다")
+    void endForIdle() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = longValue(create(seller, "자동 종료 방송"), "$.data.id");
+        given(mediaServerClient.createPublisherToken(anyString(), anyString(), anyString())).willReturn("token");
+        liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
+
+        liveStreamService.endForIdle(liveStreamId, seller.id());
+
+        mockMvc.perform(get("/api/v1/live-streams/{liveStreamId}", liveStreamId))
+                .andExpect(jsonPath("$.data.status").value("ENDED"));
+        // 감시가 겹쳐 한 번 더 불러도 이미 끝난 방송은 다시 끝내지 않는다. (방 삭제·종료 안내 중복 방지)
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> liveStreamService.endForIdle(liveStreamId, seller.id()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode.NOT_LIVE);
+        verify(mediaServerClient, times(1)).deleteRoom(anyString());
+        mockMvc.perform(get("/api/v1/live-streams/me/active").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
     private org.springframework.test.web.servlet.ResultActions create(Member seller, String title) throws Exception {
         return mockMvc.perform(post("/api/v1/live-streams").header(HttpHeaders.AUTHORIZATION, seller.bearer())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"title\": \"" + title + "\"}"))

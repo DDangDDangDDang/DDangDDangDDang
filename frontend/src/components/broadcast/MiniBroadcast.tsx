@@ -6,6 +6,7 @@ import { Badge, buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
 import { useBroadcast } from './broadcast-context';
+import { IdleWarning } from './IdleWarning';
 
 /** 송출 연결 상태 문구 (송출 중이 아닐 때만) */
 const PHASE_TEXT: Partial<Record<string, string>> = {
@@ -23,7 +24,7 @@ const PHASE_TEXT: Partial<Record<string, string>> = {
  * 마이크·카메라를 끄거나 스튜디오로 돌아갈 수 있다.
  */
 export function MiniBroadcast() {
-  const { publishing, liveStream, media, publisher, unseen } = useBroadcast();
+  const { publishing, liveStream, media, publisher, unseen, idle } = useBroadcast();
   const location = useLocation();
   const [folded, setFolded] = useState(false);
   if (!publishing || !liveStream || location.pathname === '/studio') return null;
@@ -35,6 +36,7 @@ export function MiniBroadcast() {
 
   return (
     <aside aria-label="방송 중" className="fixed right-6 bottom-6 z-40 w-[300px] overflow-hidden rounded-lg border border-neutral-100 bg-neutral-0 shadow-md">
+      {idle.endsAt && <IdleWarning endsAt={idle.endsAt} compact />}
       <div className="flex items-center justify-between gap-2 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <Badge variant="live">

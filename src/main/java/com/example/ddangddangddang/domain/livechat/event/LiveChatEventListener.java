@@ -15,6 +15,7 @@ import java.time.format.DateTimeFormatter;
 public class LiveChatEventListener {
 
     static final String STREAM_ENDED_MESSAGE = "방송이 종료되었습니다.";
+    static final String IDLE_ENDED_MESSAGE = "판매자 송출이 오래 없어 방송이 자동으로 종료되었습니다.";
     private static final DateTimeFormatter START_AT_FORMAT = DateTimeFormatter.ofPattern("M월 d일 HH:mm");
 
     private final LiveChatService liveChatService;
@@ -25,7 +26,7 @@ public class LiveChatEventListener {
      */
     @TransactionalEventListener
     public void handleLiveStreamEnded(LiveStreamEndedEvent event) {
-        liveChatService.sendSystemMessage(event.liveStreamId(), STREAM_ENDED_MESSAGE);
+        liveChatService.sendSystemMessage(event.liveStreamId(), event.idle() ? IDLE_ENDED_MESSAGE : STREAM_ENDED_MESSAGE);
     }
 
     /**

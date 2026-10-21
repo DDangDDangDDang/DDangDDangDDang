@@ -58,6 +58,16 @@ export type ModerationAlert = {
 };
 
 /**
+ * 송출이 멈춘 내 방송 안내 (`/user/queue/live-stream`). 방송 판매자에게만 온다.
+ * 방송 중인데 송출이 25분 없으면 IDLE_WARNING(endsAt: 자동 종료 시각), 다시 송출하면 IDLE_RESUMED, 30분이면 방송이 끝나고 IDLE_ENDED
+ */
+export type LiveStreamIdleMessage = {
+  type: 'IDLE_WARNING' | 'IDLE_RESUMED' | 'IDLE_ENDED';
+  liveStreamId: number;
+  endsAt: string | null;
+};
+
+/**
  * 1:1 채팅 이벤트 (`/user/queue/dm`). 내가 보낸 메시지도 온다. (같은 계정의 다른 탭·기기)
  * MESSAGE: message가 새 메시지 · READ: readerId가 lastReadMessageId까지 읽음 (보낸 사람 화면의 "1"을 지운다)
  */
@@ -78,6 +88,7 @@ export const REALTIME = {
   liveAuctions: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}/auctions`,
   errors: '/user/queue/errors',
   moderation: '/user/queue/moderation',
+  liveStreamIdle: '/user/queue/live-stream',
   dm: '/user/queue/dm',
   sendLiveChat: (liveStreamId: number) => `/app/live-streams/${liveStreamId}/chat`,
 } as const;
