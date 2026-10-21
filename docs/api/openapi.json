@@ -3376,6 +3376,14 @@
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "auctionStatus" : {
+            "type" : "string",
+            "enum" : [ "READY", "ONGOING", "ENDED", "FAILED", "CANCELED" ]
           }
         }
       },

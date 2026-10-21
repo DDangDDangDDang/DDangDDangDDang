@@ -13,6 +13,8 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
     //해당 상품에 상태(대기,진행 중)의 경매가 있는 조회
     boolean existsByProductIdAndStatusIn(Long productId, List<AuctionStatus> statuses);
 
+    //경매에 올린 상품 정보 조회
+    List<Auction> findByProductIdInOrderByIdDesc(List<Long> productIds);
 
     //시작 시간이 지난 READY 경매(READY -> ONGOING 대상)
     List<Auction> findByStatusAndStartAtLessThanEqual(AuctionStatus status,LocalDateTime now);
