@@ -54,4 +54,11 @@ public class Product extends BaseTimeEntity {
     public void delete() {
         this.status = Status.DELETED;
     }
+
+    //낙찰 시 상품 판매 완료 처리 (경매 마감에서 호출)
+    public void markSold(){
+        this.status = Status.SOLD;
+    }
+
+
 }

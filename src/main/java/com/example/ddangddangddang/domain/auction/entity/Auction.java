@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.auction.entity;
 
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.product.entity.Product;
+import com.example.ddangddangddang.domain.product.entity.Status;
 import com.example.ddangddangddang.global.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -99,6 +100,7 @@ public class Auction extends BaseTimeEntity {
     public void close(){
         if (this.bidCount > 0){
             this.status =AuctionStatus.ENDED;
+            this.product.markSold();
         }else {
             this.status=AuctionStatus.FAILED;
         }
