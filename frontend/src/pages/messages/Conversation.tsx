@@ -29,6 +29,8 @@ export function Conversation({ otherUserId }: { otherUserId: number }) {
     queryKey: ['dm', 'room', otherUserId],
     queryFn: () => call(api.POST('/api/v1/dm/rooms', { body: { targetUserId: otherUserId } })),
     staleTime: Infinity,
+    // 다른 대화를 보는 동안 놓친 읽음 위치·차단 상태를 다시 들어올 때 새로 받는다.
+    refetchOnMount: 'always',
     retry: false,
   });
 
@@ -58,7 +60,9 @@ function RoomView({ room, myId }: { room: Schema<'DmRoomResponse'> & { roomId: n
   const queryClient = useQueryClient();
   const messagesKey = ['dm', 'messages', roomId];
 
-  const [otherLastRead, setOtherLastRead] = useState(room.otherLastReadMessageId ?? 0);
+  // 상대가 읽은 위치: 대화방 정보(다시 불러오면 바뀜)와 실시간 READ 중 큰 값
+  const [liveLastRead, setLiveLastRead] = useState(0);
+  const otherLastRead = Math.max(room.otherLastReadMessageId ?? 0, liveLastRead);
   // 차단 여부는 대화방 캐시 하나에서만 읽는다. (목록의 [차단 해제]로 바뀌어도 이 화면에 바로 반영)
   const blockedByMe = room.blockedByMe ?? false;
   const [pending, setPending] = useState<Pending[]>([]);
@@ -90,7 +94,7 @@ function RoomView({ room, myId }: { room: Schema<'DmRoomResponse'> & { roomId: n
       setPending((list) => list.filter((p) => p.clientMessageId !== event.message?.clientMessageId));
     }
     if (event.type === 'READ' && event.readerId === other?.userId && event.lastReadMessageId) {
-      setOtherLastRead((prev) => Math.max(prev, event.lastReadMessageId ?? 0));
+      setLiveLastRead((prev) => Math.max(prev, event.lastReadMessageId ?? 0));
     }
   });
 
@@ -248,7 +252,15 @@ function RoomView({ room, myId }: { room: Schema<'DmRoomResponse'> & { roomId: n
                   {item.failed ? (
                     <span className="flex items-center gap-2 text-caption text-brand-700">
                       보내지 못했어요. {item.failed}
-                      <button type="button" className="font-semibold underline" onClick={() => send.mutate({ clientMessageId: item.clientMessageId, content: item.content })}>
+                      <button
+                        type="button"
+                        className="font-semibold underline"
+                        onClick={() => {
+                          // 실패 표시를 지워 "보내는 중"으로 바꾸고, 같은 clientMessageId로 다시 보낸다.
+                          setPending((list) => list.map((p) => (p.clientMessageId === item.clientMessageId ? { ...p, failed: undefined } : p)));
+                          send.mutate({ clientMessageId: item.clientMessageId, content: item.content });
+                        }}
+                      >
                         다시 보내기
                       </button>
                       <button type="button" className="underline" onClick={() => setPending((list) => list.filter((p) => p.clientMessageId !== item.clientMessageId))}>
