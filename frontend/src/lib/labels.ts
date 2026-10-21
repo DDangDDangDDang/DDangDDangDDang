@@ -44,3 +44,11 @@ export const COURIER_LABEL: Record<Courier, string> = {
   POST: '우체국택배',
   ETC: '기타',
 };
+
+export type LiveStreamStatus = NonNullable<Schema<'LiveStreamResponse'>['status']>;
+
+export const LIVE_STREAM_STATUS_LABEL: Record<LiveStreamStatus, string> = {
+  SCHEDULED: '방송 예정',
+  LIVE: 'LIVE',
+  ENDED: '방송 종료',
+};

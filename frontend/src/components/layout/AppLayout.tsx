@@ -37,6 +37,9 @@ function AppHeader() {
           </Link>
           {session && (
             <nav aria-label="내 메뉴" className="flex items-center">
+              <NavLink to="/lives" className={navClass}>
+                라이브
+              </NavLink>
               <NavLink to="/orders" className={navClass}>
                 주문 내역
               </NavLink>
