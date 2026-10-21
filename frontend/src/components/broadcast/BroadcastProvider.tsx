@@ -56,13 +56,12 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   const [chatError, setChatError] = useState<string>();
   const [alerts, setAlerts] = useState<ModerationAlert[]>([]);
   const [unseen, setUnseen] = useState({ chats: 0, alerts: 0 });
-  // 송출이 멈춘 방송 자동 종료 안내. 알림을 받은 뒤 방송이 끝나면 자동 종료로 본다. (종료 안내가 연결이 닫힌 뒤 와도)
+  // 송출이 멈춘 방송 자동 종료 안내. 자동 종료는 서버의 IDLE_ENDED로만 판단한다. (다른 탭에서 직접 끝낸 것과 구분)
+  // 서버는 IDLE_ENDED를 방송을 끝내기 전에 보내므로, 연결이 닫히기 전에 받는다.
   const [idleEndsAt, setIdleEndsAt] = useState<string>();
   const [autoEnded, setAutoEnded] = useState<string>();
-  const [prevStream, setPrevStream] = useState(liveStream);
   const [prevStreamId, setPrevStreamId] = useState(liveStreamId);
   if (prevStreamId !== liveStreamId) {
-    if (liveStreamId === undefined && idleEndsAt !== undefined) setAutoEnded(prevStream?.title || '방송');
     if (liveStreamId !== undefined) setAutoEnded(undefined);
     setIdleEndsAt(undefined);
     setPrevStreamId(liveStreamId);
@@ -71,7 +70,6 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
     setChatError(undefined);
     setUnseen({ chats: 0, alerts: 0 });
   }
-  if (prevStream !== liveStream && liveStream !== undefined) setPrevStream(liveStream);
   // 스튜디오로 돌아오면 안 본 수를 지운다.
   const [prevStudioOpen, setPrevStudioOpen] = useState(studioOpen);
   if (prevStudioOpen !== studioOpen) {

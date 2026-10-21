@@ -43,9 +43,9 @@ public class LiveStreamIdleRepository {
         }
     }
 
-    /** 알림을 처음 남기면 true, 이미 알렸으면 false */
-    public boolean markWarned(Long liveStreamId) {
-        return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(WARNED_KEY_PREFIX + liveStreamId, "1", TTL));
+    /** 곧 종료된다고 알렸다고 남긴다. 다시 송출하면 clearWarned로 자동 종료 취소를 알린다. */
+    public void markWarned(Long liveStreamId) {
+        redisTemplate.opsForValue().set(WARNED_KEY_PREFIX + liveStreamId, "1", TTL);
     }
 
     /** 알림을 지운다. 지울 알림이 있었으면 true (다시 송출해 자동 종료가 취소됨) */

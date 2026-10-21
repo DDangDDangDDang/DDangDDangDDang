@@ -82,15 +82,16 @@ class LiveStreamIdleWatcherTest {
     }
 
     @Test
-    @DisplayName("한 번도 송출하지 않았으면 방송 시작부터 세어, 25분이 지나면 판매자에게 한 번 알린다")
+    @DisplayName("한 번도 송출하지 않았으면 방송 시작부터 세어, 25분이 지나면 판매자에게 알린다")
     void warnAfter25Minutes() {
         LiveStream stream = live(1L, 10L, minutesAgo(26));
         given(liveStreamRepository.findAllByStatus(LiveStreamStatus.LIVE)).willReturn(List.of(stream));
         given(mediaServerClient.getPublishingRooms(any(), any())).willReturn(Set.of());
         given(idleRepository.getLastPublished(1L)).willReturn(null);
-        given(idleRepository.markWarned(1L)).willReturn(true);
 
         watcher.check();
+
+        verify(idleRepository).markWarned(1L);
 
         LocalDateTime endsAt = minutesAgo(26).plusMinutes(30);
         verify(stompBroadcaster).sendToUser(10L, QUEUE, LiveStreamIdleMessage.warning(1L, endsAt));
@@ -98,17 +99,19 @@ class LiveStreamIdleWatcherTest {
     }
 
     @Test
-    @DisplayName("이미 알렸으면 다시 알리지 않는다")
-    void warnOnce() {
+    @DisplayName("이미 알렸어도 종료될 때까지 주기마다 다시 알린다 (경고 순간 연결이 끊겨 있던 판매자도 다시 연결하면 받도록)")
+    void warnEveryCycle() {
         LiveStream stream = live(1L, 10L, minutesAgo(60));
         given(liveStreamRepository.findAllByStatus(LiveStreamStatus.LIVE)).willReturn(List.of(stream));
         given(mediaServerClient.getPublishingRooms(any(), any())).willReturn(Set.of());
-        given(idleRepository.getLastPublished(1L)).willReturn(NOW_MS - Duration.ofMinutes(27).toMillis());
-        given(idleRepository.markWarned(1L)).willReturn(false);
+        long lastPublished = NOW_MS - Duration.ofMinutes(27).toMillis();
+        given(idleRepository.getLastPublished(1L)).willReturn(lastPublished);
 
         watcher.check();
+        watcher.check();
 
-        verify(stompBroadcaster, never()).sendToUser(anyLong(), any(), any());
+        LocalDateTime endsAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(lastPublished), ZONE).plusMinutes(30);
+        verify(stompBroadcaster, org.mockito.Mockito.times(2)).sendToUser(10L, QUEUE, LiveStreamIdleMessage.warning(1L, endsAt));
     }
 
     @Test
@@ -121,9 +124,23 @@ class LiveStreamIdleWatcherTest {
 
         watcher.check();
 
-        verify(liveStreamService).endForIdle(1L, 10L);
+        // 판매자 화면이 연결을 닫기 전에 받도록 방송을 끝내기 전에 알린다.
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(stompBroadcaster, liveStreamService);
+        order.verify(stompBroadcaster).sendToUser(10L, QUEUE, LiveStreamIdleMessage.ended(1L));
+        order.verify(liveStreamService).endForIdle(1L, 10L);
         verify(idleRepository).clear(1L);
-        verify(stompBroadcaster).sendToUser(10L, QUEUE, LiveStreamIdleMessage.ended(1L));
+    }
+
+    @Test
+    @DisplayName("종료한 뒤 감시 기록 정리가 실패해도 오류로 끝내지 않는다")
+    void clearFailureAfterEnd() {
+        LiveStream stream = live(1L, 10L, minutesAgo(90));
+        given(liveStreamRepository.findAllByStatus(LiveStreamStatus.LIVE)).willReturn(List.of(stream));
+        given(mediaServerClient.getPublishingRooms(any(), any())).willReturn(Set.of());
+        willThrow(new IllegalStateException("redis down")).given(idleRepository).clear(1L);
+
+        org.assertj.core.api.Assertions.assertThatCode(() -> watcher.check()).doesNotThrowAnyException();
+        verify(liveStreamService).endForIdle(1L, 10L);
     }
 
     @Test

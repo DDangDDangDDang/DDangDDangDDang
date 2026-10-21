@@ -27,7 +27,7 @@ import java.util.Set;
  *
  * - 주기(기본 1분)마다 LiveKit에서 판매자(identity "seller-")가 끄지 않은 트랙(카메라·마이크)을 보내고 있는지 확인해, 마지막으로 송출한 시각을 Redis에 남긴다.
  * - 송출이 없던 시간은 마지막 송출 시각부터 센다. 한 번도 송출하지 않았으면 방송 시작 시각부터 센다.
- * - warn-after(기본 25분)가 지나면 판매자에게 곧 종료된다고 한 번 알리고(/user/queue/live-stream),
+ * - warn-after(기본 25분)가 지나면 판매자에게 곧 종료된다고 주기마다 알리고(/user/queue/live-stream, 다시 연결해도 받도록),
  *   end-after(기본 30분)가 지나면 판매자가 [방송 종료]를 누른 것과 같이 종료한다. (채팅 종료 안내, 방 삭제) 경매는 방송과 별개라 그대로 둔다.
  * - 알린 뒤 다시 송출하면 자동 종료를 취소하고 판매자에게 알린다.
  * - 서버가 여러 대여도 Redis 잠금으로 한 주기에 한 서버만 검사한다.
@@ -140,12 +140,20 @@ public class LiveStreamIdleWatcher {
 
         if (idleMillis >= properties.endAfter().toMillis()) {
             log.info("송출이 없어 방송 자동 종료 liveStreamId={}, idleMinutes={}", id, idleMillis / 60_000);
-            liveStreamService.endForIdle(id, liveStream.getSellerId());
-            idleRepository.clear(id);
+            // 판매자 화면은 방송이 끝나면 연결을 닫으므로, 끝내기 전에 알린다. (끝내기가 실패해도 다음 주기에 다시 끝내고 알린다)
             stompBroadcaster.sendToUser(liveStream.getSellerId(), IDLE_QUEUE, LiveStreamIdleMessage.ended(id));
+            liveStreamService.endForIdle(id, liveStream.getSellerId());
+            try {
+                idleRepository.clear(id);
+            } catch (Exception e) {
+                // 방송은 이미 끝났다. 남은 기록은 보관 기간(1일)이 지나면 지워진다.
+                log.warn("자동 종료한 방송의 감시 기록 정리 실패 liveStreamId={}", id, e);
+            }
             return;
         }
-        if (idleMillis >= properties.warnAfter().toMillis() && idleRepository.markWarned(id)) {
+        if (idleMillis >= properties.warnAfter().toMillis()) {
+            idleRepository.markWarned(id);
+            // 주기마다 다시 보낸다. 경고 순간 판매자 연결이 끊겨 있었어도 다시 연결하면 다음 주기에 받는다.
             LocalDateTime endsAt = toLocalDateTime(idleSince + properties.endAfter().toMillis());
             stompBroadcaster.sendToUser(liveStream.getSellerId(), IDLE_QUEUE, LiveStreamIdleMessage.warning(id, endsAt));
         }

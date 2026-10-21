@@ -122,7 +122,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `type` | `"IDLE_WARNING"` \| `"IDLE_RESUMED"` \| `"IDLE_ENDED"` | 송출이 25분 없어 곧 종료됨 · 다시 송출해 자동 종료 취소 · 자동 종료됨 |
+| `type` | `"IDLE_WARNING"` \| `"IDLE_RESUMED"` \| `"IDLE_ENDED"` | 송출이 25분 없어 곧 종료됨(종료될 때까지 1분마다 다시 옴) · 다시 송출해 자동 종료 취소 · 자동 종료됨(방송을 끝내기 직전에 옴) |
 | `liveStreamId` | number | |
 | `endsAt` | string \| null | `IDLE_WARNING`일 때 자동 종료 예정 시각 |
 
