@@ -8,6 +8,7 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamEndedEvent;
+import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamUpdatedEvent;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
@@ -190,7 +191,11 @@ public class LiveStreamService {
         // 실패 시 예외 -> 트랜잭션 롤백 -> 상태는 SCHEDULED 그대로
         mediaServerClient.createRoom(liveStream.getRoomName());
 
-        return publisherTokenResponse(liveStream, sellerId, nickname);
+        LiveStreamTokenResponse token = publisherTokenResponse(liveStream, sellerId, nickname);
+        // 커밋 뒤 방송 예정 화면을 보던 시청자에게 알린다. 방송 정보 변경(LIVE)으로 새로고침 없이 영상에 접속하고, 채팅에 시작 안내가 올라간다.
+        eventPublisher.publishEvent(new LiveStreamUpdatedEvent(LiveStreamResponse.from(liveStream)));
+        eventPublisher.publishEvent(new LiveStreamStartedEvent(liveStream.getId()));
+        return token;
     }
 
     /**
