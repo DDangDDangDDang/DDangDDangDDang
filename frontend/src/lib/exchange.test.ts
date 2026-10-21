@@ -21,6 +21,7 @@ describe('validateExchangeForm', () => {
   it('계좌번호는 숫자·하이픈 10~20자', () => {
     expect(validateExchangeForm({ ...valid, accountNumber: '12345' }).accountNumber).toBeDefined();
     expect(validateExchangeForm({ ...valid, accountNumber: '1234-5678-ab' }).accountNumber).toBeDefined();
+    expect(validateExchangeForm({ ...valid, accountNumber: '----------' }).accountNumber).toBeDefined();
   });
 });
 

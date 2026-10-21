@@ -32,7 +32,8 @@ export function validateExchangeForm(values: ExchangeFormValues, balance?: numbe
 
   const account = values.accountNumber.trim();
   if (!account) errors.accountNumber = '계좌번호를 입력해 주세요.';
-  else if (!/^[0-9-]{10,20}$/.test(account)) errors.accountNumber = '계좌번호는 숫자와 하이픈(-)으로 10~20자예요.';
+  // 서버는 하이픈을 뺀 값이 숫자여야 받으므로 하이픈만으로 된 값도 막는다.
+  else if (!/^[0-9-]{10,20}$/.test(account) || !/\d/.test(account)) errors.accountNumber = '계좌번호는 숫자와 하이픈(-)으로 10~20자예요.';
 
   const holder = values.accountHolder.trim();
   if (!holder) errors.accountHolder = '예금주를 입력해 주세요.';
