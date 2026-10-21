@@ -140,14 +140,15 @@ public class LiveStreamIdleWatcher {
 
         if (idleMillis >= properties.endAfter().toMillis()) {
             log.info("송출이 없어 방송 자동 종료 liveStreamId={}, idleMinutes={}", id, idleMillis / 60_000);
-            // 판매자 화면은 방송이 끝나면 연결을 닫으므로, 끝내기 전에 알린다. (끝내기가 실패해도 다음 주기에 다시 끝내고 알린다)
-            stompBroadcaster.sendToUser(liveStream.getSellerId(), IDLE_QUEUE, LiveStreamIdleMessage.ended(id));
+            // 끝내기가 성공한 뒤에만 알린다. (실패하면 방송은 그대로이고 다음 주기에 다시 시도한다)
+            // 판매자 화면은 경고를 받던 방송이 끝나도 잠깐 연결을 두어 이 알림을 받는다. (BroadcastProvider)
             liveStreamService.endForIdle(id, liveStream.getSellerId());
             try {
+                stompBroadcaster.sendToUser(liveStream.getSellerId(), IDLE_QUEUE, LiveStreamIdleMessage.ended(id));
                 idleRepository.clear(id);
             } catch (Exception e) {
                 // 방송은 이미 끝났다. 남은 기록은 보관 기간(1일)이 지나면 지워진다.
-                log.warn("자동 종료한 방송의 감시 기록 정리 실패 liveStreamId={}", id, e);
+                log.warn("자동 종료 알림·감시 기록 정리 실패 liveStreamId={}", id, e);
             }
             return;
         }

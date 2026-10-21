@@ -18,7 +18,7 @@ export function fromDateTimeInput(value: string): string | undefined {
  * new Date("2026-10-20T20:00:00")은 브라우저 현지 시각으로 읽혀, 해외 시간대 브라우저에서는 몇 시간씩 어긋난다.
  */
 export function seoulTimeMillis(serverTime: string): number {
-  const hasZone = /(Z|[+-]d{2}:?d{2})$/.test(serverTime);
+  const hasZone = /(Z|[+-]\d{2}:?\d{2})$/.test(serverTime);
   return new Date(hasZone ? serverTime : `${serverTime}+09:00`).getTime();
 }
 

@@ -16,6 +16,9 @@ import { usePublisher } from './use-publisher';
  * - 새로고침·탭 닫기는 브라우저가 페이지를 없애 송출이 끊기므로, 방송 중에는 떠나기 전에 확인 창을 띄운다.
  *   새로고침한 뒤에는 방송 중인 방송을 찾아 /publisher-token으로 다시 접속한다.
  */
+/** 경고를 받던 방송이 끝난 뒤 자동 종료 알림(IDLE_ENDED)을 기다리는 시간 */
+const IDLE_ENDED_GRACE_MS = 10_000;
+
 export function BroadcastProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const queryClient = useQueryClient();
@@ -57,12 +60,19 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   const [alerts, setAlerts] = useState<ModerationAlert[]>([]);
   const [unseen, setUnseen] = useState({ chats: 0, alerts: 0 });
   // 송출이 멈춘 방송 자동 종료 안내. 자동 종료는 서버의 IDLE_ENDED로만 판단한다. (다른 탭에서 직접 끝낸 것과 구분)
-  // 서버는 IDLE_ENDED를 방송을 끝내기 전에 보내므로, 연결이 닫히기 전에 받는다.
+  // 서버는 방송을 끝낸 뒤 IDLE_ENDED를 보낸다. 경고를 받던 방송이 끝나면 그 알림을 받을 수 있게 잠깐(IDLE_ENDED_GRACE_MS) 연결을 더 둔다.
   const [idleEndsAt, setIdleEndsAt] = useState<string>();
+  const [idleTitle, setIdleTitle] = useState<string>();
   const [autoEnded, setAutoEnded] = useState<string>();
+  const [graceStreamId, setGraceStreamId] = useState<number>();
   const [prevStreamId, setPrevStreamId] = useState(liveStreamId);
   if (prevStreamId !== liveStreamId) {
-    if (liveStreamId !== undefined) setAutoEnded(undefined);
+    if (liveStreamId !== undefined) {
+      setAutoEnded(undefined);
+      setGraceStreamId(undefined);
+    } else if (idleEndsAt !== undefined) {
+      setGraceStreamId(prevStreamId);
+    }
     setIdleEndsAt(undefined);
     setPrevStreamId(liveStreamId);
     setMessages([]);
@@ -78,7 +88,12 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   }
 
   // 채팅·검토 알림은 송출을 맡은 탭과 스튜디오를 연 탭만 받는다. (다른 탭은 쓰지 않으므로 연결하지 않음)
-  const realtimeStreamId = liveStreamId !== undefined && (ownerId === liveStreamId || studioOpen) ? liveStreamId : undefined;
+  useEffect(() => {
+    if (graceStreamId === undefined) return;
+    const timer = setTimeout(() => setGraceStreamId(undefined), IDLE_ENDED_GRACE_MS);
+    return () => clearTimeout(timer);
+  }, [graceStreamId]);
+  const realtimeStreamId = liveStreamId !== undefined && (ownerId === liveStreamId || studioOpen) ? liveStreamId : graceStreamId;
   const realtime = useLiveRealtime(realtimeStreamId, {
     onChat: (message) => {
       setMessages((list) => appendChatMessage(list, message));
@@ -93,11 +108,15 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
       if (!studioOpenRef.current) setUnseen((prev) => ({ ...prev, alerts: prev.alerts + 1 }));
     },
     onIdle: (message) => {
-      if (message.type === 'IDLE_WARNING') setIdleEndsAt(message.endsAt ?? undefined);
+      if (message.type === 'IDLE_WARNING') {
+        setIdleEndsAt(message.endsAt ?? undefined);
+        setIdleTitle(liveStream?.title || '방송');
+      }
       if (message.type === 'IDLE_RESUMED') setIdleEndsAt(undefined);
       if (message.type === 'IDLE_ENDED') {
-        setAutoEnded(liveStream?.title || '방송');
+        setAutoEnded(idleTitle ?? liveStream?.title ?? '방송');
         setIdleEndsAt(undefined);
+        setGraceStreamId(undefined);
         reload();
       }
     },

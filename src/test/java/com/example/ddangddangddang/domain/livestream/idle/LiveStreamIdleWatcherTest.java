@@ -124,10 +124,10 @@ class LiveStreamIdleWatcherTest {
 
         watcher.check();
 
-        // 판매자 화면이 연결을 닫기 전에 받도록 방송을 끝내기 전에 알린다.
+        // 끝내기가 성공한 뒤에 알린다.
         org.mockito.InOrder order = org.mockito.Mockito.inOrder(stompBroadcaster, liveStreamService);
-        order.verify(stompBroadcaster).sendToUser(10L, QUEUE, LiveStreamIdleMessage.ended(1L));
         order.verify(liveStreamService).endForIdle(1L, 10L);
+        order.verify(stompBroadcaster).sendToUser(10L, QUEUE, LiveStreamIdleMessage.ended(1L));
         verify(idleRepository).clear(1L);
     }
 
@@ -180,6 +180,8 @@ class LiveStreamIdleWatcherTest {
         watcher.check();
 
         verify(liveStreamService).endForIdle(eq(2L), eq(20L));
+        // 끝내지 못한 방송은 종료 알림을 보내지 않는다.
+        verify(stompBroadcaster, never()).sendToUser(10L, QUEUE, LiveStreamIdleMessage.ended(1L));
     }
 
     @Test

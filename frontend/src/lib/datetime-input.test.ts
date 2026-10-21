@@ -16,5 +16,8 @@ describe('datetime-input', () => {
   it('시간대 없는 서버 시각은 브라우저 시간대와 상관없이 서울 시각으로 읽는다', () => {
     expect(seoulTimeMillis('2026-10-21T20:30:00')).toBe(Date.parse('2026-10-21T11:30:00Z'));
     expect(seoulTimeMillis('2026-10-21T11:30:00Z')).toBe(Date.parse('2026-10-21T11:30:00Z'));
+    // 시간대가 이미 있으면 덧붙이지 않는다.
+    expect(seoulTimeMillis('2026-10-21T20:30:00+09:00')).toBe(Date.parse('2026-10-21T11:30:00Z'));
+    expect(seoulTimeMillis('2026-10-21T20:30:00.123+0900')).toBe(Date.parse('2026-10-21T11:30:00.123Z'));
   });
 });
