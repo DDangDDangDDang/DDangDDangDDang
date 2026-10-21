@@ -15,6 +15,7 @@ import { LiveListPage } from '@/pages/live/LiveListPage';
 import { LiveWatchPage } from '@/pages/live/LiveWatchPage';
 import { MyInfoPage } from '@/pages/me/MyInfoPage';
 import { MessagesPage } from '@/pages/messages/MessagesPage';
+import { PointChargePage } from '@/pages/me/PointChargePage';
 import { PointsPage } from '@/pages/me/PointsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { OrderDetailPage } from '@/pages/orders/OrderDetailPage';
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
         children: [
           { path: '/me', element: <MyInfoPage /> },
           { path: '/points', element: <PointsPage /> },
+          { path: '/points/charge', element: <PointChargePage /> },
           { path: '/orders', element: <OrdersPage /> },
           { path: '/orders/:orderId', element: <OrderDetailPage /> },
           { path: '/studio', element: <SellerStudioPage /> },
