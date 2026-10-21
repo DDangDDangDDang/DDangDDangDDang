@@ -76,7 +76,8 @@ describe('SignupPage', () => {
     await user.click(screen.getByRole('button', { name: '확인' }));
     expect(await screen.findByText('휴대폰 인증을 완료했어요.')).toBeInTheDocument();
     expect(screen.queryByText(message)).not.toBeInTheDocument();
-  });
+    // 재요청 대기 시계가 1초마다 바뀌는 것을 기다리므로 기본 제한(5초)보다 넉넉히 둔다.
+  }, 15_000);
 
   it('이메일 중복(USER_001)이면 휴대폰 인증은 그대로 두어 이메일만 고쳐 다시 가입할 수 있다', async () => {
     server.signup = () => {

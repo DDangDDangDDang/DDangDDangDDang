@@ -57,5 +57,6 @@ describe('PasswordResetPage', () => {
     await user.click(screen.getByRole('button', { name: '확인' }));
     expect(await screen.findByLabelText('새 비밀번호')).toBeInTheDocument();
     expect(screen.queryByText('인증이 만료됐어요. 다시 인증해 주세요.')).not.toBeInTheDocument();
-  });
+    // 재요청 대기 시계가 1초마다 바뀌는 것을 기다리므로 기본 제한(5초)보다 넉넉히 둔다.
+  }, 15_000);
 });
