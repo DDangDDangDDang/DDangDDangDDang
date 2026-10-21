@@ -95,7 +95,8 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
           <CardBody className="flex flex-col gap-4 pt-5">
             <div className="flex items-center gap-2">
               <AuctionPhaseBadge phase={phase} />
-              {auction.liveStreamId && (
+              {/* 방송에 올라갔어도 방송이 끝났으면 표시하지 않는다. (경매는 방송과 별개로 계속 진행) */}
+              {auction.live && (
                 <span className="flex items-center gap-1 text-label font-semibold text-brand-700">
                   <Radio className="size-3.5" aria-hidden="true" />
                   방송 중 경매
@@ -133,7 +134,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
             )}
             {!isMine && phase === 'READY' && <Notice>경매가 시작되면 입찰할 수 있어요.</Notice>}
 
-            {auction.liveStreamId && (
+            {auction.live && auction.liveStreamId && (
               <Link to={`/lives/${auction.liveStreamId}`} className={buttonVariants({ variant: 'outline' })}>
                 방송 보러 가기
               </Link>

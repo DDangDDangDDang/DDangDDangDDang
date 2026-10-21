@@ -3752,6 +3752,9 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "live" : {
+            "type" : "boolean"
+          },
           "startPrice" : {
             "type" : "integer",
             "format" : "int64"
