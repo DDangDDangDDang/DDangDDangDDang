@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@/api';
+import type { ChatMessage, ModerationAlert } from '@/api';
 
 /*
  * 방송 시청·판매자 스튜디오 화면이 같이 쓰는 계산 로직. (화면과 분리해 단위 테스트한다)
@@ -53,4 +53,13 @@ export const CHAT_MAX_LENGTH = 200;
 export function isSendableChat(content: string): boolean {
   const trimmed = content.trim();
   return trimmed.length > 0 && trimmed.length <= CHAT_MAX_LENGTH;
+}
+
+/** 화면에 남겨 둘 검토 알림 수 */
+export const MAX_MODERATION_ALERTS = 50;
+
+/** 검토 알림을 맨 앞(최신)에 붙인다. 같은 채팅의 알림은 한 번만 남긴다. */
+export function prependModerationAlert(list: ModerationAlert[], alert: ModerationAlert, max = MAX_MODERATION_ALERTS): ModerationAlert[] {
+  if (list.some((a) => a.messageId === alert.messageId)) return list;
+  return [alert, ...list].slice(0, max);
 }

@@ -58,6 +58,7 @@
 
 - 연결은 `@/api`의 `connectRealtime`, 방송 하나의 채팅·정보 변경·검토 알림은 `@/lib/use-live-realtime`을 씁니다.
 - 1:1 채팅(`/user/queue/dm`)은 앱 전체에 연결 하나(`DmRealtime`, AppLayout)만 두고, 화면은 `@/lib/dm-events`의 `useDmEvent`로 받습니다. 화면마다 따로 연결하지 않습니다.
+- 판매자 송출(카메라·마이크, LiveKit, 내 방송 채팅·검토 알림)은 앱 전체에 하나(`BroadcastProvider`, AppLayout)만 두어 방송 중 다른 화면으로 가도 이어집니다. 화면은 `@/components/broadcast/broadcast-context`의 `useBroadcast()`로 씁니다. 송출은 스튜디오를 연 탭만 맡습니다. (`@/lib/broadcast-owner`)
 
 ## 오류 처리
 
@@ -86,7 +87,7 @@
   - 모서리: `rounded-sm` 배지 · `rounded-md` 버튼·입력 · `rounded-lg` 카드·영상
   - **금액·남은 시간·인원 같은 숫자에는 `num` 클래스**를 붙입니다. (숫자 전용 글꼴 + 고정폭 숫자)
 - 새 토큰이 필요하면 `src/styles/index.css`의 `@theme`에 추가하고 이유를 주석으로 남깁니다.
-- **공통 컴포넌트를 먼저 씁니다.** `@/components/ui`: `Button`, `Input`, `Textarea`, `Select`, `Badge`, `Card`, `Notice`(한 줄 안내·오류), `ConfirmDialog`(되돌릴 수 없는 동작 확인), `Skeleton`, `EmptyState`, `ErrorState`, `Pagination`(번호로 넘기는 목록)
+- **공통 컴포넌트를 먼저 씁니다.** `@/components/ui`: `Button`, `Input`, `Textarea`, `Select`, `Badge`, `Card`, `Notice`(한 줄 안내·오류), `ConfirmDialog`(되돌릴 수 없는 동작 확인), `Dialog`(화면을 옮기지 않고 입력받는 창), `Skeleton`, `EmptyState`, `ErrorState`, `Pagination`(번호로 넘기는 목록)
   - 인증번호(휴대폰·이메일) 입력은 `@/components/auth/VerificationField` (5분 타이머, 1분 재요청 대기 포함)
   - 로그인해야 하는 화면은 `src/router.tsx`에서 `RequireAuth` 아래에 둡니다.
   - 목록 무한 스크롤은 TanStack `useInfiniteQuery` + `@/lib/use-infinite-scroll`. 서버가 페이지 번호(`page`·`totalPages`)로 주는 목록은 `Pagination`

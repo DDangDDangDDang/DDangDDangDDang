@@ -2,7 +2,7 @@ import { ImagePlus } from 'lucide-react';
 import { Input, Notice, Select, Textarea } from '@/components/ui';
 import { leafCategoryOptions } from '@/lib/auction';
 import type { Schema } from '@/api';
-import { PRODUCT_DESCRIPTION_MAX_LENGTH, PRODUCT_NAME_MAX_LENGTH, type ProductFormErrors, type ProductFormValues } from './product-form';
+import { PRODUCT_DESCRIPTION_MAX_LENGTH, PRODUCT_NAME_MAX_LENGTH, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
 
 type Props = {
   categories: Schema<'CategoryResponse'>[];

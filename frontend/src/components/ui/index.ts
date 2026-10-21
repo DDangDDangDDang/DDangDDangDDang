@@ -8,5 +8,6 @@ export { Card, CardHeader, CardTitle, CardBody } from './Card';
 export { Skeleton, EmptyState, ErrorState } from './States';
 export { Select, type SelectProps } from './Select';
 export { ConfirmDialog } from './ConfirmDialog';
+export { Dialog } from './Dialog';
 export { Notice } from './Notice';
 export { Pagination } from './Pagination';

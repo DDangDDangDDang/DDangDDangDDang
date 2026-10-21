@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ChatMessage } from '@/api';
-import { appendChatMessage, countViewers, isSendableChat, summarizeParticipants } from './live-room';
+import type { ChatMessage, ModerationAlert } from '@/api';
+import { appendChatMessage, countViewers, isSendableChat, summarizeParticipants, prependModerationAlert } from './live-room';
 
 const chat = (messageId: string): ChatMessage => ({
   messageId,
@@ -66,5 +66,29 @@ describe('isSendableChat', () => {
     expect(isSendableChat('안녕')).toBe(true);
     expect(isSendableChat('가'.repeat(200))).toBe(true);
     expect(isSendableChat('가'.repeat(201))).toBe(false);
+  });
+});
+
+describe('prependModerationAlert', () => {
+  const alert = (messageId: string): ModerationAlert => ({
+    liveStreamId: 1,
+    messageId,
+    senderId: 2,
+    nickname: '시청자',
+    content: '010-1234-5678로 연락 주세요',
+    category: 'EXTERNAL_TRADE',
+    categoryLabel: '외부 거래 유도',
+    reason: '연락처를 남겨 외부 거래를 유도함',
+    detectedAt: '2026-10-21T12:00:00',
+  });
+
+  it('최신 알림을 맨 앞에 붙이고, 같은 채팅은 한 번만 남긴다', () => {
+    const list = prependModerationAlert([alert('a')], alert('b'));
+    expect(list.map((a) => a.messageId)).toEqual(['b', 'a']);
+    expect(prependModerationAlert(list, alert('a'))).toBe(list);
+  });
+
+  it('최대 개수를 넘으면 오래된 것부터 지운다', () => {
+    expect(prependModerationAlert([alert('a'), alert('b')], alert('c'), 2).map((a) => a.messageId)).toEqual(['c', 'a']);
   });
 });

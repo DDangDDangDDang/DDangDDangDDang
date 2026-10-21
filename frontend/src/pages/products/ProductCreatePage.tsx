@@ -14,8 +14,8 @@ import {
   type AuctionConditionValues,
 } from '@/lib/auction';
 import { useCategories } from '@/lib/use-categories';
-import { ProductFields } from './ProductFields';
-import { productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from './product-form';
+import { ProductFields } from '@/components/product/ProductFields';
+import { productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
 
 /** 등록 뒤 경매: later는 상품만 등록(방송 중에 스튜디오에서 시작), schedule은 시작·마감 시각을 정해 바로 경매 등록 */
 type AuctionChoice = 'later' | 'schedule';

@@ -2,22 +2,30 @@ import { useQuery } from '@tanstack/react-query';
 import { Gavel, MessageCircle, Wallet } from 'lucide-react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { api, call, logout, useSession } from '@/api';
+import { BroadcastProvider } from '@/components/broadcast/BroadcastProvider';
+import { MiniBroadcast } from '@/components/broadcast/MiniBroadcast';
 import { DmRealtime } from '@/components/dm/DmRealtime';
 import { Button, buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
 
-/** 모든 화면 공통 틀: 상단 헤더 + 가운데 정렬된 본문 (최대 폭 1360px) */
+/**
+ * 모든 화면 공통 틀: 상단 헤더 + 가운데 정렬된 본문 (최대 폭 1360px)
+ * 판매자 송출(BroadcastProvider)을 여기에 두어 방송 중에 다른 화면으로 가도 송출이 이어지고, 작은 방송 창이 뜬다.
+ */
 export function AppLayout() {
   const session = useSession();
   return (
-    <div className="min-h-screen">
-      {session?.user.userId !== undefined && <DmRealtime userId={session.user.userId} />}
-      <AppHeader />
-      <main className="mx-auto max-w-[1360px] px-8 pt-6 pb-14">
-        <Outlet />
-      </main>
-    </div>
+    <BroadcastProvider>
+      <div className="min-h-screen">
+        {session?.user.userId !== undefined && <DmRealtime userId={session.user.userId} />}
+        <AppHeader />
+        <main className="mx-auto max-w-[1360px] px-8 pt-6 pb-14">
+          <Outlet />
+        </main>
+        <MiniBroadcast />
+      </div>
+    </BroadcastProvider>
   );
 }
 
