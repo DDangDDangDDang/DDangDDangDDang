@@ -33,6 +33,13 @@ export function AuctionListPage() {
   };
   const page = Math.max(0, Number(params.get('page')) || 0);
   const [draft, setDraft] = useState({ q: filters.q, min: filters.min, max: filters.max });
+  // 주소의 조건이 바뀌면(뒤로가기, 헤더 메뉴로 다시 들어오기) 입력칸도 실제 목록 조건에 맞춘다.
+  const urlDraft = `${filters.q}|${filters.min}|${filters.max}`;
+  const [syncedDraft, setSyncedDraft] = useState(urlDraft);
+  if (syncedDraft !== urlDraft) {
+    setSyncedDraft(urlDraft);
+    setDraft({ q: filters.q, min: filters.min, max: filters.max });
+  }
   const categories = useCategories();
 
   const update = (next: Partial<Filters> & { page?: number }) => {

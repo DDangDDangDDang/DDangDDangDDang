@@ -68,7 +68,9 @@ export function StreamForm(props: Props) {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     setNotice(undefined);
-    const next = validateStreamForm(canSchedule ? values : { ...values, scheduledStartAt: '' }, new Date());
+    // 수정할 때 예정 시간을 그대로 두면 서버에 보내지 않으므로 검사하지 않는다. (예정 시간이 지난 방송도 제목·설명은 고칠 수 있게)
+    const scheduleChanged = canSchedule && values.scheduledStartAt !== formValuesOf(original).scheduledStartAt;
+    const next = validateStreamForm(scheduleChanged ? values : { ...values, scheduledStartAt: '' }, new Date());
     setErrors(next);
     if (Object.keys(next).length === 0) mutation.mutate();
   };

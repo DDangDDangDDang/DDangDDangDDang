@@ -59,7 +59,9 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
 
   const phase = auctionPhase(auction, now);
   const isMine = session?.user.userId !== undefined && session.user.userId === auction.sellerId;
-  const cancelable = isMine && (auction.status === 'READY' || auction.status === 'ONGOING') && (auction.bidCount ?? 0) === 0;
+  // 마감 시각이 지난 경매(CLOSING)는 서버 상태가 ONGOING이어도 끝난 것으로 본다. (스튜디오와 같은 기준)
+  const open = phase === 'READY' || phase === 'ONGOING';
+  const cancelable = isMine && open && (auction.bidCount ?? 0) === 0;
 
   return (
     <div className="flex items-start gap-8">
@@ -130,7 +132,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
                 경매 취소
               </Button>
             )}
-            {isMine && (auction.bidCount ?? 0) > 0 && (auction.status === 'READY' || auction.status === 'ONGOING') && (
+            {isMine && (auction.bidCount ?? 0) > 0 && open && (
               <span className="text-caption text-neutral-500">입찰이 있는 경매는 취소할 수 없어요.</span>
             )}
           </CardBody>

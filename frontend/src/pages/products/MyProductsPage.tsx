@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
 import { api, call, errorMessage, type Schema } from '@/api';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -38,6 +38,14 @@ export function MyProductsPage() {
 
   // 삭제된 상품은 목록에서 뺀다. (서버는 상태만 DELETED로 바꾼다)
   const products = (query.data?.content ?? []).filter((p) => p.status !== 'DELETED');
+  const totalPages = query.data?.totalPages ?? 0;
+
+  // 마지막 페이지의 상품을 지웠거나 주소에 없는 페이지를 넣었으면 마지막 페이지로 옮긴다.
+  useEffect(() => {
+    if (query.isPlaceholderData || totalPages === 0 || page < totalPages) return;
+    const last = totalPages - 1;
+    setParams(last > 0 ? { page: String(last) } : {}, { replace: true });
+  }, [page, totalPages, query.isPlaceholderData, setParams]);
 
   return (
     <div className="mx-auto max-w-[880px]">
@@ -110,7 +118,7 @@ export function MyProductsPage() {
         )}
       </Card>
 
-      <Pagination page={page} totalPages={query.data?.totalPages ?? 0} onChange={(next) => setParams(next > 0 ? { page: String(next) } : {})} label="내 상품 페이지" />
+      <Pagination page={page} totalPages={totalPages} onChange={(next) => setParams(next > 0 ? { page: String(next) } : {})} label="내 상품 페이지" />
 
       <ConfirmDialog
         open={deleting !== undefined}
