@@ -1,7 +1,7 @@
 import * as PortOne from '@portone/browser-sdk/v2';
 import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { api, call, errorMessage } from '@/api';
+import { api, call, errorMessage, isErrorCode } from '@/api';
 import { Button, Dialog, Input, Notice } from '@/components/ui';
 import { formatAmountInput, parseAmount } from '@/lib/auction';
 import { cn } from '@/lib/cn';
@@ -45,31 +45,48 @@ function ChargeForm({ unconfirmed, onUnconfirmedChange }: { unconfirmed?: string
     mutationFn: async ({ value, portOne }: { value: number; portOne: PortOneConfig }): Promise<Result> => {
       const request = await call(api.POST('/api/v1/points/charges', { body: { amount: value } }));
       if (!request?.paymentId) return { kind: 'failed', message: '충전 요청을 만들지 못했어요. 잠시 후 다시 시도해 주세요.' };
+      // 결제창에는 서버가 기록한 금액만 쓴다. 입력한 금액과 다르면 결제창을 열지 않는다.
+      if (request.amount !== value) return { kind: 'failed', message: '충전 금액을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.' };
+
+      // 결제창을 여는 순간부터 결제가 됐을 수 있다. 결제창이 예기치 않게 실패해도(예외) 확인할 수 있도록 먼저 붙잡아 둔다.
+      onUnconfirmedChange(request.paymentId);
       const payment = await PortOne.requestPayment({
         storeId: portOne.storeId,
         channelKey: portOne.channelKey,
         paymentId: request.paymentId,
         orderName: request.orderName || `${formatNumber(value)} 포인트 충전`,
-        totalAmount: request.amount ?? value,
+        totalAmount: request.amount,
         currency: 'KRW',
         payMethod: 'CARD',
         // SDK 필수값이라 지금 주소를 넣는다. PC 결제창은 팝업이라 결과는 Promise로 받는다.
         redirectUrl: window.location.href,
       });
       // code가 있으면 결제창을 닫았거나 결제가 실패한 것. 충전 요청은 서버에 PENDING으로 남아도 괜찮다.
-      if (payment?.code !== undefined) return { kind: 'stopped', message: payment.message || '결제를 마치지 않아 충전하지 않았어요.' };
-
-      // 여기부터는 결제가 됐을 수 있으므로 확인이 끝날 때까지 이 결제를 붙잡아 둔다.
-      onUnconfirmedChange(request.paymentId);
+      if (payment?.code !== undefined) {
+        onUnconfirmedChange(undefined);
+        return { kind: 'stopped', message: payment.message || '결제를 마치지 않아 충전하지 않았어요.' };
+      }
       return confirmPayment(request.paymentId);
     },
     onSuccess: showResult,
     onError: () => setResult(undefined),
   });
 
-  /** 결제 확인(POST /charges/complete). 서버는 여러 번 불러도 한 번만 지급한다. 지급됐거나 실패로 끝났을 때만 붙잡은 결제를 놓는다. */
+  /**
+   * 결제 확인(POST /charges/complete). 서버는 여러 번 불러도 한 번만 지급한다. 지급됐거나 실패로 끝났을 때만 붙잡은 결제를 놓는다.
+   * 포트원에 결제 자체가 없으면(POINT_031, 결제창이 결제 전에 실패) 결제된 돈이 없으므로 놓고 새로 충전할 수 있게 한다.
+   */
   async function confirmPayment(paymentId: string): Promise<Result> {
-    const completed = await call(api.POST('/api/v1/points/charges/complete', { body: { paymentId } }));
+    let completed;
+    try {
+      completed = await call(api.POST('/api/v1/points/charges/complete', { body: { paymentId } }));
+    } catch (error) {
+      if (isErrorCode(error, 'POINT_031')) {
+        onUnconfirmedChange(undefined);
+        return { kind: 'stopped', message: '결제가 이루어지지 않아 충전하지 않았어요. 다시 충전해 주세요.' };
+      }
+      throw error;
+    }
     const outcome = chargeOutcomeOf(completed);
     if (outcome.kind !== 'pending') onUnconfirmedChange(undefined);
     return outcome;
