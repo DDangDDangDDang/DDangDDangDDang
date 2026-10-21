@@ -59,7 +59,8 @@ function RoomView({ room, myId }: { room: Schema<'DmRoomResponse'> & { roomId: n
   const messagesKey = ['dm', 'messages', roomId];
 
   const [otherLastRead, setOtherLastRead] = useState(room.otherLastReadMessageId ?? 0);
-  const [blockedByMe, setBlockedByMe] = useState(room.blockedByMe ?? false);
+  // 차단 여부는 대화방 캐시 하나에서만 읽는다. (목록의 [차단 해제]로 바뀌어도 이 화면에 바로 반영)
+  const blockedByMe = room.blockedByMe ?? false;
   const [pending, setPending] = useState<Pending[]>([]);
   const [draft, setDraft] = useState('');
   const [reporting, setReporting] = useState<{ message?: Message }>();
@@ -154,7 +155,6 @@ function RoomView({ room, myId }: { room: Schema<'DmRoomResponse'> & { roomId: n
         ? call(api.DELETE('/api/v1/dm/blocks/{userId}', { params: { path: { userId: other?.userId ?? 0 } } }))
         : call(api.POST('/api/v1/dm/blocks', { body: { userId: other?.userId ?? 0 } })),
     onSuccess: () => {
-      setBlockedByMe(!blockedByMe);
       setConfirmBlock(false);
       void queryClient.invalidateQueries({ queryKey: ['dm', 'blocks'] });
       void queryClient.invalidateQueries({ queryKey: ['dm', 'rooms'] });

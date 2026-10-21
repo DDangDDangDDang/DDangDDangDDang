@@ -17,7 +17,8 @@ export function RoomList({ activeUserId }: { activeUserId?: number }) {
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (last) => (last?.hasNext ? last.nextCursor : undefined),
   });
-  const sentinelRef = useInfiniteScroll(query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage);
+  // 다음 페이지를 못 불러오면 자동으로 다시 요청하지 않는다. ([다시 시도]로)
+  const sentinelRef = useInfiniteScroll(query.hasNextPage && !query.isError, query.isFetchingNextPage, query.fetchNextPage);
   const rooms = query.data?.pages.flatMap((page) => page?.content ?? []) ?? [];
 
   return (

@@ -11,7 +11,16 @@ export function DmRealtime({ userId }: { userId: number }) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const connection = connectRealtime(() => undefined);
+    // 끊긴 동안 온 메시지는 다시 오지 않는다. 다시 연결되면 메시지·읽지 않은 수·목록을 새로 불러온다.
+    // (대화방 쿼리 ['dm', 'room', id]는 POST라 다시 부르지 않는다)
+    let wasDisconnected = false;
+    const connection = connectRealtime((status) => {
+      if (status === 'reconnecting') wasDisconnected = true;
+      if (status === 'connected' && wasDisconnected) {
+        wasDisconnected = false;
+        for (const key of ['messages', 'unread', 'rooms']) void queryClient.invalidateQueries({ queryKey: ['dm', key] });
+      }
+    });
     connection.subscribe<DmEvent>(REALTIME.dm, (event) => {
       void queryClient.invalidateQueries({ queryKey: ['dm', 'unread'] });
       void queryClient.invalidateQueries({ queryKey: ['dm', 'rooms'] });

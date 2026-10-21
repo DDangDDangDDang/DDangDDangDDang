@@ -27,7 +27,8 @@ export function DmReportsPage() {
     getNextPageParam: (last) => (last?.hasNext ? last.nextCursor : undefined),
     enabled: session?.user.role === 'ADMIN',
   });
-  const sentinelRef = useInfiniteScroll(query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage);
+  // 다음 페이지를 못 불러오면 자동으로 다시 요청하지 않는다. ([다시 시도]로)
+  const sentinelRef = useInfiniteScroll(query.hasNextPage && !query.isError, query.isFetchingNextPage, query.fetchNextPage);
   const reports = query.data?.pages.flatMap((page) => page?.content ?? []) ?? [];
 
   if (session?.user.role !== 'ADMIN') {
