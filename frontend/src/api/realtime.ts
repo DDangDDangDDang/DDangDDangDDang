@@ -35,6 +35,12 @@ export type LiveStreamUpdatedMessage = {
   liveStream: components['schemas']['LiveStreamResponse'];
 };
 
+/** 방송에 올라간 경매가 바뀜 (`/topic/live-streams/{id}/auctions`). 받으면 방송의 경매 목록을 다시 불러온다. */
+export type LiveAuctionChangedMessage = {
+  type: 'CHANGED';
+  auctionId: number;
+};
+
 /** AI가 확인이 필요하다고 본 채팅 (`/user/queue/moderation`). 방송 판매자에게만 온다. */
 export type ModerationAlert = {
   liveStreamId: number;
@@ -69,6 +75,7 @@ export type RealtimeError = components['schemas']['ErrorResponse'];
 export const REALTIME = {
   liveChat: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}/chat`,
   liveStream: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}`,
+  liveAuctions: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}/auctions`,
   errors: '/user/queue/errors',
   moderation: '/user/queue/moderation',
   dm: '/user/queue/dm',

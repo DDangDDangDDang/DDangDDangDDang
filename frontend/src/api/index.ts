@@ -14,6 +14,7 @@ export {
   REALTIME,
   type ChatMessage,
   type DmEvent,
+  type LiveAuctionChangedMessage,
   type LiveStreamUpdatedMessage,
   type ModerationAlert,
   type RealtimeConnection,

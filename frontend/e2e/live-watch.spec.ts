@@ -5,6 +5,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from '@
  *    로그인하지 않은 손님: 홈·방송 시청·채팅 보기 → 보내려 하면 "로그인이 필요합니다" 창 → 창에서 로그인 → 쓰던 채팅 그대로 보내기
  * 2. 판매자 스튜디오에서 가짜 카메라로 송출 → 시청 화면에 영상이 나온다 (playwright.config.ts의 가짜 장치 설정)
  *    방송 중 다른 화면으로 가도 송출이 이어지고(작은 방송 창), 스튜디오 안에서 상품을 등록해 바로 경매를 시작한다.
+ *    시작한 경매와 미리 만들어 둔 경매(방송에 올리기)가 시청 화면의 경매 목록과 채팅 안내에 바로 나온다.
  *
  * 로컬 백엔드(MySQL·Redis·LiveKit 포함)가 떠 있어야 한다. 계정은 환경변수로 받는다. (frontend/README.md "E2E 테스트")
  * - E2E_EMAIL / E2E_PASSWORD: 시청자 계정 (화면에서 로그인)
@@ -170,13 +171,17 @@ test.describe('판매자 송출', () => {
   test.skip(!viewer.email || !viewer.password, 'E2E_EMAIL, E2E_PASSWORD 환경변수가 필요합니다.');
   test.skip(seller.email === viewer.email, '판매자와 시청자가 다른 계정이어야 합니다. (E2E_SELLER_EMAIL, E2E_SELLER_PASSWORD)');
 
-  test('스튜디오에서 가짜 카메라로 방송을 시작하면 시청 화면에 영상이 나온다', async ({ browser }) => {
+  test('스튜디오에서 가짜 카메라로 방송을 시작하면 시청 화면에 영상이 나온다', async ({ browser, request }) => {
     test.setTimeout(120_000);
     const sellerContext = await browser.newContext();
     const viewerContext = await browser.newContext();
     const studio = await sellerContext.newPage();
     const watch = await viewerContext.newPage();
     let endAfter = false;
+
+    // 미리 만들어 둔 경매(시작 전). 스튜디오에서 [이 방송에 올리기]로 방송에 보여준다. 카테고리가 없으면 건너뛴다.
+    // 판매자 화면과 로그인 쿠키가 섞이지 않도록 따로 된 요청(request)으로 만든다.
+    const scheduled = await prepareScheduledAuction(request);
 
     try {
       // 판매자: 스튜디오. 종료되지 않은 방송이 있으면 그 방송을 쓰고, 없으면 만든다.
@@ -271,8 +276,21 @@ test.describe('판매자 송출', () => {
         await conditions.getByLabel('최소 입찰 단위').fill('1000');
         await conditions.getByRole('button', { name: '이 조건으로 경매 시작' }).click();
         await expect(studio.getByRole('list', { name: '이 방송의 경매' }).getByText(productName)).toBeVisible();
+        // 시청 화면: 시작한 경매가 바로 경매 목록에 나오고, 채팅에 시작 안내가 올라온다.
+        await expect(watch.getByRole('list', { name: '이 방송의 경매' }).getByText(productName)).toBeVisible();
+        await expect(watch.getByRole('list', { name: '채팅 메시지' }).getByText(`‘${productName}’ 경매가 시작되었습니다`, { exact: false })).toBeVisible();
       } else {
         await productDialog.getByRole('button', { name: '닫기' }).click();
+      }
+
+      if (scheduled) {
+        // 미리 만든 경매는 새로 열 수 없고, [이 방송에 올리기]로 방송에 보여준다.
+        const row = studio.getByRole('region', { name: '경매 상품' }).getByRole('listitem').filter({ hasText: scheduled.name });
+        await row.getByRole('button', { name: '이 방송에 올리기' }).click();
+        await expect(row.getByText(/이 방송 ·/)).toBeVisible();
+        await expect(watch.getByRole('list', { name: '이 방송의 경매' }).getByText(scheduled.name)).toBeVisible();
+        await expect(watch.getByRole('list', { name: '채팅 메시지' }).getByText(`‘${scheduled.name}’ 경매가 방송에 올라왔습니다`, { exact: false })).toBeVisible();
+        await test.info().attach('시청 화면 (이 방송의 경매)', { body: await watch.screenshot(), contentType: 'image/png' });
       }
 
       if (endAfter) {
@@ -288,6 +306,7 @@ test.describe('판매자 송출', () => {
         // 테스트가 중간에 실패해도 이 테스트가 시작한 방송은 정리한다.
         await endActiveStream(studio.request);
       }
+      if (scheduled) await apiCall(request, 'POST', `/api/v1/auctions/${scheduled.auctionId}/cancel`, scheduled.token);
       await sellerContext.close();
       await viewerContext.close();
     }
@@ -310,6 +329,38 @@ async function videoTime(locator: Locator) {
 /** 영상 요소의 실제 영상 폭. 영상이 아직 나오지 않으면 0 */
 async function videoWidth(locator: Locator) {
   return locator.first().evaluate((element) => (element as unknown as { videoWidth: number }).videoWidth).catch(() => 0);
+}
+
+type Category = { id: number; children?: Category[] };
+
+/** 판매자 상품을 하나 만들고 30분 뒤 시작하는 경매를 잡는다. 소분류 카테고리가 없으면 undefined */
+async function prepareScheduledAuction(request: APIRequestContext) {
+  const login = await apiCall<{ accessToken: string }>(request, 'POST', '/api/v1/auth/login', undefined, seller);
+  const token = login.body.data?.accessToken ?? '';
+  const categories = (await apiCall<Category[]>(request, 'GET', '/api/v1/categories')).body.data ?? [];
+  const leaf = categories.flatMap((c) => c.children ?? [])[0];
+  if (!token || !leaf) return undefined;
+
+  const name = `E2E 예약 경매 ${Date.now()}`;
+  const product = await apiCall<{ id: number }>(request, 'POST', '/api/v1/products', token, { categoryId: leaf.id, name, description: 'Playwright E2E 테스트가 만든 상품입니다.' });
+  expect(product.ok, `상품 등록 실패: ${product.body.error?.message}`).toBe(true);
+  const startAt = serverTime(30);
+  const auction = await apiCall<{ id: number }>(request, 'POST', '/api/v1/auctions', token, {
+    productId: product.body.data?.id,
+    startPrice: 20000,
+    bidUnit: 1000,
+    startAt,
+    endAt: serverTime(90),
+  });
+  expect(auction.ok, `경매 등록 실패: ${auction.body.error?.message}`).toBe(true);
+  return { name, token, auctionId: auction.body.data?.id ?? 0 };
+}
+
+/** 지금부터 minutes분 뒤의 서버 시각 문자열 (시간대 없는 이 컴퓨터 시각, 예: 2026-10-21T15:30:00) */
+function serverTime(minutes: number) {
+  const d = new Date(Date.now() + minutes * 60_000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
 }
 
 async function endActiveStream(request: APIRequestContext) {

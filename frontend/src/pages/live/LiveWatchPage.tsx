@@ -19,7 +19,7 @@ type LiveStream = Schema<'LiveStreamResponse'>;
 export type LiveWatchLocationState = { sellerNickname?: string } | null;
 
 /**
- * 방송 시청: 영상(LiveKit) + 방송 정보 + 경매 패널 자리 + 실시간 채팅(STOMP)
+ * 방송 시청: 영상(LiveKit) + 방송 정보 + 이 방송의 경매 + 실시간 채팅(STOMP)
  * 로그인하지 않아도 영상과 채팅을 볼 수 있다. (손님 입장·손님 연결) 채팅 보내기·판매자 문의는 로그인 창을 띄운다.
  */
 export function LiveWatchPage() {
@@ -92,7 +92,7 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
         </section>
 
         <aside aria-label="경매와 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
-          <AuctionPanel />
+          <AuctionPanel liveStreamId={liveStreamId} />
           <LiveChat
             messages={messages}
             sellerId={liveStream.sellerId}
