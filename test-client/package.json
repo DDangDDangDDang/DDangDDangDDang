@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@portone/browser-sdk": "^0.1.13",
     "@stomp/stompjs": "^7.0.0",
     "livekit-client": "^2.5.0",
     "react": "^18.3.1",

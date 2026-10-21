@@ -75,3 +75,19 @@
 | `src/AuthPanel.tsx` | 로그인, 회원가입 |
 | `src/LivePanel.tsx` | 방송 만들기·조회·시작·시청·종료, LiveKit 송출·시청 |
 | `src/ChatPanel.tsx` | STOMP 연결, 채팅 구독·전송, 에러 표시 |
+
+## 포인트 충전 (포트원 테스트 결제)
+
+마이페이지 > 포인트에서 충전할 수 있습니다. 포트원 콘솔의 **테스트** 연동 정보가 필요합니다.
+
+1. `test-client/.env.local`에 상점 ID와 테스트 채널 키를 적고 `npm run dev`를 다시 실행합니다.
+
+   ```
+   VITE_PORTONE_STORE_ID=store-xxxxxxxx
+   VITE_PORTONE_CHANNEL_KEY=channel-key-xxxxxxxx
+   ```
+
+2. 백엔드는 결제를 포트원에 다시 조회해서 확인하므로 `PORTONE_API_SECRET`(V2 API Secret) 환경변수를 넣고 실행합니다.
+
+흐름: 충전 요청 생성(paymentId 발급) → 포트원 결제창 → `/points/charges/complete`로 확정.
+모바일 브라우저는 결제 후 이 페이지로 되돌아오며(`?paymentId=...`), 그때 자동으로 확정 요청을 보냅니다.

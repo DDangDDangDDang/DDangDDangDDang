@@ -10,6 +10,7 @@ import {
     type PointWallet,
 } from './api';
 import type { Log } from './App';
+import PointChargeForm, { hasChargeRedirect } from './PointChargeForm';
 
 type Props = { log: Log };
 
@@ -27,7 +28,8 @@ const won = (n: number) => `${n.toLocaleString()}P`;
 
 /** 내 정보 조회·닉네임 수정, 포인트 잔액·내역 조회 */
 export default function MyPagePanel({ log }: Props) {
-    const [open, setOpen] = useState(false);
+    // 모바일 결제는 결제 후 이 페이지로 되돌아오므로, 그때는 패널을 펼쳐 충전을 마무리한다.
+    const [open, setOpen] = useState(hasChargeRedirect);
     const [me, setMe] = useState<MyInfo | null>(null);
     const [nickname, setNickname] = useState('');
     const [wallet, setWallet] = useState<PointWallet | null>(null);
@@ -151,6 +153,7 @@ export default function MyPagePanel({ log }: Props) {
                                 사용 가능 <strong>{won(wallet.balance)}</strong> · 입찰에 묶임 {won(wallet.heldBalance)} · 합계{' '}
                                 {won(wallet.totalBalance)}
                             </p>
+                            <PointChargeForm log={log} onCharged={() => void refresh()} />
                         </div>
                     )}
 

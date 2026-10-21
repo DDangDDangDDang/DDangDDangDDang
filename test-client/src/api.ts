@@ -386,6 +386,23 @@ export const pointApi = {
       ),
 };
 
+export type PointChargeRequested = { chargeId: number; paymentId: string; amount: number; orderName: string };
+export type PointChargeStatus = 'PENDING' | 'COMPLETE' | 'FAILED';
+export type PointChargeCompleted = {
+  chargeId: number;
+  paymentId: string;
+  amount: number;
+  status: PointChargeStatus;
+  balance: number | null;
+};
+
+export const pointChargeApi = {
+  /** 충전 요청을 만들고 결제창에 넘길 paymentId를 받는다. */
+  request: (amount: number) => api<PointChargeRequested>('POST', '/api/v1/points/charges', { amount }),
+  /** 결제창이 끝나면 호출. 서버가 포트원에 결제를 다시 조회해서 금액이 맞을 때만 포인트를 지급한다. */
+  complete: (paymentId: string) => api<PointChargeCompleted>('POST', '/api/v1/points/charges/complete', { paymentId }),
+};
+
 /** 서버의 LocalDateTime(2026-10-21T13:05:00) → 2026-10-21 13:05 */
 export function dateTimeText(iso: string): string {
   return iso.replace('T', ' ').slice(0, 16);
