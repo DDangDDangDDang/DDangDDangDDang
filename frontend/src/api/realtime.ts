@@ -97,7 +97,10 @@ function brokerUrl(): string {
   return `${protocol}://${window.location.host}/ws`;
 }
 
-export function connectRealtime(onStatus: (status: RealtimeStatus) => void): RealtimeConnection {
+/**
+ * guest: 로그인하지 않은 사람의 연결. 토큰 없이 연결해 방송 토픽(채팅·방송 정보)만 구독할 수 있다. (보내기·/user/queue는 서버가 거부)
+ */
+export function connectRealtime(onStatus: (status: RealtimeStatus) => void, options: { guest?: boolean } = {}): RealtimeConnection {
   type Entry = { destination: string; handler: (body: unknown) => void; subscription?: StompSubscription };
   const entries = new Set<Entry>();
   let connectedOnce = false;
@@ -108,6 +111,10 @@ export function connectRealtime(onStatus: (status: RealtimeStatus) => void): Rea
     brokerURL: brokerUrl(),
     reconnectDelay: RECONNECT_DELAY_MS,
     beforeConnect: async () => {
+      if (options.guest) {
+        client.connectHeaders = {};
+        return;
+      }
       let token = getAccessToken();
       if (!token || refreshBeforeConnect) {
         // 재발급이 일시적으로 실패하면(서버 오류) 지금 토큰으로 시도한다. 재발급 4xx면 세션이 지워져 null이 된다.

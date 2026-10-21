@@ -43,12 +43,16 @@ export const router = createBrowserRouter([
       // 로그인 전 재설정 + 내 정보의 [비밀번호 변경]이 같은 화면을 쓴다.
       { path: '/password-reset', element: <PasswordResetPage /> },
 
+      // 로그인 없이 둘러보기 (방송 시청·경매 정보). 채팅·입찰·문의는 화면 안에서 로그인 창을 띄운다. (LoginRequiredDialog)
+      { path: '/lives', element: <LiveListPage /> },
+      { path: '/lives/:liveStreamId', element: <LiveWatchPage /> },
+      { path: '/auctions', element: <AuctionListPage /> },
+      { path: '/auctions/:auctionId', element: <AuctionDetailPage /> },
+
       // 로그인 후
       {
         element: <RequireAuth />,
         children: [
-          { path: '/lives', element: <LiveListPage /> },
-          { path: '/lives/:liveStreamId', element: <LiveWatchPage /> },
           { path: '/me', element: <MyInfoPage /> },
           { path: '/points', element: <PointsPage /> },
           { path: '/orders', element: <OrdersPage /> },
@@ -56,8 +60,6 @@ export const router = createBrowserRouter([
           { path: '/studio', element: <SellerStudioPage /> },
           { path: '/messages', element: <MessagesPage /> },
           { path: '/messages/:userId', element: <MessagesPage /> },
-          { path: '/auctions', element: <AuctionListPage /> },
-          { path: '/auctions/:auctionId', element: <AuctionDetailPage /> },
           { path: '/me/products', element: <MyProductsPage /> },
           { path: '/products/new', element: <ProductCreatePage /> },
           { path: '/products/:productId/edit', element: <ProductEditPage /> },

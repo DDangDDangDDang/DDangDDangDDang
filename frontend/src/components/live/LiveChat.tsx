@@ -16,18 +16,28 @@ type Props = {
   onSend: (content: string) => boolean;
   /** AI 검토 알림이 온 채팅의 messageId. 판매자 화면에서만 넘겨 해당 채팅에 표시한다. */
   flaggedIds?: ReadonlySet<string>;
+  /**
+   * 로그인하지 않은 사람이 보내려고 할 때 부른다. ("로그인이 필요합니다" 창, useLoginGuard)
+   * 로그인하면 afterLogin으로 입력칸에 다시 포커스해 쓰던 채팅을 이어서 보낼 수 있게 한다.
+   */
+  requireLogin?: (afterLogin: () => void) => void;
 };
 
 /** 스크롤이 맨 아래에서 이만큼(px) 안에 있으면 새 메시지가 올 때 따라 내려간다. */
 const STICK_TO_BOTTOM_PX = 48;
 
 /** 실시간 채팅: 메시지 목록 + 입력. 메시지는 접속한 뒤부터 쌓인다. (이전 채팅 API 없음) 방송 시청·판매자 스튜디오가 같이 쓴다. */
-export function LiveChat({ messages, sellerId, canChat, status, error, onSend, flaggedIds }: Props) {
+export function LiveChat({ messages, sellerId, canChat, status, error, onSend, flaggedIds, requireLogin }: Props) {
   const session = useSession();
   const [draft, setDraft] = useState('');
   const [notSent, setNotSent] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
   const stickRef = useRef(true);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // 로그인하지 않았으면 채팅을 보기만 하고, 보내려고 하면 로그인 창을 띄운다. (쓰던 내용은 그대로 둔다)
+  const guest = !session && requireLogin !== undefined;
+  // 로그인하면 입력칸에 다시 포커스한다. 로그인 직후에는 채팅이 회원으로 다시 연결되느라 입력칸이 잠깐 꺼지므로, 켜진 뒤에 한다.
+  const [focusAfterLogin, setFocusAfterLogin] = useState(false);
 
   // 사용자가 위로 올려 이전 채팅을 읽는 중이면 새 메시지가 와도 스크롤을 옮기지 않는다.
   useLayoutEffect(() => {
@@ -41,11 +51,26 @@ export function LiveChat({ messages, sellerId, canChat, status, error, onSend, f
   }, [connected]);
 
   const disabled = !canChat || !connected;
-  const placeholder = !canChat ? '방송 중에만 채팅할 수 있어요' : !connected ? '채팅에 연결하는 중이에요' : '채팅을 입력하세요';
+  useEffect(() => {
+    if (!focusAfterLogin || disabled) return;
+    inputRef.current?.focus();
+    setFocusAfterLogin(false);
+  }, [focusAfterLogin, disabled]);
+  const placeholder = !canChat
+    ? '방송 중에만 채팅할 수 있어요'
+    : !connected
+      ? '채팅에 연결하는 중이에요'
+      : guest
+        ? '채팅을 입력하세요 (보내려면 로그인)'
+        : '채팅을 입력하세요';
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (disabled || !isSendableChat(draft)) return;
+    if (guest) {
+      requireLogin(() => setFocusAfterLogin(true));
+      return;
+    }
     if (onSend(draft.trim())) {
       setDraft('');
       setNotSent(false);
@@ -108,6 +133,7 @@ export function LiveChat({ messages, sellerId, canChat, status, error, onSend, f
         </label>
         <div className="relative min-w-0 flex-1">
           <input
+            ref={inputRef}
             id="chat-input"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

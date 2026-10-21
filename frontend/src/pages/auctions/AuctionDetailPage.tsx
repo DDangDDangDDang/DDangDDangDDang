@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Radio } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { api, call, errorMessage, isErrorCode, useSession } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
+import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { ProductImage } from '@/components/order/OrderBits';
 import { Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
@@ -24,7 +25,11 @@ export function AuctionDetailPage() {
 function AuctionDetail({ auctionId }: { auctionId: number }) {
   const session = useSession();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [confirmCancel, setConfirmCancel] = useState(false);
+  // 로그인하지 않아도 경매 정보는 볼 수 있다. 입찰·문의는 로그인 창을 띄우고, 로그인하면 이어서 한다.
+  const { guard, loginDialog } = useLoginGuard();
+  const [bidAsked, setBidAsked] = useState(false);
 
   const query = useQuery({
     queryKey: ['auction', auctionId],
@@ -120,15 +125,29 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
             </dl>
 
             {phase === 'CLOSING' && <Notice>마감됐어요. 낙찰 결과를 정리하고 있어요.</Notice>}
-            {!isMine && (phase === 'ONGOING' || phase === 'READY') && <Notice>입찰 기능을 준비하고 있어요. 곧 이 화면에서 바로 입찰할 수 있어요.</Notice>}
+            {!isMine && phase === 'ONGOING' && (
+              <Button size="lg" onClick={() => guard(() => setBidAsked(true))}>
+                입찰하기
+              </Button>
+            )}
+            {bidAsked && <Notice>입찰 기능을 준비하고 있어요. 곧 이 화면에서 바로 입찰할 수 있어요.</Notice>}
+            {!isMine && phase === 'READY' && <Notice>경매가 시작되면 입찰할 수 있어요.</Notice>}
 
             {auction.liveStreamId && (
-              <Link to={`/lives/${auction.liveStreamId}`} className={buttonVariants({ variant: 'primary', size: 'lg' })}>
+              <Link to={`/lives/${auction.liveStreamId}`} className={buttonVariants({ variant: 'outline' })}>
                 방송 보러 가기
               </Link>
             )}
             {!isMine && auction.sellerId && (
-              <Link to={`/messages/${auction.sellerId}`} className={buttonVariants({ variant: 'outline' })}>
+              <Link
+                to={`/messages/${auction.sellerId}`}
+                onClick={(e) => {
+                  if (session) return;
+                  e.preventDefault();
+                  guard(() => navigate(`/messages/${auction.sellerId}`));
+                }}
+                className={buttonVariants({ variant: 'outline' })}
+              >
                 판매자에게 문의
               </Link>
             )}
@@ -144,6 +163,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
         </Card>
       </aside>
 
+      {loginDialog}
       <ConfirmDialog
         open={confirmCancel}
         title="경매를 취소할까요?"

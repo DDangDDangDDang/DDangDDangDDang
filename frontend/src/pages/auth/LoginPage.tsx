@@ -49,7 +49,8 @@ export function LoginPage() {
             비밀번호 재설정
           </Link>
           <span aria-hidden="true">·</span>
-          <Link to="/signup" className="font-semibold text-neutral-900">
+          {/* 가입한 뒤에도 보던 화면으로 돌아가도록 redirect를 넘긴다. */}
+          <Link to={redirect === '/' ? '/signup' : `/signup?redirect=${encodeURIComponent(redirect)}`} className="font-semibold text-neutral-900">
             회원가입
           </Link>
         </>

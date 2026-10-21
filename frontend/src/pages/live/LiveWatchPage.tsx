@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ApiError, api, call, errorMessage, isErrorCode, useSession, type ChatMessage, type Schema } from '@/api';
+import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime } from '@/lib/format';
 import { AuctionPanel } from './AuctionPanel';
@@ -17,7 +18,10 @@ type LiveStream = Schema<'LiveStreamResponse'>;
 /** 방송 카드에서 넘겨주는 값. 방송 상세 API에 판매자 닉네임이 없어서 카드의 값을 처음에 보여준다. */
 export type LiveWatchLocationState = { sellerNickname?: string } | null;
 
-/** 방송 시청: 영상(LiveKit) + 방송 정보 + 경매 패널 자리 + 실시간 채팅(STOMP) */
+/**
+ * 방송 시청: 영상(LiveKit) + 방송 정보 + 경매 패널 자리 + 실시간 채팅(STOMP)
+ * 로그인하지 않아도 영상과 채팅을 볼 수 있다. (손님 입장·손님 연결) 채팅 보내기·판매자 문의는 로그인 창을 띄운다.
+ */
 export function LiveWatchPage() {
   const params = useParams();
   const liveStreamId = Number(params.liveStreamId);
@@ -31,6 +35,7 @@ export function LiveWatchPage() {
 
 function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
   const queryClient = useQueryClient();
+  const { guard, loginDialog } = useLoginGuard();
   const queryKey = ['live-stream', liveStreamId];
   const query = useQuery({
     queryKey,
@@ -83,7 +88,7 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
       <div className="flex items-start gap-6">
         <section aria-label="방송" className="flex min-w-0 flex-1 flex-col gap-5">
           <LiveVideo liveStream={liveStream} video={video} />
-          <StreamInfo liveStream={liveStream} sellerNickname={sellerNickname} />
+          <StreamInfo liveStream={liveStream} sellerNickname={sellerNickname} guard={guard} />
         </section>
 
         <aside aria-label="경매와 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
@@ -98,15 +103,18 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
               setChatError(undefined);
               return realtime.sendChat(content);
             }}
+            requireLogin={guard}
           />
         </aside>
       </div>
+      {loginDialog}
     </div>
   );
 }
 
-function StreamInfo({ liveStream, sellerNickname }: { liveStream: LiveStream; sellerNickname?: string }) {
+function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStream; sellerNickname?: string; guard: (action: () => void) => void }) {
   const session = useSession();
+  const navigate = useNavigate();
   const name = sellerNickname || '판매자';
   const canAsk = liveStream.sellerId !== undefined && liveStream.sellerId !== session?.user.userId;
   const time =
@@ -130,7 +138,16 @@ function StreamInfo({ liveStream, sellerNickname }: { liveStream: LiveStream; se
           {time && <span className="text-label text-neutral-500">{time}</span>}
         </div>
         {canAsk && (
-          <Link to={`/messages/${liveStream.sellerId}`} className={buttonVariants({ variant: 'outline', size: 'sm', className: 'ml-2' })}>
+          <Link
+            to={`/messages/${liveStream.sellerId}`}
+            onClick={(e) => {
+              // 로그인하지 않았으면 로그인 창을 띄우고, 로그인하면 문의 화면으로 간다.
+              if (session) return;
+              e.preventDefault();
+              guard(() => navigate(`/messages/${liveStream.sellerId}`));
+            }}
+            className={buttonVariants({ variant: 'outline', size: 'sm', className: 'ml-2' })}
+          >
             판매자에게 문의
           </Link>
         )}

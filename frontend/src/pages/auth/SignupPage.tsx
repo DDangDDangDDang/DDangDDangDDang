@@ -1,14 +1,18 @@
 import { useState, type FormEvent } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { api, call, errorMessage, login, useSession } from '@/api';
 import { VerificationField } from '@/components/auth/VerificationField';
 import { AuthCard } from '@/components/layout/PageHeader';
 import { Button, Input, Notice } from '@/components/ui';
+import { safeRedirect } from '@/lib/redirect';
 import type { LoginLocationState } from './LoginPage';
 
 export function SignupPage() {
   const session = useSession();
   const navigate = useNavigate();
+  // 로그인이 필요한 동작(채팅·입찰 등)에서 회원가입으로 왔으면, 가입하고 그 화면으로 돌아간다.
+  const [params] = useSearchParams();
+  const redirect = safeRedirect(params.get('redirect'));
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +22,7 @@ export function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
 
-  if (session) return <Navigate to="/" replace />;
+  if (session) return <Navigate to={redirect} replace />;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -40,10 +44,10 @@ export function SignupPage() {
     // 가입하면 바로 로그인한다. 로그인만 실패하면 가입은 끝났으므로 로그인 화면으로 보낸다. (다시 가입하지 않게)
     try {
       await login({ email, password });
-      navigate('/', { replace: true });
+      navigate(redirect, { replace: true });
     } catch {
       const state: LoginLocationState = { notice: '가입을 완료했어요. 로그인해 주세요.' };
-      navigate('/login', { replace: true, state });
+      navigate(redirect === '/' ? '/login' : `/login?redirect=${encodeURIComponent(redirect)}`, { replace: true, state });
     }
   }
 
@@ -55,7 +59,7 @@ export function SignupPage() {
       footer={
         <>
           이미 계정이 있나요?
-          <Link to="/login" className="font-semibold text-neutral-900">
+          <Link to={redirect === '/' ? '/login' : `/login?redirect=${encodeURIComponent(redirect)}`} className="font-semibold text-neutral-900">
             로그인
           </Link>
         </>
