@@ -26,7 +26,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 - **200이 아닌 성공 코드로 응답하는 API**에는 메서드에 `@ResponseStatus`를 붙입니다. 명세는 `ResponseEntity.status(...)`의 값을 알 수 없어서, 없으면 200으로 나옵니다.
   - 생성(`HttpStatus.CREATED`) → `@ResponseStatus(HttpStatus.CREATED)`
   - 본문 없음(`HttpStatus.NO_CONTENT`, `noContent()`) → `@ResponseStatus(HttpStatus.NO_CONTENT)`
-- **토큰 없이 호출하는 POST API**는 `SecurityConfig.PUBLIC_POST_APIS`에 추가합니다. 보안 설정과 명세의 "인증 불필요" 표시가 이 목록 하나로 같이 바뀝니다.
+- **토큰 없이 호출하는 API**는 POST면 `SecurityConfig.PUBLIC_POST_APIS`에, GET이면 `SecurityConfig.PUBLIC_GET_APIS`에 추가합니다. 보안 설정과 명세의 "인증 불필요" 표시가 이 목록으로 같이 바뀝니다.
 
 ### 보기
 
