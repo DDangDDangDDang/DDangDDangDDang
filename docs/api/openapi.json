@@ -502,7 +502,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       },
       "post" : {
         "tags" : [ "live-stream-controller" ],
@@ -689,7 +690,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/v1/live-streams/{liveStreamId}/end" : {
@@ -1805,7 +1807,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       },
       "post" : {
         "tags" : [ "auction-controller" ],
@@ -2070,7 +2073,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       },
       "delete" : {
         "tags" : [ "product-controller" ],
@@ -2371,7 +2375,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       },
       "patch" : {
         "tags" : [ "live-stream-controller" ],
@@ -2947,7 +2952,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/v1/dm/unread-count" : {
@@ -3023,7 +3029,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/v1/auctions/{auctionId}" : {
@@ -3070,7 +3077,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/v1/auctions/popular" : {
@@ -3118,7 +3126,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       }
     },
     "/api/v1/admin/dm/reports" : {

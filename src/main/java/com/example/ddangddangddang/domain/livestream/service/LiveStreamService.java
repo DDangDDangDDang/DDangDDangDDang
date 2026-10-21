@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +34,9 @@ public class LiveStreamService {
 
     // 시청 입장 토큰의 LiveKit identity 앞부분. 시청자 수를 셀 때 판매자와 구분하는 데도 쓴다. (LiveViewerStatsCollector)
     public static final String VIEWER_IDENTITY_PREFIX = "viewer-";
+    // 로그인하지 않은 시청자. viewer-로 시작하므로 시청자 수에 함께 센다.
+    static final String GUEST_IDENTITY_PREFIX = VIEWER_IDENTITY_PREFIX + "guest-";
+    static final String GUEST_DISPLAY_NAME = "손님";
 
     // 판매자당 종료되지 않은 방송 하나 규칙의 유니크 제약 (LiveStream 엔티티의 @UniqueConstraint 이름)
     static final String ACTIVE_SELLER_CONSTRAINT = "uk_live_stream_active_seller";
@@ -205,6 +209,21 @@ public class LiveStreamService {
 
         String token = mediaServerClient.createViewerToken(
                 liveStream.getRoomName(), viewerIdentity(memberId), nickname);
+
+        return new LiveStreamTokenResponse(
+                liveStream.getId(), liveStream.getRoomName(), mediaServerClient.getWsUrl(), token);
+    }
+
+    /**
+     * 로그인하지 않은 사람의 시청 입장. 접속마다 다른 identity("viewer-guest-{무작위}")로 토큰을 만든다.
+     * LiveKit은 같은 identity로 다시 접속하면 이전 접속을 끊으므로, 손님끼리 겹치지 않게 한다.
+     */
+    public LiveStreamTokenResponse joinAsGuest(Long liveStreamId) {
+        LiveStream liveStream = findById(liveStreamId);
+        liveStream.validateJoinable();
+
+        String identity = GUEST_IDENTITY_PREFIX + UUID.randomUUID();
+        String token = mediaServerClient.createViewerToken(liveStream.getRoomName(), identity, GUEST_DISPLAY_NAME);
 
         return new LiveStreamTokenResponse(
                 liveStream.getId(), liveStream.getRoomName(), mediaServerClient.getWsUrl(), token);

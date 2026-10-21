@@ -24,7 +24,10 @@ import java.util.regex.Pattern;
 /**
  * 클라이언트가 보낸 STOMP 프레임을 검사한다.
  * - CONNECT: Access Token으로 인증하고 사용자 정보를 세션에 저장한다. 이후 프레임은 이 사용자로 처리된다.
+ *   토큰 없이 연결하면 손님 연결이다. 로그인하지 않은 사람도 방송 채팅과 방송 정보 변경을 볼 수 있게 한다.
+ *   토큰이 있는데 잘못됐으면 손님으로 바꾸지 않고 거부한다. (클라이언트가 토큰을 재발급해 다시 연결하도록)
  * - SUBSCRIBE / SEND: 인증된 연결인지, 연결에 쓴 토큰이 아직 유효한지, 허용된 경로인지 확인한다.
+ *   손님 연결은 방송 토픽(GUEST_SUBSCRIBABLE_DESTINATIONS)만 구독할 수 있고, 보내기(채팅)는 할 수 없다.
  *   연결은 토큰 유효시간보다 오래 유지되므로, 연결 뒤에 토큰이 만료되거나 로그아웃되면 여기서 막고 연결을 끊는다.
  *
  * 여기서 던진 예외는 StompErrorHandler가 ERROR 프레임으로 바꿔 보내고 연결을 끊는다.
@@ -38,6 +41,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     // CONNECT에 쓴 토큰 정보를 WebSocket 세션 속성에 저장하는 키
     private static final String TOKEN_ID_ATTRIBUTE = "accessTokenId";
     private static final String TOKEN_EXPIRES_AT_ATTRIBUTE = "accessTokenExpiresAt";
+    // 토큰 없이 연결한 손님 연결 표시
+    private static final String GUEST_ATTRIBUTE = "guest";
 
     // 클라이언트가 구독할 수 있는 경로. 새 토픽을 만들면 여기에 추가한다.
     private static final List<Pattern> SUBSCRIBABLE_DESTINATIONS = List.of(
@@ -49,6 +54,12 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             Pattern.compile("^/user/queue/moderation$"),
             // 1:1 채팅 메시지 (나에게 온 메시지와 내가 다른 화면에서 보낸 메시지)
             Pattern.compile("^/user/queue/dm$")
+    );
+
+    // 손님(로그인하지 않은 연결)이 구독할 수 있는 경로: 방송 채팅과 방송 정보 변경만
+    private static final List<Pattern> GUEST_SUBSCRIBABLE_DESTINATIONS = List.of(
+            Pattern.compile("^/topic/live-streams/\\d+/chat$"),
+            Pattern.compile("^/topic/live-streams/\\d+$")
     );
 
     private final AccessTokenAuthenticator accessTokenAuthenticator;
@@ -64,8 +75,12 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         if (command == StompCommand.CONNECT) {
             authenticate(accessor);
         } else if (command == StompCommand.SUBSCRIBE) {
-            validateAuthenticated(accessor);
-            validateSubscribable(accessor.getDestination());
+            if (isGuest(accessor)) {
+                validateSubscribable(accessor.getDestination(), GUEST_SUBSCRIBABLE_DESTINATIONS);
+            } else {
+                validateAuthenticated(accessor);
+                validateSubscribable(accessor.getDestination(), SUBSCRIBABLE_DESTINATIONS);
+            }
         } else if (command == StompCommand.SEND) {
             validateAuthenticated(accessor);
             validateSendable(accessor.getDestination());
@@ -78,7 +93,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         // 인증에 실패하면 Spring이 CONNECT 프레임 전체를 에러 로그로 남기므로, 토큰이 로그에 찍히지 않게 헤더에서 지운다.
         accessor.removeNativeHeader(HttpHeaders.AUTHORIZATION);
         if (token == null) {
-            throw new BusinessException(AuthErrorCode.TOKEN_NOT_FOUND);
+            sessionAttributes(accessor).put(GUEST_ATTRIBUTE, Boolean.TRUE);
+            return;
         }
         AuthenticatedToken authenticatedToken = accessTokenAuthenticator.authenticateForSession(token);
         accessor.setUser(authenticatedToken.authentication());
@@ -98,6 +114,11 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         accessTokenAuthenticator.validateStillActive(tokenId, expiresAt);
     }
 
+    private boolean isGuest(StompHeaderAccessor accessor) {
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        return accessor.getUser() == null && sessionAttributes != null && Boolean.TRUE.equals(sessionAttributes.get(GUEST_ATTRIBUTE));
+    }
+
     private Map<String, Object> sessionAttributes(StompHeaderAccessor accessor) {
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
         if (sessionAttributes == null) {
@@ -106,9 +127,9 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         return sessionAttributes;
     }
 
-    private void validateSubscribable(String destination) {
+    private void validateSubscribable(String destination, List<Pattern> allowed) {
         if (destination == null
-                || SUBSCRIBABLE_DESTINATIONS.stream().noneMatch(pattern -> pattern.matcher(destination).matches())) {
+                || allowed.stream().noneMatch(pattern -> pattern.matcher(destination).matches())) {
             throw new BusinessException(CommonErrorCode.INVALID_DESTINATION);
         }
     }

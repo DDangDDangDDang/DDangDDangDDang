@@ -35,7 +35,24 @@ public class SecurityConfig {
             "/api/v1/auth/login",
             "/api/v1/auth/reissue",
             // 포트원 결제 웹훅. 토큰 대신 웹훅 서명으로 검증한다.
-            "/api/v1/points/charges/webhook"
+            "/api/v1/points/charges/webhook",
+            // 방송 시청 입장. 로그인하지 않으면 손님으로 입장한다. (LiveStreamService.joinAsGuest)
+            "/api/v1/live-streams/{liveStreamId}/join"
+    };
+
+    /**
+     * 로그인하지 않은 사람도 볼 수 있는 조회 API (방송·경매 둘러보기). API 명세도 이 목록으로 "인증 불필요"를 표시한다.
+     * 경로 변수({...})는 한 구간만 맞으므로 /live-streams/me/active 같은 내 정보 API는 여기에 걸리지 않는다.
+     */
+    public static final String[] PUBLIC_GET_APIS = {
+            "/api/v1/live-streams",
+            "/api/v1/live-streams/home",
+            "/api/v1/live-streams/{liveStreamId}",
+            "/api/v1/auctions",
+            "/api/v1/auctions/popular",
+            "/api/v1/auctions/{auctionId}",
+            "/api/v1/categories",
+            "/api/v1/products/{productId}"
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -56,6 +73,7 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_APIS).permitAll()
+                        .requestMatchers(HttpMethod.GET, PUBLIC_GET_APIS).permitAll()
                         // 브라우저는 WebSocket 핸드셰이크에 Authorization 헤더를 붙일 수 없다.
                         // 핸드셰이크는 열어 두고 인증은 STOMP CONNECT 프레임에서 한다. (StompAuthChannelInterceptor)
                         .requestMatchers(HttpMethod.GET, "/ws").permitAll()

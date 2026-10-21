@@ -34,6 +34,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.Mockito.verify;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -180,6 +184,45 @@ class LiveStreamControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.upcoming[?(@.liveStreamId == " + liveStreamId + ")].scheduledStartAt").value(at + ":00"))
                 .andExpect(jsonPath("$.data.upcoming[?(@.liveStreamId == " + liveStreamId + ")].sellerNickname").value(seller.nickname()));
+
+        liveStreamService.end(liveStreamId, seller.id());
+    }
+
+    @Test
+    @DisplayName("로그인하지 않아도 방송·경매 조회와 시청 입장(손님)은 되고, 내 방송 조회·방송 만들기는 401이다")
+    void guestBrowseAndJoin() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = longValue(create(seller, "손님 방송"), "$.data.id");
+        given(mediaServerClient.createPublisherToken(anyString(), anyString(), anyString())).willReturn("token");
+        given(mediaServerClient.createViewerToken(anyString(), anyString(), anyString())).willReturn("viewer-token");
+        liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
+
+        // 둘러보기: 토큰 없이 조회
+        mockMvc.perform(get("/api/v1/live-streams/" + liveStreamId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("손님 방송"));
+        mockMvc.perform(get("/api/v1/live-streams").param("status", "LIVE")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/auctions")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/categories")).andExpect(status().isOk());
+
+        // 내 정보·쓰기는 여전히 로그인 필요
+        mockMvc.perform(get("/api/v1/live-streams/me/active"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_001"));
+        mockMvc.perform(post("/api/v1/live-streams").contentType(MediaType.APPLICATION_JSON).content("{\"title\": \"몰래\"}"))
+                .andExpect(status().isUnauthorized());
+
+        // 손님 입장: 접속마다 다른 손님 identity, 이름은 "손님"
+        mockMvc.perform(post("/api/v1/live-streams/" + liveStreamId + "/join"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").value("viewer-token"));
+        verify(mediaServerClient).createViewerToken(anyString(), startsWith("viewer-guest-"), eq("손님"));
+
+        // 회원 입장은 지금처럼 회원 번호·닉네임으로
+        Member viewer = signupAndLogin();
+        mockMvc.perform(post("/api/v1/live-streams/" + liveStreamId + "/join").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(status().isOk());
+        verify(mediaServerClient).createViewerToken(anyString(), eq("viewer-" + viewer.id()), eq(viewer.nickname()));
 
         liveStreamService.end(liveStreamId, seller.id());
     }

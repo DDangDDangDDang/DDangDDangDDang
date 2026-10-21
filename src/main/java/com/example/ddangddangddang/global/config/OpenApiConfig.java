@@ -69,7 +69,8 @@ public class OpenApiConfig {
     }
 
     /**
-     * SecurityConfig.PUBLIC_POST_APIS(회원가입, 로그인, 토큰 재발급, 결제 웹훅 등)는 operation의 security를 빈 배열로 둔다.
+     * SecurityConfig.PUBLIC_POST_APIS(회원가입, 로그인, 토큰 재발급, 결제 웹훅 등)와 PUBLIC_GET_APIS(방송·경매 둘러보기)는
+     * operation의 security를 빈 배열로 둔다.
      * OpenAPI에서 빈 배열은 "인증 불필요"라서, 명세로 만든 클라이언트가 로그인 전에 토큰을 요구하지 않는다.
      */
     @Bean
@@ -82,6 +83,12 @@ public class OpenApiConfig {
                 PathItem item = openApi.getPaths().get(path);
                 if (item != null && item.getPost() != null) {
                     item.getPost().setSecurity(List.of());
+                }
+            }
+            for (String path : SecurityConfig.PUBLIC_GET_APIS) {
+                PathItem item = openApi.getPaths().get(path);
+                if (item != null && item.getGet() != null) {
+                    item.getGet().setSecurity(List.of());
                 }
             }
         };
