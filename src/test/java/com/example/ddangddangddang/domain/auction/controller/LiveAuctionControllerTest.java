@@ -152,7 +152,7 @@ class LiveAuctionControllerTest {
     }
 
     @Test
-    @DisplayName("다른 사람의 경매는 내 방송에 올릴 수 없고(AUCTION_006), 방송 중이 아니면 올릴 수 없다(LIVESTREAM)")
+    @DisplayName("다른 사람의 경매는 내 방송에 올릴 수 없고(AUCTION_006), 내 경매를 남의 방송에 올릴 수 없고(LIVESTREAM_002), 방송 중이 아니면 올릴 수 없다")
     void cannotShowOthersAuction() throws Exception {
         Member owner = signupAndLogin();
         Long auctionId = longValue(createScheduledAuction(owner, createProduct(owner)), "$.data.id");
@@ -162,11 +162,41 @@ class LiveAuctionControllerTest {
         mockMvc.perform(post("/api/v1/lives/{liveId}/auctions/{auctionId}", otherLive, auctionId).header(HttpHeaders.AUTHORIZATION, other.bearer()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("AUCTION_006"));
+        mockMvc.perform(post("/api/v1/lives/{liveId}/auctions/{auctionId}", otherLive, auctionId).header(HttpHeaders.AUTHORIZATION, owner.bearer()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("LIVESTREAM_002"));
 
         liveStreamService.end(otherLive, other.id());
         mockMvc.perform(post("/api/v1/lives/{liveId}/auctions/{auctionId}", otherLive, auctionId).header(HttpHeaders.AUTHORIZATION, other.bearer()))
                 .andExpect(status().is4xxClientError())
                 .andExpect(jsonPath("$.error.code").value(org.hamcrest.Matchers.startsWith("LIVESTREAM_")));
+    }
+
+    @Test
+    @DisplayName("취소된 경매는 방송에 올릴 수 없고(AUCTION_010), 이미 이 방송에 올린 경매는 그 뒤 취소돼도 다시 요청하면 그대로 돌려준다")
+    void canceledAuction() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = startLive(seller);
+        Long shown = longValue(createScheduledAuction(seller, createProduct(seller)), "$.data.id");
+        mockMvc.perform(post("/api/v1/lives/{liveId}/auctions/{auctionId}", liveStreamId, shown).header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                .andExpect(status().isOk());
+        cancel(seller, shown);
+        mockMvc.perform(post("/api/v1/lives/{liveId}/auctions/{auctionId}", liveStreamId, shown).header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CANCELED"));
+
+        Long canceled = longValue(createScheduledAuction(seller, createProduct(seller)), "$.data.id");
+        cancel(seller, canceled);
+        mockMvc.perform(post("/api/v1/lives/{liveId}/auctions/{auctionId}", liveStreamId, canceled).header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("AUCTION_010"));
+
+        liveStreamService.end(liveStreamId, seller.id());
+    }
+
+    private void cancel(Member seller, Long auctionId) throws Exception {
+        mockMvc.perform(post("/api/v1/auctions/{auctionId}/cancel", auctionId).header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                .andExpect(status().isNoContent());
     }
 
     private Long createProduct(Member seller) {
