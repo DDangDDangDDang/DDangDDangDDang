@@ -14,8 +14,11 @@ spring:
         format_sql: false
 
 server:
-  # ALB가 붙이는 X-Forwarded-* 헤더로 원래 요청의 scheme·호스트를 알아낸다.
-  forward-headers-strategy: framework
+  # ALB가 붙이는 X-Forwarded-* 헤더로 원래 요청의 scheme·클라이언트 IP를 알아낸다.
+  # native(Tomcat RemoteIpValve)는 X-Forwarded-For를 오른쪽부터 읽으며 사설망 프록시(ALB, VPC 10.0.0.0/16)를 건너뛰고
+  # ALB가 덧붙인 실제 클라이언트 IP를 쓴다. framework는 맨 왼쪽 값(클라이언트가 보낸 값)을 믿어 IP를 속여
+  # 요청 제한(인증번호·손님 시청 입장)을 피할 수 있으므로 쓰지 않는다. (ALB 기본 xff 처리는 append)
+  forward-headers-strategy: native
   shutdown: graceful
 
 logging:
