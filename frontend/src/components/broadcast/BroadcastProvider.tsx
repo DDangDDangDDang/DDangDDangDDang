@@ -56,14 +56,22 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   const [chatError, setChatError] = useState<string>();
   const [alerts, setAlerts] = useState<ModerationAlert[]>([]);
   const [unseen, setUnseen] = useState({ chats: 0, alerts: 0 });
+  // 송출이 멈춘 방송 자동 종료 안내. 알림을 받은 뒤 방송이 끝나면 자동 종료로 본다. (종료 안내가 연결이 닫힌 뒤 와도)
+  const [idleEndsAt, setIdleEndsAt] = useState<string>();
+  const [autoEnded, setAutoEnded] = useState<string>();
+  const [prevStream, setPrevStream] = useState(liveStream);
   const [prevStreamId, setPrevStreamId] = useState(liveStreamId);
   if (prevStreamId !== liveStreamId) {
+    if (liveStreamId === undefined && idleEndsAt !== undefined) setAutoEnded(prevStream?.title || '방송');
+    if (liveStreamId !== undefined) setAutoEnded(undefined);
+    setIdleEndsAt(undefined);
     setPrevStreamId(liveStreamId);
     setMessages([]);
     setAlerts([]);
     setChatError(undefined);
     setUnseen({ chats: 0, alerts: 0 });
   }
+  if (prevStream !== liveStream && liveStream !== undefined) setPrevStream(liveStream);
   // 스튜디오로 돌아오면 안 본 수를 지운다.
   const [prevStudioOpen, setPrevStudioOpen] = useState(studioOpen);
   if (prevStudioOpen !== studioOpen) {
@@ -85,6 +93,15 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
     onModeration: (alert) => {
       setAlerts((list) => prependModerationAlert(list, alert));
       if (!studioOpenRef.current) setUnseen((prev) => ({ ...prev, alerts: prev.alerts + 1 }));
+    },
+    onIdle: (message) => {
+      if (message.type === 'IDLE_WARNING') setIdleEndsAt(message.endsAt ?? undefined);
+      if (message.type === 'IDLE_RESUMED') setIdleEndsAt(undefined);
+      if (message.type === 'IDLE_ENDED') {
+        setAutoEnded(liveStream?.title || '방송');
+        setIdleEndsAt(undefined);
+        reload();
+      }
     },
   });
 
@@ -119,11 +136,12 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
       },
       alerts,
       dismissAlert: (messageId) => setAlerts((list) => list.filter((a) => a.messageId !== messageId)),
+      idle: { endsAt: idleEndsAt, autoEnded },
       unseen,
       reload,
       setStudioOpen,
     }),
-    [liveStream, live, publishing, media, publisher, messages, realtime.status, chatError, sendChat, alerts, unseen, reload, setStudioOpen],
+    [liveStream, live, publishing, media, publisher, messages, realtime.status, chatError, sendChat, alerts, idleEndsAt, autoEnded, unseen, reload, setStudioOpen],
   );
 
   return <BroadcastContext.Provider value={value}>{children}</BroadcastContext.Provider>;

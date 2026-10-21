@@ -43,3 +43,6 @@ point:
 live-stream:
   viewer-stats:
     enabled: false
+  # 송출 없는 방송 자동 종료도 끈다. 동작은 LiveStreamIdleWatcherTest에서 직접 호출해 확인한다.
+  idle:
+    enabled: false

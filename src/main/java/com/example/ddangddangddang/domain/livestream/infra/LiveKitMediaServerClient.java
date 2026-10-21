@@ -19,8 +19,10 @@ import livekit.LivekitModels;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -123,6 +125,37 @@ public class LiveKitMediaServerClient implements MediaServerClient {
             return counts;
         } catch (IOException e) {
             log.error("LiveKit 시청자 수 조회 통신 오류 count={}", roomNames.size(), e);
+            throw new BusinessException(LiveStreamErrorCode.MEDIA_SERVER_ERROR, e);
+        }
+    }
+
+    @Override
+    public Set<String> getPublishingRooms(Collection<String> roomNames, String publisherIdentityPrefix) {
+        if (roomNames.isEmpty()) {
+            return Set.of();
+        }
+        try {
+            List<LivekitModels.Room> rooms = body(roomServiceClient.listRooms(List.copyOf(roomNames)).execute(), "방 목록 조회");
+            Set<String> publishing = new HashSet<>();
+            for (LivekitModels.Room room : rooms) {
+                // 아무도 없거나 트랙을 보내는 참가자가 없는 방은 참가자를 조회하지 않는다.
+                if (room.getNumParticipants() == 0 || room.getNumPublishers() == 0) {
+                    continue;
+                }
+                List<LivekitModels.ParticipantInfo> participants =
+                        body(roomServiceClient.listParticipants(room.getName()).execute(), "참가자 조회");
+                // 카메라·마이크를 끈(음소거) 트랙은 송출로 보지 않는다.
+                boolean sellerPublishing = participants.stream()
+                        .filter(participant -> participant.getIdentity().startsWith(publisherIdentityPrefix))
+                        .flatMap(participant -> participant.getTracksList().stream())
+                        .anyMatch(track -> !track.getMuted());
+                if (sellerPublishing) {
+                    publishing.add(room.getName());
+                }
+            }
+            return publishing;
+        } catch (IOException e) {
+            log.error("LiveKit 송출 상태 조회 통신 오류 count={}", roomNames.size(), e);
             throw new BusinessException(LiveStreamErrorCode.MEDIA_SERVER_ERROR, e);
         }
     }

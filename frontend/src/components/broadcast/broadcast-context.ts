@@ -32,6 +32,11 @@ export type Broadcast = {
   };
   alerts: ModerationAlert[];
   dismissAlert: (messageId: string) => void;
+  /**
+   * 송출이 오래 없어 곧 자동 종료됨: 자동 종료 시각. (다시 송출하면 undefined)
+   * 방송이 그렇게 끝났으면 autoEnded에 그 방송 제목이 남는다. (새 방송을 만들면 지움)
+   */
+  idle: { endsAt?: string; autoEnded?: string };
   /** 스튜디오를 떠나 있는 동안 온 채팅·검토 알림 수 (스튜디오로 돌아오면 0) */
   unseen: { chats: number; alerts: number };
   /** 방송 정보를 다시 불러온다. (방송 시작·종료 뒤, 서버 안내를 받았을 때) */

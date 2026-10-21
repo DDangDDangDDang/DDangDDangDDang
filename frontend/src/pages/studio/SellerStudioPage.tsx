@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, isErrorCode, type Schema } from '@/api';
 import { ACTIVE_STREAM_KEY, START_STREAM_KEY, useBroadcast, useStudioPresence } from '@/components/broadcast/broadcast-context';
+import { IdleWarning } from '@/components/broadcast/IdleWarning';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { LiveChat } from '@/components/live/LiveChat';
 import { Badge, Button, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
@@ -65,10 +66,14 @@ export function SellerStudioPage() {
 
 /** 데이터 없음: 종료되지 않은 방송이 없으면 새 방송을 만든다. */
 function NoActiveStream({ endedTitle, onCreated, onActiveExists }: { endedTitle?: string; onCreated: (liveStream: LiveStream) => void; onActiveExists: () => void }) {
+  const { idle } = useBroadcast();
   return (
     <div className="mx-auto flex max-w-[720px] flex-col gap-4">
       <PageHeader title="판매자 스튜디오" description="방송을 만들고 카메라를 확인한 뒤 바로 시작할 수 있어요." />
       {endedTitle && <Notice tone="success">‘{endedTitle}’ 방송을 종료했어요. 시청자 연결이 끊기고 채팅에 종료 안내가 나갔어요.</Notice>}
+      {!endedTitle && idle.autoEnded && (
+        <Notice tone="error">‘{idle.autoEnded}’ 방송은 송출이 30분 동안 없어 자동으로 종료됐어요. 진행 중인 경매는 그대로 이어져요.</Notice>
+      )}
       <Card>
         <EmptyState title="진행 중이거나 예정된 방송이 없어요" description="새 방송을 만들면 여기서 미리보기를 확인하고 방송을 시작할 수 있어요. 방송은 한 번에 하나만 열 수 있어요." />
         <CardBody className="border-t border-neutral-100 pt-5">
@@ -95,7 +100,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
 
   // 카메라·마이크, 송출(LiveKit), 채팅·검토 알림(STOMP)은 앱 전체에서 이어진다. (BroadcastProvider)
   useStudioPresence();
-  const { media, publisher, chat, alerts, dismissAlert } = useBroadcast();
+  const { media, publisher, chat, alerts, dismissAlert, idle } = useBroadcast();
   const flaggedIds = useMemo(() => new Set(alerts.map((a) => a.messageId)), [alerts]);
   // 방송 중 경매
   const liveAuctions = useLiveAuctions(liveStreamId);
@@ -141,6 +146,8 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
           </span>
         </div>
       )}
+
+      {isLive && idle.endsAt && <IdleWarning endsAt={idle.endsAt} />}
 
       <div className="flex items-start gap-6">
         <section aria-labelledby="studio-title" className="flex min-w-0 flex-1 flex-col gap-4">

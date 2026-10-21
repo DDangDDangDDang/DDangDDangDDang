@@ -34,6 +34,8 @@ public class LiveStreamService {
 
     // 시청 입장 토큰의 LiveKit identity 앞부분. 시청자 수를 셀 때 판매자와 구분하는 데도 쓴다. (LiveViewerStatsCollector)
     public static final String VIEWER_IDENTITY_PREFIX = "viewer-";
+    // 송출 토큰의 LiveKit identity 앞부분. 송출이 멈춘 방송을 찾을 때 쓴다. (LiveStreamIdleWatcher)
+    public static final String PUBLISHER_IDENTITY_PREFIX = "seller-";
     // 로그인하지 않은 시청자. viewer-로 시작하므로 시청자 수에 함께 센다.
     static final String GUEST_IDENTITY_PREFIX = VIEWER_IDENTITY_PREFIX + "guest-";
     static final String GUEST_DISPLAY_NAME = "손님";
@@ -231,6 +233,16 @@ public class LiveStreamService {
 
     @Transactional
     public LiveStreamResponse end(Long liveStreamId, Long sellerId) {
+        return end(liveStreamId, sellerId, false);
+    }
+
+    /** 판매자 송출이 오래 없어 서버가 종료한다. (LiveStreamIdleWatcher) 채팅 종료 안내에 이유를 함께 알린다. */
+    @Transactional
+    public LiveStreamResponse endForIdle(Long liveStreamId, Long sellerId) {
+        return end(liveStreamId, sellerId, true);
+    }
+
+    private LiveStreamResponse end(Long liveStreamId, Long sellerId, boolean idle) {
         LiveStream liveStream = findById(liveStreamId);
         liveStream.end(sellerId);
         flushWithVersionCheck(liveStream);
@@ -239,7 +251,7 @@ public class LiveStreamService {
         mediaServerClient.deleteRoom(liveStream.getRoomName());
 
         // 커밋 후 리스너가 처리한다. (채팅 종료 안내 / TODO(6단계): 경매 도메인에서 진행 중 경매 처리)
-        eventPublisher.publishEvent(new LiveStreamEndedEvent(liveStream.getId()));
+        eventPublisher.publishEvent(new LiveStreamEndedEvent(liveStream.getId(), idle));
         return LiveStreamResponse.from(liveStream);
     }
 
@@ -268,7 +280,7 @@ public class LiveStreamService {
     }
 
     private String publisherIdentity(Long sellerId) {
-        return "seller-" + sellerId;
+        return PUBLISHER_IDENTITY_PREFIX + sellerId;
     }
 
     private String viewerIdentity(Long memberId) {

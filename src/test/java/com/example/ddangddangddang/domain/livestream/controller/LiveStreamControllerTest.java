@@ -243,6 +243,22 @@ class LiveStreamControllerTest {
         liveStreamService.end(liveStreamId, seller.id());
     }
 
+    @Test
+    @DisplayName("송출이 없어 자동 종료하면(endForIdle) 방송이 끝나고, 판매자가 새 방송을 만들 수 있다")
+    void endForIdle() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = longValue(create(seller, "자동 종료 방송"), "$.data.id");
+        given(mediaServerClient.createPublisherToken(anyString(), anyString(), anyString())).willReturn("token");
+        liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
+
+        liveStreamService.endForIdle(liveStreamId, seller.id());
+
+        mockMvc.perform(get("/api/v1/live-streams/{liveStreamId}", liveStreamId))
+                .andExpect(jsonPath("$.data.status").value("ENDED"));
+        mockMvc.perform(get("/api/v1/live-streams/me/active").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
     private org.springframework.test.web.servlet.ResultActions create(Member seller, String title) throws Exception {
         return mockMvc.perform(post("/api/v1/live-streams").header(HttpHeaders.AUTHORIZATION, seller.bearer())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"title\": \"" + title + "\"}"))
