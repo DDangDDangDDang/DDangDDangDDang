@@ -89,3 +89,7 @@ select { height: 40px; padding: 0 8px; border: 1px solid #a3a3a3; border-radius:
 .logs ol { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-family: ui-monospace, Consolas, monospace; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.mypage h3 { margin: 0; font-size: 15px; }
+.mypage p { margin: 0; }
+.mypage ol { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow-y: auto; font-size: 14px; }

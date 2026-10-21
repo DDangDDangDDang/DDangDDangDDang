@@ -337,6 +337,60 @@ export const dmApi = {
     api<unknown>('POST', `/api/v1/dm/rooms/${roomId}/reports`, { reason, messageId, detail: detail || undefined }),
 };
 
+export type MyInfo = {
+  userId: number;
+  email: string;
+  nickname: string;
+  phoneNumber: string;
+  role: string;
+  createdAt: string;
+};
+export type MyInfoUpdated = { user: MyInfo; accessToken: string; expiresIn: number };
+
+export const userApi = {
+  me: () => api<MyInfo>('GET', '/api/v1/users/me'),
+  /** 닉네임은 Access Token에도 들어 있어서, 응답으로 받은 새 토큰으로 세션을 바로 바꾼다. */
+  updateNickname: async (nickname: string): Promise<MyInfo> => {
+    const generation = sessionGeneration;
+    const res = await api<MyInfoUpdated>('PATCH', '/api/v1/users/me', { nickname });
+    // 요청 중에 로그아웃했다면 새 토큰으로 세션을 되살리지 않는다.
+    if (generation === sessionGeneration) {
+      setSession({
+        accessToken: res.accessToken,
+        user: { userId: res.user.userId, nickname: res.user.nickname, role: res.user.role },
+      });
+    }
+    return res.user;
+  },
+};
+
+export type PointWallet = { balance: number; heldBalance: number; totalBalance: number };
+export type PointHistoryType = 'CHARGE' | 'HOLD' | 'RELEASE' | 'PURCHASE' | 'SETTLE' | 'EXCHANGE' | 'EXCHANGE_REFUND';
+export type PointHistory = {
+  historyId: number;
+  type: PointHistoryType;
+  amount: number;
+  balanceAfter: number;
+  heldBalanceAfter: number;
+  refType: 'CHARGE' | 'AUCTION' | 'ORDER' | 'EXCHANGE' | null;
+  refId: number | null;
+  createdAt: string;
+};
+
+export const pointApi = {
+  wallet: () => api<PointWallet>('GET', '/api/v1/points/wallet'),
+  histories: (type: PointHistoryType | null, cursor: number | null = null, size = 20) =>
+      api<CursorPage<PointHistory>>(
+          'GET',
+          `/api/v1/points/histories${cursorQuery(cursor, size)}${type ? `&type=${type}` : ''}`,
+      ),
+};
+
+/** 서버의 LocalDateTime(2026-10-21T13:05:00) → 2026-10-21 13:05 */
+export function dateTimeText(iso: string): string {
+  return iso.replace('T', ' ').slice(0, 16);
+}
+
 export function errorText(e: unknown): string {
   if (e instanceof ApiError) return `[${e.code}] ${e.message}`;
   if (e instanceof Error) return e.message;
