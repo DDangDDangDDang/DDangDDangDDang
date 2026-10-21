@@ -7,7 +7,7 @@ import { PointChargeDialog } from './PointChargeDialog';
 type Request = { method: string; path: string; body?: unknown };
 
 // api.POST는 요청 내용만 돌려주고, call()이 경로별로 정해 둔 응답을 준다.
-const server = vi.hoisted(() => ({ requests: [] as Request[], complete: {} as Record<string, unknown> }));
+const server = vi.hoisted(() => ({ requests: [] as Request[], complete: {} as Record<string, unknown>, completeFailures: 0 }));
 vi.mock('@/api', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/api')>();
   const request = (method: string) => (path: string, init?: { body?: unknown }) => ({ method, path, body: init?.body });
@@ -17,7 +17,13 @@ vi.mock('@/api', async (importOriginal) => {
     call: async (r: Request) => {
       server.requests.push(r);
       if (r.path === '/api/v1/points/charges') return { chargeId: 1, paymentId: 'point-charge-1', amount: 10000, orderName: '10,000 포인트 충전' };
-      if (r.path === '/api/v1/points/charges/complete') return server.complete;
+      if (r.path === '/api/v1/points/charges/complete') {
+        if (server.completeFailures > 0) {
+          server.completeFailures -= 1;
+          throw new original.ApiError('POINT_032', '결제사와 통신 중 오류가 발생했습니다.', 502);
+        }
+        return server.complete;
+      }
       return undefined;
     },
   };
@@ -47,6 +53,7 @@ describe('PointChargeDialog', () => {
   beforeEach(() => {
     server.requests = [];
     server.complete = { paymentId: 'point-charge-1', amount: 10000, status: 'COMPLETE', balance: 15000 };
+    server.completeFailures = 0;
     portOne.requestPayment.mockReset();
     // jsdom에는 <dialog>의 showModal·close가 없다.
     HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
@@ -93,7 +100,7 @@ describe('PointChargeDialog', () => {
     expect(server.requests.some((r) => r.path === '/api/v1/points/charges/complete')).toBe(false);
   });
 
-  it('결제 확인이 진행 중(PENDING)이면 잠시 후 확인하라고 안내한다', async () => {
+  it('결제 확인이 진행 중(PENDING)이면 새 결제를 막고, 같은 결제의 확인만 다시 할 수 있다', async () => {
     portOne.requestPayment.mockResolvedValue(paid);
     server.complete = { paymentId: 'point-charge-1', amount: 10000, status: 'PENDING' };
     const { invalidate } = renderDialog();
@@ -101,6 +108,31 @@ describe('PointChargeDialog', () => {
 
     expect(await screen.findByText(/결제를 확인하고 있어요. 잠시 후/)).toBeInTheDocument();
     expect(invalidate).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /결제하기/ })).not.toBeInTheDocument();
+
+    server.complete = { paymentId: 'point-charge-1', amount: 10000, status: 'COMPLETE', balance: 15000 };
+    await userEvent.click(screen.getByRole('button', { name: '결제 확인 다시 하기' }));
+    expect(await screen.findByText(/10,000 P를 충전했어요/)).toBeInTheDocument();
+    // 새 충전 요청 없이 같은 paymentId로 다시 확인했다.
+    expect(server.requests.filter((r) => r.path === '/api/v1/points/charges')).toHaveLength(1);
+    expect(server.requests.filter((r) => r.path === '/api/v1/points/charges/complete').map((r) => r.body)).toEqual([
+      { paymentId: 'point-charge-1' },
+      { paymentId: 'point-charge-1' },
+    ]);
+    expect(screen.getByRole('button', { name: '결제하기' })).toBeInTheDocument();
+  });
+
+  it('결제 확인 요청이 실패하면 오류를 보여주고, 새 결제 대신 같은 결제의 확인을 다시 하게 한다', async () => {
+    portOne.requestPayment.mockResolvedValue(paid);
+    server.completeFailures = 1;
+    renderDialog();
+    await payTenThousand();
+
+    expect(await screen.findByText('결제사와 통신 중 오류가 발생했습니다.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '결제 확인 다시 하기' }));
+    expect(await screen.findByText(/10,000 P를 충전했어요/)).toBeInTheDocument();
+    expect(portOne.requestPayment).toHaveBeenCalledTimes(1);
+    expect(server.requests.filter((r) => r.path === '/api/v1/points/charges')).toHaveLength(1);
   });
 
   it('결제가 완료되지 않았으면(FAILED) 충전하지 못했다고 안내한다', async () => {

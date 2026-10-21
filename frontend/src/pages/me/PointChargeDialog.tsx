@@ -19,18 +19,21 @@ type Result = ChargeOutcome | Stopped;
  * 포인트 충전 창 (포인트 화면의 [충전하기]). 1원 = 1포인트.
  * 충전 요청(POST /points/charges) → 포트원 결제창(카드, 팝업) → 결제 확인(POST /charges/complete)
  * 포인트는 서버가 포트원에 결제를 직접 조회해 금액이 맞을 때만 지급한다. 결제창이 code를 주면(취소·실패) 결제 확인을 부르지 않는다.
+ * 결제창은 끝났는데 확인이 안 된 결제(PENDING이거나 확인 요청 실패)가 있으면 새 결제를 막고 그 결제의 확인만 다시 하게 한다. (중복 결제 방지)
  */
 export function PointChargeDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const paying = useIsMutating({ mutationKey: CHARGE_KEY }) > 0;
+  // 확인이 안 된 결제. 창을 닫았다 열어도 남도록 창 바깥(이 컴포넌트)에 둔다.
+  const [unconfirmed, setUnconfirmed] = useState<string>();
   return (
     <Dialog open={open} onClose={onClose} closeDisabled={paying} title="포인트 충전" description="1원은 1포인트예요. 충전한 포인트로 경매에 입찰할 수 있어요." className="w-[520px]">
       {/* 닫았다 열면 이전 입력·결과 없이 새로 시작한다. */}
-      {open && <ChargeForm />}
+      {open && <ChargeForm unconfirmed={unconfirmed} onUnconfirmedChange={setUnconfirmed} />}
     </Dialog>
   );
 }
 
-function ChargeForm() {
+function ChargeForm({ unconfirmed, onUnconfirmedChange }: { unconfirmed?: string; onUnconfirmedChange: (paymentId: string | undefined) => void }) {
   const queryClient = useQueryClient();
   const config = portOneConfig();
   const [amount, setAmount] = useState('');
@@ -56,17 +59,35 @@ function ChargeForm() {
       // code가 있으면 결제창을 닫았거나 결제가 실패한 것. 충전 요청은 서버에 PENDING으로 남아도 괜찮다.
       if (payment?.code !== undefined) return { kind: 'stopped', message: payment.message || '결제를 마치지 않아 충전하지 않았어요.' };
 
-      const completed = await call(api.POST('/api/v1/points/charges/complete', { body: { paymentId: request.paymentId } }));
-      return chargeOutcomeOf(completed);
+      // 여기부터는 결제가 됐을 수 있으므로 확인이 끝날 때까지 이 결제를 붙잡아 둔다.
+      onUnconfirmedChange(request.paymentId);
+      return confirmPayment(request.paymentId);
     },
-    onSuccess: (next) => {
-      setResult(next);
-      if (next.kind === 'done') {
-        setAmount('');
-        // 잔액·포인트 내역을 새로 불러온다. (헤더의 잔액도 같이 바뀜)
-        void queryClient.invalidateQueries({ queryKey: ['points'] });
-      }
-    },
+    onSuccess: showResult,
+    onError: () => setResult(undefined),
+  });
+
+  /** 결제 확인(POST /charges/complete). 서버는 여러 번 불러도 한 번만 지급한다. 지급됐거나 실패로 끝났을 때만 붙잡은 결제를 놓는다. */
+  async function confirmPayment(paymentId: string): Promise<Result> {
+    const completed = await call(api.POST('/api/v1/points/charges/complete', { body: { paymentId } }));
+    const outcome = chargeOutcomeOf(completed);
+    if (outcome.kind !== 'pending') onUnconfirmedChange(undefined);
+    return outcome;
+  }
+
+  function showResult(next: Result) {
+    setResult(next);
+    if (next.kind === 'done') {
+      setAmount('');
+      // 잔액·포인트 내역을 새로 불러온다. (헤더의 잔액도 같이 바뀜)
+      void queryClient.invalidateQueries({ queryKey: ['points'] });
+    }
+  }
+
+  const recheck = useMutation({
+    mutationKey: CHARGE_KEY,
+    mutationFn: confirmPayment,
+    onSuccess: showResult,
     onError: () => setResult(undefined),
   });
 
@@ -74,7 +95,7 @@ function ChargeForm() {
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!config) return;
+    if (!config || unconfirmed) return;
     const error = validateChargeAmount(amount);
     setAmountError(error);
     if (error || !value) return;
@@ -125,11 +146,21 @@ function ChargeForm() {
 
       {!config && <Notice tone="error">충전 설정이 필요합니다. 관리자에게 결제 설정(포트원 상점 ID·채널 키)을 요청해 주세요.</Notice>}
       {charge.isError && <Notice tone="error">{errorMessage(charge.error)}</Notice>}
+      {recheck.isError && <Notice tone="error">결제 결과를 확인하지 못했어요. {errorMessage(recheck.error)}</Notice>}
       {result && <ResultNotice result={result} />}
 
-      <Button type="submit" size="lg" loading={charge.isPending} disabled={!config}>
-        {value ? `${formatNumber(value)}원 결제하기` : '결제하기'}
-      </Button>
+      {unconfirmed ? (
+        <>
+          {!charge.isPending && <Notice>결제 결과를 아직 확인하지 못했어요. 결제가 두 번 되지 않도록 확인이 끝나야 새로 충전할 수 있어요.</Notice>}
+          <Button type="button" size="lg" loading={charge.isPending || recheck.isPending} onClick={() => recheck.mutate(unconfirmed)}>
+            결제 확인 다시 하기
+          </Button>
+        </>
+      ) : (
+        <Button type="submit" size="lg" loading={charge.isPending} disabled={!config}>
+          {value ? `${formatNumber(value)}원 결제하기` : '결제하기'}
+        </Button>
+      )}
     </form>
   );
 }
