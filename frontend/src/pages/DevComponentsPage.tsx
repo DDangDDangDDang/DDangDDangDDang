@@ -10,6 +10,7 @@ import {
   ErrorState,
   Input,
   Skeleton,
+  Textarea,
 } from '@/components/ui';
 import { formatPoint, formatRemaining } from '@/lib/format';
 
@@ -65,6 +66,7 @@ export function DevComponentsPage() {
             hint="최소 153,000 P · 입찰 단위 1,000 P"
           />
           <Input label="닉네임" placeholder="2~10자" error="이미 사용 중인 닉네임이에요." />
+          <Textarea label="방송 설명" placeholder="시청자에게 보여줄 설명" hint="1000자 이하" />
         </CardBody>
       </Card>
 

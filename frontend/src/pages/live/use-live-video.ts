@@ -1,7 +1,7 @@
 import { DisconnectReason, Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, call, isErrorCode } from '@/api';
-import { summarizeParticipants } from './live-room';
+import { summarizeParticipants } from '@/lib/live-room';
 
 /**
  * idle: 방송 중이 아니라 접속하지 않음 · joining: 입장 토큰을 받아 접속 중 · connected: 접속됨

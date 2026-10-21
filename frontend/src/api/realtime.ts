@@ -35,6 +35,34 @@ export type LiveStreamUpdatedMessage = {
   liveStream: components['schemas']['LiveStreamResponse'];
 };
 
+/** AI가 확인이 필요하다고 본 채팅 (`/user/queue/moderation`). 방송 판매자에게만 온다. */
+export type ModerationAlert = {
+  liveStreamId: number;
+  /** 문제의 채팅 messageId */
+  messageId: string;
+  senderId: number;
+  nickname: string;
+  content: string;
+  category: 'EXTERNAL_TRADE' | 'SCAM' | 'HARASSMENT' | 'HATE' | 'SEXUAL' | 'SPAM' | 'PERSONAL_INFO';
+  /** 화면에 보여줄 분류 이름 */
+  categoryLabel: string;
+  /** 판단 이유 */
+  reason: string;
+  detectedAt: string;
+};
+
+/**
+ * 1:1 채팅 이벤트 (`/user/queue/dm`). 내가 보낸 메시지도 온다. (같은 계정의 다른 탭·기기)
+ * MESSAGE: message가 새 메시지 · READ: readerId가 lastReadMessageId까지 읽음 (보낸 사람 화면의 "1"을 지운다)
+ */
+export type DmEvent = {
+  type: 'MESSAGE' | 'READ';
+  roomId: number;
+  message: components['schemas']['DmMessageResponse'] | null;
+  readerId: number | null;
+  lastReadMessageId: number | null;
+};
+
 /** 나에게만 오는 오류 (`/user/queue/errors`). 채팅 전송 실패 등 */
 export type RealtimeError = components['schemas']['ErrorResponse'];
 
@@ -42,6 +70,8 @@ export const REALTIME = {
   liveChat: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}/chat`,
   liveStream: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}`,
   errors: '/user/queue/errors',
+  moderation: '/user/queue/moderation',
+  dm: '/user/queue/dm',
   sendLiveChat: (liveStreamId: number) => `/app/live-streams/${liveStreamId}/chat`,
 } as const;
 

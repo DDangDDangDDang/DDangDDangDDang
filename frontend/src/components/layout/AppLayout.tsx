@@ -1,15 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
-import { Gavel, Wallet } from 'lucide-react';
+import { Gavel, MessageCircle, Wallet } from 'lucide-react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { api, call, logout, useSession } from '@/api';
+import { DmRealtime } from '@/components/dm/DmRealtime';
 import { Button, buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
 
 /** 모든 화면 공통 틀: 상단 헤더 + 가운데 정렬된 본문 (최대 폭 1360px) */
 export function AppLayout() {
+  const session = useSession();
   return (
     <div className="min-h-screen">
+      {session?.user.userId !== undefined && <DmRealtime userId={session.user.userId} />}
       <AppHeader />
       <main className="mx-auto max-w-[1360px] px-8 pt-6 pb-14">
         <Outlet />
@@ -40,18 +43,38 @@ function AppHeader() {
               <NavLink to="/lives" className={navClass}>
                 라이브
               </NavLink>
+              <NavLink to="/auctions" className={navClass}>
+                경매
+              </NavLink>
+              <NavLink to="/studio" className={navClass}>
+                방송하기
+              </NavLink>
+              <NavLink to="/me/products" className={navClass}>
+                내 상품
+              </NavLink>
               <NavLink to="/orders" className={navClass}>
                 주문 내역
               </NavLink>
-              <NavLink to="/me" className={navClass}>
+              <NavLink to="/me" end className={navClass}>
                 내 정보
               </NavLink>
+              {session.user.role === 'ADMIN' && (
+                <>
+                  <NavLink to="/admin/categories" className={navClass}>
+                    카테고리 관리
+                  </NavLink>
+                  <NavLink to="/admin/dm-reports" className={navClass}>
+                    채팅 신고
+                  </NavLink>
+                </>
+              )}
             </nav>
           )}
         </div>
 
         {session ? (
           <div className="flex items-center gap-2">
+            <DmLink />
             <PointBalanceLink />
             <span className="px-2 text-body font-semibold">{session.user.nickname}</span>
             <Button
@@ -79,6 +102,30 @@ function AppHeader() {
         )}
       </div>
     </header>
+  );
+}
+
+/** 헤더의 1:1 채팅 바로가기 + 읽지 않은 메시지 수 */
+function DmLink() {
+  const unread = useQuery({
+    queryKey: ['dm', 'unread'],
+    queryFn: () => call(api.GET('/api/v1/dm/unread-count')),
+  });
+  const count = unread.data?.unreadCount ?? 0;
+
+  return (
+    <Link
+      to="/messages"
+      aria-label={count > 0 ? `메시지, 읽지 않은 메시지 ${count}개` : '메시지'}
+      className="relative flex size-10 items-center justify-center rounded-full border border-neutral-100 text-neutral-700 hover:bg-neutral-25"
+    >
+      <MessageCircle className="size-[18px]" aria-hidden="true" />
+      {count > 0 && (
+        <span aria-hidden="true" className="num absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1 text-caption font-bold text-neutral-0">
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+    </Link>
   );
 }
 

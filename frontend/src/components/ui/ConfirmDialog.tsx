@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { Button } from './Button';
 
 type ConfirmDialogProps = {
@@ -28,6 +28,8 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  // 한 화면에 확인 창이 여러 개 있어도 제목 연결이 겹치지 않게 한다.
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = ref.current;
@@ -39,14 +41,14 @@ export function ConfirmDialog({
   return (
     <dialog
       ref={ref}
-      aria-labelledby="confirm-dialog-title"
+      aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();
         if (!loading) onCancel();
       }}
       className="m-auto w-[420px] rounded-lg bg-neutral-0 p-6 text-neutral-900 shadow-md backdrop:bg-neutral-900/40"
     >
-      <h2 id="confirm-dialog-title" className="text-title-md font-bold">
+      <h2 id={titleId} className="text-title-md font-bold">
         {title}
       </h2>
       {description && <div className="mt-2 text-body text-neutral-700">{description}</div>}
