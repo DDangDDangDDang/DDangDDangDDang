@@ -51,6 +51,7 @@ public class SecurityConfig {
             "/api/v1/auctions",
             "/api/v1/auctions/popular",
             "/api/v1/auctions/{auctionId}",
+            "/api/v1/lives/{liveId}/auctions",
             "/api/v1/categories",
             "/api/v1/products/{productId}"
     };
