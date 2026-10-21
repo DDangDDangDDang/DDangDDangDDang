@@ -89,10 +89,15 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     }
 
     private void authenticate(StompHeaderAccessor accessor) {
-        String token = JwtProvider.resolveBearerToken(accessor.getFirstNativeHeader(HttpHeaders.AUTHORIZATION));
+        String authorization = accessor.getFirstNativeHeader(HttpHeaders.AUTHORIZATION);
+        String token = JwtProvider.resolveBearerToken(authorization);
         // 인증에 실패하면 Spring이 CONNECT 프레임 전체를 에러 로그로 남기므로, 토큰이 로그에 찍히지 않게 헤더에서 지운다.
         accessor.removeNativeHeader(HttpHeaders.AUTHORIZATION);
         if (token == null) {
+            // 헤더가 아예 없을 때만 손님 연결이다. Bearer가 아니거나 값이 비었으면 잘못된 인증 정보로 거부한다.
+            if (authorization != null) {
+                throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
+            }
             sessionAttributes(accessor).put(GUEST_ATTRIBUTE, Boolean.TRUE);
             return;
         }

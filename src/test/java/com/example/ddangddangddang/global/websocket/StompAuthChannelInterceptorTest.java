@@ -93,6 +93,23 @@ class StompAuthChannelInterceptorTest {
         assertThatThrownBy(() -> send(StompCommand.CONNECT, null, "expired")).isInstanceOf(BusinessException.class);
     }
 
+    @Test
+    @DisplayName("Authorization 헤더가 있는데 Bearer 토큰이 아니면 손님으로 바꾸지 않고 거부한다")
+    void malformedAuthorizationIsRejected() {
+        for (String authorization : List.of("Basic abc", "Bearer ", "")) {
+            StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
+            accessor.setSessionAttributes(session);
+            accessor.addNativeHeader(HttpHeaders.AUTHORIZATION, authorization);
+            accessor.setLeaveMutable(true);
+            Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+            assertThatThrownBy(() -> interceptor.preSend(message, null))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", AuthErrorCode.INVALID_TOKEN);
+        }
+        verify(accessTokenAuthenticator, never()).authenticateForSession(anyString());
+    }
+
     /**
      * 프레임 하나를 검사한다. token은 CONNECT의 Authorization 헤더, user는 CONNECT 뒤 Spring이 붙여 주는 사용자(손님이면 null)
      */
