@@ -33,7 +33,7 @@ import static org.mockito.Mockito.verify;
 class WebPushSenderTest {
 
     private final PushSubscriptionRepository repository = mock(PushSubscriptionRepository.class);
-    private final WebPushProperties properties = new WebPushProperties(true, null, null, "mailto:admin@ddang.test", null, null);
+    private final WebPushProperties properties = new WebPushProperties(true, null, null, "mailto:admin@ddang.test", null, null, null);
     private final VapidKeys vapidKeys = new VapidKeys(properties);
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
     private HttpServer server;

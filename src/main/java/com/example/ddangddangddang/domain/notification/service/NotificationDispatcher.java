@@ -40,6 +40,12 @@ public class NotificationDispatcher {
         if (saved == null) {
             return List.of();
         }
+        deliver(saved);
+        return saved;
+    }
+
+    /** 이미 저장(커밋)된 알림을 실시간·웹 푸시로 보낸다. (다른 기록과 한 트랜잭션에 알림을 저장한 경우) */
+    public void deliver(List<Notification> saved) {
         for (Notification notification : saved) {
             try {
                 stompBroadcaster.sendToUser(notification.getUserId(), NOTIFICATION_QUEUE, NotificationResponse.from(notification));
@@ -52,6 +58,5 @@ public class NotificationDispatcher {
         } catch (RuntimeException e) {
             log.warn("웹 푸시 전송 실패", e);
         }
-        return saved;
     }
 }

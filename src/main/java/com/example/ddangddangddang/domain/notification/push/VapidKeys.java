@@ -22,6 +22,9 @@ public class VapidKeys {
 
     public VapidKeys(WebPushProperties properties) {
         if (isBlank(properties.publicKey()) || isBlank(properties.privateKey())) {
+            if (properties.requireKeys()) {
+                throw new IllegalStateException("WEB_PUSH_PUBLIC_KEY와 WEB_PUSH_PRIVATE_KEY가 비어 있습니다. 운영에서는 고정 VAPID 키가 필요합니다.");
+            }
             KeyPair generated = WebPushCrypto.generateKeyPair();
             this.privateKey = (ECPrivateKey) generated.getPrivate();
             this.publicKey = WebPushCrypto.base64Url(WebPushCrypto.encodePublicKey((ECPublicKey) generated.getPublic()));
