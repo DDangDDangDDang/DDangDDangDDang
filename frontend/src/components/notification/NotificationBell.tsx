@@ -1,13 +1,13 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, BellOff, BellRing } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { api, call, errorMessage, useSession, type Schema } from '@/api';
 import { Button, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatDateTime } from '@/lib/format';
 import { NOTIFICATIONS_KEY } from '@/lib/notification-events';
 import { notificationLink, notificationTitle } from '@/lib/notification-view';
+import { useLeaveSafeNavigate } from '@/lib/watch-navigation';
 import { useWebPush } from '@/lib/web-push';
 import { NotificationIcon } from './NotificationIcon';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
@@ -73,7 +73,7 @@ export function NotificationBell() {
 
 function NotificationPanel({ hasUnread, push, onClose }: { hasUnread: boolean; push: ReturnType<typeof useWebPush>; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const navigate = useLeaveSafeNavigate();
   const query = useInfiniteQuery({
     queryKey: [...NOTIFICATIONS_KEY, 'list'],
     queryFn: ({ pageParam }) => call(api.GET('/api/v1/notifications', { params: { query: { cursor: pageParam, size: PAGE_SIZE } } })),
@@ -97,6 +97,7 @@ function NotificationPanel({ hasUnread, push, onClose }: { hasUnread: boolean; p
     if (notification.id !== undefined && !notification.read) read.mutate(notification.id);
     onClose();
     const link = notificationLink(notification);
+    // 방송을 보는 중이면 새 탭으로 연다. (시청이 끊기지 않게)
     if (link) navigate(link);
   };
 
