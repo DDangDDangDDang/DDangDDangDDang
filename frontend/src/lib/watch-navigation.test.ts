@@ -15,6 +15,8 @@ describe('watch-navigation', () => {
     expect(shouldOpenInNewTab('/lives/12', url('/auctions/3'), origin)).toBe(true);
     expect(shouldOpenInNewTab('/lives/12', url('/lives/13'), origin)).toBe(true);
     expect(shouldOpenInNewTab('/lives/12', url('/lives/12'), origin)).toBe(false);
+    expect(shouldOpenInNewTab('/lives/12/', url('/lives/12'), origin)).toBe(false);
+    expect(shouldOpenInNewTab('/lives/12', url('/lives/12/'), origin)).toBe(false);
     expect(shouldOpenInNewTab('/lives/12', url('/login?redirect=%2Flives%2F12'), origin)).toBe(false);
     expect(shouldOpenInNewTab('/lives/12', new URL('https://example.com/x'), origin)).toBe(false);
     expect(shouldOpenInNewTab('/auctions', url('/auctions/3'), origin)).toBe(false);

@@ -11,6 +11,8 @@ import { useLocation, useNavigate } from 'react-router';
 
 const WATCH_PATH = /^\/lives\/\d+\/?$/;
 const SAME_TAB_PATHS = ['/login', '/signup'];
+/** 끝 슬래시만 다른 같은 화면(/lives/12/ 와 /lives/12)을 같게 본다. */
+const normalize = (path: string) => (path.length > 1 ? path.replace(/\/+$/, '') : path);
 
 export function isWatchPath(pathname: string) {
   return WATCH_PATH.test(pathname);
@@ -19,7 +21,7 @@ export function isWatchPath(pathname: string) {
 /** 시청 화면(from)에서 이 주소(to)로 갈 때 새 탭으로 열어야 하는지 */
 export function shouldOpenInNewTab(from: string, to: URL, origin: string) {
   if (!isWatchPath(from) || to.origin !== origin) return false;
-  if (to.pathname === from || SAME_TAB_PATHS.includes(to.pathname)) return false;
+  if (normalize(to.pathname) === normalize(from) || SAME_TAB_PATHS.includes(to.pathname)) return false;
   return true;
 }
 

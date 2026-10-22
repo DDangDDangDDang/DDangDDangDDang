@@ -16,7 +16,6 @@ import { LiveChat } from '@/components/live/LiveChat';
 import { appendChatMessage } from '@/lib/live-room';
 import { LiveVideo } from './LiveVideo';
 import { useLiveRealtime } from '@/lib/use-live-realtime';
-import { useLeaveSafeNavigate } from '@/lib/watch-navigation';
 import { useLiveVideo } from './use-live-video';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
@@ -125,7 +124,6 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
 
 function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStream; sellerNickname?: string; guard: (action: () => void) => void }) {
   const session = useSession();
-  const navigate = useLeaveSafeNavigate();
   const name = sellerNickname || '판매자';
   // 구독자 수·내 구독 여부 (판매자 이름 옆 SellerIdentity와 같은 캐시)
   const profile = useSellerProfile(liveStream.sellerId);
@@ -162,11 +160,11 @@ function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStr
           <Link
             to={`/messages/${liveStream.sellerId}`}
             onClick={(e) => {
-              // 로그인하지 않았으면 로그인 창을 띄우고, 로그인하면 문의 화면으로 간다.
+              // 로그인했으면 링크 그대로(시청 중이라 새 탭으로 열림, WatchNavigationGuard).
+              // 로그인하지 않았으면 로그인만 하고, 문의는 다시 누르게 한다. (로그인 뒤에 새 탭을 열면 브라우저가 팝업으로 막을 수 있어서)
               if (session) return;
               e.preventDefault();
-              // 시청 중이므로 새 탭으로 연다
-              guard(() => navigate(`/messages/${liveStream.sellerId}`));
+              guard(() => undefined);
             }}
             className={buttonVariants({ variant: 'outline', size: 'sm', className: 'ml-2' })}
           >
