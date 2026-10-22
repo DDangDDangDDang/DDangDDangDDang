@@ -155,6 +155,6 @@ public class PointChargeService {
     }
 
     private String generatePaymentId() {
-        return "point-charge-" + UUID.randomUUID();
+        return "charge-" + UUID.randomUUID().toString().replace("-", "");
     }
 }
