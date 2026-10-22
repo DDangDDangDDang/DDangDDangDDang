@@ -105,6 +105,14 @@ app:
     # false면 메일을 실제로 보내지 않고 서버 로그에만 출력한다. (로컬 개발용)
     enabled: ${MAIL_ENABLED:false}
     from: ${MAIL_FROM:no-reply@ddangddangddang.com}
+  oauth:
+    kakao:
+      # 카카오 개발자 콘솔 > 앱 키 > REST API 키. 비어 있으면 카카오 로그인 API가 OAUTH_005로 응답한다
+      client-id: ${KAKAO_CLIENT_ID:}
+      # 카카오 개발자 콘솔 > 보안 > Client Secret (사용 ON)
+      client-secret: ${KAKAO_CLIENT_SECRET:}
+      # 카카오 콘솔에 등록한 Redirect URI. 프론트가 카카오 로그인 페이지에 보낸 값과 같아야 한다
+      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao/callback}
   sms:
     # false면 문자를 실제로 보내지 않고 서버 로그에만 출력한다. (로컬 개발용)
     enabled: ${SMS_ENABLED:false}
