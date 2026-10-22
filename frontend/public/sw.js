@@ -42,7 +42,11 @@ self.addEventListener('notificationclick', (event) => {
       const isWatching = (client) => /^\/lives\/\d+\/?$/.test(new URL(client.url).pathname);
       const tab = windows.find((client) => client.url.startsWith(self.location.origin) && !isWatching(client));
       if (tab) {
-        await tab.focus();
+        try {
+          await tab.focus();
+        } catch {
+          // 포커스를 못 줘도(브라우저가 막은 경우) 아래 이동·새 창 열기는 계속한다.
+        }
         // 열려 있는 탭에서 그 화면으로 옮긴다. (탭을 맡지 못했으면 새 창으로)
         if ('navigate' in tab) {
           try {
