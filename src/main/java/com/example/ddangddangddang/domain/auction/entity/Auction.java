@@ -2,7 +2,9 @@ package com.example.ddangddangddang.domain.auction.entity;
 
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.product.entity.Product;
+import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.global.entity.BaseTimeEntity;
+import com.example.ddangddangddang.global.exception.BusinessException;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -120,4 +122,73 @@ public class Auction extends BaseTimeEntity {
         return true;
     }
 
+    // ===== 입찰 · 즉시구매  =====
+
+    /** 다음 입찰이 넘어야 하는 최소 금액. 첫 입찰은 시작가부터, 이후는 현재가 + 입찰 단위 */
+    public long minimumBidAmount() {
+        return this.bidCount == 0 ? this.startPrice : this.currentPrice + this.bidUnit;
+    }
+
+    /**
+     * 입찰이 유효한지 검증한다. 실제 반영은 AuctionRepository.placeBid(조건부 UPDATE)가 한다.
+     * 검증과 반영 사이에 다른 입찰이 끼어들면 UPDATE의 version 조건에서 걸러진다.
+     */
+    public void validateBid(Long bidderId, long amount, LocalDateTime now) {
+        validateOpen(now);
+        if (isSeller(bidderId)) {
+            throw new BusinessException(AuctionErrorCode.SELLER_CANNOT_BID);
+        }
+        if (bidderId.equals(this.highestBidderId)) {
+            throw new BusinessException(AuctionErrorCode.ALREADY_HIGHEST_BIDDER);
+        }
+        if (amount < minimumBidAmount()) {
+            throw new BusinessException(AuctionErrorCode.BID_TOO_LOW);
+        }
+        if (this.buyNowPrice != null && amount >= this.buyNowPrice) {
+            throw new BusinessException(AuctionErrorCode.BID_REACHES_BUY_NOW);
+        }
+    }
+
+    /**
+     * 지금 입찰하면 바뀔 종료 시각. 연장 규칙은 extendEndAtIfNeeded와 같다 (마감 30초 전 이내면 30초 연장).
+     * 엔티티를 바꾸지 않고 값만 계산한다. 조건부 UPDATE에 이 값을 넣어 원자적으로 반영하기 위해서다.
+     */
+    public LocalDateTime endAtAfterBid(LocalDateTime bidAt) {
+        if (bidAt.isBefore(this.endAt.minusSeconds(BEFORE_DEADLINE_SECONDS))) {
+            return this.endAt;
+        }
+        return this.endAt.plusSeconds(EXTENSION_SECONDS);
+    }
+
+    /** 즉시구매 가능 여부 검증 */
+    public void validateBuyNow(Long buyerId, LocalDateTime now) {
+        validateOpen(now);
+        if (this.buyNowPrice == null) {
+            throw new BusinessException(AuctionErrorCode.BUY_NOW_NOT_AVAILABLE);
+        }
+        if (isSeller(buyerId)) {
+            throw new BusinessException(AuctionErrorCode.SELLER_CANNOT_BID);
+        }
+    }
+
+    /** 즉시구매로 종료. 구매자가 낙찰자가 되고 즉시구매가가 최종가가 된다 */
+    public void buyNow(Long buyerId, LocalDateTime now) {
+        this.highestBidderId = buyerId;
+        this.currentPrice = this.buyNowPrice;
+        this.status = AuctionStatus.ENDED;
+        this.endAt = now;
+    }
+
+    public boolean isSeller(Long userId) {
+        return this.product.getSeller().getId().equals(userId);
+    }
+
+    private void validateOpen(LocalDateTime now) {
+        if (this.status != AuctionStatus.ONGOING) {
+            throw new BusinessException(AuctionErrorCode.AUCTION_NOT_ONGOING);
+        }
+        if (!now.isBefore(this.endAt)) {
+            throw new BusinessException(AuctionErrorCode.AUCTION_TIME_OVER);
+        }
+    }
 }

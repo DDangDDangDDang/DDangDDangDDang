@@ -109,10 +109,13 @@ public class AuctionService {
     // 라이브 중 경매 생성 : 방송 주인이 라이브 중 경매 생성,생성 즉시 AuctionStatus는 ONGOING변환
     public AuctionResponse createLiveAuction (Long sellerId, Long liveId,LiveAuctionCreateRequest request){
 
+        // 상품 검증(공통) - 반드시 이 트랜잭션의 첫 조회여야 한다 (동시성)
+        // productVerification은 상품 행을 비관적 락으로 잡은 뒤 "대기/진행 중 경매가 있는지" 확인한다.
+        // MySQL(REPEATABLE READ)은 트랜잭션의 첫 일반 조회 시점에 스냅샷을 고정하므로,
+        // 방송을 먼저 조회하면 락을 기다리는 동안 다른 요청이 만든 경매를 보지 못해 같은 상품에 경매가 두 개 생긴다.
+        Product product = productVerification(sellerId, request.productId());
         // 방송 검증(존재, 방송 주인, 방송 중)
         LiveStream liveStream = ownLiveStream(sellerId, liveId);
-        // 상품 검증(공통)
-        Product product = productVerification(sellerId, request.productId());
         // 즉시 구매가
         immediatePurchaseVerification(request.buyNowPrice(),request.startPrice());
 
