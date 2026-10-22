@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.livestream.repository;
 
+import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
+import com.example.ddangddangddang.support.SellerFixture;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.global.exception.BusinessException;
@@ -56,7 +58,14 @@ class LiveStreamActiveSellerMySqlTest extends MySqlIntegrationTest {
     @BeforeEach
     void clear() {
         jdbcTemplate.update("delete from live_streams where seller_id between 7000 and 7999");
+        // 방송 만들기는 판매자 인증을 받은 회원만 할 수 있다.
+        for (long sellerId : new long[]{SELLER_LIVE_AND_SCHEDULED, SELLER_TWO_SCHEDULED, SELLER_ONE_SCHEDULED, SELLER_ONLY_ENDED, SELLER_CONCURRENT}) {
+            SellerFixture.verify(sellerApplicationRepository, sellerId);
+        }
     }
+
+    @Autowired
+    private SellerApplicationRepository sellerApplicationRepository;
 
     @Test
     @DisplayName("backfill: 판매자마다 방송 중인 것(없으면 최신)만 남기고 나머지를 종료하며, 남은 방송에 active_seller_id를 채운다. 두 번 실행해도 같다")

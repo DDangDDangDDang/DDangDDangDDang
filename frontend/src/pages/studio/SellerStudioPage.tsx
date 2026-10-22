@@ -35,12 +35,19 @@ export function SellerStudioPage() {
   const [endedTitle, setEndedTitle] = useState<string>();
 
   const reload = useCallback(() => void queryClient.invalidateQueries({ queryKey: ACTIVE_STREAM_KEY }), [queryClient]);
+  // 방송 만들기는 판매자 인증을 받은 회원만 (서버도 LIVESTREAM_016으로 막는다)
+  const session = useSession();
+  const myProfile = useSellerProfile(session?.user.userId);
 
-  if (query.isPending) return <StudioSkeleton />;
+  if (query.isPending || myProfile.isPending) return <StudioSkeleton />;
   if (query.isError) return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
 
   const liveStream = query.data;
   if (!liveStream?.id || liveStream.status === 'ENDED') {
+    // 인증 전이면 방송 만들기 대신 인증 안내. (상단 [방송하기] 탭도 인증 판매자에게만 보인다)
+    // 인증 여부를 모르면 방송 만들기 양식을 보여 주지 않는다. (조회 실패 시 다시 시도)
+    if (myProfile.isError) return <ErrorState message={errorMessage(myProfile.error)} onRetry={() => void myProfile.refetch()} />;
+    if (myProfile.data && !myProfile.data.verifiedSeller) return <NeedSellerVerification />;
     return (
       <NoActiveStream
         endedTitle={endedTitle}
@@ -64,6 +71,26 @@ export function SellerStudioPage() {
       }}
       reload={reload}
     />
+  );
+}
+
+/** 판매자 인증 전: 방송을 만들 수 없다는 안내와 인증 신청으로 가는 버튼 */
+function NeedSellerVerification() {
+  return (
+    <div className="mx-auto flex max-w-[720px] flex-col gap-4">
+      <PageHeader title="판매자 스튜디오" />
+      <Card>
+        <EmptyState
+          title="판매자 인증을 받아야 방송을 만들 수 있어요"
+          description="[판매자 인증]에서 상점 이름과 소개를 적어 신청하면 관리자가 확인해요. 승인되면 이 화면에서 바로 방송을 만들고 시작할 수 있어요."
+          action={
+            <Link to="/me/seller" className={buttonVariants({ variant: 'primary' })}>
+              판매자 인증 신청
+            </Link>
+          }
+        />
+      </Card>
+    </div>
   );
 }
 
@@ -212,7 +239,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             {!isLive && notVerified && (
               <div className="flex items-center justify-between gap-4 rounded-md bg-info-50 px-4 py-3">
                 <span className="text-label text-info-700">
-                  판매자 인증은 [판매자 인증]에서 신청하고, 관리자가 승인하면 바로 방송을 시작할 수 있어요. 그 전에도 방송을 만들고 카메라를 확인할 수 있어요.
+                  판매자 인증은 [판매자 인증]에서 신청하고, 관리자가 승인하면 바로 방송을 시작할 수 있어요. 승인 전에는 이미 만들어 둔 방송의 정보 수정과 카메라 확인만 할 수 있어요.
                 </span>
                 <Link to="/me/seller" className={buttonVariants({ variant: 'outline', size: 'sm', className: 'shrink-0' })}>
                   판매자 인증
