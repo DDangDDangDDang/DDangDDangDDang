@@ -56,11 +56,37 @@ export function parseAmount(value: string): number | undefined {
   return digits ? Number(digits) : undefined;
 }
 
-/** 방송 중 경매 진행 시간 (서버: 30~600초) */
-export const LIVE_AUCTION_DURATIONS = [30, 60, 120, 180, 300, 600] as const;
+const MINUTE = 60;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 
+/**
+ * 방송 중 경매 진행 시간 (서버: 30초 ~ 3일, LiveAuctionCreateRequest.durationSec)
+ * 방송이 끝나도 경매는 정한 시간까지 이어진다.
+ */
+export const LIVE_AUCTION_DURATIONS = [
+  30,
+  MINUTE,
+  2 * MINUTE,
+  3 * MINUTE,
+  5 * MINUTE,
+  10 * MINUTE,
+  30 * MINUTE,
+  HOUR,
+  3 * HOUR,
+  6 * HOUR,
+  12 * HOUR,
+  DAY,
+  2 * DAY,
+  3 * DAY,
+] as const;
+
+/** 진행 시간을 "30초", "5분", "3시간", "2일"처럼 */
 export function durationLabel(seconds: number): string {
-  return seconds < 60 ? `${seconds}초` : `${seconds / 60}분`;
+  if (seconds < MINUTE) return `${seconds}초`;
+  if (seconds < HOUR) return `${seconds / MINUTE}분`;
+  if (seconds < DAY) return `${seconds / HOUR}시간`;
+  return `${seconds / DAY}일`;
 }
 
 /** 경매 조건 입력. 금액은 입력 문자열, 시각은 datetime-local 값 */

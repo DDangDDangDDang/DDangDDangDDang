@@ -154,6 +154,28 @@ class LiveAuctionControllerTest {
     }
 
     @Test
+    @DisplayName("방송 중 경매는 진행 시간을 3일까지 정할 수 있고, 3일을 넘거나 30초보다 짧으면 400이다")
+    void liveAuctionDurationLimit() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = startLive(seller);
+
+        liveAuction(seller, liveStreamId, createProduct(seller), 3 * 24 * 60 * 60 + 1).andExpect(status().isBadRequest());
+        liveAuction(seller, liveStreamId, createProduct(seller), 29).andExpect(status().isBadRequest());
+        LocalDateTime before = LocalDateTime.now();
+        liveAuction(seller, liveStreamId, createProduct(seller), 3 * 24 * 60 * 60)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.endAt").value(org.hamcrest.Matchers.startsWith(before.plusDays(3).toLocalDate().toString())));
+
+        liveStreamService.end(liveStreamId, seller.id());
+    }
+
+    private ResultActions liveAuction(Member seller, Long liveStreamId, Long productId, int durationSec) throws Exception {
+        return mockMvc.perform(post("/api/v1/lives/{liveId}/auctions", liveStreamId).header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"productId\": %d, \"startPrice\": 10000, \"bidUnit\": 1000, \"durationSec\": %d}".formatted(productId, durationSec)));
+    }
+
+    @Test
     @DisplayName("방송을 시작하면 방송 예정 화면의 시청자에게 LIVE가 된 방송 정보와 채팅 시작 안내가 간다")
     void startNotifiesViewers() throws Exception {
         Member seller = signupAndLogin();

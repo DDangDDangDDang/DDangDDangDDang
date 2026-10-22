@@ -4,6 +4,7 @@ import {
   categoryFilterOptions,
   durationLabel,
   EMPTY_AUCTION_CONDITION,
+  LIVE_AUCTION_DURATIONS,
   formatAmountInput,
   leafCategoryOptions,
   parseAmount,
@@ -107,8 +108,15 @@ describe('요청 본문', () => {
 });
 
 describe('durationLabel', () => {
-  it('초·분으로 보여준다', () => {
+  it('초·분·시간·일로 보여준다', () => {
     expect(durationLabel(30)).toBe('30초');
     expect(durationLabel(300)).toBe('5분');
+    expect(durationLabel(3 * 3600)).toBe('3시간');
+    expect(durationLabel(3 * 86400)).toBe('3일');
+  });
+
+  it('진행 시간은 30초부터 3일까지 고를 수 있다 (서버 한도와 같음)', () => {
+    expect(LIVE_AUCTION_DURATIONS[0]).toBe(30);
+    expect(LIVE_AUCTION_DURATIONS.at(-1)).toBe(3 * 86400);
   });
 });
