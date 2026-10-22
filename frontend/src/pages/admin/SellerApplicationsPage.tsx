@@ -4,6 +4,7 @@ import { api, call, errorMessage, useSession, type Schema } from '@/api';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Badge, Button, Card, Dialog, EmptyState, ErrorState, Notice, Select, Skeleton, Textarea } from '@/components/ui';
 import { formatDateTime } from '@/lib/format';
+import { formatBusinessNumber } from '@/lib/seller';
 import { SELLER_APPLICATION_STATUS_LABEL, type SellerApplicationStatus } from '@/lib/labels';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 
@@ -74,6 +75,8 @@ export function SellerApplicationsPage() {
                   <span className="flex items-center gap-2">
                     {application.status && <Badge variant="outline">{SELLER_APPLICATION_STATUS_LABEL[application.status]}</Badge>}
                     <strong className="text-body font-semibold">{application.storeName}</strong>
+                    {/* 사업자 판매자는 사업자등록번호를 함께 확인한다. (휴폐업 여부는 국세청에서 따로 확인) */}
+                    {application.businessNumber && <Badge variant="info">사업자 {formatBusinessNumber(application.businessNumber)}</Badge>}
                     <span className="text-label text-neutral-500">
                       {application.nickname || '-'} · {application.email || '-'}
                     </span>
