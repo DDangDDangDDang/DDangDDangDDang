@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.auction.repository;
 
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -75,4 +76,11 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
                  @Param("seenVersion") Long seenVersion,
                  @Param("ongoing") AuctionStatus ongoing,
                  @Param("now") LocalDateTime now);
+    //판매자 프로필 경매 기록 : 판매자의 모든 경매(취소 포함) 최신순. cursor는 이전 페이지 마지막 경매 ID
+    @EntityGraph(attributePaths = {"product", "liveStream"})
+    @Query("select a from Auction a where a.product.seller.id = :sellerId and (:cursor is null or a.id < :cursor) order by a.id desc")
+    List<Auction> findSellerHistory(@Param("sellerId") Long sellerId, @Param("cursor") Long cursor, Pageable pageable);
+
+    //판매자 프로필 신뢰 지표 : 판매자의 경매 중 그 상태인 것의 수(낙찰·유찰·취소)
+    long countByProductSellerIdAndStatus(Long sellerId, AuctionStatus status);
 }

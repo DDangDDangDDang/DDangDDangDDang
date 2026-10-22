@@ -76,7 +76,9 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `/topic/live-streams/{liveStreamId}/auctions` | 방송 시청자 전체 (손님 포함) | `LiveAuctionChangedMessage` (방송에 올라간 경매가 시작·추가·취소·마감됨) |
 | `/user/queue/errors` | 나 | `ErrorResponse` (채팅 전송 실패 등) |
 | `/user/queue/moderation` | 방송 판매자 | `ModerationAlert` (AI가 확인이 필요하다고 본 채팅) |
+| `/user/queue/live-stream` | 방송 판매자 | `LiveStreamIdleMessage` (송출이 없어 곧 자동 종료됨·취소됨·종료됨) |
 | `/user/queue/dm` | 나 | `DmEvent` (1:1 채팅 새 메시지, 읽음) |
+| `/user/queue/notifications` | 나 | `NotificationResponse` (구독한 판매자가 방송을 시작함) |
 
 ### 메시지 형식
 
@@ -117,6 +119,16 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `reason` | string | 판단 이유 |
 | `detectedAt` | string | |
 
+**LiveStreamIdleMessage**: 방송 중(LIVE)인데 판매자 송출(영상·소리, 카메라·마이크를 모두 끈 상태 포함)이 30분 동안 없으면 서버가 방송을 종료합니다. 송출이 없던 시간은 마지막 송출부터, 한 번도 송출하지 않았으면 방송 시작부터 셉니다. (1분마다 확인)
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `type` | `"IDLE_WARNING"` \| `"IDLE_RESUMED"` \| `"IDLE_ENDED"` | 송출이 25분 없어 곧 종료됨(종료될 때까지 1분마다 다시 옴) · 다시 송출해 자동 종료 취소 · 자동 종료됨(방송을 끝낸 뒤에 옴) |
+| `liveStreamId` | number | |
+| `endsAt` | string \| null | `IDLE_WARNING`일 때 자동 종료 예정 시각 |
+
+- 자동 종료는 판매자가 [방송 종료]를 누른 것과 같습니다. (채팅 `SYSTEM` 종료 안내, 시청 화면 종료) 경매는 그대로 진행됩니다.
+
 **DmEvent**
 
 | 필드 | 타입 | 설명 |
@@ -126,6 +138,19 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `message` | DmMessageResponse \| null | `MESSAGE`일 때. REST의 `DmMessageResponse`와 같은 형식 |
 | `readerId` | number \| null | `READ`일 때. 읽은 사람 |
 | `lastReadMessageId` | number \| null | `READ`일 때. 여기까지 읽음 (보낸 사람 화면의 "1"을 지움) |
+
+**NotificationResponse**: REST 알림함(`GET /api/v1/notifications`)의 항목과 같은 형식입니다. 알림함에 저장된 뒤에 오므로, 받은 뒤 알림함·안 읽은 수를 다시 불러와도 같은 알림이 보입니다.
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `id` | number | 알림 ID (읽음 처리 `POST /api/v1/notifications/{id}/read`) |
+| `type` | `"LIVE_STARTED"` | 구독한 판매자가 방송을 시작함 |
+| `sellerId` | number | |
+| `sellerNickname` | string \| null | 알림을 만든 때의 닉네임 |
+| `liveStreamId` | number | 시작한 방송 (`/lives/{liveStreamId}`) |
+| `liveTitle` | string | 알림을 만든 때의 방송 제목 |
+| `read` | boolean | 실시간으로 올 때는 항상 false |
+| `createdAt` | string | |
 
 ### 실시간 메시지를 바꿀 때
 

@@ -3,9 +3,13 @@ import { RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ApiError, api, call, errorMessage, isErrorCode, useSession, type ChatMessage, type Schema } from '@/api';
+import { BidDialog } from '@/components/auction/BidDialog';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
+import { SellerIdentity } from '@/components/seller/SellerIdentity';
+import { SubscribeButton } from '@/components/seller/SubscribeButton';
+import { useSellerProfile } from '@/lib/use-seller';
 import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatNumber } from '@/lib/format';
 import { AuctionPanel } from './AuctionPanel';
 import { LiveChat } from '@/components/live/LiveChat';
 import { appendChatMessage } from '@/lib/live-room';
@@ -46,6 +50,9 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
     () => void queryClient.invalidateQueries({ queryKey: ['live-stream', liveStreamId] }),
     [queryClient, liveStreamId],
   );
+
+  // 입찰 창에 연 경매. 방송을 떠나지 않고 입찰한다. (입찰은 로그인해야 함)
+  const [bidAuctionId, setBidAuctionId] = useState<number>();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatError, setChatError] = useState<string>();
@@ -92,10 +99,11 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
         </section>
 
         <aside aria-label="경매와 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
-          <AuctionPanel liveStreamId={liveStreamId} />
+          <AuctionPanel liveStreamId={liveStreamId} onOpen={(auctionId, ongoing) => (ongoing ? guard(() => setBidAuctionId(auctionId)) : setBidAuctionId(auctionId))} />
           <LiveChat
             messages={messages}
             sellerId={liveStream.sellerId}
+            notice={liveStream.notice}
             canChat={isLive}
             status={realtime.status}
             error={chatError}
@@ -108,6 +116,7 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
         </aside>
       </div>
       {loginDialog}
+      <BidDialog auctionId={bidAuctionId} onClose={() => setBidAuctionId(undefined)} />
     </div>
   );
 }
@@ -116,6 +125,8 @@ function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStr
   const session = useSession();
   const navigate = useNavigate();
   const name = sellerNickname || '판매자';
+  // 구독자 수·내 구독 여부 (판매자 이름 옆 SellerIdentity와 같은 캐시)
+  const profile = useSellerProfile(liveStream.sellerId);
   const canAsk = liveStream.sellerId !== undefined && liveStream.sellerId !== session?.user.userId;
   const time =
     liveStream.status === 'LIVE' && liveStream.startedAt
@@ -130,13 +141,18 @@ function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStr
     <div className="flex flex-col gap-3">
       <h1 className="text-title-lg font-bold tracking-tight">{liveStream.title || '제목 없는 방송'}</h1>
       <div className="flex items-center gap-3">
-        <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700">
-          {name.slice(0, 1)}
-        </span>
-        <div className="flex flex-col">
-          <strong className="text-body-lg font-semibold">{name}</strong>
-          {time && <span className="text-label text-neutral-500">{time}</span>}
-        </div>
+        {/* 판매자 인증 회원이면 인증 마크가 붙고, 누르면 판매자 프로필 창이 열린다. */}
+        <SellerIdentity
+          sellerId={liveStream.sellerId}
+          fallbackName={name}
+          detail={
+            <>
+              구독자 <span className="num font-semibold text-neutral-900">{formatNumber(profile.data?.subscriberCount ?? 0)}</span>명
+              {time && ` · ${time}`}
+            </>
+          }
+        />
+        {liveStream.sellerId !== undefined && <SubscribeButton sellerId={liveStream.sellerId} subscribed={profile.data?.subscribed ?? false} />}
         {canAsk && (
           <Link
             to={`/messages/${liveStream.sellerId}`}

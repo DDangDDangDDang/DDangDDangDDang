@@ -6,6 +6,7 @@ import {
   REALTIME,
   type ChatMessage,
   type LiveAuctionChangedMessage,
+  type LiveStreamIdleMessage,
   type LiveStreamUpdatedMessage,
   type ModerationAlert,
   type RealtimeConnection,
@@ -20,6 +21,8 @@ type Handlers = {
   onError: (error: RealtimeError) => void;
   /** 판매자 화면만 넘긴다. 넘기면 AI 검토 알림(/user/queue/moderation)도 구독한다. */
   onModeration?: (alert: ModerationAlert) => void;
+  /** 판매자 화면만 넘긴다. 넘기면 송출이 멈춘 내 방송 안내(/user/queue/live-stream)도 구독한다. */
+  onIdle?: (message: LiveStreamIdleMessage) => void;
 };
 
 /**
@@ -34,6 +37,7 @@ export function useLiveRealtime(liveStreamId: number | undefined, handlers: Hand
     handlersRef.current = handlers;
   });
   const withModeration = handlers.onModeration !== undefined;
+  const withIdle = handlers.onIdle !== undefined;
   // 로그인하지 않았으면 손님으로 연결해 채팅을 보기만 한다. 로그인·로그아웃하면 다시 연결한다.
   const userId = useSession()?.user.userId;
   const guest = userId === undefined;
@@ -59,11 +63,16 @@ export function useLiveRealtime(liveStreamId: number | undefined, handlers: Hand
         if (alert.liveStreamId === liveStreamId) handlersRef.current.onModeration?.(alert);
       });
     }
+    if (withIdle && !guest) {
+      connection.subscribe<LiveStreamIdleMessage>(REALTIME.liveStreamIdle, (message) => {
+        if (message.liveStreamId === liveStreamId) handlersRef.current.onIdle?.(message);
+      });
+    }
     return () => {
       connection.close();
       connectionRef.current = null;
     };
-  }, [liveStreamId, withModeration, guest, userId, queryClient]);
+  }, [liveStreamId, withModeration, withIdle, guest, userId, queryClient]);
 
   /** 채팅을 보낸다. 연결돼 있지 않으면 false */
   const sendChat = useCallback(

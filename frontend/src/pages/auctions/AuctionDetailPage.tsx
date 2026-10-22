@@ -4,8 +4,10 @@ import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api, call, errorMessage, isErrorCode, useSession } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
+import { BidDialog } from '@/components/auction/BidDialog';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { ProductImage } from '@/components/order/OrderBits';
+import { SellerIdentity } from '@/components/seller/SellerIdentity';
 import { Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
@@ -14,7 +16,7 @@ import { useNow } from '@/lib/use-now';
 /** 진행 중인 경매는 현재가·입찰 수를 이 간격으로 다시 불러온다. (경매 실시간 메시지가 아직 없음) */
 const REFRESH_MS = 5000;
 
-/** 경매 상세: 상품 정보 + 현재가·입찰 수·남은 시간. 내 경매면 취소할 수 있다. 입찰은 입찰 API가 생기면 이 화면에 붙인다. */
+/** 경매 상세: 상품 정보 + 현재가·입찰 수·남은 시간. 내 경매면 취소할 수 있다. [입찰하기]는 입찰 창(BidDialog)을 연다. */
 export function AuctionDetailPage() {
   const params = useParams();
   const auctionId = Number(params.auctionId);
@@ -29,7 +31,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
   // 로그인하지 않아도 경매 정보는 볼 수 있다. 입찰·문의는 로그인 창을 띄우고, 로그인하면 이어서 한다.
   const { guard, loginDialog } = useLoginGuard();
-  const [bidAsked, setBidAsked] = useState(false);
+  const [bidOpen, setBidOpen] = useState(false);
 
   const query = useQuery({
     queryKey: ['auction', auctionId],
@@ -101,9 +103,10 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
                 </span>
               )}
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-3">
               <h1 className="text-title-lg font-bold tracking-tight">{auction.productName || '이름 없는 상품'}</h1>
-              <span className="text-label text-neutral-500">판매자 {auction.sellerName || '-'}</span>
+              {/* 인증 판매자면 인증 마크가 붙고, 누르면 판매자 프로필(경매 기록·신뢰도) 창이 열린다. */}
+              <SellerIdentity sellerId={auction.sellerId} fallbackName={auction.sellerName} size="sm" detail="판매자" />
             </div>
 
             <div className="flex flex-col gap-1 rounded-md bg-neutral-25 px-4 py-3">
@@ -126,11 +129,10 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
 
             {phase === 'CLOSING' && <Notice>마감됐어요. 낙찰 결과를 정리하고 있어요.</Notice>}
             {!isMine && phase === 'ONGOING' && (
-              <Button size="lg" onClick={() => guard(() => setBidAsked(true))}>
+              <Button size="lg" onClick={() => guard(() => setBidOpen(true))}>
                 입찰하기
               </Button>
             )}
-            {bidAsked && <Notice>입찰 기능을 준비하고 있어요. 곧 이 화면에서 바로 입찰할 수 있어요.</Notice>}
             {!isMine && phase === 'READY' && <Notice>경매가 시작되면 입찰할 수 있어요.</Notice>}
 
             {auction.liveStreamId && (
@@ -164,6 +166,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
       </aside>
 
       {loginDialog}
+      <BidDialog auctionId={bidOpen ? auctionId : undefined} onClose={() => setBidOpen(false)} />
       <ConfirmDialog
         open={confirmCancel}
         title="경매를 취소할까요?"

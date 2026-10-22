@@ -6,6 +6,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from '@
  * 2. 판매자 스튜디오에서 가짜 카메라로 송출 → 시청 화면에 영상이 나온다 (playwright.config.ts의 가짜 장치 설정)
  *    방송 중 다른 화면으로 가도 송출이 이어지고(작은 방송 창), 스튜디오 안에서 상품을 등록해 바로 경매를 시작한다.
  *    시작한 경매와 미리 만들어 둔 경매(방송에 올리기)가 시청 화면의 경매 목록과 채팅 안내에 바로 나온다.
+ *    판매자가 올린 채팅 공지가 시청 화면 채팅창 위에 고정되고, 닫아도 다시 들어오면 보인다. 경매 목록의 [입찰하기]는 입찰 창을 연다.
  *
  * 로컬 백엔드(MySQL·Redis·LiveKit 포함)가 떠 있어야 한다. 계정은 환경변수로 받는다. (frontend/README.md "E2E 테스트")
  * - E2E_EMAIL / E2E_PASSWORD: 시청자 계정 (화면에서 로그인)
@@ -242,6 +243,20 @@ test.describe('판매자 송출', () => {
       await watch.getByRole('button', { name: '채팅 전송' }).click();
       await expect(studio.getByRole('list', { name: '채팅 메시지' }).getByText(content)).toBeVisible();
 
+      // 판매자가 채팅 공지를 올리면 시청 화면 채팅창 위에 고정된다. 시청자가 닫아도 다시 들어오면 다시 보인다.
+      const noticeText = `E2E 공지 ${Date.now()}`;
+      await studio.getByLabel('채팅창 위에 고정할 공지').fill(noticeText);
+      await studio.getByRole('button', { name: '공지 올리기' }).click();
+      const watchNotice = watch.getByRole('note', { name: '판매자 공지' });
+      await expect(watchNotice).toContainText(noticeText);
+      await watch.getByRole('button', { name: '공지 닫기' }).click();
+      await expect(watchNotice).toBeHidden();
+      await watch.reload();
+      await expect(watch.getByRole('note', { name: '판매자 공지' })).toContainText(noticeText);
+      await expect.poll(() => videoWidth(watch.locator('video')), { timeout: 30_000 }).toBeGreaterThan(0);
+      await studio.getByRole('button', { name: '공지 내리기' }).click();
+      await expect(watch.getByRole('note', { name: '판매자 공지' })).toBeHidden();
+
       // 방송 중 다른 화면(경매 목록)으로 가도 송출이 이어지고, 작은 방송 창이 뜬다.
       await studio.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '경매', exact: true }).click();
       await expect(studio).toHaveURL(/\/auctions$/);
@@ -279,6 +294,15 @@ test.describe('판매자 송출', () => {
         // 시청 화면: 시작한 경매가 바로 경매 목록에 나오고, 채팅에 시작 안내가 올라온다.
         await expect(watch.getByRole('list', { name: '이 방송의 경매' }).getByText(productName)).toBeVisible();
         await expect(watch.getByRole('list', { name: '채팅 메시지' }).getByText(`‘${productName}’ 경매가 시작되었습니다`, { exact: false })).toBeVisible();
+        // 시청자는 방송을 떠나지 않고 입찰 창에서 금액을 정한다.
+        await watch.getByRole('button', { name: `${productName} 입찰하기` }).click();
+        const bidDialog = watch.getByRole('dialog', { name: '입찰하기' });
+        await expect(bidDialog.getByText(productName)).toBeVisible();
+        await bidDialog.getByRole('button', { name: '최소' }).click();
+        await expect(bidDialog.getByLabel('입찰 금액')).toHaveValue('10,000');
+        await expect(watch).toHaveURL(/\/lives\/\d+$/);
+        await bidDialog.getByRole('button', { name: '닫기' }).click();
+        await expect(bidDialog).toBeHidden();
       } else {
         await productDialog.getByRole('button', { name: '닫기' }).click();
       }
