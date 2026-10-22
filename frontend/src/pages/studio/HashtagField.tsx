@@ -1,7 +1,10 @@
 import { X } from 'lucide-react';
 import { useState, type KeyboardEvent } from 'react';
 import { Input } from '@/components/ui';
-import { addHashtag, HASHTAG_MAX_COUNT } from '@/lib/hashtags';
+import { addHashtag, HASHTAG_MAX_COUNT, splitHashtagDraft, type HashtagDraftResult } from '@/lib/hashtags';
+
+/** 입력칸 글자 수 한도. 태그 하나는 20자까지지만, 여러 태그를 쉼표로 이어 붙여 넣을 수 있게 넉넉히 둔다. */
+const DRAFT_MAX_LENGTH = 120;
 
 type Props = {
   tags: string[];
@@ -18,16 +21,26 @@ export function HashtagField({ tags, onChange, error }: Props) {
   const [draft, setDraft] = useState('');
   const [inputError, setInputError] = useState<string>();
 
-  const commit = () => {
-    const result = addHashtag(tags, draft);
-    setInputError(result.error);
-    if (result.error) return;
-    setDraft('');
-    if (result.tags !== tags) onChange(result.tags);
+  /**
+   * 입력한 글을 태그로 바꾼다. 쉼표·띄어쓰기 앞까지는 태그로 더하고(붙여 넣기, 한글 조합 중에 친 구분자),
+   * final이면(Enter, 입력칸 벗어남) 남은 조각까지 더한다.
+   */
+  const apply = (value: string, final: boolean) => {
+    const split = splitHashtagDraft(tags, value);
+    let next: HashtagDraftResult = split;
+    if (final && !split.error) {
+      const added = addHashtag(split.tags, split.draft);
+      next = added.error ? { ...split, error: added.error } : { tags: added.tags, draft: '' };
+    }
+    setDraft(next.draft);
+    setInputError(next.error);
+    if (next.tags !== tags) onChange(next.tags);
   };
 
+  const commit = () => apply(draft, true);
+
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    // 한글 조합 중 Enter는 글자 확정이라 태그로 더하지 않는다.
+    // 한글 조합 중에는 키 입력을 태그 구분자로 보지 않는다. 조합 중에 친 쉼표·띄어쓰기는 조합이 끝나면 처리한다. (onCompositionEnd)
     if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
       e.preventDefault();
@@ -44,13 +57,19 @@ export function HashtagField({ tags, onChange, error }: Props) {
       <Input
         label={`해시태그 (선택, ${HASHTAG_MAX_COUNT}개까지)`}
         placeholder={full ? `${HASHTAG_MAX_COUNT}개를 모두 넣었어요` : '예) 필름카메라 — Enter로 추가'}
+        type="text"
         value={draft}
         disabled={full}
-        maxLength={30}
+        maxLength={DRAFT_MAX_LENGTH}
         onChange={(e) => {
-          setDraft(e.target.value);
-          setInputError(undefined);
+          if ((e.nativeEvent as InputEvent).isComposing) {
+            setDraft(e.target.value);
+            setInputError(undefined);
+          } else {
+            apply(e.target.value, false);
+          }
         }}
+        onCompositionEnd={(e) => apply(e.currentTarget.value, false)}
         onKeyDown={onKeyDown}
         onBlur={commit}
         error={inputError ?? error}

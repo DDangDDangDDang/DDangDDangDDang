@@ -12,7 +12,7 @@ import { auctionPhase } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 
-/** 진행 중인 경매는 현재가·입찰 수를 이 간격으로 다시 불러온다. (경매 실시간 메시지가 아직 없음) */
+/** 시작 전·진행 중인 경매는 상태·현재가·입찰 수를 이 간격으로 다시 불러온다. (경매 실시간 메시지가 아직 없음) */
 const REFRESH_MS = 5000;
 
 /** 경매 상세: 상품 정보 + 현재가·입찰 수·남은 시간. 내 경매면 취소할 수 있다. [입찰하기]는 입찰 창(BidDialog)을 연다. */
@@ -35,7 +35,8 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
   const query = useQuery({
     queryKey: ['auction', auctionId],
     queryFn: () => call(api.GET('/api/v1/auctions/{auctionId}', { params: { path: { auctionId } } })),
-    refetchInterval: (q) => (q.state.data?.status === 'ONGOING' ? REFRESH_MS : false),
+    // 시작 전 경매도 다시 불러온다. 방송에 올라간 경매는 방송이 끝나면 "방송 중 경매"(live) 표시를 내려야 한다.
+    refetchInterval: (q) => (q.state.data?.status === 'ONGOING' || q.state.data?.status === 'READY' ? REFRESH_MS : false),
   });
   const auction = query.data;
   const productId = auction?.productId;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addHashtag, sameHashtags } from './hashtags';
+import { addHashtag, sameHashtags, splitHashtagDraft } from './hashtags';
 
 describe('addHashtag', () => {
   it('앞의 #과 공백을 빼고 더한다', () => {
@@ -22,6 +22,21 @@ describe('addHashtag', () => {
   it('5개를 넘으면 오류', () => {
     const five = ['a', 'b', 'c', 'd', 'e'];
     expect(addHashtag(five, 'f')).toEqual({ tags: five, error: '해시태그는 5개까지 넣을 수 있어요.' });
+  });
+});
+
+describe('splitHashtagDraft', () => {
+  it('쉼표·띄어쓰기 앞까지 태그로 더하고 마지막 조각은 입력칸에 남긴다', () => {
+    expect(splitHashtagDraft([], '나이키,')).toEqual({ tags: ['나이키'], draft: '' });
+    expect(splitHashtagDraft(['a'], '#운동화 한정판,신')).toEqual({ tags: ['a', '운동화', '한정판'], draft: '신' });
+    expect(splitHashtagDraft([], '나이키')).toEqual({ tags: [], draft: '나이키' });
+  });
+
+  it('더하다 오류가 나면 멈추고 못 더한 글을 남긴다', () => {
+    const result = splitHashtagDraft([], '나이키,한정판!,신발');
+    expect(result.tags).toEqual(['나이키']);
+    expect(result.draft).toBe('한정판!,신발');
+    expect(result.error).toBeDefined();
   });
 });
 

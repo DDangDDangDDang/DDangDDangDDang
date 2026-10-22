@@ -23,6 +23,24 @@ export function addHashtag(tags: string[], input: string): HashtagAddResult {
   return { tags: [...tags, tag] };
 }
 
+export type HashtagDraftResult = { tags: string[]; draft: string; error?: string };
+
+/**
+ * 입력칸의 글에 쉼표·띄어쓰기가 있으면(붙여 넣기, 한글 조합 중에 친 구분자) 그 앞까지를 태그로 더하고 마지막 조각만 입력칸에 남긴다.
+ * 더하다 오류가 나면 거기서 멈추고, 아직 못 더한 글을 입력칸에 남겨 고칠 수 있게 한다.
+ */
+export function splitHashtagDraft(tags: string[], value: string): HashtagDraftResult {
+  const parts = value.split(/[,\s]/);
+  const rest = parts.pop() ?? '';
+  let current = tags;
+  for (let i = 0; i < parts.length; i++) {
+    const result = addHashtag(current, parts[i] ?? '');
+    if (result.error) return { tags: current, draft: [...parts.slice(i), rest].join(','), error: result.error };
+    current = result.tags;
+  }
+  return { tags: current, draft: rest };
+}
+
 /** 두 태그 목록이 순서까지 같은지 (수정할 때 바뀐 것만 보내기) */
 export function sameHashtags(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((tag, i) => tag === b[i]);
