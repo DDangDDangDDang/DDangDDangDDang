@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatNumber, formatPoint, formatRemaining } from './format';
+import { formatDotDate, formatNumber, formatPoint, formatRemaining } from './format';
 
 describe('format', () => {
   it('포인트는 천 단위 구분과 P를 붙인다', () => {
@@ -15,5 +15,12 @@ describe('format', () => {
     // 하루 이상이면 일을 따로
     expect(formatRemaining(86400)).toBe('1일 00:00:00');
     expect(formatRemaining(3 * 86400 - 1)).toBe('2일 23:59:59');
+  });
+});
+
+describe('formatDotDate', () => {
+  it('점으로 나눈 날짜로 보여 준다', () => {
+    expect(formatDotDate('2026-10-21T09:05:00')).toBe('2026.10.21');
+    expect(formatDotDate('2026-01-03T00:00:00')).toBe('2026.01.03');
   });
 });
