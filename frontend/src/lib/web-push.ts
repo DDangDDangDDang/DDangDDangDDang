@@ -55,6 +55,11 @@ function wasEnabled(userId: number) {
 /** 작업 중에 로그아웃했거나 다른 회원으로 바뀌었으면 남은 단계를 하지 않는다. (앞 회원의 구독을 새 회원 것으로 저장하지 않게) */
 class AccountChanged extends Error {}
 
+/** 이 작업을 시작한 회원이 아직 로그인해 있고, 화면 상태도 그 회원 것인지 */
+function isCurrent(userId: number) {
+  return getSession()?.user.userId === userId && shared.userId === userId;
+}
+
 function guardFor(userId: number) {
   return () => {
     if (getSession()?.user.userId !== userId) throw new AccountChanged();
@@ -74,6 +79,7 @@ async function subscribeAndSave(ensureSameAccount: () => void) {
     await subscription.unsubscribe();
     subscription = null;
   }
+  ensureSameAccount();
   subscription ??= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey });
 
   const json = subscription.toJSON();
@@ -123,8 +129,8 @@ export function useWebPush(userId: number | undefined) {
     if (!webPushSupported() || Notification.permission !== 'granted' || !wasEnabled(userId)) return;
     const ensureSameAccount = guardFor(userId);
     subscribeAndSave(ensureSameAccount)
-      .then(() => shared.userId === userId && update({ state: 'on' }))
-      .catch((e) => !(e instanceof AccountChanged) && shared.userId === userId && update({ state: 'off' }));
+      .then(() => isCurrent(userId) && update({ state: 'on' }))
+      .catch((e) => !(e instanceof AccountChanged) && isCurrent(userId) && update({ state: 'off' }));
   }, [userId]);
 
   const enable = useCallback(async () => {
@@ -143,10 +149,10 @@ export function useWebPush(userId: number | undefined) {
       rememberEnabled(userId, true);
       update({ state: 'on' });
     } catch (e) {
-      if (e instanceof AccountChanged) return;
+      if (e instanceof AccountChanged || !isCurrent(userId)) return;
       update({ error: e instanceof ApiError ? errorMessage(e) : '이 브라우저에서 알림을 켜지 못했어요. 브라우저 설정에서 알림을 허용했는지 확인해 주세요.' });
     } finally {
-      if (shared.userId === userId) update({ pending: false });
+      if (isCurrent(userId)) update({ pending: false });
     }
   }, [userId]);
 
@@ -166,10 +172,10 @@ export function useWebPush(userId: number | undefined) {
       rememberEnabled(userId, false);
       update({ state: 'off' });
     } catch (e) {
-      if (e instanceof AccountChanged) return;
+      if (e instanceof AccountChanged || !isCurrent(userId)) return;
       update({ error: e instanceof ApiError ? errorMessage(e) : '이 브라우저에서 알림을 끄지 못했어요.' });
     } finally {
-      if (shared.userId === userId) update({ pending: false });
+      if (isCurrent(userId)) update({ pending: false });
     }
   }, [userId]);
 
