@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { ApiError, api, call, currentPushSubscription, errorMessage } from '@/api';
 
 /*
@@ -71,58 +71,67 @@ async function subscribeAndSave() {
   await call(api.POST('/api/v1/push/subscriptions', { body: { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth } }));
 }
 
+/*
+ * 상태는 화면 전체가 함께 쓴다. (헤더 알림함과 경매 상세 [알림 받기] 안내가 같은 상태를 보도록)
+ */
+type Shared = { userId?: number; state: WebPushState; pending: boolean; error?: string };
+let shared: Shared = { state: 'off', pending: false };
+const listeners = new Set<() => void>();
+/** 켜 둔 회원의 구독을 서버와 맞춘 회원 (접속마다 한 번) */
+let syncedUserId: number | undefined;
+
+function update(next: Partial<Shared>) {
+  shared = { ...shared, ...next };
+  listeners.forEach((listener) => listener());
+}
+
+function subscribeStore(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 /**
  * 이 회원의 브라우저 알림 상태와 켜기·끄기.
  * 켜 둔 회원이 다시 접속하면 구독을 서버와 다시 맞춘다. (서버를 다시 켜 키가 바뀐 로컬 개발, 같은 브라우저를 쓰던 다른 회원)
  */
 export function useWebPush(userId: number | undefined) {
-  const [state, setState] = useState<WebPushState>(() => initialState(userId));
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string>();
+  const snapshot = useSyncExternalStore(subscribeStore, () => shared);
+  const state = snapshot.userId === userId ? snapshot.state : initialState(userId);
 
   useEffect(() => {
-    if (userId === undefined || !webPushSupported()) return;
-    if (Notification.permission === 'denied') {
-      setState('denied');
-      return;
-    }
-    if (Notification.permission !== 'granted' || !wasEnabled(userId)) {
-      setState('off');
-      return;
-    }
-    let cancelled = false;
+    if (userId === undefined || syncedUserId === userId) return;
+    syncedUserId = userId;
+    update({ userId, state: initialState(userId), pending: false, error: undefined });
+    if (!webPushSupported() || Notification.permission !== 'granted' || !wasEnabled(userId)) return;
     subscribeAndSave()
-      .then(() => !cancelled && setState('on'))
-      .catch(() => !cancelled && setState('off'));
-    return () => {
-      cancelled = true;
-    };
+      .then(() => shared.userId === userId && update({ state: 'on' }))
+      .catch(() => shared.userId === userId && update({ state: 'off' }));
   }, [userId]);
 
   const enable = useCallback(async () => {
     if (userId === undefined || !webPushSupported()) return;
-    setPending(true);
-    setError(undefined);
+    update({ userId, pending: true, error: undefined });
     try {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        setState(permission === 'denied' ? 'denied' : 'off');
+        update({ state: permission === 'denied' ? 'denied' : 'off' });
         return;
       }
       await subscribeAndSave();
       rememberEnabled(userId, true);
-      setState('on');
+      update({ state: 'on' });
     } catch (e) {
-      setError(e instanceof ApiError ? errorMessage(e) : '이 브라우저에서 알림을 켜지 못했어요. 브라우저 설정에서 알림을 허용했는지 확인해 주세요.');
+      update({ error: e instanceof ApiError ? errorMessage(e) : '이 브라우저에서 알림을 켜지 못했어요. 브라우저 설정에서 알림을 허용했는지 확인해 주세요.' });
     } finally {
-      setPending(false);
+      update({ pending: false });
     }
   }, [userId]);
 
   const disable = useCallback(async () => {
     if (userId === undefined) return;
-    setPending(true);
-    setError(undefined);
+    update({ userId, pending: true, error: undefined });
     try {
       const subscription = await currentPushSubscription();
       if (subscription) {
@@ -130,15 +139,16 @@ export function useWebPush(userId: number | undefined) {
         await subscription.unsubscribe();
       }
       rememberEnabled(userId, false);
-      setState('off');
+      update({ state: 'off' });
     } catch (e) {
-      setError(e instanceof ApiError ? errorMessage(e) : '이 브라우저에서 알림을 끄지 못했어요.');
+      update({ error: e instanceof ApiError ? errorMessage(e) : '이 브라우저에서 알림을 끄지 못했어요.' });
     } finally {
-      setPending(false);
+      update({ pending: false });
     }
   }, [userId]);
 
-  return { state, pending, error, enable, disable };
+  const mine = snapshot.userId === userId;
+  return { state, pending: mine && snapshot.pending, error: mine ? snapshot.error : undefined, enable, disable };
 }
 
 function initialState(userId: number | undefined): WebPushState {
