@@ -12,13 +12,18 @@ export async function currentPushSubscription(): Promise<PushSubscription | null
   return (await registration?.pushManager?.getSubscription()) ?? null;
 }
 
-/** 이 브라우저의 구독을 서버에서 지운다. (브라우저 구독은 남겨, 다시 켤 때 권한을 묻지 않게) 실패해도 넘어간다. */
+/**
+ * 이 브라우저의 구독을 서버에서 지운다. (브라우저 구독은 남겨, 다시 켤 때 권한을 묻지 않게)
+ * 서버에서 지우지 못하면 브라우저 구독을 끊는다. 서버에 남은 구독 주소는 더는 이 브라우저로 오지 않으므로,
+ * 같은 브라우저를 쓰는 다음 사람에게 앞 사람의 알림이 뜨지 않는다. 실패해도 로그아웃은 계속한다.
+ */
 export async function releasePushSubscription() {
+  let subscription: PushSubscription | null = null;
   try {
-    const subscription = await currentPushSubscription();
+    subscription = await currentPushSubscription();
     if (!subscription) return;
     await call(api.DELETE('/api/v1/push/subscriptions', { params: { query: { endpoint: subscription.endpoint } } }));
   } catch {
-    // 로그아웃은 계속한다. 서버에 남은 구독은 다음 사람이 로그인해 구독하면 그 사람 것으로 바뀐다.
+    await subscription?.unsubscribe().catch(() => undefined);
   }
 }

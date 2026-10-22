@@ -100,11 +100,6 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 - `liveStream`은 REST의 `LiveStreamResponse`와 같은 형식입니다. 바뀐 값만이 아니라 전체 정보이므로 받은 값으로 화면을 덮어쓰면 됩니다.
 - 방송 정보 수정뿐 아니라 방송을 시작할 때도 옵니다. (`status`가 `LIVE`) 방송 예정 화면에서 기다리던 시청자는 새로고침 없이 영상에 접속하고, 채팅에 `SYSTEM` "방송이 시작되었습니다." 안내도 옵니다.
 
-**NotificationResponse** (알림함 `GET /api/v1/notifications`와 같은 형식)
-- `type`: `LIVE_STARTED`(구독한 판매자 방송 시작), `AUCTION_STARTED`(알림 받기를 한 경매 시작), `AUCTION_OUTBID`(내 최고 입찰보다 높은 입찰), `AUCTION_CLOSING_SOON`(마감 10분 전), `AUCTION_CANCELED`, `AUCTION_WON`(내가 낙찰), `AUCTION_SOLD`·`AUCTION_FAILED`(판매자: 낙찰·유찰), `AUCTION_ENDED`(알림 받기·입찰한 경매가 끝남)
-- `title`·`body`·`link`: 화면에 그대로 보여 줄 문구와 누르면 갈 경로. 브라우저 알림(웹 푸시)과 같은 문구입니다.
-- 받는 사람: 시작은 알림 받기(`PUT /api/v1/auctions/{id}/alert`)를 한 회원, 상위 입찰은 밀려난 회원, 마감 임박·취소·종료는 알림 받기 + 입찰한 회원
-
 **브라우저 알림(웹 푸시)**: 탭을 닫아도 브라우저가 켜져 있으면 같은 알림이 브라우저 알림으로 옵니다.
 - `GET /api/v1/push/public-key`로 받은 키로 `pushManager.subscribe` → `POST /api/v1/push/subscriptions`로 저장, 로그아웃·끄기는 `DELETE /api/v1/push/subscriptions?endpoint=`
 - 서비스 워커(`frontend/public/sw.js`)가 받는 내용: `{ notificationId, type, title, body, link, tag }`
@@ -155,13 +150,30 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | `id` | number | 알림 ID (읽음 처리 `POST /api/v1/notifications/{id}/read`) |
-| `type` | `"LIVE_STARTED"` | 구독한 판매자가 방송을 시작함 |
-| `sellerId` | number | |
-| `sellerNickname` | string \| null | 알림을 만든 때의 닉네임 |
-| `liveStreamId` | number | 시작한 방송 (`/lives/{liveStreamId}`) |
-| `liveTitle` | string | 알림을 만든 때의 방송 제목 |
+| `type` | string | 아래 표 |
+| `title` | string | 화면에 그대로 보여 줄 제목. 브라우저 알림(웹 푸시)과 같은 문구 |
+| `body` | string \| null | 설명 (방송 제목, 상품명·금액) |
+| `link` | string | 누르면 갈 화면 경로 (`/lives/{id}`, `/auctions/{id}`) |
+| `sellerId` | number \| null | `LIVE_STARTED`일 때 |
+| `sellerNickname` | string \| null | `LIVE_STARTED`일 때. 알림을 만든 때의 닉네임 |
+| `liveStreamId` | number \| null | `LIVE_STARTED`일 때. 시작한 방송 |
+| `liveTitle` | string \| null | `LIVE_STARTED`일 때. 알림을 만든 때의 방송 제목 |
+| `auctionId` | number \| null | `AUCTION_*`일 때 |
+| `productName` | string \| null | `AUCTION_*`일 때. 알림을 만든 때의 상품명 |
+| `price` | number \| null | `AUCTION_OUTBID`면 새 현재가, `AUCTION_WON`·`AUCTION_SOLD`면 낙찰가 |
 | `read` | boolean | 실시간으로 올 때는 항상 false |
 | `createdAt` | string | |
+
+| `type` | 받는 사람 |
+|---|---|
+| `LIVE_STARTED` | 방송을 시작한 판매자의 구독자 |
+| `AUCTION_STARTED` | 알림 받기(`PUT /api/v1/auctions/{id}/alert`)를 한 회원 |
+| `AUCTION_OUTBID` | 최고 입찰자에서 밀려난 회원 |
+| `AUCTION_CLOSING_SOON` | 알림 받기 + 입찰한 회원 (마감 10분 전, 경매마다 한 번) |
+| `AUCTION_CANCELED` | 알림 받기 + 입찰한 회원 |
+| `AUCTION_WON` | 낙찰자 (즉시 구매 포함) |
+| `AUCTION_SOLD` / `AUCTION_FAILED` | 판매자 (낙찰됨 / 유찰) |
+| `AUCTION_ENDED` | 그 밖의 알림 받기 + 입찰한 회원 |
 
 ### 실시간 메시지를 바꿀 때
 

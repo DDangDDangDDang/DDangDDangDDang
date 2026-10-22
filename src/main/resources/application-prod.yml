@@ -40,3 +40,8 @@ livekit:
   ws-url: ${LIVEKIT_WS_URL}
   api-key: ${LIVEKIT_API_KEY}
   api-secret: ${LIVEKIT_API_SECRET}
+
+# 웹 푸시 VAPID 키. 서버를 켤 때마다 키가 바뀌면 이미 저장된 구독으로 보낸 푸시가 모두 거절되므로, 운영은 반드시 고정 키를 넣는다.
+web-push:
+  public-key: ${WEB_PUSH_PUBLIC_KEY}
+  private-key: ${WEB_PUSH_PRIVATE_KEY}

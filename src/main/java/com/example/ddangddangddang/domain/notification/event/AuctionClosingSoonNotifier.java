@@ -78,13 +78,17 @@ public class AuctionClosingSoonNotifier {
             return;
         }
         for (Target target : targets) {
+            if (!claim(target.auctionId(), now)) {
+                continue;
+            }
             try {
-                if (claim(target.auctionId(), now)) {
-                    notificationDispatcher.dispatch(AuctionNotifier.notifications(auctionNotifier.watchers(target.auctionId()),
-                            NotificationType.AUCTION_CLOSING_SOON, target.auctionId(), target.productName(), null));
-                }
+                notificationDispatcher.dispatch(AuctionNotifier.notifications(auctionNotifier.watchers(target.auctionId()),
+                        NotificationType.AUCTION_CLOSING_SOON, target.auctionId(), target.productName(), null));
             } catch (RuntimeException e) {
-                log.warn("마감 임박 알림을 보내지 못했습니다. auctionId={}", target.auctionId(), e);
+                // 알림 저장이 실패했으면(대상 조회·저장 오류) 기록을 지워 다음 주기에 다시 보낸다.
+                // 저장 뒤의 실시간·웹 푸시 실패는 dispatch가 삼키므로 여기로 오지 않아 중복 저장되지 않는다.
+                log.warn("마감 임박 알림을 보내지 못해 다음 주기에 다시 보냅니다. auctionId={}", target.auctionId(), e);
+                release(target.auctionId());
             }
         }
     }
@@ -99,6 +103,14 @@ public class AuctionClosingSoonNotifier {
             return true;
         } catch (DataIntegrityViolationException e) {
             return false;
+        }
+    }
+
+    private void release(Long auctionId) {
+        try {
+            noticeRepository.deleteById(auctionId);
+        } catch (RuntimeException e) {
+            log.warn("마감 임박 알림 기록을 지우지 못했습니다. auctionId={}", auctionId, e);
         }
     }
 

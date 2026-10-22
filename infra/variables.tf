@@ -95,6 +95,8 @@ variable "app_secret_keys" {
     "SOLAPI_API_SECRET",
     "SOLAPI_SENDER",
     "ANTHROPIC_API_KEY",
+    "WEB_PUSH_PUBLIC_KEY",
+    "WEB_PUSH_PRIVATE_KEY",
   ]
 }
 

@@ -4,6 +4,7 @@ import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -34,6 +35,7 @@ public class PushSubscriptionController {
     }
 
     /** 이 브라우저의 구독 삭제 (알림 끄기·로그아웃) */
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/subscriptions")
     public ResponseEntity<Void> unsubscribe(@AuthenticationPrincipal AuthUser authUser, @RequestParam String endpoint) {
         pushSubscriptionService.unsubscribe(authUser.id(), endpoint);

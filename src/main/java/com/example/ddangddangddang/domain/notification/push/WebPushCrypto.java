@@ -36,9 +36,10 @@ import java.util.Base64;
  */
 public final class WebPushCrypto {
 
-    /** aes128gcm 레코드 크기. 본문은 레코드 하나에 들어가야 한다. (본문 + 구분 1바이트 + 태그 16바이트 이하) */
+    /** aes128gcm 레코드 크기. 본문은 레코드 하나에 들어가야 한다. */
     static final int RECORD_SIZE = 4096;
-    static final int MAX_PLAINTEXT = RECORD_SIZE - 17;
+    /** 푸시 서비스가 받아야 하는 요청 본문은 4096바이트까지다. (RFC 8291 4장) 헤더 86 + 구분 1 + 태그 16을 뺀 만큼 */
+    public static final int MAX_PLAINTEXT = 4096 - 86 - 17;
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final ECParameterSpec P256 = p256();

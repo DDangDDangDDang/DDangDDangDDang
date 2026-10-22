@@ -89,4 +89,21 @@ class WebPushSenderTest {
                 .contains("\"link\":\"/auctions/7\"")
                 .contains("\"tag\":\"notification-99\"");
     }
+
+    @Test
+    @DisplayName("본문이 푸시 한도(요청 본문 4096바이트)를 넘으면 내용을 줄여 보낸다")
+    void trimsLongBody() {
+        WebPushSender sender = new WebPushSender(repository, vapidKeys, properties, objectMapper);
+        Notification notification = Notification.liveStarted(5L, 1L, "판매자", 3L, "가".repeat(3000));
+        ReflectionTestUtils.setField(notification, "id", 100L);
+
+        byte[] payload = sender.payload(notification);
+
+        assertThat(payload.length).isLessThanOrEqualTo(WebPushCrypto.MAX_PLAINTEXT);
+        assertThat(new String(payload, StandardCharsets.UTF_8)).contains("\"title\":\"판매자님이 방송을 시작했어요\"").contains("…");
+        // 암호화한 요청 본문도 4096바이트 이하
+        KeyPair browser = WebPushCrypto.generateKeyPair();
+        byte[] encrypted = WebPushCrypto.encrypt(payload, WebPushCrypto.encodePublicKey((ECPublicKey) browser.getPublic()), new byte[16]);
+        assertThat(encrypted.length).isLessThanOrEqualTo(4096);
+    }
 }

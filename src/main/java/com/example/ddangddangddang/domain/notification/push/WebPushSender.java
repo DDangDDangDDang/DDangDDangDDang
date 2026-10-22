@@ -79,14 +79,31 @@ public class WebPushSender {
         }
     }
 
-    /** 서비스 워커가 받는 내용: 알림 제목·내용, 누르면 열 경로, 같은 알림을 한 번만 띄우기 위한 tag */
+    /**
+     * 서비스 워커가 받는 내용: 알림 제목·내용, 누르면 열 경로, 같은 알림을 한 번만 띄우기 위한 tag
+     * 푸시 본문 한도(WebPushCrypto.MAX_PLAINTEXT)를 넘으면 내용(body)을 줄인다. (알림 문구는 짧아 보통은 그대로)
+     */
     byte[] payload(Notification notification) {
         NotificationContent content = NotificationContent.of(notification);
+        String body = content.body() == null ? "" : content.body();
+        byte[] bytes = payload(notification, content, body);
+        while (bytes.length > WebPushCrypto.MAX_PLAINTEXT && !body.isEmpty()) {
+            int excess = bytes.length - WebPushCrypto.MAX_PLAINTEXT;
+            body = body.substring(0, Math.max(0, body.length() - Math.max(1, excess / 3) - 1)) + "…";
+            if (body.length() <= 1) {
+                body = "";
+            }
+            bytes = payload(notification, content, body);
+        }
+        return bytes;
+    }
+
+    private byte[] payload(Notification notification, NotificationContent content, String body) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("notificationId", notification.getId());
         payload.put("type", notification.getType().name());
         payload.put("title", content.title());
-        payload.put("body", content.body());
+        payload.put("body", body);
         payload.put("link", content.link());
         payload.put("tag", "notification-" + notification.getId());
         return objectMapper.writeValueAsBytes(payload);
