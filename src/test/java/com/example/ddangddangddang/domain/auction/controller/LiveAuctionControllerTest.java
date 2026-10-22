@@ -34,6 +34,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -151,6 +152,38 @@ class LiveAuctionControllerTest {
                 message instanceof ChatMessageResponse chat && chat.content().equals("‘E2E 카메라’ 경매가 시작되었습니다. 시작가 10,000P")));
 
         liveStreamService.end(liveStreamId, seller.id());
+    }
+
+    @Test
+    @DisplayName("방송 중 경매는 진행 시간을 3일까지 정할 수 있고, 3일을 넘거나 30초보다 짧으면 400이다")
+    void liveAuctionDurationLimit() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = startLive(seller);
+
+        liveAuction(seller, liveStreamId, createProduct(seller), 3 * 24 * 60 * 60 + 1)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("진행 시간은 3일 이내로 정해 주세요."));
+        liveAuction(seller, liveStreamId, createProduct(seller), 29)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("진행 시간은 30초 이상으로 정해 주세요."));
+
+        // 서비스가 요청을 처리하는 순간을 기준으로 마감을 정하므로, 요청 전후 시각 사이 + 3일이어야 한다.
+        // (응답 시각은 초 단위로 잘릴 수 있어 요청 전 시각도 초 단위로 맞춘다)
+        LocalDateTime before = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        String created = liveAuction(seller, liveStreamId, createProduct(seller), 3 * 24 * 60 * 60)
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        LocalDateTime after = LocalDateTime.now();
+        LocalDateTime endAt = LocalDateTime.parse(JsonPath.read(created, "$.data.endAt"));
+        assertThat(endAt).isBetween(before.plusDays(3), after.plusDays(3));
+
+        liveStreamService.end(liveStreamId, seller.id());
+    }
+
+    private ResultActions liveAuction(Member seller, Long liveStreamId, Long productId, int durationSec) throws Exception {
+        return mockMvc.perform(post("/api/v1/lives/{liveId}/auctions", liveStreamId).header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"productId\": %d, \"startPrice\": 10000, \"bidUnit\": 1000, \"durationSec\": %d}".formatted(productId, durationSec)));
     }
 
     @Test

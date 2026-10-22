@@ -8,7 +8,7 @@ import { BidDialog } from '@/components/auction/BidDialog';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { ProductImage } from '@/components/order/OrderBits';
 import { SellerIdentity } from '@/components/seller/SellerIdentity';
-import { Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { Badge, Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
@@ -141,11 +141,22 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
             )}
             {!isMine && phase === 'READY' && <Notice>경매가 시작되면 입찰할 수 있어요.</Notice>}
 
-            {auction.live && auction.liveStreamId && (
-              <Link to={`/lives/${auction.liveStreamId}`} className={buttonVariants({ variant: 'outline' })}>
-                방송 보러 가기
-              </Link>
-            )}
+            {/* 방송에 올라간 경매: 방송 중이면 LIVE 표시와 함께 방송으로 가고, 끝났으면 "방송 종료"로 누를 수 없게 둔다. */}
+            {auction.liveStreamId ? (
+              auction.live ? (
+                <Link to={`/lives/${auction.liveStreamId}`} className={buttonVariants({ variant: 'outline' })}>
+                  <Badge variant="live">
+                    <span aria-hidden="true" className="size-1.5 rounded-full bg-neutral-0" />
+                    LIVE
+                  </Badge>
+                  방송 보러 가기
+                </Link>
+              ) : (
+                <Button variant="outline" disabled>
+                  방송 종료
+                </Button>
+              )
+            ) : null}
             {!isMine && auction.sellerId && (
               <Link
                 to={`/messages/${auction.sellerId}`}

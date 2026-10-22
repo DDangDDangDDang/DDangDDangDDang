@@ -193,8 +193,11 @@ test.describe('판매자 송출', () => {
       await loginOnPage(studio, seller);
       // 방송 시작 전에는 스튜디오에 시청 화면 링크가 없어, 스튜디오가 받는 응답에서 방송 ID를 읽는다.
       // (API로 판매자에게 다시 로그인하면 스튜디오의 로그인이 끊긴다)
-      const activeResponse = studio.waitForResponse((r) => r.url().includes('/api/v1/live-streams/me/active'));
+      // 로그인 직후 다른 화면(홈)도 같은 요청을 보내고, 화면을 옮기면 그 응답 내용은 읽을 수 없다.
+      // 그래서 스튜디오를 연 뒤 새로고침하면서 오는 응답만 읽는다.
       await studio.goto('/studio');
+      const activeResponse = studio.waitForResponse((r) => r.url().includes('/api/v1/live-streams/me/active'));
+      await studio.reload();
       let liveStreamId: number | undefined = (await (await activeResponse).json()).data?.id;
       const createButton = studio.getByRole('button', { name: '방송 만들기' });
       const startButton = studio.getByRole('button', { name: '방송 시작' });
@@ -371,6 +374,17 @@ test.describe('판매자 송출', () => {
         await test.info().attach('시청 화면 (이 방송의 경매)', { body: await watch.screenshot(), contentType: 'image/png' });
       }
 
+      // 방송 중에 연 경매의 상세: 방송 중이면 "LIVE 방송 보러 가기"가 나온다. (방송이 끝나면 아래에서 "방송 종료"로 바뀌는지 본다)
+      let auctionPage: Page | undefined;
+      if (endAfter && liveProductName) {
+        auctionPage = await viewerContext.newPage();
+        await auctionPage.goto('/auctions');
+        await auctionPage.getByRole('searchbox', { name: '상품명' }).fill(liveProductName);
+        await auctionPage.getByRole('button', { name: '검색' }).click();
+        await auctionPage.getByRole('link', { name: new RegExp(escapeRegExp(liveProductName)) }).click();
+        await expect(auctionPage.getByRole('link', { name: /LIVE\s*방송 보러 가기/ })).toBeVisible();
+      }
+
       if (endAfter) {
         // 방송 종료: 확인 창에서 종료하면 시청 화면에도 종료가 나온다.
         await endButton.click();
@@ -387,6 +401,15 @@ test.describe('판매자 송출', () => {
           const card = watch.getByRole('link', { name: new RegExp(escapeRegExp(liveProductName)) });
           await expect(card).toBeVisible();
           await expect(card.getByText('방송 중 경매')).toBeHidden();
+        }
+        if (auctionPage) {
+          // 열어 둔 경매 상세는 다시 불러오면서 "방송 종료"(누를 수 없음)로 바뀐다.
+          const ended = auctionPage.getByRole('button', { name: '방송 종료' });
+          await expect(ended).toBeVisible({ timeout: 15_000 });
+          await expect(ended).toBeDisabled();
+          await expect(auctionPage.getByRole('link', { name: /방송 보러 가기/ })).toBeHidden();
+          await test.info().attach('경매 상세 (방송 종료)', { body: await auctionPage.screenshot(), contentType: 'image/png' });
+          await auctionPage.close();
         }
       }
     } finally {

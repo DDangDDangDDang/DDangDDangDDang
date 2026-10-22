@@ -4720,7 +4720,7 @@
           "durationSec" : {
             "type" : "integer",
             "format" : "int32",
-            "maximum" : 600,
+            "maximum" : 259200,
             "minimum" : 30
           }
         },
