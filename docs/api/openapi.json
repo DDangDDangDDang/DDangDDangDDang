@@ -4599,6 +4599,9 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "live" : {
+            "type" : "boolean"
+          },
           "startPrice" : {
             "type" : "integer",
             "format" : "int64"
@@ -4653,6 +4656,12 @@
           "scheduledStartAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "hashtags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         },
         "required" : [ "title" ]
@@ -4687,6 +4696,12 @@
           },
           "description" : {
             "type" : "string"
+          },
+          "hashtags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           },
           "notice" : {
             "type" : "string"
@@ -5626,6 +5641,12 @@
             "type" : "string",
             "maxLength" : 200,
             "minLength" : 0
+          },
+          "hashtags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -6235,6 +6256,12 @@
           },
           "title" : {
             "type" : "string"
+          },
+          "hashtags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           },
           "status" : {
             "type" : "string",
@@ -6881,6 +6908,10 @@
     "code" : "LIVESTREAM_013",
     "status" : 429,
     "message" : "시청 입장 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
+  }, {
+    "code" : "LIVESTREAM_015",
+    "status" : 400,
+    "message" : "해시태그는 한글·영문·숫자·밑줄(_)로 20자까지 쓸 수 있습니다."
   }, {
     "code" : "NOTIFICATION_001",
     "status" : 404,

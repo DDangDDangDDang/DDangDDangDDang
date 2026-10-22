@@ -79,7 +79,7 @@ export function LiveListPage() {
               label="방송 검색"
               hideLabel
               type="search"
-              placeholder="방송 제목, 판매자 닉네임"
+              placeholder="방송 제목, #해시태그, 판매자 닉네임"
               maxLength={50}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

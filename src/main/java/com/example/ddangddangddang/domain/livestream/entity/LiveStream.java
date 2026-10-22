@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -49,6 +50,10 @@ public class LiveStream extends BaseTimeEntity {
     // 채팅창 위에 고정하는 판매자 공지. 없으면 null
     @Column(length = 200)
     private String notice;
+
+    // 방송 목록 카드에 보여 주는 해시태그. "#나이키 #운동화"처럼 공백으로 이어 저장한다. 없으면 null (LiveStreamHashtags)
+    @Column(length = LiveStreamHashtags.COLUMN_LENGTH)
+    private String hashtags;
 
     // LiveKit 방 이름. 외부에 노출되므로 순번 ID 대신 UUID 사용
     @Column(name = "room_name", nullable = false, unique = true, length = 64)
@@ -149,6 +154,26 @@ public class LiveStream extends BaseTimeEntity {
             return false;
         }
         this.notice = newNotice;
+        return true;
+    }
+
+    /** 해시태그 목록(# 없이). 없으면 빈 목록 */
+    public List<String> getHashtagList() {
+        return LiveStreamHashtags.fromColumn(hashtags);
+    }
+
+    /**
+     * 해시태그를 바꾼다. 빈 목록이면 지운다. LiveStreamHashtags.normalize를 거친 값을 넘긴다.
+     * 만들 때는 바로, 수정할 때는 방송 정보 수정(update)으로 주인·종료 여부를 확인한 뒤 호출한다.
+     *
+     * @return 실제로 바뀌었으면 true
+     */
+    public boolean changeHashtags(List<String> tags) {
+        String column = LiveStreamHashtags.toColumn(tags);
+        if (Objects.equals(column, this.hashtags)) {
+            return false;
+        }
+        this.hashtags = column;
         return true;
     }
 

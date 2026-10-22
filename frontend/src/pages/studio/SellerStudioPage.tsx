@@ -6,6 +6,7 @@ import { api, call, errorMessage, isErrorCode, type Schema } from '@/api';
 import { ACTIVE_STREAM_KEY, START_STREAM_KEY, useBroadcast, useStudioPresence } from '@/components/broadcast/broadcast-context';
 import { IdleWarning } from '@/components/broadcast/IdleWarning';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { Hashtags } from '@/components/live/Hashtags';
 import { LiveChat } from '@/components/live/LiveChat';
 import { Badge, Button, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
@@ -291,6 +292,7 @@ function StudioHeader({ liveStream, viewerCount, editing, onEdit }: { liveStream
         )}
       </div>
       {liveStream.description && !editing && <p className="text-body whitespace-pre-line text-neutral-700">{liveStream.description}</p>}
+      {!editing && <Hashtags tags={liveStream.hashtags} />}
     </div>
   );
 }

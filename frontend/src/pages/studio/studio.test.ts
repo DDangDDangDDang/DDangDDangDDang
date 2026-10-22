@@ -9,7 +9,7 @@ import {
 } from './studio';
 
 const NOW = new Date('2026-10-21T12:00:00');
-const values = (patch: Partial<StreamFormValues> = {}): StreamFormValues => ({ title: '필름 카메라 경매', description: '', scheduledStartAt: '', ...patch });
+const values = (patch: Partial<StreamFormValues> = {}): StreamFormValues => ({ title: '필름 카메라 경매', description: '', scheduledStartAt: '', hashtags: [], ...patch });
 
 const scheduled: Schema<'LiveStreamResponse'> = {
   id: 1,
@@ -43,7 +43,11 @@ describe('validateStreamForm', () => {
 
 describe('toCreateRequest', () => {
   it('앞뒤 공백을 빼고, 비운 설명·예정 시간은 보내지 않는다', () => {
-    expect(toCreateRequest(values({ title: ' 방송 ', description: '  ' }))).toEqual({ title: '방송', description: undefined, scheduledStartAt: undefined });
+    expect(toCreateRequest(values({ title: ' 방송 ', description: '  ' }))).toEqual({ title: '방송', description: undefined, scheduledStartAt: undefined, hashtags: undefined });
+  });
+
+  it('해시태그가 있으면 보낸다', () => {
+    expect(toCreateRequest(values({ hashtags: ['나이키', '운동화'] })).hashtags).toEqual(['나이키', '운동화']);
   });
 
   it('예정 시간은 초를 붙인 서버 시각으로 보낸다', () => {
@@ -62,6 +66,13 @@ describe('toUpdateRequest', () => {
 
   it('설명을 지우면 빈 문자열을 보낸다', () => {
     expect(toUpdateRequest(scheduled, { ...formValuesOf(scheduled), description: '' })).toEqual({ description: '' });
+  });
+
+  it('해시태그가 바뀌면 목록 전체를, 모두 지우면 빈 목록을 보낸다', () => {
+    const tagged = { ...scheduled, hashtags: ['나이키'] };
+    expect(toUpdateRequest(tagged, formValuesOf(tagged))).toBeNull();
+    expect(toUpdateRequest(tagged, { ...formValuesOf(tagged), hashtags: ['나이키', '운동화'] })).toEqual({ hashtags: ['나이키', '운동화'] });
+    expect(toUpdateRequest(tagged, { ...formValuesOf(tagged), hashtags: [] })).toEqual({ hashtags: [] });
   });
 
   it('예정 시간은 방송 시작 전에만, 값이 있을 때만 보낸다', () => {
