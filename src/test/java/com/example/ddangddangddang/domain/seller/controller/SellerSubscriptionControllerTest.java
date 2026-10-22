@@ -4,7 +4,9 @@ import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
+import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
 import com.example.ddangddangddang.domain.product.entity.Product;
 import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
@@ -72,6 +74,9 @@ class SellerSubscriptionControllerTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private LiveStreamRepository liveStreamRepository;
 
     @MockitoBean
     private RefreshTokenRepository refreshTokenRepository;
@@ -224,10 +229,15 @@ class SellerSubscriptionControllerTest {
                 .andExpect(jsonPath("$.data.content[0].status").value("CANCELED"))
                 .andExpect(jsonPath("$.data.hasNext").value(false));
 
+        // 끝난 방송의 시간은 집계 쿼리로 더한다. 1시간 방송한 것으로 시작 시각을 앞당긴다.
         liveStreamService.end(liveStreamId, seller.id());
+        LiveStream ended = liveStreamRepository.findById(liveStreamId).orElseThrow();
+        ReflectionTestUtils.setField(ended, "startedAt", ended.getEndedAt().minusHours(1));
+        liveStreamRepository.saveAndFlush(ended);
         mockMvc.perform(get("/api/v1/sellers/{id}/profile", seller.id()))
                 .andExpect(jsonPath("$.data.liveStreamId").doesNotExist())
-                .andExpect(jsonPath("$.data.totalBroadcastSeconds").isNumber())
+                .andExpect(jsonPath("$.data.broadcastCount").value(1))
+                .andExpect(jsonPath("$.data.totalBroadcastSeconds").value(3600))
                 .andExpect(jsonPath("$.data.trust.canceledAuctionCount").value(1))
                 .andExpect(jsonPath("$.data.trust.soldAuctionCount").value(0))
                 .andExpect(jsonPath("$.data.trust.averageShippingHours").doesNotExist());

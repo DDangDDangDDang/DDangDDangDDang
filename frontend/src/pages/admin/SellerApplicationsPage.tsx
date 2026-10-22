@@ -102,7 +102,8 @@ export function SellerApplicationsPage() {
         <div ref={sentinelRef} />
         {query.isFetchingNextPage && <Skeleton className="m-4 h-24" />}
       </Card>
-      <RejectDialog application={rejecting} onClose={() => setRejecting(undefined)} onRejected={refresh} />
+      {/* 신청마다 새로 그려 이전 신청의 반려 사유·오류가 남지 않게 한다. */}
+      <RejectDialog key={rejecting?.id ?? 'none'} application={rejecting} onClose={() => setRejecting(undefined)} onRejected={refresh} />
     </div>
   );
 }

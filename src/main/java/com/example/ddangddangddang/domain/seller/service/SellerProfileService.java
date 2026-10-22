@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.seller.service;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
+import com.example.ddangddangddang.domain.livestream.dto.SellerBroadcastSummary;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
@@ -25,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -53,11 +53,11 @@ public class SellerProfileService {
         SellerApplication approved = applicationRepository.findByUserId(sellerId)
                 .filter(SellerApplication::isApproved).orElse(null);
 
-        LocalDateTime now = LocalDateTime.now();
-        List<LiveStream> streams = liveStreamRepository.findBySellerIdAndStartedAtIsNotNull(sellerId);
-        LocalDateTime firstBroadcastAt = streams.stream().map(LiveStream::getStartedAt).min(Comparator.naturalOrder()).orElse(null);
-        Long liveStreamId = streams.stream().filter(s -> s.getStatus() == LiveStreamStatus.LIVE)
-                .map(LiveStream::getId).findFirst().orElse(null);
+        // 방송 기록은 집계 쿼리로 구한다. (방송이 많아도 엔티티를 모두 읽지 않음) 방송 중인 방송은 판매자당 하나라 따로 읽는다.
+        SellerBroadcastSummary summary = liveStreamRepository.summarizeBroadcasts(sellerId);
+        LiveStream live = liveStreamRepository.findByActiveSellerId(sellerId)
+                .filter(s -> s.getStatus() == LiveStreamStatus.LIVE).orElse(null);
+        Long endedSeconds = liveStreamRepository.sumEndedBroadcastSeconds(sellerId);
 
         return new SellerProfileResponse(
                 sellerId,
@@ -69,10 +69,10 @@ public class SellerProfileService {
                 seller.getCreatedAt(),
                 subscriptionService.countSubscribers(sellerId),
                 subscriptionService.isSubscribed(viewerId, sellerId),
-                liveStreamId,
-                firstBroadcastAt,
-                streams.size(),
-                totalBroadcastSeconds(streams, now),
+                live == null ? null : live.getId(),
+                summary == null ? null : summary.firstStartedAt(),
+                summary == null || summary.broadcastCount() == null ? 0 : summary.broadcastCount(),
+                totalBroadcastSeconds(endedSeconds, live, LocalDateTime.now()),
                 new SellerProfileResponse.Trust(
                         seller.getPhoneNumber() != null,
                         auctionRepository.countByProductSellerIdAndStatus(sellerId, AuctionStatus.ENDED),
@@ -94,11 +94,13 @@ public class SellerProfileService {
         return CursorResponse.of(fetched, pageSize, SellerAuctionResponse::from, Auction::getId);
     }
 
-    /** 방송한 시간 합(초). 끝난 방송은 시작~종료, 방송 중이면 시작~지금 */
-    static long totalBroadcastSeconds(List<LiveStream> streams, LocalDateTime now) {
-        return streams.stream()
-                .mapToLong(s -> Math.max(0, Duration.between(s.getStartedAt(), s.getEndedAt() == null ? now : s.getEndedAt()).toSeconds()))
-                .sum();
+    /** 방송한 시간 합(초) = 끝난 방송의 시작~종료 합 + 방송 중이면 시작~지금 */
+    static long totalBroadcastSeconds(Long endedSeconds, LiveStream live, LocalDateTime now) {
+        long ended = endedSeconds == null ? 0 : Math.max(0, endedSeconds);
+        if (live == null || live.getStartedAt() == null) {
+            return ended;
+        }
+        return ended + Math.max(0, Duration.between(live.getStartedAt(), now).toSeconds());
     }
 
     /** 주문부터 발송까지 걸린 평균 시간(시간 단위, 소수 첫째 자리). 발송한 주문이 없으면 null */

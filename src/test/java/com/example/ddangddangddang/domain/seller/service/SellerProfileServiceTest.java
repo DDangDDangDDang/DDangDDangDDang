@@ -16,13 +16,13 @@ class SellerProfileServiceTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 22, 12, 0);
 
     @Test
-    @DisplayName("방송한 시간은 끝난 방송은 시작~종료, 방송 중이면 시작~지금을 더한다")
+    @DisplayName("방송한 시간은 끝난 방송의 합에 방송 중인 방송의 시작~지금을 더한다")
     void totalBroadcastSeconds() {
-        LiveStream ended = stream(NOW.minusHours(3), NOW.minusHours(2));     // 1시간
         LiveStream live = stream(NOW.minusMinutes(30), null);              // 30분
 
-        assertThat(SellerProfileService.totalBroadcastSeconds(List.of(ended, live), NOW)).isEqualTo(3600 + 1800);
-        assertThat(SellerProfileService.totalBroadcastSeconds(List.of(), NOW)).isZero();
+        assertThat(SellerProfileService.totalBroadcastSeconds(3600L, live, NOW)).isEqualTo(3600 + 1800);
+        assertThat(SellerProfileService.totalBroadcastSeconds(3600L, null, NOW)).isEqualTo(3600);
+        assertThat(SellerProfileService.totalBroadcastSeconds(null, null, NOW)).isZero();
     }
 
     @Test

@@ -72,12 +72,12 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
               판매자 인증
             </Badge>
           )}
-          {profile.liveStreamId !== undefined && (
+          {profile.liveStreamId ? (
             <Badge variant="live">
               <span aria-hidden="true" className="size-1.5 rounded-full bg-neutral-0" />
               LIVE
             </Badge>
-          )}
+          ) : null}
         </div>
         {profile.storeName && <span className="text-body font-semibold text-neutral-700">{profile.storeName}</span>}
         <span className="text-label text-neutral-500">
@@ -87,12 +87,12 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <SubscribeButton sellerId={sellerId} subscribed={profile.subscribed ?? false} />
-        {profile.liveStreamId !== undefined && (
+        {profile.liveStreamId ? (
           <Link to={`/lives/${profile.liveStreamId}`} onClick={onNavigate} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
             <Radio className="size-4" aria-hidden="true" />
             방송 보러 가기
           </Link>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -212,7 +212,7 @@ function AuctionsTab({ sellerId, onNavigate }: { sellerId: number; onNavigate: (
                   <span className="flex min-w-0 items-center gap-1.5">
                     <AuctionPhaseBadge phase={phase} />
                     <strong className="truncate text-body font-semibold">{auction.productName || '이름 없는 상품'}</strong>
-                    {auction.liveStreamId !== undefined && <Badge variant="neutral">방송 경매</Badge>}
+                    {auction.liveStreamId ? <Badge variant="neutral">방송 경매</Badge> : null}
                   </span>
                   <span className="text-caption text-neutral-500">
                     {auction.startAt ? formatDateTime(auction.startAt) : '-'} ~ {auction.endAt ? formatDateTime(auction.endAt) : '-'}

@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.livestream.repository;
 
+import com.example.ddangddangddang.domain.livestream.dto.SellerBroadcastSummary;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import org.springframework.data.domain.Pageable;
@@ -29,8 +30,15 @@ public interface LiveStreamRepository extends JpaRepository<LiveStream, Long> {
     // 구독한 판매자 중 방송 중인 판매자 (홈 화면 구독 목록의 LIVE 표시)
     List<LiveStream> findBySellerIdInAndStatus(Collection<Long> sellerIds, LiveStreamStatus status);
 
-    // 판매자 프로필: 시작한 적 있는 방송 (첫 방송일, 방송 수, 방송한 시간 합)
-    List<LiveStream> findBySellerIdAndStartedAtIsNotNull(Long sellerId);
+    // 판매자 프로필: 시작한 적 있는 방송의 첫 시작 시각과 수 (방송이 많아도 엔티티를 읽지 않고 집계 한 번)
+    @Query("select new com.example.ddangddangddang.domain.livestream.dto.SellerBroadcastSummary(min(s.startedAt), count(s))"
+            + " from LiveStream s where s.sellerId = :sellerId and s.startedAt is not null")
+    SellerBroadcastSummary summarizeBroadcasts(@Param("sellerId") Long sellerId);
+
+    // 판매자 프로필: 끝난 방송의 방송 시간 합(초). 방송 중인 방송은 서비스에서 지금까지를 더한다.
+    @Query("select coalesce(sum((s.endedAt - s.startedAt) by second), 0) from LiveStream s"
+            + " where s.sellerId = :sellerId and s.startedAt is not null and s.endedAt is not null")
+    Long sumEndedBroadcastSeconds(@Param("sellerId") Long sellerId);
 
     // 홈 화면에서 시청자 수 정보가 아직 없을 때 채우는 용도. 최근 시작한 방송부터
     List<LiveStream> findByStatusOrderByStartedAtDesc(LiveStreamStatus status, Pageable pageable);

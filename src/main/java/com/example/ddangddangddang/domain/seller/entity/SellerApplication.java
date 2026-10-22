@@ -56,6 +56,10 @@ public class SellerApplication extends BaseTimeEntity {
     @Column(name = "reviewed_at")
     private LocalDateTime reviewedAt;
 
+    // 두 관리자가 같은 신청을 동시에 심사하거나, 재신청과 심사가 겹치면 한쪽만 성공시키기 위한 낙관적 락
+    @Version
+    private Long version;
+
     private SellerApplication(Long userId, String storeName, String introduction) {
         this.userId = userId;
         this.storeName = storeName;

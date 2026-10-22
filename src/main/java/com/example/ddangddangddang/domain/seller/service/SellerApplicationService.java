@@ -13,6 +13,7 @@ import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +52,8 @@ public class SellerApplicationService {
         SellerApplication application = applicationRepository.findByUserId(userId).orElse(null);
         if (application != null) {
             application.resubmit(storeName, introduction);
+            // 재신청이 겹치면(버튼 연타·다른 탭) 먼저 낸 신청만 남기고 나머지는 심사 중으로 안내한다.
+            flush(application, SellerErrorCode.APPLICATION_PENDING);
             return SellerApplicationResponse.from(application);
         }
         try {
@@ -83,6 +86,7 @@ public class SellerApplicationService {
     public SellerApplicationResponse approve(Long applicationId) {
         SellerApplication application = findById(applicationId);
         application.approve(LocalDateTime.now());
+        flush(application, SellerErrorCode.ALREADY_REVIEWED);
         return SellerApplicationResponse.from(application);
     }
 
@@ -90,7 +94,17 @@ public class SellerApplicationService {
     public SellerApplicationResponse reject(Long applicationId, String reason) {
         SellerApplication application = findById(applicationId);
         application.reject(reason.strip(), LocalDateTime.now());
+        flush(application, SellerErrorCode.ALREADY_REVIEWED);
         return SellerApplicationResponse.from(application);
+    }
+
+    // 같은 신청을 동시에 바꾸면 먼저 커밋한 쪽만 성공한다. (@Version)
+    private void flush(SellerApplication application, SellerErrorCode conflict) {
+        try {
+            applicationRepository.saveAndFlush(application);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new BusinessException(conflict, e);
+        }
     }
 
     private SellerApplication findById(Long applicationId) {

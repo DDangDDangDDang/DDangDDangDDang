@@ -89,14 +89,14 @@ function SubscribedRow({ seller }: { seller: Subscribed }) {
       ) : (
         <span className="flex min-w-0 items-center gap-2.5">{identity}</span>
       )}
-      {seller.liveStreamId !== undefined && (
+      {seller.liveStreamId ? (
         <Link to={`/lives/${seller.liveStreamId}`} aria-label={`${name} 방송 보러 가기${seller.liveTitle ? `: ${seller.liveTitle}` : ''}`} title={seller.liveTitle}>
           <Badge variant="live" className="shrink-0">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-neutral-0" />
             LIVE
           </Badge>
         </Link>
-      )}
+      ) : null}
     </div>
   );
 }

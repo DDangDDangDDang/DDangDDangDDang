@@ -36,7 +36,7 @@ export function LiveStartToasts() {
         <Toast
           key={toast.id}
           notification={toast}
-          onDismiss={() => dismiss(toast.id)}
+          onDismiss={dismiss}
           onOpen={() => {
             if (toast.id !== undefined) read.mutate(toast.id);
             dismiss(toast.id);
@@ -47,11 +47,13 @@ export function LiveStartToasts() {
   );
 }
 
-function Toast({ notification, onDismiss, onOpen }: { notification: NotificationMessage; onDismiss: () => void; onOpen: () => void }) {
+function Toast({ notification, onDismiss, onOpen }: { notification: NotificationMessage; onDismiss: (id?: number) => void; onOpen: () => void }) {
+  const id = notification.id;
+  // 팝업이 뜬 때부터 한 번만 센다. (새 알림이 와서 목록이 다시 그려져도 처음부터 다시 세지 않게, 고정된 dismiss와 id만 쓴다)
   useEffect(() => {
-    const timer = setTimeout(onDismiss, AUTO_CLOSE_MS);
+    const timer = setTimeout(() => onDismiss(id), AUTO_CLOSE_MS);
     return () => clearTimeout(timer);
-  }, [onDismiss]);
+  }, [onDismiss, id]);
 
   return (
     <div role="status" className="pointer-events-auto flex items-start gap-3 rounded-lg border border-neutral-100 bg-neutral-0 px-4 py-3 shadow-md">
@@ -67,7 +69,7 @@ function Toast({ notification, onDismiss, onOpen }: { notification: Notification
           보러 가기
         </Link>
       </div>
-      <button type="button" aria-label="알림 닫기" onClick={onDismiss} className="flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-50">
+      <button type="button" aria-label="알림 닫기" onClick={() => onDismiss(id)} className="flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-50">
         <X className="size-4" aria-hidden="true" />
       </button>
     </div>

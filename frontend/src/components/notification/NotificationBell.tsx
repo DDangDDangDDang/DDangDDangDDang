@@ -90,7 +90,7 @@ function NotificationPanel({ hasUnread, onClose }: { hasUnread: boolean; onClose
   const open = (notification: Notification) => {
     if (notification.id !== undefined && !notification.read) read.mutate(notification.id);
     onClose();
-    if (notification.liveStreamId !== undefined) navigate(`/lives/${notification.liveStreamId}`);
+    if (notification.liveStreamId) navigate(`/lives/${notification.liveStreamId}`);
   };
 
   return (
