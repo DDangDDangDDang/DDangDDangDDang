@@ -95,10 +95,19 @@ test.describe('판매자 구독', () => {
     }
   });
 
-  test('내 정보에서 판매자 인증 화면을 연다', async ({ page }) => {
+  test('오른쪽 위 내 닉네임을 누르면 내 정보 창이 뜨고, 창에서 판매자 인증 화면으로 간다', async ({ page }) => {
     await login(page);
-    await page.goto('/me');
-    await page.getByRole('link', { name: '판매자 인증' }).click();
+    const menu = page.getByRole('navigation', { name: '내 메뉴' });
+    // 상단 탭: 홈이 라이브 왼쪽에 있고, 내 정보 탭은 없다.
+    await expect(menu.getByRole('link').first()).toHaveText('홈');
+    await expect(menu.getByRole('link', { name: '내 정보' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: /정보 보기$/ }).click();
+    const dialog = page.getByRole('dialog', { name: '내 정보' });
+    await expect(dialog.getByText('이메일')).toBeVisible();
+    await test.info().attach('내 정보 창', { body: await page.screenshot(), contentType: 'image/png' });
+    await dialog.getByRole('link', { name: '판매자 인증' }).click();
+    await expect(dialog).toBeHidden();
     await expect(page).toHaveURL(/\/me\/seller$/);
     // 처음이면 신청 양식, 신청했으면 심사 상태가 나온다.
     await expect(page.getByLabel('상점 이름 (30자 이하)').or(page.getByText(/심사 중|승인|반려/).first())).toBeVisible();

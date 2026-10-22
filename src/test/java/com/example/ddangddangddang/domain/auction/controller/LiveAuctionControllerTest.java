@@ -16,6 +16,8 @@ import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
+import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
+import com.example.ddangddangddang.support.SellerFixture;
 import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.DisplayName;
@@ -60,6 +62,9 @@ class LiveAuctionControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private SellerApplicationRepository sellerApplicationRepository;
 
     @Autowired
     private LiveStreamService liveStreamService;
@@ -295,6 +300,7 @@ class LiveAuctionControllerTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"title\": \"경매 방송\"}"))
                 .andExpect(status().isCreated()), "$.data.id");
         given(mediaServerClient.createPublisherToken(anyString(), anyString(), anyString())).willReturn("token");
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
         liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
         return liveStreamId;
     }

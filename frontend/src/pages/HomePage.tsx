@@ -7,7 +7,7 @@ import { AuctionCard, AuctionCardSkeleton } from '@/components/auction/AuctionBi
 import { LiveStreamCard, LiveStreamCardSkeleton } from '@/components/live/LiveStreamCard';
 import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime } from '@/lib/format';
-import { SubscriptionSidebar } from './home/SubscriptionSidebar';
+import { SubscriptionSidebar } from '@/components/seller/SubscriptionSidebar';
 
 /** 섹션별로 보여줄 방송 수 (한 줄 4개씩 2줄) */
 const SECTION_SIZE = 8;
@@ -30,7 +30,7 @@ export function HomePage() {
   );
 }
 
-/** 로그인 전 맨 위 소개. 아래 방송·경매는 로그인 없이도 볼 수 있다. */
+/** 로그인 전 맨 위 소개. 아래 방송·경매는 로그인 없이도 볼 수 있다. 로그인·회원가입 버튼은 헤더 오른쪽 위에만 둔다. */
 function GuestIntro() {
   return (
     <section className="flex items-center gap-6 rounded-lg border border-neutral-100 bg-neutral-0 px-8 py-8 shadow-sm">
@@ -39,15 +39,7 @@ function GuestIntro() {
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <h1 className="text-title-lg font-bold tracking-tight">라이브로 보고, 실시간으로 입찰하세요</h1>
-        <p className="text-body text-neutral-500">방송과 경매는 로그인 없이 둘러볼 수 있어요. 채팅과 입찰은 로그인한 뒤에 할 수 있어요.</p>
-      </div>
-      <div className="flex shrink-0 gap-2">
-        <Link to="/login" className={buttonVariants({ variant: 'primary', size: 'lg' })}>
-          로그인
-        </Link>
-        <Link to="/signup" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
-          회원가입
-        </Link>
+        <p className="text-body text-neutral-500">방송과 경매는 로그인 없이 둘러볼 수 있어요. 채팅과 입찰은 오른쪽 위에서 로그인한 뒤에 할 수 있어요.</p>
       </div>
     </section>
   );

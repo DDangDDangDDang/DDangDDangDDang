@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.livestream.service;
 
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
+import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
@@ -53,6 +54,8 @@ public class LiveStreamService {
     private final MediaServerClient mediaServerClient;
     private final ApplicationEventPublisher eventPublisher;
     private final ChatContentFilter contentFilter;
+    // 방송 시작은 판매자 인증(관리자 승인)을 받은 회원만 할 수 있다.
+    private final SellerVerification sellerVerification;
 
     /**
      * 방송을 만든다. 판매자는 종료되지 않은(대기 중·방송 중) 방송을 하나만 가질 수 있다.
@@ -197,6 +200,10 @@ public class LiveStreamService {
     @Transactional
     public LiveStreamTokenResponse start(Long liveStreamId, Long sellerId, String nickname) {
         LiveStream liveStream = findById(liveStreamId);
+        // 남의 방송이면 인증 여부보다 권한 오류를 먼저 알린다. (엔티티의 start에서도 다시 확인)
+        if (liveStream.isOwner(sellerId) && !sellerVerification.isVerified(sellerId)) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_VERIFIED_SELLER);
+        }
 
         if (liveStreamRepository.existsBySellerIdAndStatus(sellerId, LiveStreamStatus.LIVE)) {
             throw new BusinessException(LiveStreamErrorCode.ALREADY_LIVE);

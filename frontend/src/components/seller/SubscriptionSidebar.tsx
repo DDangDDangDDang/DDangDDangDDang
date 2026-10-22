@@ -4,14 +4,14 @@ import { Link } from 'react-router';
 import { api, call, errorMessage, useSession, type Schema } from '@/api';
 import { SellerAvatar } from '@/components/seller/SellerAvatar';
 import { useOpenSellerProfile } from '@/components/seller/seller-profile-context';
-import { Badge, buttonVariants, ErrorState, Skeleton } from '@/components/ui';
+import { Badge, ErrorState, Skeleton } from '@/components/ui';
 import { MY_SUBSCRIPTIONS_KEY } from '@/lib/use-seller';
 
 type Subscribed = Schema<'SubscribedSellerResponse'>;
 
 /**
- * 홈 왼쪽: 내가 구독 중인 판매자. 방송 중인 판매자가 위에 오고 이름 옆에 LIVE가 붙는다. LIVE를 누르면 그 방송으로 간다.
- * 인증 판매자는 이름을 누르면 판매자 프로필 창이 열린다. 로그인하지 않았으면 로그인 안내를 보여 준다.
+ * 홈·라이브 목록 왼쪽: 내가 구독 중인 판매자. 방송 중인 판매자가 위에 오고 이름 옆에 LIVE가 붙는다. LIVE를 누르면 그 방송으로 간다.
+ * 인증 판매자는 이름을 누르면 판매자 프로필 창이 열린다. 로그인하지 않았으면 안내 문구만 보여 준다. (로그인 버튼은 화면 오른쪽 위 하나)
  */
 export function SubscriptionSidebar() {
   const session = useSession();
@@ -24,12 +24,8 @@ export function SubscriptionSidebar() {
       {session ? (
         <SubscriptionList />
       ) : (
-        <div className="flex flex-col gap-3">
-          <p className="text-label text-neutral-500">로그인하고 판매자를 구독하면 방송을 시작할 때 알려 드려요.</p>
-          <Link to="/login?redirect=%2F" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-            로그인
-          </Link>
-        </div>
+        // 로그인 버튼은 화면 오른쪽 위에 하나만 둔다.
+        <p className="text-label text-neutral-500">로그인하고 판매자를 구독하면 여기에 모이고, 방송을 시작할 때 알려 드려요.</p>
       )}
     </aside>
   );

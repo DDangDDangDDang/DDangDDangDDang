@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Gavel, MessageCircle, Wallet } from 'lucide-react';
+import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { api, call, logout, useSession } from '@/api';
 import { BroadcastProvider } from '@/components/broadcast/BroadcastProvider';
 import { MiniBroadcast } from '@/components/broadcast/MiniBroadcast';
+import { MyInfoDialog } from '@/components/account/MyInfoDialog';
 import { DmRealtime } from '@/components/dm/DmRealtime';
 import { LiveStartToasts } from '@/components/notification/LiveStartToasts';
 import { NotificationBell } from '@/components/notification/NotificationBell';
@@ -46,6 +48,7 @@ function AppHeader() {
   const location = useLocation();
   const here = location.pathname + location.search;
   const back = ['/login', '/signup'].includes(location.pathname) ? '' : `?redirect=${encodeURIComponent(here)}`;
+  const [myInfoOpen, setMyInfoOpen] = useState(false);
 
   return (
     <header className="border-b border-neutral-100 bg-neutral-0">
@@ -58,6 +61,9 @@ function AppHeader() {
             <span className="text-logo font-bold tracking-tight">땅땅땅</span>
           </Link>
           <nav aria-label="내 메뉴" className="flex items-center">
+            <NavLink to="/" end className={navClass}>
+              홈
+            </NavLink>
             <NavLink to="/lives" className={navClass}>
               라이브
             </NavLink>
@@ -74,9 +80,6 @@ function AppHeader() {
                 </NavLink>
                 <NavLink to="/orders" className={navClass}>
                   주문 내역
-                </NavLink>
-                <NavLink to="/me" end className={navClass}>
-                  내 정보
                 </NavLink>
                 {session.user.role === 'ADMIN' && (
                   <>
@@ -101,7 +104,16 @@ function AppHeader() {
             <NotificationBell />
             <DmLink />
             <PointBalanceLink />
-            <span className="px-2 text-body font-semibold">{session.user.nickname}</span>
+            {/* 내 정보는 탭 대신 닉네임을 눌러 창으로 연다. */}
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-label={`${session.user.nickname ?? '내'} 정보 보기`}
+              onClick={() => setMyInfoOpen(true)}
+              className="rounded-md px-2 py-2 text-body font-semibold hover:bg-neutral-25"
+            >
+              {session.user.nickname}
+            </button>
             <Button
               variant="ghost"
               size="sm"
@@ -126,6 +138,7 @@ function AppHeader() {
           </div>
         )}
       </div>
+      {session && <MyInfoDialog open={myInfoOpen} onClose={() => setMyInfoOpen(false)} />}
     </header>
   );
 }
