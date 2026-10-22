@@ -7,6 +7,7 @@ import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits
 import { BidDialog } from '@/components/auction/BidDialog';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { ProductImage } from '@/components/order/OrderBits';
+import { SellerIdentity } from '@/components/seller/SellerIdentity';
 import { Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
@@ -102,9 +103,10 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
                 </span>
               )}
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-3">
               <h1 className="text-title-lg font-bold tracking-tight">{auction.productName || '이름 없는 상품'}</h1>
-              <span className="text-label text-neutral-500">판매자 {auction.sellerName || '-'}</span>
+              {/* 인증 판매자면 인증 마크가 붙고, 누르면 판매자 프로필(경매 기록·신뢰도) 창이 열린다. */}
+              <SellerIdentity sellerId={auction.sellerId} fallbackName={auction.sellerName} size="sm" detail="판매자" />
             </div>
 
             <div className="flex flex-col gap-1 rounded-md bg-neutral-25 px-4 py-3">

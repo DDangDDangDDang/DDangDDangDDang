@@ -59,6 +59,18 @@ export function MyInfoPage() {
           </Link>
         </CardBody>
       </Card>
+
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>판매자 인증</CardTitle>
+        </CardHeader>
+        <CardBody className="flex items-center justify-between gap-4">
+          <p className="text-body text-neutral-500">인증을 받으면 내 프로필에 판매자 인증 마크가 붙고, 시청자가 판매자 프로필(방송·경매 기록, 거래 신뢰도)을 볼 수 있어요.</p>
+          <Link to="/me/seller" className={buttonVariants({ variant: 'outline', className: 'shrink-0' })}>
+            판매자 인증
+          </Link>
+        </CardBody>
+      </Card>
     </div>
   );
 }

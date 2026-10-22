@@ -6,6 +6,7 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamUpdatedEvent;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
@@ -74,6 +75,33 @@ class LiveStreamServiceTest {
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(CommonErrorCode.INVALID_INPUT);
         then(liveStreamRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("방송을 시작하면 LIVE가 된 방송 정보로 변경 이벤트와 시작 이벤트를 발행한다 (방송 예정 화면의 시청자에게 알림)")
+    void startPublishesEvents() {
+        LiveStream liveStream = liveStream(false);
+        given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+        liveStreamService.start(LIVE_STREAM_ID, SELLER_ID, "판매자");
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        then(eventPublisher).should(org.mockito.Mockito.times(2)).publishEvent(captor.capture());
+        assertThat(captor.getAllValues().get(0)).isInstanceOfSatisfying(LiveStreamUpdatedEvent.class,
+                event -> assertThat(event.liveStream().status()).isEqualTo(LiveStreamStatus.LIVE));
+        assertThat(captor.getAllValues().get(1)).isEqualTo(new LiveStreamStartedEvent(LIVE_STREAM_ID));
+    }
+
+    @Test
+    @DisplayName("방송 서버에 방을 만들지 못하면 시작하지 않고 시청자에게 알리지도 않는다")
+    void startFailsWithoutEvents() {
+        given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(false)));
+        org.mockito.BDDMockito.willThrow(new BusinessException(LiveStreamErrorCode.MEDIA_SERVER_ERROR))
+                .given(mediaServerClient).createRoom(anyString());
+
+        assertThatThrownBy(() -> liveStreamService.start(LIVE_STREAM_ID, SELLER_ID, "판매자"))
+                .isInstanceOf(BusinessException.class);
+        then(eventPublisher).should(never()).publishEvent(any());
     }
 
     @Nested
