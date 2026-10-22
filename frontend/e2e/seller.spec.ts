@@ -117,7 +117,7 @@ test.describe('판매자 구독', () => {
     await expect(dialog).toBeHidden();
     await expect(page).toHaveURL(/\/me\/seller$/);
     // 처음이면 신청 양식, 신청했으면 심사 상태가 나온다.
-    await expect(page.getByLabel('상점 이름 (30자 이하)').or(page.getByText(/심사 중|승인|반려/).first())).toBeVisible();
+    await expect(page.getByLabel('상점 이름 (30자 이하)').or(page.getByText(/심사 중|승인|반려/).first()).first()).toBeVisible();
   });
 });
 

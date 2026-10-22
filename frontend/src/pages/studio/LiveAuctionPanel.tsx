@@ -5,7 +5,8 @@ import { errorMessage, type Schema } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
 import { AuctionConditionFields } from '@/components/auction/AuctionConditionFields';
 import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorState, Notice, Skeleton } from '@/components/ui';
-import { auctionPhase, EMPTY_AUCTION_CONDITION, validateAuctionCondition, type AuctionConditionErrors, type AuctionConditionValues } from '@/lib/auction';
+import { cn } from '@/lib/cn';
+import { auctionPhase, auctionStatusTab, type AuctionStatusTab, EMPTY_AUCTION_CONDITION, validateAuctionCondition, type AuctionConditionErrors, type AuctionConditionValues } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 import { ProductCreateDialog } from './ProductCreateDialog';
@@ -181,11 +182,20 @@ function ActiveAuction({ auction, live, auctions }: { auction: Schema<'AuctionRe
 }
 
 /** 이 방송에 올라간 경매: 진행 중인 것을 위에, 끝난 것은 아래에. 현재가·입찰 수·남은 시간과 취소 버튼. */
+const STATUS_TABS: { key: AuctionStatusTab; label: string; empty: string }[] = [
+  { key: 'ONGOING', label: '진행 중', empty: '지금 진행 중인 경매가 없어요.' },
+  { key: 'READY', label: '시작 전', empty: '시작을 기다리는 경매가 없어요.' },
+  { key: 'ENDED', label: '종료', empty: '아직 끝난 경매가 없어요.' },
+];
+
 export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
   const now = useNow(1000);
   const list = auctions.auctions;
-  const running = list.filter((a) => auctionPhase(a, now) === 'ONGOING');
-  const others = list.filter((a) => auctionPhase(a, now) !== 'ONGOING');
+  // 상태 탭: 기본은 진행 중. 시작 전·종료 경매는 탭을 바꿔서 본다.
+  const [tab, setTab] = useState<AuctionStatusTab>('ONGOING');
+  const byTab = (key: AuctionStatusTab) => list.filter((a) => auctionStatusTab(auctionPhase(a, now)) === key);
+  const running = byTab('ONGOING');
+  const shown = byTab(tab);
   const cancel = auctions.cancel;
   const [cancelTarget, setCancelTarget] = useState<Schema<'AuctionResponse'>>();
 
@@ -196,7 +206,24 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
           진행 중인 경매 <span className="num text-brand-700">{running.length}</span>
         </CardTitle>
       </CardHeader>
-      <CardBody>
+      <CardBody className="flex flex-col gap-3">
+        <div role="tablist" aria-label="경매 상태" className="flex gap-1 rounded-md bg-neutral-50 p-1">
+          {STATUS_TABS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.key}
+              onClick={() => setTab(item.key)}
+              className={cn(
+                'h-8 flex-1 rounded-sm px-2 text-label font-semibold transition-colors',
+                tab === item.key ? 'bg-neutral-0 text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-900',
+              )}
+            >
+              {item.label} <span className="num">{byTab(item.key).length}</span>
+            </button>
+          ))}
+        </div>
         <ul aria-live="polite" aria-label="이 방송의 경매" className="flex max-h-[360px] flex-col gap-2 overflow-y-auto">
           {auctions.loadingAuctions && list.length === 0 ? (
             <li>
@@ -204,8 +231,10 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
             </li>
           ) : list.length === 0 ? (
             <li className="rounded-md bg-neutral-25 px-3 py-3 text-label text-neutral-500">경매 상품에서 [경매 시작]이나 [이 방송에 올리기]를 누르면 여기에서 현재가와 남은 시간을 볼 수 있어요.</li>
+          ) : shown.length === 0 ? (
+            <li className="rounded-md bg-neutral-25 px-3 py-3 text-label text-neutral-500">{STATUS_TABS.find((item) => item.key === tab)?.empty}</li>
           ) : (
-            [...running, ...others].map((auction) => {
+            shown.map((auction) => {
               const phase = auctionPhase(auction, now);
               return (
                 <li key={auction.id} className="flex flex-col gap-2 rounded-md bg-neutral-25 px-3 py-3">

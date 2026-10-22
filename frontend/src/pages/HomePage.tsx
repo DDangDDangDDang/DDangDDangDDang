@@ -185,7 +185,8 @@ function PopularAuctions() {
     <Section
       title="인기 경매"
       description="지금 입찰이 몰리는 경매예요."
-      moreTo="/auctions?status=ONGOING"
+      // 홈 인기 경매와 같은 기준(입찰 수 많은 순)으로 연다. 상단 [경매] 메뉴로 들어가면 최신순 그대로.
+      moreTo="/auctions?status=ONGOING&sort=POPULAR"
     >
       {query.isPending ? (
         <CardGrid>

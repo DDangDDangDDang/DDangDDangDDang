@@ -76,7 +76,8 @@ export function AuctionCard({ auction }: { auction: ListItem }) {
           <span className="text-label text-neutral-500">
             입찰 <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
           </span>
-          <AuctionTime status={auction.status} endAt={auction.endAt} />
+          {/* 시작 전이면 시작 시각, 진행 중이면 남은 시간, 끝났으면 마감 시각 */}
+          <AuctionTime status={auction.status} startAt={auction.startAt} endAt={auction.endAt} />
         </span>
       </div>
     </Link>
