@@ -208,6 +208,11 @@ test.describe('판매자 송출', () => {
         await studio.getByLabel('방송 제목 (100자 이하)').fill(title);
         // 해시태그: Enter로 더하고, 앞의 #은 빼고 저장된다.
         const hashtagInput = studio.getByLabel('해시태그 (선택, 5개까지)');
+        // 형식이 맞지 않는 글이 남아 있으면 방송을 만들지 않고 오류를 보여 준다. (오류 난 글이 말없이 버려지지 않게)
+        await hashtagInput.fill('한정판!');
+        await createButton.click();
+        await expect(studio.getByText('해시태그는 한글·영문·숫자·밑줄(_)로 20자까지 쓸 수 있어요.')).toBeVisible();
+        await expect(createButton).toBeVisible();
         await hashtagInput.fill(`#${tag}`);
         await hashtagInput.press('Enter');
         await hashtagInput.fill('필름카메라');

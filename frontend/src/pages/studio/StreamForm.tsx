@@ -31,6 +31,8 @@ export function StreamForm(props: Props) {
   const [values, setValues] = useState<StreamFormValues>(() => formValuesOf(original));
   const [errors, setErrors] = useState<StreamFormErrors>({});
   const [notice, setNotice] = useState<string>();
+  // 해시태그 입력칸에 태그로 더하지 못한 글(형식 오류)이 남았는지 (HashtagField)
+  const [hashtagInvalid, setHashtagInvalid] = useState(false);
   const canSchedule = props.mode === 'create' || original?.status === 'SCHEDULED';
 
   const mutation = useMutation({
@@ -77,7 +79,8 @@ export function StreamForm(props: Props) {
     const scheduleChanged = canSchedule && values.scheduledStartAt !== formValuesOf(original).scheduledStartAt;
     const next = validateStreamForm(scheduleChanged ? values : { ...values, scheduledStartAt: '' }, new Date());
     setErrors(next);
-    if (Object.keys(next).length === 0) mutation.mutate();
+    // 해시태그 입력칸에 형식이 맞지 않는 글이 남아 있으면 저장하지 않는다. (오류는 입력칸 아래에 이미 보임)
+    if (Object.keys(next).length === 0 && !hashtagInvalid) mutation.mutate();
   };
 
   const now = new Date();
@@ -111,7 +114,7 @@ export function StreamForm(props: Props) {
           </span>
         }
       />
-      <HashtagField tags={values.hashtags} onChange={(hashtags) => update({ hashtags })} error={errors.hashtags} />
+      <HashtagField tags={values.hashtags} onChange={(hashtags) => update({ hashtags })} error={errors.hashtags} onValidityChange={(valid) => setHashtagInvalid(!valid)} />
       {canSchedule && (
         <div className="w-[320px]">
           <Input

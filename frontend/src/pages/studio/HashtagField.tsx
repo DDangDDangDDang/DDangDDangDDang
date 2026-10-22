@@ -11,13 +11,15 @@ type Props = {
   onChange: (tags: string[]) => void;
   /** 서버가 거절한 이유 (LIVESTREAM_015 등) */
   error?: string;
+  /** 입력칸에 태그로 더하지 못한 글(형식 오류)이 남았는지. 남았으면 폼은 저장하지 않는다. (오류 난 글이 말없이 버려지지 않게) */
+  onValidityChange?: (valid: boolean) => void;
 };
 
 /**
  * 방송 해시태그 입력: 글을 쓰고 Enter·쉼표·띄어쓰기를 누르면 태그로 더한다. 입력칸을 벗어나도 더한다.
  * 더한 태그는 아래에 #태그로 보이고, [X]로 지운다. 방송 목록 카드에서 시청자에게 보인다.
  */
-export function HashtagField({ tags, onChange, error }: Props) {
+export function HashtagField({ tags, onChange, error, onValidityChange }: Props) {
   const [draft, setDraft] = useState('');
   const [inputError, setInputError] = useState<string>();
 
@@ -34,6 +36,7 @@ export function HashtagField({ tags, onChange, error }: Props) {
     }
     setDraft(next.draft);
     setInputError(next.error);
+    onValidityChange?.(!next.error);
     if (next.tags !== tags) onChange(next.tags);
   };
 
@@ -65,6 +68,7 @@ export function HashtagField({ tags, onChange, error }: Props) {
           if ((e.nativeEvent as InputEvent).isComposing) {
             setDraft(e.target.value);
             setInputError(undefined);
+            onValidityChange?.(true);
           } else {
             apply(e.target.value, false);
           }
