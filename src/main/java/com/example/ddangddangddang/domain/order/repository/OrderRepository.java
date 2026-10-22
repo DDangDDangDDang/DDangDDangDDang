@@ -18,6 +18,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     boolean existsByAuctionId(Long auctionId);
     boolean existsByCourierAndTrackingNo(Courier courier, String trackingNo);
 
+    /** 판매자 프로필 신뢰 지표: 판매자의 주문 중 그 상태인 것의 수 (구매 확정 수) */
+    long countBySellerIdAndStatus(Long sellerId, OrderStatus status);
+
+    /** 판매자 프로필 신뢰 지표: 최근 발송한 주문 (주문부터 발송까지 걸린 시간 평균) */
+    List<Order> findTop100BySellerIdAndShippedAtIsNotNullOrderByIdDesc(Long sellerId);
+
     /** 구매 내역. cursor보다 오래된 주문을 최신순으로 조회한다. status, cursor가 null이면 조건을 적용하지 않는다. */
     @Query("""
             select o from Order o

@@ -78,6 +78,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `/user/queue/moderation` | 방송 판매자 | `ModerationAlert` (AI가 확인이 필요하다고 본 채팅) |
 | `/user/queue/live-stream` | 방송 판매자 | `LiveStreamIdleMessage` (송출이 없어 곧 자동 종료됨·취소됨·종료됨) |
 | `/user/queue/dm` | 나 | `DmEvent` (1:1 채팅 새 메시지, 읽음) |
+| `/user/queue/notifications` | 나 | `NotificationResponse` (구독한 판매자가 방송을 시작함) |
 
 ### 메시지 형식
 
@@ -138,6 +139,19 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `message` | DmMessageResponse \| null | `MESSAGE`일 때. REST의 `DmMessageResponse`와 같은 형식 |
 | `readerId` | number \| null | `READ`일 때. 읽은 사람 |
 | `lastReadMessageId` | number \| null | `READ`일 때. 여기까지 읽음 (보낸 사람 화면의 "1"을 지움) |
+
+**NotificationResponse**: REST 알림함(`GET /api/v1/notifications`)의 항목과 같은 형식입니다. 알림함에 저장된 뒤에 오므로, 받은 뒤 알림함·안 읽은 수를 다시 불러와도 같은 알림이 보입니다.
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `id` | number | 알림 ID (읽음 처리 `POST /api/v1/notifications/{id}/read`) |
+| `type` | `"LIVE_STARTED"` | 구독한 판매자가 방송을 시작함 |
+| `sellerId` | number | |
+| `sellerNickname` | string \| null | 알림을 만든 때의 닉네임 |
+| `liveStreamId` | number | 시작한 방송 (`/lives/{liveStreamId}`) |
+| `liveTitle` | string | 알림을 만든 때의 방송 제목 |
+| `read` | boolean | 실시간으로 올 때는 항상 false |
+| `createdAt` | string | |
 
 ### 실시간 메시지를 바꿀 때
 

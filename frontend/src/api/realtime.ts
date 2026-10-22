@@ -71,6 +71,9 @@ export type LiveStreamIdleMessage = {
  * 1:1 채팅 이벤트 (`/user/queue/dm`). 내가 보낸 메시지도 온다. (같은 계정의 다른 탭·기기)
  * MESSAGE: message가 새 메시지 · READ: readerId가 lastReadMessageId까지 읽음 (보낸 사람 화면의 "1"을 지운다)
  */
+/** 알림 (`/user/queue/notifications`). REST 알림함의 항목과 같은 형식. 구독한 판매자가 방송을 시작함 등 */
+export type NotificationMessage = components['schemas']['NotificationResponse'];
+
 export type DmEvent = {
   type: 'MESSAGE' | 'READ';
   roomId: number;
@@ -90,6 +93,7 @@ export const REALTIME = {
   moderation: '/user/queue/moderation',
   liveStreamIdle: '/user/queue/live-stream',
   dm: '/user/queue/dm',
+  notifications: '/user/queue/notifications',
   sendLiveChat: (liveStreamId: number) => `/app/live-streams/${liveStreamId}/chat`,
 } as const;
 

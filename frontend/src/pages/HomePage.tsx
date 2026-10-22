@@ -7,21 +7,25 @@ import { AuctionCard, AuctionCardSkeleton } from '@/components/auction/AuctionBi
 import { LiveStreamCard, LiveStreamCardSkeleton } from '@/components/live/LiveStreamCard';
 import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime } from '@/lib/format';
+import { SubscriptionSidebar } from './home/SubscriptionSidebar';
 
 /** 섹션별로 보여줄 방송 수 (한 줄 4개씩 2줄) */
 const SECTION_SIZE = 8;
 
 /**
- * 홈: 인기 라이브 · 시청자 급상승 · 방송 예정 · 인기 경매.
+ * 홈: 왼쪽에 구독 중인 판매자, 가운데에 인기 라이브 · 시청자 급상승 · 방송 예정 · 인기 경매.
  * 로그인하지 않아도 방송·경매를 둘러볼 수 있다. 로그인 전에는 맨 위에 서비스 소개와 로그인 안내를 함께 보여준다.
  */
 export function HomePage() {
   const session = useSession();
   return (
-    <div className="flex flex-col gap-12">
-      {!session && <GuestIntro />}
-      <LiveHome />
-      <PopularAuctions />
+    <div className="flex items-start gap-8">
+      <SubscriptionSidebar />
+      <div className="flex min-w-0 flex-1 flex-col gap-12">
+        {!session && <GuestIntro />}
+        <LiveHome />
+        <PopularAuctions />
+      </div>
     </div>
   );
 }

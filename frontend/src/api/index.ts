@@ -18,6 +18,7 @@ export {
   type LiveStreamIdleMessage,
   type LiveStreamUpdatedMessage,
   type ModerationAlert,
+  type NotificationMessage,
   type RealtimeConnection,
   type RealtimeError,
   type RealtimeStatus,

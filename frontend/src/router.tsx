@@ -7,6 +7,7 @@ import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
 import { SignupPage } from '@/pages/auth/SignupPage';
 import { CategoryAdminPage } from '@/pages/admin/CategoryAdminPage';
 import { DmReportsPage } from '@/pages/admin/DmReportsPage';
+import { SellerApplicationsPage } from '@/pages/admin/SellerApplicationsPage';
 import { AuctionDetailPage } from '@/pages/auctions/AuctionDetailPage';
 import { AuctionListPage } from '@/pages/auctions/AuctionListPage';
 import { DevComponentsPage } from '@/pages/DevComponentsPage';
@@ -16,6 +17,7 @@ import { LiveWatchPage } from '@/pages/live/LiveWatchPage';
 import { MyInfoPage } from '@/pages/me/MyInfoPage';
 import { MessagesPage } from '@/pages/messages/MessagesPage';
 import { PointsPage } from '@/pages/me/PointsPage';
+import { SellerApplicationPage } from '@/pages/me/SellerApplicationPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { OrderDetailPage } from '@/pages/orders/OrderDetailPage';
 import { OrdersPage } from '@/pages/orders/OrdersPage';
@@ -55,6 +57,7 @@ export const router = createBrowserRouter([
         children: [
           { path: '/me', element: <MyInfoPage /> },
           { path: '/points', element: <PointsPage /> },
+          { path: '/me/seller', element: <SellerApplicationPage /> },
           { path: '/orders', element: <OrdersPage /> },
           { path: '/orders/:orderId', element: <OrderDetailPage /> },
           { path: '/studio', element: <SellerStudioPage /> },
@@ -67,6 +70,7 @@ export const router = createBrowserRouter([
           // 관리자 (역할은 화면 안에서 확인하고, 서버도 ADMIN만 허용한다)
           { path: '/admin/categories', element: <CategoryAdminPage /> },
           { path: '/admin/dm-reports', element: <DmReportsPage /> },
+          { path: '/admin/seller-applications', element: <SellerApplicationsPage /> },
         ],
       },
 
