@@ -63,6 +63,7 @@ public class SellerProfileService {
                 sellerId,
                 seller.getNickname(),
                 approved != null,
+                approved != null && approved.isApprovedBusiness(),
                 approved == null ? null : approved.getStoreName(),
                 approved == null ? null : approved.getIntroduction(),
                 approved == null ? null : approved.getReviewedAt(),
@@ -74,7 +75,6 @@ public class SellerProfileService {
                 summary == null || summary.broadcastCount() == null ? 0 : summary.broadcastCount(),
                 totalBroadcastSeconds(endedSeconds, live, LocalDateTime.now()),
                 new SellerProfileResponse.Trust(
-                        seller.getPhoneNumber() != null,
                         auctionRepository.countByProductSellerIdAndStatus(sellerId, AuctionStatus.ENDED),
                         auctionRepository.countByProductSellerIdAndStatus(sellerId, AuctionStatus.FAILED),
                         auctionRepository.countByProductSellerIdAndStatus(sellerId, AuctionStatus.CANCELED),

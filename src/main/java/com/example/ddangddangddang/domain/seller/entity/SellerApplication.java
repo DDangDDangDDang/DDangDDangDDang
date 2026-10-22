@@ -44,6 +44,10 @@ public class SellerApplication extends BaseTimeEntity {
     @Column(nullable = false, length = INTRODUCTION_MAX_LENGTH)
     private String introduction;
 
+    // 사업자 판매자의 사업자등록번호 (숫자 10자리). 개인 판매자는 null. 승인되면 프로필에 사업자 배지가 붙는다.
+    @Column(name = "business_number", length = BusinessNumber.LENGTH)
+    private String businessNumber;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private SellerApplicationStatus status;
@@ -60,25 +64,36 @@ public class SellerApplication extends BaseTimeEntity {
     @Version
     private Long version;
 
-    private SellerApplication(Long userId, String storeName, String introduction) {
+    private SellerApplication(Long userId, String storeName, String introduction, String businessNumber) {
         this.userId = userId;
         this.storeName = storeName;
         this.introduction = introduction;
+        this.businessNumber = businessNumber;
         this.status = SellerApplicationStatus.PENDING;
     }
 
     public static SellerApplication create(Long userId, String storeName, String introduction) {
-        return new SellerApplication(userId, storeName, introduction);
+        return create(userId, storeName, introduction, null);
+    }
+
+    /** businessNumber: BusinessNumber.normalize를 거친 값. 개인 판매자는 null */
+    public static SellerApplication create(Long userId, String storeName, String introduction, String businessNumber) {
+        return new SellerApplication(userId, storeName, introduction, businessNumber);
     }
 
     /** 반려된 신청을 고쳐 다시 낸다. 심사 중이거나 승인된 신청은 다시 낼 수 없다. */
     public void resubmit(String storeName, String introduction) {
+        resubmit(storeName, introduction, null);
+    }
+
+    public void resubmit(String storeName, String introduction, String businessNumber) {
         if (status != SellerApplicationStatus.REJECTED) {
             throw new BusinessException(status == SellerApplicationStatus.APPROVED
                     ? SellerErrorCode.ALREADY_VERIFIED : SellerErrorCode.APPLICATION_PENDING);
         }
         this.storeName = storeName;
         this.introduction = introduction;
+        this.businessNumber = businessNumber;
         this.status = SellerApplicationStatus.PENDING;
         this.rejectReason = null;
         this.reviewedAt = null;
@@ -99,6 +114,11 @@ public class SellerApplication extends BaseTimeEntity {
 
     public boolean isApproved() {
         return status == SellerApplicationStatus.APPROVED;
+    }
+
+    /** 승인된 사업자 판매자 (프로필의 사업자 배지) */
+    public boolean isApprovedBusiness() {
+        return isApproved() && businessNumber != null;
     }
 
     private void validatePending() {

@@ -4333,6 +4333,11 @@
             "type" : "string",
             "maxLength" : 500,
             "minLength" : 0
+          },
+          "businessNumber" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
           }
         },
         "required" : [ "introduction", "storeName" ]
@@ -4372,6 +4377,9 @@
             "type" : "string"
           },
           "introduction" : {
+            "type" : "string"
+          },
+          "businessNumber" : {
             "type" : "string"
           },
           "status" : {
@@ -6105,6 +6113,9 @@
           "verifiedSeller" : {
             "type" : "boolean"
           },
+          "businessSeller" : {
+            "type" : "boolean"
+          },
           "storeName" : {
             "type" : "string"
           },
@@ -6150,9 +6161,6 @@
       "Trust" : {
         "type" : "object",
         "properties" : {
-          "phoneVerified" : {
-            "type" : "boolean"
-          },
           "soldAuctionCount" : {
             "type" : "integer",
             "format" : "int64"
@@ -7427,6 +7435,10 @@
     "code" : "SELLER_006",
     "status" : 400,
     "message" : "판매자 정보에 사용할 수 없는 내용이 포함되어 있습니다."
+  }, {
+    "code" : "SELLER_007",
+    "status" : 400,
+    "message" : "사업자등록번호 10자리를 다시 확인해 주세요."
   }, {
     "code" : "USER_001",
     "status" : 409,

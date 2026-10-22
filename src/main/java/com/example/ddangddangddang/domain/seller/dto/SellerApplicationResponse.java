@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 /**
  * 판매자 신청. 관리자 목록에서는 신청한 회원의 닉네임·이메일도 함께 보여 준다. (내 신청 조회에서는 null)
  * rejectReason: 반려됐을 때만, reviewedAt: 승인·반려한 시각
+ * businessNumber: 사업자 판매자의 사업자등록번호(숫자 10자리), 개인 판매자는 null. 신청한 본인과 관리자만 본다.
  */
 public record SellerApplicationResponse(
         Long id,
@@ -16,6 +17,7 @@ public record SellerApplicationResponse(
         String email,
         String storeName,
         String introduction,
+        String businessNumber,
         SellerApplicationStatus status,
         String rejectReason,
         LocalDateTime createdAt,
@@ -27,7 +29,7 @@ public record SellerApplicationResponse(
 
     public static SellerApplicationResponse of(SellerApplication application, String nickname, String email) {
         return new SellerApplicationResponse(application.getId(), application.getUserId(), nickname, email,
-                application.getStoreName(), application.getIntroduction(), application.getStatus(),
+                application.getStoreName(), application.getIntroduction(), application.getBusinessNumber(), application.getStatus(),
                 application.getRejectReason(), application.getCreatedAt(), application.getReviewedAt());
     }
 }
