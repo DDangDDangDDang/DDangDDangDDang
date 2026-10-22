@@ -11,6 +11,7 @@ import { useSellerProfile } from '@/lib/use-seller';
 import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { AuctionPanel } from './AuctionPanel';
+import { Hashtags } from '@/components/live/Hashtags';
 import { LiveChat } from '@/components/live/LiveChat';
 import { appendChatMessage } from '@/lib/live-room';
 import { LiveVideo } from './LiveVideo';
@@ -139,7 +140,10 @@ function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStr
 
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="text-title-lg font-bold tracking-tight">{liveStream.title || '제목 없는 방송'}</h1>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-title-lg font-bold tracking-tight">{liveStream.title || '제목 없는 방송'}</h1>
+        <Hashtags tags={liveStream.hashtags} />
+      </div>
       <div className="flex items-center gap-3">
         {/* 판매자 인증 회원이면 인증 마크가 붙고, 누르면 판매자 프로필 창이 열린다. */}
         <SellerIdentity

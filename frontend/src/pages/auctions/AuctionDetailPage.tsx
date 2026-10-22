@@ -13,7 +13,7 @@ import { auctionPhase } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 
-/** 진행 중인 경매는 현재가·입찰 수를 이 간격으로 다시 불러온다. (경매 실시간 메시지가 아직 없음) */
+/** 시작 전·진행 중인 경매는 상태·현재가·입찰 수를 이 간격으로 다시 불러온다. (경매 실시간 메시지가 아직 없음) */
 const REFRESH_MS = 5000;
 
 /** 경매 상세: 상품 정보 + 현재가·입찰 수·남은 시간. 내 경매면 취소할 수 있다. [입찰하기]는 입찰 창(BidDialog)을 연다. */
@@ -36,7 +36,12 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
   const query = useQuery({
     queryKey: ['auction', auctionId],
     queryFn: () => call(api.GET('/api/v1/auctions/{auctionId}', { params: { path: { auctionId } } })),
-    refetchInterval: (q) => (q.state.data?.status === 'ONGOING' ? REFRESH_MS : false),
+    // 시작 전 경매도 다시 불러온다. 방송에 올라간 경매는 방송이 끝나면 "방송 중 경매"(live) 표시를 내려야 하므로,
+    // 경매가 먼저 끝났어도 연결된 방송이 아직 방송 중(live)이면 계속 다시 불러온다.
+    refetchInterval: (q) => {
+      const data = q.state.data;
+      return data?.status === 'ONGOING' || data?.status === 'READY' || data?.live ? REFRESH_MS : false;
+    },
   });
   const auction = query.data;
   const productId = auction?.productId;
@@ -96,7 +101,8 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
           <CardBody className="flex flex-col gap-4 pt-5">
             <div className="flex items-center gap-2">
               <AuctionPhaseBadge phase={phase} />
-              {auction.liveStreamId && (
+              {/* 방송에 올라갔어도 방송이 끝났으면 표시하지 않는다. (경매는 방송과 별개로 계속 진행) */}
+              {auction.live && (
                 <span className="flex items-center gap-1 text-label font-semibold text-brand-700">
                   <Radio className="size-3.5" aria-hidden="true" />
                   방송 중 경매
@@ -135,7 +141,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
             )}
             {!isMine && phase === 'READY' && <Notice>경매가 시작되면 입찰할 수 있어요.</Notice>}
 
-            {auction.liveStreamId && (
+            {auction.live && auction.liveStreamId && (
               <Link to={`/lives/${auction.liveStreamId}`} className={buttonVariants({ variant: 'outline' })}>
                 방송 보러 가기
               </Link>

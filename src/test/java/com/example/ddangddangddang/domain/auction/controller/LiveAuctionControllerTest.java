@@ -7,6 +7,8 @@ import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageResponse;
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageType;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdatedMessage;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.domain.product.entity.Product;
@@ -149,6 +151,46 @@ class LiveAuctionControllerTest {
                 message instanceof ChatMessageResponse chat && chat.content().equals("‘E2E 카메라’ 경매가 시작되었습니다. 시작가 10,000P")));
 
         liveStreamService.end(liveStreamId, seller.id());
+    }
+
+    @Test
+    @DisplayName("방송을 시작하면 방송 예정 화면의 시청자에게 LIVE가 된 방송 정보와 채팅 시작 안내가 간다")
+    void startNotifiesViewers() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = startLive(seller);
+
+        verify(stompBroadcaster).broadcast(eq("/topic/live-streams/%d".formatted(liveStreamId)), argThat(message ->
+                message instanceof LiveStreamUpdatedMessage updated && updated.liveStream().status() == LiveStreamStatus.LIVE));
+        verify(stompBroadcaster).broadcast(eq("/topic/live-streams/%d/chat".formatted(liveStreamId)), argThat(message ->
+                message instanceof ChatMessageResponse chat && chat.type() == ChatMessageType.SYSTEM && chat.content().equals("방송이 시작되었습니다.")));
+
+        liveStreamService.end(liveStreamId, seller.id());
+    }
+
+    @Test
+    @DisplayName("방송에서 연 경매는 방송 중에만 방송 중 경매로 나오고, 방송이 끝나면 경매가 이어져도 방송 중 경매가 아니다")
+    void liveFlagFollowsLiveStream() throws Exception {
+        Member seller = signupAndLogin();
+        Long productId = createProduct(seller);
+        Long liveStreamId = startLive(seller);
+        Long auctionId = longValue(mockMvc.perform(post("/api/v1/lives/{liveId}/auctions", liveStreamId).header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"productId\": %d, \"startPrice\": 10000, \"bidUnit\": 1000, \"durationSec\": 600}".formatted(productId)))
+                .andExpect(status().isCreated()), "$.data.id");
+        String inList = "$.data.content[?(@.auctionId == %d)].live".formatted(auctionId);
+
+        mockMvc.perform(get("/api/v1/auctions/{auctionId}", auctionId)).andExpect(jsonPath("$.data.live").value(true));
+        mockMvc.perform(get("/api/v1/auctions").param("productName", "E2E 카메라").param("size", "50"))
+                .andExpect(jsonPath(inList).value(hasItem(true)));
+
+        liveStreamService.end(liveStreamId, seller.id());
+
+        mockMvc.perform(get("/api/v1/auctions/{auctionId}", auctionId))
+                .andExpect(jsonPath("$.data.status").value("ONGOING"))
+                .andExpect(jsonPath("$.data.liveStreamId").value(liveStreamId))
+                .andExpect(jsonPath("$.data.live").value(false));
+        mockMvc.perform(get("/api/v1/auctions").param("productName", "E2E 카메라").param("size", "50"))
+                .andExpect(jsonPath(inList).value(hasItem(false)));
     }
 
     @Test

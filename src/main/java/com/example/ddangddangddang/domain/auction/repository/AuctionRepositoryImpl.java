@@ -6,19 +6,23 @@ import com.example.ddangddangddang.domain.auction.entity.AuctionSort;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.entity.QAuction;
 import com.example.ddangddangddang.domain.category.entity.QCategory;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
+import com.example.ddangddangddang.domain.livestream.entity.QLiveStream;
 import com.example.ddangddangddang.domain.product.entity.QProduct;
+import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.support.PageableExecutionUtils;
 
-import javax.swing.undo.AbstractUndoableEdit;
+
 import java.util.List;
 
 
@@ -33,15 +37,17 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         QAuction auction = QAuction.auction;
         QProduct product = QProduct.product;
         QCategory category = QCategory.category;
+        QLiveStream liveStream = QLiveStream.liveStream;
 
         //목록 조회 : 입력한 조건에 맞게 정렬후 한페이지 만큼 가져오기
         List<AuctionListResponse> content =queryFactory
                 .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,
                         auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,
-                        auction.liveStream.isNotNull())) // 라이중의 경매 생성인 경우에는 true(일반 경매 상품은 false)
+                        onLive(liveStream)))
                 .from(auction)
                 .join(auction.product,product)
                 .join(product.category,category)
+                .leftJoin(auction.liveStream, liveStream)
                 //검색 조건
                 .where(
                         productNameContains(product, condition.productName()),
@@ -80,16 +86,23 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         QAuction auction = QAuction.auction;
         QProduct product = QProduct.product;
         QCategory category = QCategory.category;
+        QLiveStream liveStream = QLiveStream.liveStream;
 
         return queryFactory
-                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,auction.liveStream.isNotNull())).
+                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,onLive(liveStream))).
                 from(auction)
                 .join(auction.product, product)
                 .join(product.category,category)
+                .leftJoin(auction.liveStream, liveStream)
                 .where(auction.status.eq(AuctionStatus.ONGOING))
                 .orderBy(auction.bidCount.desc(),auction.id.desc()) //입찰 횟수 많은 수 -> 같은면 최근 생성순
                 .limit(limit)
                 .fetch();
+    }
+
+    //방송 중 경매 여부 : 올라간 방송이 지금 방송 중일 때만 true(방송이 끝났거나 방송에 올라가지 않은 경매는 false)
+    private Expression<Boolean> onLive(QLiveStream liveStream){
+        return new CaseBuilder().when(liveStream.status.eq(LiveStreamStatus.LIVE)).then(true).otherwise(false);
     }
 
     private BooleanExpression productNameContains(QProduct product,String productName){

@@ -52,7 +52,7 @@ public class LiveStreamCardAssembler {
         Map<Long, Integer> viewerCounts = viewers;
         Map<Long, Integer> viewerIncreases = increases;
         return streams.stream()
-                .map(stream -> new LiveStreamCard(stream.getId(), stream.getTitle(), stream.getStatus(), stream.getSellerId(),
+                .map(stream -> new LiveStreamCard(stream.getId(), stream.getTitle(), stream.getHashtagList(), stream.getStatus(), stream.getSellerId(),
                         nicknames.get(stream.getSellerId()), stream.getScheduledStartAt(), stream.getStartedAt(),
                         stream.getEndedAt(), viewerCounts.getOrDefault(stream.getId(), 0),
                         viewerIncreases.getOrDefault(stream.getId(), 0)))

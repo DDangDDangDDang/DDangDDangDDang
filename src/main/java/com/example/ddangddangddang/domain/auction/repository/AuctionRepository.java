@@ -4,13 +4,17 @@ import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRepositoryCustom {
 
@@ -34,6 +38,46 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
     @EntityGraph(attributePaths = {"product", "product.seller", "liveStream"})
     List<Auction> findTop50ByProductSellerIdAndStatusInOrderByIdDesc(Long sellerId, List<AuctionStatus> statuses);
 
+    // ===== 입찰 · 즉시구매 =====
+
+    /**
+     * 즉시구매처럼 드물고 로직이 긴 작업에서 사용한다.
+     * 락 순서 규칙: 항상 "경매 → 지갑" 순서로 잠근다. (입찰도 경매 행 UPDATE → 지갑 순서)
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from Auction a where a.id = :id")
+    Optional<Auction> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * 입찰 반영 (조건부 UPDATE).
+     * 내가 조회했던 version 그대로일 때만 바뀐다. 그 사이 다른 입찰, 취소, 마감이 있었으면 0을 돌려준다.
+     * 1이 돌아오면 조회했던 최고 입찰자와 현재가가 "내가 밀어낸 사람과 금액"이라는 게 보장된다.
+     *
+     * version을 직접 올리는 이유: JPQL UPDATE는 @Version을 자동으로 올리지 않는다.
+     * 올리지 않으면 엔티티를 조회해 저장하는 다른 코드(경매 취소 등)가 입찰 결과를 예전 값으로 덮어쓴다.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update Auction a
+               set a.currentPrice = :amount,
+                   a.highestBidderId = :bidderId,
+                   a.bidCount = a.bidCount + 1,
+                   a.endAt = :newEndAt,
+                   a.extendCount = a.extendCount + :extendIncrement,
+                   a.version = a.version + 1
+             where a.id = :auctionId
+               and a.version = :seenVersion
+               and a.status = :ongoing
+               and a.endAt > :now
+            """)
+    int placeBid(@Param("auctionId") Long auctionId,
+                 @Param("bidderId") Long bidderId,
+                 @Param("amount") long amount,
+                 @Param("newEndAt") LocalDateTime newEndAt,
+                 @Param("extendIncrement") int extendIncrement,
+                 @Param("seenVersion") Long seenVersion,
+                 @Param("ongoing") AuctionStatus ongoing,
+                 @Param("now") LocalDateTime now);
     //판매자 프로필 경매 기록 : 판매자의 모든 경매(취소 포함) 최신순. cursor는 이전 페이지 마지막 경매 ID
     @EntityGraph(attributePaths = {"product", "liveStream"})
     @Query("select a from Auction a where a.product.seller.id = :sellerId and (:cursor is null or a.id < :cursor) order by a.id desc")

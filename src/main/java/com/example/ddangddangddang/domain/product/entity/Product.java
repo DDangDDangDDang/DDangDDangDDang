@@ -55,10 +55,8 @@ public class Product extends BaseTimeEntity {
         this.status = Status.DELETED;
     }
 
-    //낙찰 시 상품 판매 완료 처리 (경매 마감에서 호출)
-    public void markSold(){
+    //낙찰 또는 즉시구매로 판매 완료 (경매 C 파트에서 추가)
+    public void sold() {
         this.status = Status.SOLD;
     }
-
-
 }

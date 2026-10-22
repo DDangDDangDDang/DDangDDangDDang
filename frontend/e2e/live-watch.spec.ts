@@ -6,6 +6,8 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from '@
  * 2. 판매자 스튜디오에서 가짜 카메라로 송출 → 시청 화면에 영상이 나온다 (playwright.config.ts의 가짜 장치 설정)
  *    방송 중 다른 화면으로 가도 송출이 이어지고(작은 방송 창), 스튜디오 안에서 상품을 등록해 바로 경매를 시작한다.
  *    시작한 경매와 미리 만들어 둔 경매(방송에 올리기)가 시청 화면의 경매 목록과 채팅 안내에 바로 나온다.
+ *    방송 예정 화면에서 기다리던 시청자는 판매자가 시작하면 새로고침 없이 영상을 보고, 채팅에 시작 안내가 올라온다.
+ *    방송을 만들 때 넣은 해시태그가 시청 화면과 방송 목록 카드에 나온다.
  *    판매자가 올린 채팅 공지가 시청 화면 채팅창 위에 고정되고, 닫아도 다시 들어오면 보인다. 경매 목록의 [입찰하기]는 입찰 창을 연다.
  *
  * 로컬 백엔드(MySQL·Redis·LiveKit 포함)가 떠 있어야 한다. 계정은 환경변수로 받는다. (frontend/README.md "E2E 테스트")
@@ -179,6 +181,8 @@ test.describe('판매자 송출', () => {
     const studio = await sellerContext.newPage();
     const watch = await viewerContext.newPage();
     let endAfter = false;
+    // 방송 중에 연 경매의 상품명 (방송이 끝난 뒤 경매 목록 표시를 확인)
+    let liveProductName: string | undefined;
 
     // 미리 만들어 둔 경매(시작 전). 스튜디오에서 [이 방송에 올리기]로 방송에 보여준다. 카테고리가 없으면 건너뛴다.
     // 판매자 화면과 로그인 쿠키가 섞이지 않도록 따로 된 요청(request)으로 만든다.
@@ -187,22 +191,54 @@ test.describe('판매자 송출', () => {
     try {
       // 판매자: 스튜디오. 종료되지 않은 방송이 있으면 그 방송을 쓰고, 없으면 만든다.
       await loginOnPage(studio, seller);
+      // 방송 시작 전에는 스튜디오에 시청 화면 링크가 없어, 스튜디오가 받는 응답에서 방송 ID를 읽는다.
+      // (API로 판매자에게 다시 로그인하면 스튜디오의 로그인이 끊긴다)
+      const activeResponse = studio.waitForResponse((r) => r.url().includes('/api/v1/live-streams/me/active'));
       await studio.goto('/studio');
+      let liveStreamId: number | undefined = (await (await activeResponse).json()).data?.id;
       const createButton = studio.getByRole('button', { name: '방송 만들기' });
       const startButton = studio.getByRole('button', { name: '방송 시작' });
       const endButton = studio.getByRole('button', { name: '방송 종료' });
       await expect(createButton.or(startButton).or(endButton)).toBeVisible();
+      const title = `E2E 송출 ${new Date().toISOString().slice(0, 19)}`;
+      // 이 테스트가 방송을 새로 만들었을 때만 해시태그를 넣는다. (남아 있던 방송을 이어 쓰면 확인하지 않음)
+      const tag = `E2E태그${Date.now() % 100000}`;
+      let tagged = false;
       if (await createButton.isVisible()) {
-        await studio.getByLabel('방송 제목 (100자 이하)').fill(`E2E 송출 ${new Date().toISOString().slice(0, 19)}`);
+        await studio.getByLabel('방송 제목 (100자 이하)').fill(title);
+        // 해시태그: Enter로 더하고, 앞의 #은 빼고 저장된다.
+        const hashtagInput = studio.getByLabel('해시태그 (선택, 5개까지)');
+        // 형식이 맞지 않는 글이 남아 있으면 방송을 만들지 않고 오류를 보여 준다. (오류 난 글이 말없이 버려지지 않게)
+        await hashtagInput.fill('한정판!');
         await createButton.click();
+        await expect(studio.getByText('해시태그는 한글·영문·숫자·밑줄(_)로 20자까지 쓸 수 있어요.')).toBeVisible();
+        await expect(createButton).toBeVisible();
+        await hashtagInput.fill(`#${tag}`);
+        await hashtagInput.press('Enter');
+        await hashtagInput.fill('필름카메라');
+        await hashtagInput.press('Enter');
+        await expect(studio.getByRole('list', { name: '넣은 해시태그' }).getByRole('listitem')).toHaveCount(2);
+        await test.info().attach('방송 만들기 (해시태그 입력)', { body: await studio.screenshot(), contentType: 'image/png' });
+        const created = studio.waitForResponse((r) => r.url().endsWith('/api/v1/live-streams') && r.request().method() === 'POST');
+        await createButton.click();
+        liveStreamId = (await (await created).json()).data?.id;
         endAfter = true;
+        tagged = true;
       }
 
       // 방송 전 미리보기: 가짜 카메라 영상이 나온다.
       const preview = studio.getByLabel('내 카메라 미리보기');
       await expect.poll(() => videoWidth(preview), { timeout: 20_000 }).toBeGreaterThan(0);
 
+      // 시청자가 방송 예정 화면에서 기다리다가, 판매자가 시작하면 새로고침 없이 영상이 나오고 채팅에 시작 안내가 올라온다.
+      let waitedBeforeStart = false;
       if (await startButton.isVisible()) {
+        expect(liveStreamId, '판매자의 방송을 찾지 못했습니다.').toBeDefined();
+        await loginOnPage(watch, viewer);
+        await watch.goto(`/lives/${liveStreamId}`);
+        await expect(watch.getByText('아직 방송 전이에요')).toBeVisible();
+        waitedBeforeStart = true;
+
         await expect(startButton).toBeEnabled();
         await startButton.click();
         endAfter = true;
@@ -212,11 +248,28 @@ test.describe('판매자 송출', () => {
       expect(watchHref).toMatch(/^\/lives\/\d+$/);
 
       // 시청자: 같은 방송에서 판매자 영상이 재생된다.
-      await loginOnPage(watch, viewer);
-      await watch.goto(watchHref ?? '/');
+      if (waitedBeforeStart) {
+        await expect(watch.getByRole('list', { name: '채팅 메시지' }).getByText('방송이 시작되었습니다.')).toBeVisible();
+      } else {
+        await loginOnPage(watch, viewer);
+        await watch.goto(watchHref ?? '/');
+      }
       const video = watch.locator('video');
       await expect.poll(() => videoWidth(video), { timeout: 30_000 }).toBeGreaterThan(0);
       await expect(watch.getByText('판매자 화면을 기다리고 있어요')).toBeHidden();
+      expect(watch.url(), '방송이 시작돼도 시청 화면 주소는 그대로다').toContain(watchHref ?? '');
+
+      if (tagged) {
+        // 해시태그는 시청 화면 제목 아래와 방송 목록 카드에 나온다.
+        await expect(watch.getByRole('list', { name: '해시태그' }).getByText(`#${tag}`)).toBeVisible();
+        const listPage = await viewerContext.newPage();
+        await listPage.goto('/lives');
+        const card = listPage.getByRole('link').filter({ hasText: title });
+        await expect(card.getByText(`#${tag}`)).toBeVisible();
+        await expect(card.getByText('#필름카메라')).toBeVisible();
+        await test.info().attach('방송 목록 (해시태그)', { body: await listPage.screenshot(), contentType: 'image/png' });
+        await listPage.close();
+      }
 
       // 판매자 화면에 시청자 수가 반영된다.
       await expect(studio.getByText(/시청\s*1\s*명/)).toBeVisible({ timeout: 20_000 });
@@ -283,6 +336,7 @@ test.describe('판매자 송출', () => {
       if (await category.isVisible()) {
         await category.selectOption((await category.locator('option').nth(1).getAttribute('value')) ?? '');
         const productName = `E2E 방송 상품 ${Date.now()}`;
+        liveProductName = productName;
         await productDialog.getByLabel('상품명 (50자 이하)').fill(productName);
         await productDialog.getByRole('button', { name: '상품 등록' }).click();
         await expect(productDialog).toBeHidden();
@@ -324,6 +378,16 @@ test.describe('판매자 송출', () => {
         await expect(studio.getByText(/방송을 종료했어요/)).toBeVisible();
         endAfter = false;
         await expect(watch.getByText('방송이 끝났어요')).toBeVisible({ timeout: 20_000 });
+
+        if (liveProductName) {
+          // 방송에서 연 경매는 방송이 끝나도 이어지지만, 경매 목록에서 "방송 중 경매"로 나오지 않는다.
+          await watch.goto('/auctions');
+          await watch.getByRole('searchbox', { name: '상품명' }).fill(liveProductName);
+          await watch.getByRole('button', { name: '검색' }).click();
+          const card = watch.getByRole('link', { name: new RegExp(escapeRegExp(liveProductName)) });
+          await expect(card).toBeVisible();
+          await expect(card.getByText('방송 중 경매')).toBeHidden();
+        }
       }
     } finally {
       if (endAfter) {

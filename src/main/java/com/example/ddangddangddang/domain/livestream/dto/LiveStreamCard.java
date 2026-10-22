@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.livestream.dto;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 방송 카드 (홈 화면, 방송 목록·검색).
@@ -13,6 +14,8 @@ import java.time.LocalDateTime;
 public record LiveStreamCard(
         Long liveStreamId,
         String title,
+        // 해시태그 (# 없이, 없으면 빈 목록)
+        List<String> hashtags,
         LiveStreamStatus status,
         Long sellerId,
         String sellerNickname,
