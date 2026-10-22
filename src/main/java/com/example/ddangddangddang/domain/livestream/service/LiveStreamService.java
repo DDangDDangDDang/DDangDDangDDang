@@ -54,7 +54,7 @@ public class LiveStreamService {
     private final MediaServerClient mediaServerClient;
     private final ApplicationEventPublisher eventPublisher;
     private final ChatContentFilter contentFilter;
-    // 방송 시작은 판매자 인증(관리자 승인)을 받은 회원만 할 수 있다.
+    // 방송 만들기·시작은 판매자 인증(관리자 승인)을 받은 회원만 할 수 있다.
     private final SellerVerification sellerVerification;
 
     /**
@@ -64,6 +64,10 @@ public class LiveStreamService {
     // TODO: 판매자 권한(ROLE_SELLER) 확인은 인증 담당과 방식 확정 후 추가
     @Transactional
     public LiveStreamResponse create(Long sellerId, LiveStreamCreateRequest request) {
+        // 방송은 판매자 인증(관리자 승인)을 받은 회원만 만들 수 있다. (시작할 때도 다시 확인)
+        if (!sellerVerification.isVerified(sellerId)) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_VERIFIED_SELLER);
+        }
         String title = requireTitle(request.title());
         String description = blankToNull(request.description());
         List<String> hashtags = LiveStreamHashtags.normalize(request.hashtags());

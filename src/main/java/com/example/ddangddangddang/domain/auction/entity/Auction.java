@@ -15,7 +15,13 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name ="auctions")
+@Table(name ="auctions",
+indexes = {
+        // 스케줄러 : 시작시 경매 찾기(status =READY AND start_at<=현재시간)
+        @Index(name = "idx_auctions_status_start_at", columnList = "status, start_at"),
+        // 스케줄러 : 마감할 경매 찾기(status =ONGOING AND end_at<=현재시간)
+        @Index(name = "idx_auctions_status_end_at",columnList = "status, end_at")
+})
 public class Auction extends BaseTimeEntity {
 
     //연장 규칙(기본 마감 30초전 이내 입찰시 30초 연장,최대 횟수 없음)
@@ -106,6 +112,7 @@ public class Auction extends BaseTimeEntity {
     public void close(){
         if (this.bidCount > 0){
             this.status =AuctionStatus.ENDED;
+            this.product.sold();
         }else {
             this.status=AuctionStatus.FAILED;
         }
@@ -177,6 +184,7 @@ public class Auction extends BaseTimeEntity {
         this.currentPrice = this.buyNowPrice;
         this.status = AuctionStatus.ENDED;
         this.endAt = now;
+        this.product.sold();
     }
 
     public boolean isSeller(Long userId) {

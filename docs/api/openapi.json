@@ -104,6 +104,143 @@
         }
       }
     },
+    "/api/v1/auctions/{auctionId}/alert" : {
+      "get" : {
+        "tags" : [ "auction-alert-controller" ],
+        "operationId" : "auctionAlertGet",
+        "parameters" : [ {
+          "name" : "auctionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAuctionAlertResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "auction-alert-controller" ],
+        "operationId" : "auctionAlertSubscribe",
+        "parameters" : [ {
+          "name" : "auctionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAuctionAlertResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "auction-alert-controller" ],
+        "operationId" : "auctionAlertUnsubscribe",
+        "parameters" : [ {
+          "name" : "auctionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAuctionAlertResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/seller-applications" : {
       "post" : {
         "tags" : [ "seller-application-controller" ],
@@ -128,6 +265,91 @@
                 }
               }
             }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/push/subscriptions" : {
+      "post" : {
+        "tags" : [ "push-subscription-controller" ],
+        "operationId" : "pushSubscriptionSubscribe",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PushSubscriptionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "push-subscription-controller" ],
+        "operationId" : "pushSubscriptionUnsubscribe",
+        "parameters" : [ {
+          "name" : "endpoint",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
           },
           "4XX" : {
             "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
@@ -1826,104 +2048,6 @@
         "security" : [ ]
       }
     },
-    "/api/v1/auth/oauth/kakao" : {
-      "post" : {
-        "tags" : [ "o-auth-controller" ],
-        "operationId" : "oAuthLogin",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/KakaoLoginRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseKakaoLoginResponse"
-                }
-              }
-            }
-          },
-          "4XX" : {
-            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "5XX" : {
-            "description" : "서버 오류",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security" : [ ]
-      }
-    },
-    "/api/v1/auth/oauth/kakao/signup" : {
-      "post" : {
-        "tags" : [ "o-auth-controller" ],
-        "operationId" : "oAuthSignup",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/KakaoSignupRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseKakaoSignupResponse"
-                }
-              }
-            }
-          },
-          "4XX" : {
-            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "5XX" : {
-            "description" : "서버 오류",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security" : [ ]
-      }
-    },
     "/api/v1/auth/logout" : {
       "post" : {
         "tags" : [ "auth-controller" ],
@@ -2166,7 +2290,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "LATEST", "ENDING_SOON", "PRICE_ASC", "PRICE_DESC" ]
+            "enum" : [ "LATEST", "ENDING_SOON", "PRICE_ASC", "PRICE_DESC", "POPULAR" ]
           }
         }, {
           "name" : "page",
@@ -3521,6 +3645,44 @@
         }
       }
     },
+    "/api/v1/push/public-key" : {
+      "get" : {
+        "tags" : [ "push-subscription-controller" ],
+        "operationId" : "pushSubscriptionPublicKey",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePushPublicKeyResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/points/wallet" : {
       "get" : {
         "tags" : [ "point-controller" ],
@@ -4419,6 +4581,32 @@
           }
         }
       },
+      "ApiResponseAuctionAlertResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/AuctionAlertResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "AuctionAlertResponse" : {
+        "type" : "object",
+        "properties" : {
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "subscribed" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "SellerApplicationRequest" : {
         "type" : "object",
         "properties" : {
@@ -4430,6 +4618,11 @@
           "introduction" : {
             "type" : "string",
             "maxLength" : 500,
+            "minLength" : 0
+          },
+          "businessNumber" : {
+            "type" : "string",
+            "maxLength" : 20,
             "minLength" : 0
           }
         },
@@ -4472,6 +4665,9 @@
           "introduction" : {
             "type" : "string"
           },
+          "businessNumber" : {
+            "type" : "string"
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "PENDING", "APPROVED", "REJECTED" ]
@@ -4486,6 +4682,39 @@
           "reviewedAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "PushSubscriptionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "endpoint" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 1
+          },
+          "p256dh" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 1
+          },
+          "auth" : {
+            "type" : "string",
+            "maxLength" : 50,
+            "minLength" : 1
+          }
+        },
+        "required" : [ "auth", "endpoint", "p256dh" ]
+      },
+      "ApiResponseVoid" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : { },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
@@ -4555,6 +4784,14 @@
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "auctionStatus" : {
+            "type" : "string",
+            "enum" : [ "READY", "ONGOING", "ENDED", "FAILED", "CANCELED" ]
           }
         }
       },
@@ -4745,7 +4982,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "LIVE_STARTED" ]
+            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_WON", "AUCTION_SOLD", "AUCTION_FAILED", "AUCTION_ENDED" ]
           },
           "sellerId" : {
             "type" : "integer",
@@ -4759,6 +4996,26 @@
             "format" : "int64"
           },
           "liveTitle" : {
+            "type" : "string"
+          },
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "productName" : {
+            "type" : "string"
+          },
+          "price" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "body" : {
+            "type" : "string"
+          },
+          "link" : {
             "type" : "string"
           },
           "read" : {
@@ -5498,18 +5755,6 @@
         },
         "required" : [ "newPassword", "verificationToken" ]
       },
-      "ApiResponseVoid" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : { },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
       "PasswordResetVerifyRequest" : {
         "type" : "object",
         "properties" : {
@@ -5536,120 +5781,6 @@
           }
         },
         "required" : [ "email" ]
-      },
-      "KakaoLoginRequest" : {
-        "type" : "object",
-        "properties" : {
-          "code" : {
-            "type" : "string",
-            "minLength" : 1
-          }
-        },
-        "required" : [ "code" ]
-      },
-      "ApiResponseKakaoLoginResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/KakaoLoginResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "KakaoLoginResponse" : {
-        "type" : "object",
-        "properties" : {
-          "status" : {
-            "type" : "string",
-            "enum" : [ "LOGIN", "SIGNUP_REQUIRED" ]
-          },
-          "accessToken" : {
-            "type" : "string"
-          },
-          "expiresIn" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "user" : {
-            "$ref" : "#/components/schemas/UserInfo"
-          },
-          "signupToken" : {
-            "type" : "string"
-          },
-          "email" : {
-            "type" : "string"
-          },
-          "nickname" : {
-            "type" : "string"
-          }
-        }
-      },
-      "KakaoSignupRequest" : {
-        "type" : "object",
-        "properties" : {
-          "signupToken" : {
-            "type" : "string",
-            "minLength" : 1
-          },
-          "nickname" : {
-            "type" : "string",
-            "maxLength" : 10,
-            "minLength" : 2
-          },
-          "email" : {
-            "type" : "string",
-            "format" : "email",
-            "maxLength" : 100,
-            "minLength" : 0
-          },
-          "phoneNumber" : {
-            "type" : "string",
-            "minLength" : 1,
-            "pattern" : "^01[016789]\\d{7,8}$"
-          },
-          "phoneVerificationToken" : {
-            "type" : "string",
-            "minLength" : 1
-          }
-        },
-        "required" : [ "email", "nickname", "phoneNumber", "phoneVerificationToken", "signupToken" ]
-      },
-      "ApiResponseKakaoSignupResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/KakaoSignupResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "KakaoSignupResponse" : {
-        "type" : "object",
-        "properties" : {
-          "linkedExistingAccount" : {
-            "type" : "boolean"
-          },
-          "accessToken" : {
-            "type" : "string"
-          },
-          "expiresIn" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "user" : {
-            "$ref" : "#/components/schemas/UserInfo"
-          }
-        }
       },
       "LoginRequest" : {
         "type" : "object",
@@ -6309,6 +6440,9 @@
           "verifiedSeller" : {
             "type" : "boolean"
           },
+          "businessSeller" : {
+            "type" : "boolean"
+          },
           "storeName" : {
             "type" : "string"
           },
@@ -6354,9 +6488,6 @@
       "Trust" : {
         "type" : "object",
         "properties" : {
-          "phoneVerified" : {
-            "type" : "boolean"
-          },
           "soldAuctionCount" : {
             "type" : "integer",
             "format" : "int64"
@@ -6448,6 +6579,28 @@
           "liveStreamId" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "ApiResponsePushPublicKeyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/PushPublicKeyResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "PushPublicKeyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "publicKey" : {
+            "type" : "string"
           }
         }
       },
@@ -6959,6 +7112,10 @@
             "type" : "string",
             "enum" : [ "READY", "ONGOING", "ENDED", "FAILED", "CANCELED" ]
           },
+          "startAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
           "endAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -7462,31 +7619,23 @@
   }, {
     "code" : "LIVESTREAM_016",
     "status" : 403,
-    "message" : "판매자 인증을 받은 회원만 방송을 시작할 수 있습니다."
+    "message" : "판매자 인증을 받은 회원만 방송을 만들고 시작할 수 있습니다."
   }, {
     "code" : "NOTIFICATION_001",
     "status" : 404,
     "message" : "알림을 찾을 수 없습니다."
   }, {
-    "code" : "OAUTH_001",
-    "status" : 400,
-    "message" : "카카오 로그인에 실패했습니다. 다시 시도해 주세요."
-  }, {
-    "code" : "OAUTH_002",
-    "status" : 502,
-    "message" : "카카오와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
-  }, {
-    "code" : "OAUTH_003",
-    "status" : 400,
-    "message" : "가입 시간이 지났습니다. 카카오 로그인부터 다시 진행해 주세요."
-  }, {
-    "code" : "OAUTH_004",
+    "code" : "NOTIFICATION_002",
     "status" : 409,
-    "message" : "이 휴대폰 번호의 계정에는 이미 다른 카카오 계정이 연결되어 있습니다."
+    "message" : "시작 전이거나 진행 중인 경매만 알림을 받을 수 있습니다."
   }, {
-    "code" : "OAUTH_005",
-    "status" : 503,
-    "message" : "카카오 로그인이 설정되지 않았습니다."
+    "code" : "NOTIFICATION_003",
+    "status" : 400,
+    "message" : "내 경매는 알림을 받기로 하지 않아도 결과를 알려 드립니다."
+  }, {
+    "code" : "NOTIFICATION_004",
+    "status" : 400,
+    "message" : "브라우저 알림 구독 정보가 올바르지 않습니다."
   }, {
     "code" : "ORDER_001",
     "status" : 404,
@@ -7647,6 +7796,10 @@
     "code" : "SELLER_006",
     "status" : 400,
     "message" : "판매자 정보에 사용할 수 없는 내용이 포함되어 있습니다."
+  }, {
+    "code" : "SELLER_007",
+    "status" : 400,
+    "message" : "사업자등록번호 10자리를 다시 확인해 주세요."
   }, {
     "code" : "USER_001",
     "status" : 409,

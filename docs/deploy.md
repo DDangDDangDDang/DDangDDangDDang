@@ -98,6 +98,7 @@ EC2는 켜진 뒤 1~2분 동안 Docker를 설치합니다. 앱은 4단계의 첫
 | `MAIL_USERNAME` / `MAIL_APP_PASSWORD` | Gmail 주소 / 앱 비밀번호 | `MAIL_ENABLED=true`일 때 |
 | `SOLAPI_API_KEY` / `SOLAPI_API_SECRET` / `SOLAPI_SENDER` | SOLAPI 콘솔 / 등록한 발신번호 | `SMS_ENABLED=true`일 때 |
 | `ANTHROPIC_API_KEY` | Claude API 키 | `CHAT_MODERATION_AI_ENABLED=true`일 때 |
+| `WEB_PUSH_PUBLIC_KEY` / `WEB_PUSH_PRIVATE_KEY` | 브라우저 알림(웹 푸시) VAPID 키. `npx web-push generate-vapid-keys`의 Public Key / Private Key. 한 번 정하면 바꾸지 않음 (바꾸면 모든 회원이 다시 구독해야 함) | ✅ |
 
 값에는 작은따옴표(`'`)와 줄바꿈을 넣을 수 없습니다. (EC2 배포 스크립트가 거부합니다)
 
@@ -115,7 +116,9 @@ EC2는 켜진 뒤 1~2분 동안 Docker를 설치합니다. 앱은 4단계의 첫
   "SOLAPI_API_KEY": "",
   "SOLAPI_API_SECRET": "",
   "SOLAPI_SENDER": "",
-  "ANTHROPIC_API_KEY": ""
+  "ANTHROPIC_API_KEY": "",
+  "WEB_PUSH_PUBLIC_KEY": "<Public Key>",
+  "WEB_PUSH_PRIVATE_KEY": "<Private Key>"
 }
 ```
 

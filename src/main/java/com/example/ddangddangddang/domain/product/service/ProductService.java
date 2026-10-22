@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.product.service;
 
+import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.category.entity.Category;
@@ -22,6 +23,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -43,11 +45,23 @@ public class ProductService {
 
     }
 
-    //내 상품 조회(삭제된 상품은 제외)
+    //내 상품 조회(삭제된 상품은 제외) + 상품 마다 경매 상태
     @Transactional(readOnly = true)
-    public Page<ProductResponse> myProducts(Long swllerId, Pageable pageable) {
-        Page<Product> bySellerIdAndStatusNot = productRepository.findBySellerIdAndStatusNot(swllerId, Status.DELETED, pageable);
-        return bySellerIdAndStatusNot.map(ProductResponse::from);
+    public Page<ProductResponse> myProducts(Long sellerId, Pageable pageable) {
+        Page<Product> products = productRepository.findBySellerIdAndStatusNot(sellerId, Status.DELETED, pageable);
+
+        //이번 페이지 상품들의 id만 모으기
+        List<Long> productIds = products.getContent().stream().map(Product::getId).toList();
+
+        //상품별 최근 경매 : 상품마다 최신 경매 id 조회 ->그 id 경매만 조회
+        HashMap<Long, Auction> latestAuctions = new HashMap<>();
+        if (!productIds.isEmpty()){
+            List<Long> latestIds = auctionRepository.findLatestIdsByProductIds(productIds);
+            for (Auction auction : auctionRepository.findAllById(latestIds)){
+                latestAuctions.put(auction.getProduct().getId(),auction);
+            }
+        }
+        return products.map(product -> ProductResponse.from(product,latestAuctions.get(product.getId())));
     }
 
     //상품 생성(하위 카테고리 내에서만 생성(대분류에는 등록X))

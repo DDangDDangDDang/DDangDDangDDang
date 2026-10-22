@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.auction.dto.response.AuctionListRespon
 import com.example.ddangddangddang.domain.auction.dto.response.AuctionResponse;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
+import com.example.ddangddangddang.domain.auction.event.AuctionCanceledEvent;
 import com.example.ddangddangddang.domain.auction.event.LiveAuctionEvent;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
@@ -99,6 +100,7 @@ public class AuctionService {
 
         auction.cancel();
         flushWithVersionCheck(auction);
+        eventPublisher.publishEvent(new AuctionCanceledEvent(auction.getId()));
         //방송에 올라간 경매면 시청 화면의 경매 목록을 갱신
         if (auction.getLiveStream() != null) {
             eventPublisher.publishEvent(LiveAuctionEvent.of(auction, LiveAuctionEvent.Type.CHANGED));

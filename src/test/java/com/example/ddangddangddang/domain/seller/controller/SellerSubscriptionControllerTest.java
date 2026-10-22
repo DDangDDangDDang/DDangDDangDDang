@@ -190,7 +190,33 @@ class SellerSubscriptionControllerTest {
                 .andExpect(jsonPath("$.data.storeName").value("필름 상점"))
                 .andExpect(jsonPath("$.data.introduction").value("1970년대 필름 카메라를 점검해서 팝니다."))
                 .andExpect(jsonPath("$.data.subscribed").value(false))
-                .andExpect(jsonPath("$.data.trust.phoneVerified").value(true));
+                .andExpect(jsonPath("$.data.businessSeller").value(false));
+    }
+
+    @Test
+    @DisplayName("사업자등록번호로 신청해 승인받으면 프로필에 사업자 판매자로 나오고, 번호가 틀리면 SELLER_007")
+    void businessSeller() throws Exception {
+        Member seller = signupAndLogin();
+
+        mockMvc.perform(post("/api/v1/seller-applications").header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"storeName\": \"사업자 상점\", \"introduction\": \"정식 사업자입니다.\", \"businessNumber\": \"220-81-62518\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("SELLER_007"));
+        Long applicationId = longValue(mockMvc.perform(post("/api/v1/seller-applications").header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"storeName\": \"사업자 상점\", \"introduction\": \"정식 사업자입니다.\", \"businessNumber\": \"220-81-62517\"}"))
+                .andExpect(jsonPath("$.data.businessNumber").value("2208162517")), "$.data.id");
+
+        // 승인 전에는 사업자 배지가 없다.
+        mockMvc.perform(get("/api/v1/sellers/{id}/profile", seller.id())).andExpect(jsonPath("$.data.businessSeller").value(false));
+        mockMvc.perform(post("/api/v1/admin/seller-applications/{id}/approve", applicationId).header(HttpHeaders.AUTHORIZATION, adminBearer()))
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+        mockMvc.perform(get("/api/v1/sellers/{id}/profile", seller.id()))
+                .andExpect(jsonPath("$.data.verifiedSeller").value(true))
+                .andExpect(jsonPath("$.data.businessSeller").value(true))
+                // 사업자등록번호는 공개 프로필에 내보내지 않는다.
+                .andExpect(jsonPath("$.data.businessNumber").doesNotExist());
     }
 
     @Test
@@ -276,12 +302,12 @@ class SellerSubscriptionControllerTest {
     }
 
     private Long startLive(Member seller, String title) throws Exception {
+        // 방송을 만들고 시작하려면 판매자 인증이 있어야 한다.
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
         Long liveStreamId = longValue(mockMvc.perform(post("/api/v1/live-streams").header(HttpHeaders.AUTHORIZATION, seller.bearer())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"title\": \"%s\"}".formatted(title)))
                 .andExpect(status().isCreated()), "$.data.id");
         given(mediaServerClient.createPublisherToken(anyString(), anyString(), anyString())).willReturn("token");
-        SellerFixture.verify(sellerApplicationRepository, seller.id());
-
         liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
         return liveStreamId;
     }

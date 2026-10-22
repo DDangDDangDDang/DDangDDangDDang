@@ -17,6 +17,7 @@ import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import com.example.ddangddangddang.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,9 +70,26 @@ class LiveStreamServiceTest {
     @Mock
     private ChatContentFilter contentFilter;
 
-    // 방송 시작은 판매자 인증을 받은 회원만 (기본은 인증 안 됨, 시작 테스트에서 인증으로 정한다)
+    // 방송 만들기·시작은 판매자 인증을 받은 회원만. 기본은 인증된 판매자로 두고, 인증 전 테스트에서만 false로 바꾼다.
     @Mock
     private SellerVerification sellerVerification;
+
+    @BeforeEach
+    void verifiedSeller() {
+        lenient().when(sellerVerification.isVerified(any())).thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("판매자 인증을 받지 않은 회원은 방송을 만들 수 없다 (LIVESTREAM_016)")
+    void createRequiresVerifiedSeller() {
+        given(sellerVerification.isVerified(SELLER_ID)).willReturn(false);
+
+        assertThatThrownBy(() -> liveStreamService.create(SELLER_ID, new LiveStreamCreateRequest("방송", null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(LiveStreamErrorCode.NOT_VERIFIED_SELLER);
+        then(liveStreamRepository).should(never()).saveAndFlush(any());
+    }
 
     @Test
     @DisplayName("방송을 만들 때도 전각 공백만으로 된 제목은 COMMON_001로 막고 저장하지 않는다")
@@ -117,6 +136,7 @@ class LiveStreamServiceTest {
     void startRequiresVerifiedSeller() {
         LiveStream liveStream = liveStream(false);
         given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+        given(sellerVerification.isVerified(SELLER_ID)).willReturn(false);
 
         assertThatThrownBy(() -> liveStreamService.start(LIVE_STREAM_ID, SELLER_ID, "판매자"))
                 .isInstanceOf(BusinessException.class)
@@ -135,7 +155,7 @@ class LiveStreamServiceTest {
         assertThatThrownBy(() -> liveStreamService.start(LIVE_STREAM_ID, 2L, "다른 사람"))
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(LiveStreamErrorCode.NOT_OWNER);
-        then(sellerVerification).shouldHaveNoInteractions();
+        then(sellerVerification).should(never()).isVerified(2L);
     }
 
     @Nested

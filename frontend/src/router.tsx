@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { RequireVerifiedSeller } from '@/components/seller/RequireVerifiedSeller';
 import { FindEmailPage } from '@/pages/auth/FindEmailPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
@@ -63,10 +64,16 @@ export const router = createBrowserRouter([
           { path: '/studio', element: <SellerStudioPage /> },
           { path: '/messages', element: <MessagesPage /> },
           { path: '/messages/:userId', element: <MessagesPage /> },
-          { path: '/me/products', element: <MyProductsPage /> },
-          { path: '/products/new', element: <ProductCreatePage /> },
-          { path: '/products/:productId/edit', element: <ProductEditPage /> },
-          { path: '/products/:productId/auction', element: <ProductAuctionPage /> },
+          // 판매자 인증을 받은 회원만 (인증 전이면 인증 안내)
+          {
+            element: <RequireVerifiedSeller />,
+            children: [
+              { path: '/me/products', element: <MyProductsPage /> },
+              { path: '/products/new', element: <ProductCreatePage /> },
+              { path: '/products/:productId/edit', element: <ProductEditPage /> },
+              { path: '/products/:productId/auction', element: <ProductAuctionPage /> },
+            ],
+          },
           // 관리자 (역할은 화면 안에서 확인하고, 서버도 ADMIN만 허용한다)
           { path: '/admin/categories', element: <CategoryAdminPage /> },
           { path: '/admin/dm-reports', element: <DmReportsPage /> },

@@ -4,7 +4,6 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { api, call, errorMessage } from "@/api";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { SubscriptionSidebar } from "@/components/seller/SubscriptionSidebar";
 import {
   LiveStreamCard,
   LiveStreamCardSkeleton,
@@ -71,102 +70,98 @@ export function LiveListPage() {
   };
 
   return (
-    // 홈처럼 왼쪽에 구독 중인 판매자를 보여 준다. (방송 중인 판매자는 LIVE를 눌러 바로 들어간다)
-    <div className="flex items-start gap-8">
-      <SubscriptionSidebar />
-      <div className="min-w-0 flex-1">
-        <PageHeader title="라이브 방송" />
+    <div>
+      <PageHeader title="라이브 방송" />
 
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <nav
-            aria-label="방송 상태"
-            className="flex gap-1 rounded-md bg-neutral-50 p-1"
-          >
-            {TABS.map((t) => (
-              <button
-                key={t.status}
-                type="button"
-                aria-pressed={t.status === status}
-                onClick={() => update({ status: t.status })}
-                className={cn(
-                  "h-9 rounded-md px-4 text-body font-semibold transition-colors",
-                  t.status === status
-                    ? "bg-neutral-0 text-neutral-900 shadow-sm"
-                    : "text-neutral-500 hover:text-neutral-900",
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </nav>
-          <form
-            role="search"
-            onSubmit={onSearch}
-            className="flex w-[420px] items-end gap-2"
-          >
-            <div className="flex-1">
-              <Input
-                label="방송 검색"
-                hideLabel
-                type="search"
-                placeholder="방송 제목, #해시태그, 판매자 닉네임"
-                maxLength={50}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-              />
-            </div>
-            <Button
-              type="submit"
-              variant="secondary"
-              size="icon"
-              aria-label="검색"
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <nav
+          aria-label="방송 상태"
+          className="flex gap-1 rounded-md bg-neutral-50 p-1"
+        >
+          {TABS.map((t) => (
+            <button
+              key={t.status}
+              type="button"
+              aria-pressed={t.status === status}
+              onClick={() => update({ status: t.status })}
+              className={cn(
+                "h-9 rounded-md px-4 text-body font-semibold transition-colors",
+                t.status === status
+                  ? "bg-neutral-0 text-neutral-900 shadow-sm"
+                  : "text-neutral-500 hover:text-neutral-900",
+              )}
             >
-              <Search className="size-[18px]" aria-hidden="true" />
-            </Button>
-          </form>
-        </div>
+              {t.label}
+            </button>
+          ))}
+        </nav>
+        <form
+          role="search"
+          onSubmit={onSearch}
+          className="flex w-[420px] items-end gap-2"
+        >
+          <div className="flex-1">
+            <Input
+              label="방송 검색"
+              hideLabel
+              type="search"
+              placeholder="방송 제목, #해시태그, 판매자 닉네임"
+              maxLength={50}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+          </div>
+          <Button
+            type="submit"
+            variant="secondary"
+            size="icon"
+            aria-label="검색"
+          >
+            <Search className="size-[18px]" aria-hidden="true" />
+          </Button>
+        </form>
+      </div>
 
-        {query.isPending ? (
+      {query.isPending ? (
+        <Grid>
+          {Array.from({ length: 8 }, (_, i) => (
+            <LiveStreamCardSkeleton key={i} />
+          ))}
+        </Grid>
+      ) : query.isError ? (
+        <ErrorState
+          message={errorMessage(query.error)}
+          onRetry={() => void query.refetch()}
+        />
+      ) : cards.length === 0 ? (
+        keyword ? (
+          <EmptyState
+            title={`'${keyword}' 검색 결과가 없어요`}
+            description="다른 검색어로 찾아보거나 다른 탭을 확인해 보세요."
+          />
+        ) : (
+          <EmptyState
+            title={tab.empty}
+            description="판매자가 방송을 시작하거나 예약하면 여기에 나와요."
+          />
+        )
+      ) : (
+        <Grid>
+          {cards.map((card) => (
+            <LiveStreamCard key={card.liveStreamId} card={card} />
+          ))}
+        </Grid>
+      )}
+      <div ref={sentinelRef} />
+      {query.isFetchingNextPage && (
+        <div className="mt-8">
           <Grid>
-            {Array.from({ length: 8 }, (_, i) => (
+            {Array.from({ length: 4 }, (_, i) => (
               <LiveStreamCardSkeleton key={i} />
             ))}
           </Grid>
-        ) : query.isError ? (
-          <ErrorState
-            message={errorMessage(query.error)}
-            onRetry={() => void query.refetch()}
-          />
-        ) : cards.length === 0 ? (
-          keyword ? (
-            <EmptyState
-              title={`'${keyword}' 검색 결과가 없어요`}
-              description="다른 검색어로 찾아보거나 다른 탭을 확인해 보세요."
-            />
-          ) : (
-            <EmptyState
-              title={tab.empty}
-              description="판매자가 방송을 시작하거나 예약하면 여기에 나와요."
-            />
-          )
-        ) : (
-          <Grid>
-            {cards.map((card) => (
-              <LiveStreamCard key={card.liveStreamId} card={card} />
-            ))}
-          </Grid>
-        )}
-        <div ref={sentinelRef} />
-        {query.isFetchingNextPage && (
-          <div className="mt-8">
-            <Grid>
-              {Array.from({ length: 4 }, (_, i) => (
-                <LiveStreamCardSkeleton key={i} />
-              ))}
-            </Grid>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

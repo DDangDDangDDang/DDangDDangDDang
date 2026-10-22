@@ -101,6 +101,13 @@ test.describe('판매자 구독', () => {
     // 상단 탭: 홈이 라이브 왼쪽에 있고, 내 정보 탭은 없다.
     await expect(menu.getByRole('link').first()).toHaveText('홈');
     await expect(menu.getByRole('link', { name: '내 정보' })).toHaveCount(0);
+    // 시청자 계정은 판매자 인증 전이라 [방송하기] 탭이 없고, 스튜디오 주소로 들어오면 인증 안내가 나온다.
+    await expect(menu.getByRole('link', { name: '방송하기' })).toHaveCount(0);
+    await page.goto('/studio');
+    await expect(page.getByText('판매자 인증을 받아야 방송을 만들 수 있어요')).toBeVisible();
+    await expect(page.getByRole('button', { name: '방송 만들기' })).toHaveCount(0);
+    await test.info().attach('인증 전 스튜디오', { body: await page.screenshot(), contentType: 'image/png' });
+    await page.goto('/');
 
     await page.getByRole('button', { name: /정보 보기$/ }).click();
     const dialog = page.getByRole('dialog', { name: '내 정보' });
@@ -110,7 +117,7 @@ test.describe('판매자 구독', () => {
     await expect(dialog).toBeHidden();
     await expect(page).toHaveURL(/\/me\/seller$/);
     // 처음이면 신청 양식, 신청했으면 심사 상태가 나온다.
-    await expect(page.getByLabel('상점 이름 (30자 이하)').or(page.getByText(/심사 중|승인|반려/).first())).toBeVisible();
+    await expect(page.getByLabel('상점 이름 (30자 이하)').or(page.getByText(/심사 중|승인|반려/).first()).first()).toBeVisible();
   });
 });
 

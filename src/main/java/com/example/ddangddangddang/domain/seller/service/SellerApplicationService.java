@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.seller.service;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.seller.dto.SellerApplicationRequest;
 import com.example.ddangddangddang.domain.seller.dto.SellerApplicationResponse;
+import com.example.ddangddangddang.domain.seller.entity.BusinessNumber;
 import com.example.ddangddangddang.domain.seller.entity.SellerApplication;
 import com.example.ddangddangddang.domain.seller.entity.SellerApplicationStatus;
 import com.example.ddangddangddang.domain.seller.exception.SellerErrorCode;
@@ -46,19 +47,20 @@ public class SellerApplicationService {
     public SellerApplicationResponse apply(Long userId, SellerApplicationRequest request) {
         String storeName = request.storeName().strip();
         String introduction = request.introduction().strip();
+        String businessNumber = BusinessNumber.normalize(request.businessNumber());
         validateContent(storeName);
         validateContent(introduction);
 
         SellerApplication application = applicationRepository.findByUserId(userId).orElse(null);
         if (application != null) {
-            application.resubmit(storeName, introduction);
+            application.resubmit(storeName, introduction, businessNumber);
             // 재신청이 겹치면(버튼 연타·다른 탭) 먼저 낸 신청만 남기고 나머지는 심사 중으로 안내한다.
             flush(application, SellerErrorCode.APPLICATION_PENDING);
             return SellerApplicationResponse.from(application);
         }
         try {
             return SellerApplicationResponse.from(
-                    applicationRepository.saveAndFlush(SellerApplication.create(userId, storeName, introduction)));
+                    applicationRepository.saveAndFlush(SellerApplication.create(userId, storeName, introduction, businessNumber)));
         } catch (DataIntegrityViolationException e) {
             // 같은 회원이 동시에 두 번 신청한 경우
             throw new BusinessException(SellerErrorCode.APPLICATION_PENDING, e);

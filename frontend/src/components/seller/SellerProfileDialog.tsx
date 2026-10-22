@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { CalendarDays, Clock, Gavel, PackageCheck, Phone, Radio, ShieldCheck, Truck, Users } from 'lucide-react';
+import { Building2, CalendarDays, Clock, Gavel, PackageCheck, Radio, ShieldCheck, Truck, Users } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, type Schema } from '@/api';
@@ -70,6 +70,13 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
             <Badge variant="info">
               <ShieldCheck className="size-3.5" aria-hidden="true" />
               판매자 인증
+            </Badge>
+          )}
+          {/* 사업자등록번호로 인증받은 판매자는 판매자 인증 배지 옆에 따로 표시한다. */}
+          {profile.businessSeller && (
+            <Badge variant="outline">
+              <Building2 className="size-3.5" aria-hidden="true" />
+              사업자
             </Badge>
           )}
           {profile.liveStreamId ? (
@@ -148,11 +155,10 @@ function InfoTab({ profile }: { profile: Profile }) {
             hint={`낙찰 ${formatNumber(trust?.soldAuctionCount ?? 0)} · 유찰 ${formatNumber(trust?.failedAuctionCount ?? 0)} · 취소 ${formatNumber(trust?.canceledAuctionCount ?? 0)}`}
           />
           <Stat icon={<Truck className="size-4" aria-hidden="true" />} label="평균 발송" value={shipping ?? '-'} hint="낙찰 뒤 발송까지" />
-          <Stat icon={<Phone className="size-4" aria-hidden="true" />} label="본인 인증" value={trust?.phoneVerified ? '휴대폰 인증' : '안 함'} />
           <Stat
             icon={<ShieldCheck className="size-4" aria-hidden="true" />}
             label="판매자 인증"
-            value={profile.verifiedSeller ? (profile.verifiedAt ? `${formatDate(profile.verifiedAt)} 인증` : '인증') : '안 함'}
+            value={profile.verifiedSeller && profile.verifiedAt ? formatDate(profile.verifiedAt) : '-'}
             hint={profile.joinedAt ? `${formatDate(profile.joinedAt)} 가입` : undefined}
           />
         </dl>

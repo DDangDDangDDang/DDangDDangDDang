@@ -21,12 +21,19 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
     //해당 상품에 상태(대기,진행 중)의 경매가 있는 조회
     boolean existsByProductIdAndStatusIn(Long productId, List<AuctionStatus> statuses);
 
+    //상품별 최신 경매 id(상품 마다 가장 큰 id 조회) : 내 상품 목록에서 상품별 경매 상태 표시용
+    @Query("select max(a.id) from Auction a where a.product.id in :productIds group by a.product.id")
+    List<Long> findLatestIdsByProductIds(@Param("productIds")List<Long> productIds);
 
     //시작 시간이 지난 READY 경매(READY -> ONGOING 대상)
     List<Auction> findByStatusAndStartAtLessThanEqual(AuctionStatus status,LocalDateTime now);
 
     //종료 시간이 지난 ONGOING 경매(ONGOING -> ENDED/FAILED 대상)
     List<Auction> findByStatusAndEndAtLessThanEqual(AuctionStatus status, LocalDateTime now);
+
+    //마감 임박 알림: 종료 시각이 [from, to] 사이인 진행 중 경매. 알림 문구에 쓰는 상품을 같이 읽는다.
+    @EntityGraph(attributePaths = {"product"})
+    List<Auction> findByStatusAndEndAtBetween(AuctionStatus status, LocalDateTime from, LocalDateTime to);
 
     //이 방송에 올라간 경매(최신순 50개). 응답에 쓰는 상품·판매자를 같이 읽는다.
     @EntityGraph(attributePaths = {"product", "product.seller", "liveStream"})

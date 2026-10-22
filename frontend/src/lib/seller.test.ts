@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { formatBroadcastDuration, formatShippingTime, soldRate } from './seller';
+import { formatBroadcastDuration, formatBusinessNumber, formatShippingTime, isValidBusinessNumber, soldRate } from './seller';
+
+describe('isValidBusinessNumber', () => {
+  it('검증 숫자가 맞는 10자리만 통과한다 (하이픈 허용)', () => {
+    expect(isValidBusinessNumber('220-81-62517')).toBe(true);
+    expect(isValidBusinessNumber('1248100998')).toBe(true);
+    expect(isValidBusinessNumber('220-81-62518')).toBe(false);
+    expect(isValidBusinessNumber('123456789')).toBe(false);
+  });
+
+  it('숫자 10자리를 하이픈 형식으로 보여준다', () => {
+    expect(formatBusinessNumber('2208162517')).toBe('220-81-62517');
+  });
+});
 
 describe('formatBroadcastDuration', () => {
   it('시간과 분으로 보여 준다', () => {

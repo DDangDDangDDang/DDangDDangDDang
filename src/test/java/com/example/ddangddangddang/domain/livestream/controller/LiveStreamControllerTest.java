@@ -89,6 +89,20 @@ class LiveStreamControllerTest {
     private LiveViewerStatsRepository statsRepository;
 
     @Test
+    @DisplayName("판매자 인증을 받지 않은 회원은 방송을 만들 수 없다 (403 LIVESTREAM_016)")
+    void notVerifiedSellerCannotCreate() throws Exception {
+        Member member = signupAndLogin();
+        sellerApplicationRepository.findByUserId(member.id()).ifPresent(sellerApplicationRepository::delete);
+
+        mockMvc.perform(post("/api/v1/live-streams").header(HttpHeaders.AUTHORIZATION, member.bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"title\": \"인증 없는 방송\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("LIVESTREAM_016"));
+        mockMvc.perform(get("/api/v1/live-streams/me/active").header(HttpHeaders.AUTHORIZATION, member.bearer()))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
     @DisplayName("종료되지 않은 방송이 있으면 새 방송을 만들 수 없고(409 LIVESTREAM_010), 종료하면 다시 만들 수 있다")
     void oneActiveStreamPerSeller() throws Exception {
         Member seller = signupAndLogin();
@@ -297,6 +311,8 @@ class LiveStreamControllerTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         Long id = ((Number) JsonPath.read(signup, "$.data.userId")).longValue();
+        // 이 테스트의 회원은 모두 방송을 만드는 판매자라 인증해 둔다. (인증 전 막힘은 notVerifiedSellerCannotCreate에서 따로 본다)
+        SellerFixture.verify(sellerApplicationRepository, id);
         String login = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\": \"" + email + "\", \"password\": \"Abcd1234!\"}"))
                 .andReturn().getResponse().getContentAsString();

@@ -14,6 +14,7 @@ public record AuctionListResponse(
         Long currentPrice,
         int bidCount,
         AuctionStatus status,
+        LocalDateTime startAt,
         LocalDateTime endAt,
         boolean live //라이브 경매 여부
 ) {
