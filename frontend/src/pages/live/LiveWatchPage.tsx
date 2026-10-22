@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { ApiError, api, call, errorMessage, isErrorCode, useSession, type ChatMessage, type Schema } from '@/api';
 import { BidDialog } from '@/components/auction/BidDialog';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
@@ -16,6 +16,7 @@ import { LiveChat } from '@/components/live/LiveChat';
 import { appendChatMessage } from '@/lib/live-room';
 import { LiveVideo } from './LiveVideo';
 import { useLiveRealtime } from '@/lib/use-live-realtime';
+import { useLeaveSafeNavigate } from '@/lib/watch-navigation';
 import { useLiveVideo } from './use-live-video';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
@@ -124,7 +125,7 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
 
 function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStream; sellerNickname?: string; guard: (action: () => void) => void }) {
   const session = useSession();
-  const navigate = useNavigate();
+  const navigate = useLeaveSafeNavigate();
   const name = sellerNickname || '판매자';
   // 구독자 수·내 구독 여부 (판매자 이름 옆 SellerIdentity와 같은 캐시)
   const profile = useSellerProfile(liveStream.sellerId);
@@ -164,6 +165,7 @@ function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStr
               // 로그인하지 않았으면 로그인 창을 띄우고, 로그인하면 문의 화면으로 간다.
               if (session) return;
               e.preventDefault();
+              // 시청 중이므로 새 탭으로 연다
               guard(() => navigate(`/messages/${liveStream.sellerId}`));
             }}
             className={buttonVariants({ variant: 'outline', size: 'sm', className: 'ml-2' })}

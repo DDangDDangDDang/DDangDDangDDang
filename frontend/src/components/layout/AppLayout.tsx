@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { api, call, logout, useSession } from '@/api';
 import { BroadcastProvider } from '@/components/broadcast/BroadcastProvider';
+import { WatchNavigationGuard } from '@/lib/watch-navigation';
 import { MiniBroadcast } from '@/components/broadcast/MiniBroadcast';
 import { MyInfoDialog } from '@/components/account/MyInfoDialog';
 import { DmRealtime } from '@/components/dm/DmRealtime';
@@ -19,6 +20,7 @@ import { useSellerProfile } from '@/lib/use-seller';
  * 모든 화면 공통 틀: 상단 헤더 + 가운데 정렬된 본문 (최대 폭 1360px)
  * 판매자 송출(BroadcastProvider)을 여기에 두어 방송 중에 다른 화면으로 가도 송출이 이어지고, 작은 방송 창이 뜬다.
  * 판매자 프로필 창(SellerProfileProvider)과 방송 시작 알림 팝업(LiveStartToasts)도 앱 전체에 하나씩 둔다.
+ * 방송 시청 중에 다른 화면으로 가는 링크는 새 탭으로 연다. (WatchNavigationGuard, 시청이 끊기지 않게)
  */
 export function AppLayout() {
   const session = useSession();
@@ -27,6 +29,7 @@ export function AppLayout() {
       <SellerProfileProvider>
         <div className="min-h-screen">
           {session?.user.userId !== undefined && <DmRealtime userId={session.user.userId} />}
+          <WatchNavigationGuard />
           <AppHeader />
           <main className="mx-auto max-w-[1360px] px-8 pt-6 pb-14">
             <Outlet />

@@ -25,7 +25,10 @@ test.describe('판매자 구독', () => {
 
     try {
       await login(page);
+      // 구독 여부는 판매자 정보를 불러온 뒤에 정해진다. 그 전에 잠깐 보이는 [구독]으로 판단하지 않도록 응답을 기다린다.
+      const profileLoaded = page.waitForResponse((r) => /\/api\/v1\/sellers\/\d+\/profile/.test(r.url()) && r.ok());
       await page.goto(`/lives/${first}`);
+      await profileLoaded;
       const subscribe = page.getByRole('button', { name: '구독', exact: true });
       const unsubscribe = page.getByRole('button', { name: '구독 취소' });
       await expect(subscribe.or(unsubscribe)).toBeVisible();

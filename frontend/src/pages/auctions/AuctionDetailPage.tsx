@@ -186,7 +186,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
       </aside>
 
       {loginDialog}
-      <BidDialog auctionId={bidOpen ? auctionId : undefined} onClose={() => setBidOpen(false)} />
+      <BidDialog auctionId={bidOpen ? auctionId : undefined} onClose={() => setBidOpen(false)} showDetailLink={false} />
       <ConfirmDialog
         open={confirmCancel}
         title="경매를 취소할까요?"

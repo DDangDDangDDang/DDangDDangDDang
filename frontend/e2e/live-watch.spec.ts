@@ -112,6 +112,16 @@ test.describe('방송 시청', () => {
     await page.getByRole('button', { name: '채팅 전송' }).click();
     await expect(page.getByRole('list', { name: '채팅 메시지' }).getByText(content)).toBeVisible();
     await expect(chatInput).toHaveValue('');
+
+    // 시청 중에 다른 화면으로 가는 링크(헤더 [경매])는 새 탭으로 열리고, 이 탭은 방송을 계속 본다.
+    const [newTab] = await Promise.all([
+      page.context().waitForEvent('page'),
+      page.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '경매', exact: true }).click(),
+    ]);
+    await expect(newTab).toHaveURL(/\/auctions$/);
+    await expect(page).toHaveURL(new RegExp(`/lives/${stream.id}$`));
+    await expect(page.getByRole('heading', { level: 1, name: stream.title })).toBeVisible();
+    await newTab.close();
   });
 
   test('로그인하지 않아도 방송과 채팅을 보고, 채팅을 보내려 하면 로그인 창에서 로그인한 뒤 이어서 보낸다', async ({ browser }) => {
