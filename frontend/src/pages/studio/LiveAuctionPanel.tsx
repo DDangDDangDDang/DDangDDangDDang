@@ -6,7 +6,7 @@ import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits
 import { AuctionConditionFields } from '@/components/auction/AuctionConditionFields';
 import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { auctionPhase, EMPTY_AUCTION_CONDITION, validateAuctionCondition, type AuctionConditionErrors, type AuctionConditionValues } from '@/lib/auction';
-import { formatNumber, formatPoint } from '@/lib/format';
+import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 import { ProductCreateDialog } from './ProductCreateDialog';
 import type { LiveAuctions } from './use-live-auctions';
@@ -15,6 +15,7 @@ type Product = Schema<'ProductResponse'>;
 
 /**
  * 경매 상품: 내 판매 중 상품 목록에서 [경매 시작] → 시작가·입찰 단위·진행 시간을 정해 방송 중 경매를 연다.
+ * 미리 만든(시작 전·진행 중) 경매가 있는 상품은 [이 방송에 올리기]로 그 경매를 방송에 보여준다. (일정은 그대로)
  * [상품 등록]은 창으로 열어 스튜디오를 떠나지 않고 등록하고, 방송 중이면 그 상품의 경매 조건 입력을 바로 연다.
  */
 export function LiveAuctionProducts({ live, auctions }: { live: boolean; auctions: LiveAuctions }) {
@@ -118,7 +119,7 @@ function ProductRow({
           <span className="text-caption text-neutral-500">{product.categoryName ?? ''}</span>
         </div>
         {activeAuction ? (
-          <span className="text-label font-semibold text-brand-700">경매 진행 중</span>
+          <ActiveAuction auction={activeAuction} live={live} auctions={auctions} />
         ) : open ? null : (
           <Button size="sm" variant="secondary" disabled={!live} onClick={onOpen}>
             경매 시작
@@ -152,7 +153,34 @@ function ProductRow({
   );
 }
 
-/** 이 방송에서 연 경매: 진행 중인 것을 위에, 끝난 것은 아래에. 현재가·입찰 수·남은 시간과 취소 버튼. */
+/**
+ * 상품에 이미 있는 경매. 이 방송에 올라가 있으면 상태만, 아니면 [이 방송에 올리기]를 보여준다.
+ */
+function ActiveAuction({ auction, live, auctions }: { auction: Schema<'AuctionResponse'>; live: boolean; auctions: LiveAuctions }) {
+  const now = useNow(auction.status === 'READY' ? 1000 : null);
+  const ready = auctionPhase(auction, now) === 'READY';
+  const show = auctions.show;
+  const showingThis = show.isPending && show.variables === auction.id;
+  const failedThis = show.isError && show.variables === auction.id;
+  const when = ready && auction.startAt ? `${formatDateTime(auction.startAt)} 시작` : '진행 중';
+
+  if (auction.liveStreamId === auctions.liveStreamId) {
+    return <span className="text-label font-semibold text-brand-700">{ready ? `이 방송 · ${when}` : '이 방송에서 경매 중'}</span>;
+  }
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        <span className="text-label text-neutral-500">{ready ? `예약된 경매 · ${when}` : '진행 중인 경매'}</span>
+        <Button size="sm" variant="secondary" disabled={!live} loading={showingThis} onClick={() => auction.id && show.mutate(auction.id)}>
+          이 방송에 올리기
+        </Button>
+      </div>
+      {failedThis && <Notice tone="error">{errorMessage(show.error)}</Notice>}
+    </div>
+  );
+}
+
+/** 이 방송에 올라간 경매: 진행 중인 것을 위에, 끝난 것은 아래에. 현재가·입찰 수·남은 시간과 취소 버튼. */
 export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
   const now = useNow(1000);
   const list = auctions.auctions;
@@ -175,7 +203,7 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
               <Skeleton className="h-24" />
             </li>
           ) : list.length === 0 ? (
-            <li className="rounded-md bg-neutral-25 px-3 py-3 text-label text-neutral-500">경매 상품에서 [경매 시작]을 누르면 여기에서 현재가와 남은 시간을 볼 수 있어요.</li>
+            <li className="rounded-md bg-neutral-25 px-3 py-3 text-label text-neutral-500">경매 상품에서 [경매 시작]이나 [이 방송에 올리기]를 누르면 여기에서 현재가와 남은 시간을 볼 수 있어요.</li>
           ) : (
             [...running, ...others].map((auction) => {
               const phase = auctionPhase(auction, now);

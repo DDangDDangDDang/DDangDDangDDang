@@ -8,6 +8,7 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamEndedEvent;
+import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamUpdatedEvent;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
@@ -34,6 +35,8 @@ public class LiveStreamService {
 
     // 시청 입장 토큰의 LiveKit identity 앞부분. 시청자 수를 셀 때 판매자와 구분하는 데도 쓴다. (LiveViewerStatsCollector)
     public static final String VIEWER_IDENTITY_PREFIX = "viewer-";
+    // 송출 토큰의 LiveKit identity 앞부분. 송출이 멈춘 방송을 찾을 때 쓴다. (LiveStreamIdleWatcher)
+    public static final String PUBLISHER_IDENTITY_PREFIX = "seller-";
     // 로그인하지 않은 시청자. viewer-로 시작하므로 시청자 수에 함께 센다.
     static final String GUEST_IDENTITY_PREFIX = VIEWER_IDENTITY_PREFIX + "guest-";
     static final String GUEST_DISPLAY_NAME = "손님";
@@ -108,11 +111,18 @@ public class LiveStreamService {
         String title = request.title() == null ? null : requireTitle(request.title());
         // null은 그대로 두기, 빈 문자열(공백만 포함)은 설명 지우기
         String description = request.description() == null ? null : request.description().strip();
+        String notice = request.notice() == null ? null : request.notice().strip();
         validateContent(title);
         validateContent(description);
+        validateContent(notice);
         validateScheduledStartAt(request.scheduledStartAt(), LocalDateTime.now());
 
-        if (!liveStream.update(sellerId, title, description, request.scheduledStartAt())) {
+        boolean changed = liveStream.update(sellerId, title, description, request.scheduledStartAt());
+        // update가 주인·종료 여부를 확인한 뒤에 공지를 바꾼다.
+        if (notice != null) {
+            changed = liveStream.changeNotice(notice) || changed;
+        }
+        if (!changed) {
             return LiveStreamResponse.from(liveStream);
         }
         flushWithVersionCheck(liveStream);
@@ -181,7 +191,11 @@ public class LiveStreamService {
         // 실패 시 예외 -> 트랜잭션 롤백 -> 상태는 SCHEDULED 그대로
         mediaServerClient.createRoom(liveStream.getRoomName());
 
-        return publisherTokenResponse(liveStream, sellerId, nickname);
+        LiveStreamTokenResponse token = publisherTokenResponse(liveStream, sellerId, nickname);
+        // 커밋 뒤 방송 예정 화면을 보던 시청자에게 알린다. 방송 정보 변경(LIVE)으로 새로고침 없이 영상에 접속하고, 채팅에 시작 안내가 올라간다.
+        eventPublisher.publishEvent(new LiveStreamUpdatedEvent(LiveStreamResponse.from(liveStream)));
+        eventPublisher.publishEvent(new LiveStreamStartedEvent(liveStream.getId()));
+        return token;
     }
 
     /**
@@ -231,7 +245,21 @@ public class LiveStreamService {
 
     @Transactional
     public LiveStreamResponse end(Long liveStreamId, Long sellerId) {
+        return end(liveStreamId, sellerId, false);
+    }
+
+    /** 판매자 송출이 오래 없어 서버가 종료한다. (LiveStreamIdleWatcher) 채팅 종료 안내에 이유를 함께 알린다. */
+    @Transactional
+    public LiveStreamResponse endForIdle(Long liveStreamId, Long sellerId) {
+        return end(liveStreamId, sellerId, true);
+    }
+
+    private LiveStreamResponse end(Long liveStreamId, Long sellerId, boolean idle) {
         LiveStream liveStream = findById(liveStreamId);
+        // 자동 종료는 방송 중일 때만 한다. 감시가 겹쳐(잠금 만료 등) 이미 끝난 방송을 다시 끝내면 방 삭제·종료 안내가 두 번 나가므로 막는다.
+        if (idle && liveStream.getStatus() != LiveStreamStatus.LIVE) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_LIVE);
+        }
         liveStream.end(sellerId);
         flushWithVersionCheck(liveStream);
 
@@ -239,7 +267,7 @@ public class LiveStreamService {
         mediaServerClient.deleteRoom(liveStream.getRoomName());
 
         // 커밋 후 리스너가 처리한다. (채팅 종료 안내 / TODO(6단계): 경매 도메인에서 진행 중 경매 처리)
-        eventPublisher.publishEvent(new LiveStreamEndedEvent(liveStream.getId()));
+        eventPublisher.publishEvent(new LiveStreamEndedEvent(liveStream.getId(), idle));
         return LiveStreamResponse.from(liveStream);
     }
 
@@ -268,7 +296,7 @@ public class LiveStreamService {
     }
 
     private String publisherIdentity(Long sellerId) {
-        return "seller-" + sellerId;
+        return PUBLISHER_IDENTITY_PREFIX + sellerId;
     }
 
     private String viewerIdentity(Long memberId) {

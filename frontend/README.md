@@ -24,6 +24,13 @@ npm run dev
 - http://localhost:5173 을 엽니다. 화면만 볼 때는 백엔드 없이도 됩니다. (로그인 복구 요청이 실패한 오류가 콘솔에 남는 건 정상)
 - 공통 컴포넌트 모음: http://localhost:5173/dev/components
 - 백엔드를 다른 포트로 띄웠다면 `frontend/.env.local`에 `BACKEND_URL=http://localhost:8081`을 적습니다.
+- 포인트 충전(포인트 화면의 [충전하기], 포트원 결제창)을 쓰려면 `frontend/.env.local`에 포트원 콘솔의 상점 ID와 채널 키를 적습니다. 값이 없으면 결제창을 띄우지 않고 "충전 설정이 필요합니다"라고 안내합니다.
+  - **채널 키는 반드시 포트원 테스트 채널의 키**를 씁니다. (실제 결제가 일어나지 않음)
+  - 결제 확인(`/points/charges/complete`)은 백엔드가 포트원에 결제를 다시 조회하므로 백엔드에 `PORTONE_API_SECRET`이 필요합니다. 없으면 `POINT_032` 오류가 납니다.
+  ```
+  VITE_PORTONE_STORE_ID=store-...
+  VITE_PORTONE_CHANNEL_KEY=channel-key-...
+  ```
 
 ## 자주 쓰는 명령
 

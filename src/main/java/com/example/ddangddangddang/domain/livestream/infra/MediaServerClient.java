@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.livestream.infra;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 미디어 서버(LiveKit) 연동 추상화.
@@ -28,4 +29,10 @@ public interface MediaServerClient {
      * 미디어 서버에 없는 방(아직 아무도 접속하지 않았거나 이미 지워진 방)은 결과에 없다.
      */
     Map<String, Integer> getViewerCounts(Collection<String> roomNames, String viewerIdentityPrefix);
+
+    /**
+     * 판매자가 송출 중인 방 이름. identity가 publisherIdentityPrefix로 시작하는 참가자가 끄지 않은(음소거가 아닌) 트랙(영상·소리)을 하나 이상 보내고 있는 방만 담는다.
+     * 미디어 서버에 없는 방(판매자가 아직 접속하지 않았거나 이미 지워진 방)은 송출 중이 아니다.
+     */
+    Set<String> getPublishingRooms(Collection<String> roomNames, String publisherIdentityPrefix);
 }

@@ -13,6 +13,8 @@ public record LiveStreamResponse(
         Long sellerId,
         String title,
         String description,
+        // 채팅창 고정 공지 (없으면 null)
+        String notice,
         LiveStreamStatus status,
         LocalDateTime createdAt,
         LocalDateTime scheduledStartAt,
@@ -25,6 +27,7 @@ public record LiveStreamResponse(
                 liveStream.getSellerId(),
                 liveStream.getTitle(),
                 liveStream.getDescription(),
+                liveStream.getNotice(),
                 liveStream.getStatus(),
                 liveStream.getCreatedAt(),
                 liveStream.getScheduledStartAt(),

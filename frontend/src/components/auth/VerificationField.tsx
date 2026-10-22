@@ -47,6 +47,18 @@ export function VerificationField({
   const [sendError, setSendError] = useState<string>();
   const [verifyError, setVerifyError] = useState<string>();
 
+  // 인증이 풀리면(가입·재설정이 인증 만료 등으로 실패) 이미 쓴 인증번호·타이머를 지우고 [인증번호 받기]부터 다시 하게 한다.
+  // 번호·이메일은 그대로 두어 바로 다시 받을 수 있다. 재요청 대기(1분)는 서버도 지키므로 남겨 둔다.
+  const [prevVerified, setPrevVerified] = useState(verified);
+  if (verified !== prevVerified) {
+    setPrevVerified(verified);
+    if (!verified) {
+      setCode('');
+      setExpiresAt(null);
+      setVerifyError(undefined);
+    }
+  }
+
   const remaining = useCountdown(expiresAt);
   const resendWait = useCountdown(resendAt);
   const sent = expiresAt !== null;

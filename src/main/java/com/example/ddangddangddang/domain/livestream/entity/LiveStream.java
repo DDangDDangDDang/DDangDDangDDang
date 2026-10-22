@@ -46,6 +46,10 @@ public class LiveStream extends BaseTimeEntity {
     @Column(length = 1000)
     private String description;
 
+    // 채팅창 위에 고정하는 판매자 공지. 없으면 null
+    @Column(length = 200)
+    private String notice;
+
     // LiveKit 방 이름. 외부에 노출되므로 순번 ID 대신 UUID 사용
     @Column(name = "room_name", nullable = false, unique = true, length = 64)
     private String roomName;
@@ -132,6 +136,20 @@ public class LiveStream extends BaseTimeEntity {
             }
         }
         return changed;
+    }
+
+    /**
+     * 채팅창 고정 공지를 바꾼다. 빈 문자열이면 지운다. 방송 정보 수정(update)으로 주인·종료 여부를 확인한 뒤 호출한다.
+     *
+     * @return 실제로 바뀌었으면 true
+     */
+    public boolean changeNotice(String notice) {
+        String newNotice = notice.isEmpty() ? null : notice;
+        if (Objects.equals(newNotice, this.notice)) {
+            return false;
+        }
+        this.notice = newNotice;
+        return true;
     }
 
     public void start(Long requesterId) {

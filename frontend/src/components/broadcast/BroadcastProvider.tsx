@@ -16,6 +16,9 @@ import { usePublisher } from './use-publisher';
  * - 새로고침·탭 닫기는 브라우저가 페이지를 없애 송출이 끊기므로, 방송 중에는 떠나기 전에 확인 창을 띄운다.
  *   새로고침한 뒤에는 방송 중인 방송을 찾아 /publisher-token으로 다시 접속한다.
  */
+/** 경고를 받던 방송이 끝난 뒤 자동 종료 알림(IDLE_ENDED)을 기다리는 시간 */
+const IDLE_ENDED_GRACE_MS = 10_000;
+
 export function BroadcastProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const queryClient = useQueryClient();
@@ -56,8 +59,23 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   const [chatError, setChatError] = useState<string>();
   const [alerts, setAlerts] = useState<ModerationAlert[]>([]);
   const [unseen, setUnseen] = useState({ chats: 0, alerts: 0 });
+  // 송출이 멈춘 방송 자동 종료 안내. 자동 종료는 서버의 IDLE_ENDED로만 판단한다. (다른 탭에서 직접 끝낸 것과 구분)
+  // 서버는 방송을 끝낸 뒤 IDLE_ENDED를 보낸다. 경고를 받던 방송이 끝나면 그 알림을 받을 수 있게 잠깐(IDLE_ENDED_GRACE_MS) 연결을 더 둔다.
+  const [idleEndsAt, setIdleEndsAt] = useState<string>();
+  const [idleTitle, setIdleTitle] = useState<string>();
+  const [autoEnded, setAutoEnded] = useState<string>();
+  const [graceStreamId, setGraceStreamId] = useState<number>();
   const [prevStreamId, setPrevStreamId] = useState(liveStreamId);
   if (prevStreamId !== liveStreamId) {
+    if (liveStreamId !== undefined) {
+      setAutoEnded(undefined);
+      setGraceStreamId(undefined);
+      // 새 방송에 이전 방송 제목이 남지 않게 한다. (이전 방송이 끝날 때까지는 유예 연결에서 이 제목을 쓴다)
+      setIdleTitle(undefined);
+    } else if (idleEndsAt !== undefined) {
+      setGraceStreamId(prevStreamId);
+    }
+    setIdleEndsAt(undefined);
     setPrevStreamId(liveStreamId);
     setMessages([]);
     setAlerts([]);
@@ -72,7 +90,12 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   }
 
   // 채팅·검토 알림은 송출을 맡은 탭과 스튜디오를 연 탭만 받는다. (다른 탭은 쓰지 않으므로 연결하지 않음)
-  const realtimeStreamId = liveStreamId !== undefined && (ownerId === liveStreamId || studioOpen) ? liveStreamId : undefined;
+  useEffect(() => {
+    if (graceStreamId === undefined) return;
+    const timer = setTimeout(() => setGraceStreamId(undefined), IDLE_ENDED_GRACE_MS);
+    return () => clearTimeout(timer);
+  }, [graceStreamId]);
+  const realtimeStreamId = liveStreamId !== undefined && (ownerId === liveStreamId || studioOpen) ? liveStreamId : graceStreamId;
   const realtime = useLiveRealtime(realtimeStreamId, {
     onChat: (message) => {
       setMessages((list) => appendChatMessage(list, message));
@@ -85,6 +108,22 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
     onModeration: (alert) => {
       setAlerts((list) => prependModerationAlert(list, alert));
       if (!studioOpenRef.current) setUnseen((prev) => ({ ...prev, alerts: prev.alerts + 1 }));
+    },
+    onIdle: (message) => {
+      // 방송이 바뀌는 순간 이전 방송의 늦은 알림이 지금 방송 상태를 바꾸지 않도록, 지금 연결한 방송의 알림만 받는다.
+      if (message.liveStreamId !== realtimeStreamId) return;
+      if (message.type === 'IDLE_WARNING') {
+        setIdleEndsAt(message.endsAt ?? undefined);
+        setIdleTitle(liveStream?.title || '방송');
+      }
+      if (message.type === 'IDLE_RESUMED') setIdleEndsAt(undefined);
+      if (message.type === 'IDLE_ENDED') {
+        // 경고 뒤 제목을 바꿨을 수 있으므로 지금 방송 제목을 먼저 쓰고, 방송이 이미 사라졌으면 경고 때 기억한 제목을 쓴다.
+        setAutoEnded(liveStream?.title || idleTitle || '방송');
+        setIdleEndsAt(undefined);
+        setGraceStreamId(undefined);
+        reload();
+      }
     },
   });
 
@@ -119,11 +158,12 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
       },
       alerts,
       dismissAlert: (messageId) => setAlerts((list) => list.filter((a) => a.messageId !== messageId)),
+      idle: { endsAt: idleEndsAt, autoEnded },
       unseen,
       reload,
       setStudioOpen,
     }),
-    [liveStream, live, publishing, media, publisher, messages, realtime.status, chatError, sendChat, alerts, unseen, reload, setStudioOpen],
+    [liveStream, live, publishing, media, publisher, messages, realtime.status, chatError, sendChat, alerts, idleEndsAt, autoEnded, unseen, reload, setStudioOpen],
   );
 
   return <BroadcastContext.Provider value={value}>{children}</BroadcastContext.Provider>;

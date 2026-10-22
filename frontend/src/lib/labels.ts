@@ -125,3 +125,11 @@ export const BANK_LABEL: Record<string, string> = {
   '037': '전북은행',
   '035': '제주은행',
 };
+
+export type SellerApplicationStatus = NonNullable<Schema<'SellerApplicationResponse'>['status']>;
+
+export const SELLER_APPLICATION_STATUS_LABEL: Record<SellerApplicationStatus, string> = {
+  PENDING: '심사 중',
+  APPROVED: '승인',
+  REJECTED: '반려',
+};

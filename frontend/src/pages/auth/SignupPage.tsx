@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
-import { api, call, errorMessage, login, useSession } from '@/api';
+import { api, call, errorMessage, isErrorCode, login, useSession } from '@/api';
 import { VerificationField } from '@/components/auth/VerificationField';
 import { AuthCard } from '@/components/layout/PageHeader';
 import { Button, Input, Notice } from '@/components/ui';
@@ -37,6 +37,9 @@ export function SignupPage() {
       );
     } catch (e) {
       setError(errorMessage(e));
+      // 이미 가입된 번호(USER_004)이거나 인증이 만료·사용됨(VERIFY_004)이면 인증 토큰을 다시 쓸 수 없으므로 휴대폰 인증을 다시 연다.
+      // 이메일·닉네임 중복(USER_001·002)은 서버가 토큰을 쓰기 전에 검사하므로 인증을 그대로 둔다.
+      if (isErrorCode(e, 'USER_004') || isErrorCode(e, 'VERIFY_004')) setVerified(null);
       setSubmitting(false);
       return;
     }
@@ -97,7 +100,11 @@ export function SignupPage() {
           }}
           verify={async (phoneNumber, code) => {
             const data = await call(api.POST('/api/v1/auth/signup/phone/verify', { body: { phoneNumber, code } }));
-            if (data?.verificationToken) setVerified({ phoneNumber, token: data.verificationToken });
+            if (data?.verificationToken) {
+              setVerified({ phoneNumber, token: data.verificationToken });
+              // 다시 인증했으면 이전 가입 실패 안내(인증 만료 등)를 지운다.
+              setError(undefined);
+            }
           }}
           verifiedMessage="휴대폰 인증을 완료했어요."
         />

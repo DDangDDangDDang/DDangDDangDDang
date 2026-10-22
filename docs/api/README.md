@@ -56,7 +56,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 - 주소: `ws://{호스트}/ws` (STOMP over WebSocket, SockJS 없음)
 - 인증: STOMP `CONNECT` 프레임 헤더에 `Authorization: Bearer {accessToken}`
   - 브라우저 WebSocket은 핸드셰이크에 헤더를 붙일 수 없어서, 핸드셰이크는 열려 있고 인증은 CONNECT에서 합니다.
-  - **토큰 없이 CONNECT하면 손님 연결**입니다. 손님은 방송 토픽(`/topic/live-streams/{id}`, `/topic/live-streams/{id}/chat`)만 구독할 수 있고, 보내기(`/app/...`)와 `/user/queue/...`는 할 수 없습니다. (로그인하지 않은 사람도 방송 채팅을 볼 수 있게)
+  - **토큰 없이 CONNECT하면 손님 연결**입니다. 손님은 방송 토픽(`/topic/live-streams/{id}`, `/topic/live-streams/{id}/chat`, `/topic/live-streams/{id}/auctions`)만 구독할 수 있고, 보내기(`/app/...`)와 `/user/queue/...`는 할 수 없습니다. (로그인하지 않은 사람도 방송 채팅을 볼 수 있게)
   - 토큰이 있는데 잘못됐으면(만료·로그아웃) 손님으로 바꾸지 않고 ERROR 프레임으로 거부합니다. 클라이언트는 토큰을 재발급해 다시 연결합니다.
 - 보내기는 `/app/...`, 받기는 `/topic/...`(구독자 전체) 또는 `/user/queue/...`(나에게만)입니다.
 - 아래 표에 없는 경로는 구독할 수 없습니다. (서버가 거부)
@@ -73,9 +73,12 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 |---|---|---|
 | `/topic/live-streams/{liveStreamId}/chat` | 방송 시청자 전체 (손님 포함) | `ChatMessageResponse` |
 | `/topic/live-streams/{liveStreamId}` | 방송 시청자 전체 (손님 포함) | `LiveStreamUpdatedMessage` (방송 정보 변경) |
+| `/topic/live-streams/{liveStreamId}/auctions` | 방송 시청자 전체 (손님 포함) | `LiveAuctionChangedMessage` (방송에 올라간 경매가 시작·추가·취소·마감됨) |
 | `/user/queue/errors` | 나 | `ErrorResponse` (채팅 전송 실패 등) |
 | `/user/queue/moderation` | 방송 판매자 | `ModerationAlert` (AI가 확인이 필요하다고 본 채팅) |
+| `/user/queue/live-stream` | 방송 판매자 | `LiveStreamIdleMessage` (송출이 없어 곧 자동 종료됨·취소됨·종료됨) |
 | `/user/queue/dm` | 나 | `DmEvent` (1:1 채팅 새 메시지, 읽음) |
+| `/user/queue/notifications` | 나 | `NotificationResponse` (구독한 판매자가 방송을 시작함) |
 
 ### 메시지 형식
 
@@ -96,6 +99,10 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 **LiveStreamUpdatedMessage**: `{ "type": "UPDATED", "liveStream": LiveStreamResponse }`
 - `liveStream`은 REST의 `LiveStreamResponse`와 같은 형식입니다. 바뀐 값만이 아니라 전체 정보이므로 받은 값으로 화면을 덮어쓰면 됩니다.
 
+**LiveAuctionChangedMessage**: `{ "type": "CHANGED", "auctionId": number }`
+- 바뀐 경매 번호만 옵니다. 받으면 방송의 경매 목록(`GET /api/v1/lives/{liveId}/auctions`)을 다시 불러옵니다.
+- 경매가 시작되거나 방송에 새로 올라오면 채팅(`/topic/live-streams/{id}/chat`)에도 `SYSTEM` 안내가 옵니다.
+
 **ErrorResponse**: `{ "code": string, "message": string }`. REST의 `error`와 같고, 코드는 `x-error-codes`에 있습니다.
 
 **ModerationAlert**
@@ -112,6 +119,16 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `reason` | string | 판단 이유 |
 | `detectedAt` | string | |
 
+**LiveStreamIdleMessage**: 방송 중(LIVE)인데 판매자 송출(영상·소리, 카메라·마이크를 모두 끈 상태 포함)이 30분 동안 없으면 서버가 방송을 종료합니다. 송출이 없던 시간은 마지막 송출부터, 한 번도 송출하지 않았으면 방송 시작부터 셉니다. (1분마다 확인)
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `type` | `"IDLE_WARNING"` \| `"IDLE_RESUMED"` \| `"IDLE_ENDED"` | 송출이 25분 없어 곧 종료됨(종료될 때까지 1분마다 다시 옴) · 다시 송출해 자동 종료 취소 · 자동 종료됨(방송을 끝낸 뒤에 옴) |
+| `liveStreamId` | number | |
+| `endsAt` | string \| null | `IDLE_WARNING`일 때 자동 종료 예정 시각 |
+
+- 자동 종료는 판매자가 [방송 종료]를 누른 것과 같습니다. (채팅 `SYSTEM` 종료 안내, 시청 화면 종료) 경매는 그대로 진행됩니다.
+
 **DmEvent**
 
 | 필드 | 타입 | 설명 |
@@ -122,7 +139,20 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `readerId` | number \| null | `READ`일 때. 읽은 사람 |
 | `lastReadMessageId` | number \| null | `READ`일 때. 여기까지 읽음 (보낸 사람 화면의 "1"을 지움) |
 
+**NotificationResponse**: REST 알림함(`GET /api/v1/notifications`)의 항목과 같은 형식입니다. 알림함에 저장된 뒤에 오므로, 받은 뒤 알림함·안 읽은 수를 다시 불러와도 같은 알림이 보입니다.
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `id` | number | 알림 ID (읽음 처리 `POST /api/v1/notifications/{id}/read`) |
+| `type` | `"LIVE_STARTED"` | 구독한 판매자가 방송을 시작함 |
+| `sellerId` | number | |
+| `sellerNickname` | string \| null | 알림을 만든 때의 닉네임 |
+| `liveStreamId` | number | 시작한 방송 (`/lives/{liveStreamId}`) |
+| `liveTitle` | string | 알림을 만든 때의 방송 제목 |
+| `read` | boolean | 실시간으로 올 때는 항상 false |
+| `createdAt` | string | |
+
 ### 실시간 메시지를 바꿀 때
 
 실시간 메시지는 자동 생성되지 않습니다. 경로나 메시지 DTO를 바꾸면 **이 문서도 같은 PR에서 고쳐 주세요.**
-관련 코드: `StompAuthChannelInterceptor`(구독 허용 경로), `LiveChatController`, `*Message`·`*Event`·`ModerationAlert` DTO.
+관련 코드: `StompAuthChannelInterceptor`(구독 허용 경로), `LiveChatController`, `LiveAuctionEventListener`, `*Message`·`*Event`·`ModerationAlert` DTO.
