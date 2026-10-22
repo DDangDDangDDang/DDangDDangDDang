@@ -2068,7 +2068,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "LATEST", "ENDING_SOON", "PRICE_ASC", "PRICE_DESC" ]
+            "enum" : [ "LATEST", "ENDING_SOON", "PRICE_ASC", "PRICE_DESC", "POPULAR" ]
           }
         }, {
           "name" : "page",
@@ -4457,6 +4457,14 @@
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "auctionStatus" : {
+            "type" : "string",
+            "enum" : [ "READY", "ONGOING", "ENDED", "FAILED", "CANCELED" ]
           }
         }
       },
@@ -6746,6 +6754,10 @@
           "status" : {
             "type" : "string",
             "enum" : [ "READY", "ONGOING", "ENDED", "FAILED", "CANCELED" ]
+          },
+          "startAt" : {
+            "type" : "string",
+            "format" : "date-time"
           },
           "endAt" : {
             "type" : "string",

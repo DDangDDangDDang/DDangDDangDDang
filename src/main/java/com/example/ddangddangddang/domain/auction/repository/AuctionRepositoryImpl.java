@@ -18,11 +18,11 @@ import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.support.PageableExecutionUtils;
 
-import javax.swing.undo.AbstractUndoableEdit;
+
 import java.util.List;
 
 
@@ -42,7 +42,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         //목록 조회 : 입력한 조건에 맞게 정렬후 한페이지 만큼 가져오기
         List<AuctionListResponse> content =queryFactory
                 .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,
-                        auction.currentPrice,auction.bidCount,auction.status,auction.endAt,
+                        auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,
                         onLive(liveStream)))
                 .from(auction)
                 .join(auction.product,product)
@@ -89,7 +89,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         QLiveStream liveStream = QLiveStream.liveStream;
 
         return queryFactory
-                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.endAt,onLive(liveStream))).
+                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,onLive(liveStream))).
                 from(auction)
                 .join(auction.product, product)
                 .join(product.category,category)
@@ -138,7 +138,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         return auction.status.eq(status);
     }
 
-    //정렬 : 안보낼시 기본 최신순,값이 같을 경우 id 순으로
+    //정렬 : 안보낼시 기본 최신순,값이 같을 경우 id 순으로,인기순은 입찰 횟수 많은순
     private OrderSpecifier<?>[] orderBy(QAuction auction, AuctionSort sort){
         if (sort ==null){
             sort = AuctionSort.LATEST;
@@ -148,6 +148,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
             case PRICE_ASC -> new OrderSpecifier<?>[]{auction.currentPrice.asc(),auction.id.desc()};
             case PRICE_DESC -> new OrderSpecifier<?>[]{auction.currentPrice.desc(),auction.id.desc()};
             case ENDING_SOON -> new OrderSpecifier<?>[]{auction.endAt.asc(),auction.id.desc()};
+            case POPULAR -> new OrderSpecifier<?>[]{auction.bidCount.desc(), auction.id.desc()};
         };
     }
 }

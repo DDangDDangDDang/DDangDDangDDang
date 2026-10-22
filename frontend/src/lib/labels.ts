@@ -70,6 +70,7 @@ export const AUCTION_SORT_LABEL: Record<AuctionSort, string> = {
   ENDING_SOON: '마감 임박순',
   PRICE_ASC: '낮은 가격순',
   PRICE_DESC: '높은 가격순',
+  POPULAR: '인기순',
 };
 
 export type ProductStatus = NonNullable<Schema<'ProductResponse'>['status']>;

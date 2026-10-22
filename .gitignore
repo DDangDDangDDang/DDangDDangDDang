@@ -39,6 +39,7 @@ out/
 
 application.properties
 data.sql
+test-data.sql
 
 ### Claude Code ###
 .claude/

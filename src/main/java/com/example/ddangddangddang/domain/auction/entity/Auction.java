@@ -106,6 +106,7 @@ public class Auction extends BaseTimeEntity {
     public void close(){
         if (this.bidCount > 0){
             this.status =AuctionStatus.ENDED;
+            this.product.sold();
         }else {
             this.status=AuctionStatus.FAILED;
         }
@@ -177,6 +178,7 @@ public class Auction extends BaseTimeEntity {
         this.currentPrice = this.buyNowPrice;
         this.status = AuctionStatus.ENDED;
         this.endAt = now;
+        this.product.sold();
     }
 
     public boolean isSeller(Long userId) {
