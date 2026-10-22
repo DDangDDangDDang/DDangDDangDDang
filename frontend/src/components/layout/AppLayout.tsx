@@ -13,6 +13,7 @@ import { SellerProfileProvider } from '@/components/seller/SellerProfileProvider
 import { Button, buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
+import { useSellerProfile } from '@/lib/use-seller';
 
 /**
  * 모든 화면 공통 틀: 상단 헤더 + 가운데 정렬된 본문 (최대 폭 1360px)
@@ -49,6 +50,7 @@ function AppHeader() {
   const here = location.pathname + location.search;
   const back = ['/login', '/signup'].includes(location.pathname) ? '' : `?redirect=${encodeURIComponent(here)}`;
   const [myInfoOpen, setMyInfoOpen] = useState(false);
+  const verifiedSeller = useSellerProfile(session?.user.userId).data?.verifiedSeller ?? false;
 
   return (
     <header className="border-b border-neutral-100 bg-neutral-0">
@@ -72,9 +74,12 @@ function AppHeader() {
             </NavLink>
             {session && (
               <>
-                <NavLink to="/studio" className={navClass}>
-                  방송하기
-                </NavLink>
+                {/* 방송은 판매자 인증을 받은 회원만 만들 수 있어 탭도 인증 판매자에게만 보인다. */}
+                {verifiedSeller && (
+                  <NavLink to="/studio" className={navClass}>
+                    방송하기
+                  </NavLink>
+                )}
                 <NavLink to="/me/products" className={navClass}>
                   내 상품
                 </NavLink>

@@ -296,11 +296,12 @@ class LiveAuctionControllerTest {
     }
 
     private Long startLive(Member seller) throws Exception {
+        // 방송을 만들고 시작하려면 판매자 인증이 있어야 한다.
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
         Long liveStreamId = longValue(mockMvc.perform(post("/api/v1/live-streams").header(HttpHeaders.AUTHORIZATION, seller.bearer())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"title\": \"경매 방송\"}"))
                 .andExpect(status().isCreated()), "$.data.id");
         given(mediaServerClient.createPublisherToken(anyString(), anyString(), anyString())).willReturn("token");
-        SellerFixture.verify(sellerApplicationRepository, seller.id());
         liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
         return liveStreamId;
     }

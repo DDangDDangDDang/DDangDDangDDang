@@ -96,7 +96,8 @@ test.describe('방송 시청', () => {
     await expect(page).toHaveURL(/\/lives/);
     await page.getByRole('searchbox', { name: '방송 검색' }).fill(stream.title);
     await page.getByRole('button', { name: '검색' }).click();
-    await page.getByRole('link', { name: new RegExp(escapeRegExp(stream.title)) }).click();
+    // 왼쪽 "구독 중인 판매자"의 LIVE 링크 이름(aria-label)에도 방송 제목이 들어가므로, 제목 글자가 화면에 보이는 방송 카드만 고른다.
+    await page.getByRole('link').filter({ hasText: stream.title }).click();
 
     // 방송 시청
     await expect(page).toHaveURL(new RegExp(`/lives/${stream.id}$`));
@@ -191,14 +192,14 @@ test.describe('판매자 송출', () => {
     try {
       // 판매자: 스튜디오. 종료되지 않은 방송이 있으면 그 방송을 쓰고, 없으면 만든다.
       await loginOnPage(studio, seller);
+      // 판매자 인증을 받은 판매자에게만 [방송하기] 탭이 보인다.
+      await expect(studio.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '방송하기' })).toBeVisible();
       // 방송 시작 전에는 스튜디오에 시청 화면 링크가 없어, 스튜디오가 받는 응답에서 방송 ID를 읽는다.
       // (API로 판매자에게 다시 로그인하면 스튜디오의 로그인이 끊긴다)
       // 로그인 직후 다른 화면(홈)도 같은 요청을 보내고, 화면을 옮기면 그 응답 내용은 읽을 수 없다.
-      // 그래서 스튜디오를 연 뒤 새로고침하면서 오는 응답만 읽는다.
+      // 그래서 스튜디오를 연 뒤 새로고침하면서 오는 응답을 읽고, 그래도 못 읽으면 다시 새로고침한다.
       await studio.goto('/studio');
-      const activeResponse = studio.waitForResponse((r) => r.url().includes('/api/v1/live-streams/me/active'));
-      await studio.reload();
-      let liveStreamId: number | undefined = (await (await activeResponse).json()).data?.id;
+      let liveStreamId = await activeStreamIdOnStudio(studio);
       const createButton = studio.getByRole('button', { name: '방송 만들기' });
       const startButton = studio.getByRole('button', { name: '방송 시작' });
       const endButton = studio.getByRole('button', { name: '방송 종료' });
@@ -423,6 +424,23 @@ test.describe('판매자 송출', () => {
     }
   });
 });
+
+/**
+ * 스튜디오를 새로고침하면서 받는 "내 방송" 응답에서 방송 ID를 읽는다. 방송이 없으면 undefined.
+ * 새로고침 전 화면이 보낸 같은 요청을 잡으면 응답 내용을 읽을 수 없어, 그때는 다시 새로고침한다. (최대 3번)
+ */
+async function activeStreamIdOnStudio(studio: Page): Promise<number | undefined> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = studio.waitForResponse((r) => r.url().includes('/api/v1/live-streams/me/active') && r.ok());
+    await studio.reload();
+    try {
+      return ((await (await response).json()) as Envelope<LiveStream>).data?.id;
+    } catch {
+      // 이전 화면의 응답이었다. 다시 새로고침한다.
+    }
+  }
+  throw new Error('스튜디오에서 내 방송 정보를 읽지 못했습니다.');
+}
 
 async function loginOnPage(page: Page, account: { email: string; password: string }) {
   await page.goto('/login');
