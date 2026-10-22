@@ -80,7 +80,8 @@ class PointChargeServiceTest {
             PointChargeResponse response = pointChargeService.createChargeRequest(USER_ID, request);
 
             assertThat(response.chargeId()).isEqualTo(100L);
-            assertThat(response.paymentId()).startsWith("point-charge-");
+            assertThat(response.paymentId()).startsWith("charge-");
+            assertThat(response.paymentId()).hasSizeLessThanOrEqualTo(40);
             assertThat(response.amount()).isEqualTo(AMOUNT);
             assertThat(response.orderName()).isEqualTo("10,000 포인트 충전");
         }
