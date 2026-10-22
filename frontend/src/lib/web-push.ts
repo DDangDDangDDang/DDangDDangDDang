@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import { ApiError, api, call, currentPushSubscription, errorMessage } from '@/api';
+import { ApiError, api, call, currentPushSubscription, errorMessage, getSession } from '@/api';
 
 /*
  * 브라우저 알림(웹 푸시). 켜 두면 탭을 닫아도 브라우저가 켜져 있는 동안 알림함의 새 알림이 브라우저 알림으로 온다.
@@ -52,7 +52,16 @@ function wasEnabled(userId: number) {
 }
 
 /** 서버 키로 구독하고(키가 바뀌었으면 새로) 서버에 저장한다. 권한은 이미 받은 상태여야 한다. */
-async function subscribeAndSave() {
+/** 작업 중에 로그아웃했거나 다른 회원으로 바뀌었으면 남은 단계를 하지 않는다. (앞 회원의 구독을 새 회원 것으로 저장하지 않게) */
+class AccountChanged extends Error {}
+
+function guardFor(userId: number) {
+  return () => {
+    if (getSession()?.user.userId !== userId) throw new AccountChanged();
+  };
+}
+
+async function subscribeAndSave(ensureSameAccount: () => void) {
   const registration = await navigator.serviceWorker.register(SERVICE_WORKER_URL);
   await navigator.serviceWorker.ready;
   const key = await call(api.GET('/api/v1/push/public-key'));
@@ -60,6 +69,7 @@ async function subscribeAndSave() {
   const serverKey = base64UrlToBytes(key.publicKey);
 
   let subscription = await registration.pushManager.getSubscription();
+  ensureSameAccount();
   if (subscription && !sameKey(subscription.options.applicationServerKey, serverKey)) {
     await subscription.unsubscribe();
     subscription = null;
@@ -68,6 +78,7 @@ async function subscribeAndSave() {
 
   const json = subscription.toJSON();
   if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error('브라우저가 알림 구독 정보를 주지 않았어요.');
+  ensureSameAccount();
   await call(api.POST('/api/v1/push/subscriptions', { body: { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth } }));
 }
 
@@ -101,49 +112,64 @@ export function useWebPush(userId: number | undefined) {
   const state = snapshot.userId === userId ? snapshot.state : initialState(userId);
 
   useEffect(() => {
-    if (userId === undefined || syncedUserId === userId) return;
+    // 로그아웃하면 다음 로그인 때(같은 회원이어도) 구독을 다시 맞춘다.
+    if (userId === undefined) {
+      syncedUserId = undefined;
+      return;
+    }
+    if (syncedUserId === userId) return;
     syncedUserId = userId;
     update({ userId, state: initialState(userId), pending: false, error: undefined });
     if (!webPushSupported() || Notification.permission !== 'granted' || !wasEnabled(userId)) return;
-    subscribeAndSave()
+    const ensureSameAccount = guardFor(userId);
+    subscribeAndSave(ensureSameAccount)
       .then(() => shared.userId === userId && update({ state: 'on' }))
-      .catch(() => shared.userId === userId && update({ state: 'off' }));
+      .catch((e) => !(e instanceof AccountChanged) && shared.userId === userId && update({ state: 'off' }));
   }, [userId]);
 
   const enable = useCallback(async () => {
     if (userId === undefined || !webPushSupported()) return;
+    const ensureSameAccount = guardFor(userId);
     update({ userId, pending: true, error: undefined });
     try {
       const permission = await Notification.requestPermission();
+      ensureSameAccount();
       if (permission !== 'granted') {
         update({ state: permission === 'denied' ? 'denied' : 'off' });
         return;
       }
-      await subscribeAndSave();
+      await subscribeAndSave(ensureSameAccount);
+      ensureSameAccount();
       rememberEnabled(userId, true);
       update({ state: 'on' });
     } catch (e) {
+      if (e instanceof AccountChanged) return;
       update({ error: e instanceof ApiError ? errorMessage(e) : '이 브라우저에서 알림을 켜지 못했어요. 브라우저 설정에서 알림을 허용했는지 확인해 주세요.' });
     } finally {
-      update({ pending: false });
+      if (shared.userId === userId) update({ pending: false });
     }
   }, [userId]);
 
   const disable = useCallback(async () => {
     if (userId === undefined) return;
+    const ensureSameAccount = guardFor(userId);
     update({ userId, pending: true, error: undefined });
     try {
       const subscription = await currentPushSubscription();
       if (subscription) {
+        ensureSameAccount();
         await call(api.DELETE('/api/v1/push/subscriptions', { params: { query: { endpoint: subscription.endpoint } } }));
+        ensureSameAccount();
         await subscription.unsubscribe();
       }
+      ensureSameAccount();
       rememberEnabled(userId, false);
       update({ state: 'off' });
     } catch (e) {
+      if (e instanceof AccountChanged) return;
       update({ error: e instanceof ApiError ? errorMessage(e) : '이 브라우저에서 알림을 끄지 못했어요.' });
     } finally {
-      update({ pending: false });
+      if (shared.userId === userId) update({ pending: false });
     }
   }, [userId]);
 
