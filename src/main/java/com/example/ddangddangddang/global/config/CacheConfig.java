@@ -32,7 +32,7 @@ public class CacheConfig implements CachingConfigurer {
                 .constructCollectionType(List.class, CategoryResponse.class);
 
         RedisCacheConfiguration categoryConfig =RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofHours(1)) //삭제를 놓쳐도 1시간 뒤 자동 새로 만들기
+                .entryTtl(Duration.ofMinutes(10)) //삭제를 놓쳐도 10분 뒤 자동 새로 만들기
                 .disableCachingNullValues()
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
                         new JacksonJsonRedisSerializer<>(jsonMapper,categoryListType)
