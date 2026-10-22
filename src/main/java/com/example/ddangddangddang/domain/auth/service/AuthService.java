@@ -75,7 +75,8 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.LOGIN_FAILED));
 
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+        // 소셜 로그인으로만 가입해 비밀번호가 없는 회원도 같은 에러로 응답
+        if (!user.hasPassword() || !passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new BusinessException(AuthErrorCode.LOGIN_FAILED);
         }
 
