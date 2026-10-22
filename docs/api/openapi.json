@@ -1998,6 +1998,172 @@
         }
       }
     },
+    "/api/v1/auctions/{auctionId}/buy-now" : {
+      "post" : {
+        "tags" : [ "bid-controller" ],
+        "operationId" : "bidBuyNow",
+        "parameters" : [ {
+          "name" : "auctionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseBuyNowResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auctions/{auctionId}/bids" : {
+      "get" : {
+        "tags" : [ "bid-controller" ],
+        "operationId" : "bidGetBids",
+        "parameters" : [ {
+          "name" : "auctionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseBidHistoryResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "bid-controller" ],
+        "operationId" : "bidPlaceBid",
+        "parameters" : [ {
+          "name" : "auctionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BidRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseBidResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/categories" : {
       "post" : {
         "tags" : [ "category-controller" ],
@@ -4481,6 +4647,90 @@
         },
         "required" : [ "bidUnit", "endAt", "productId", "startAt", "startPrice" ]
       },
+      "ApiResponseBuyNowResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/BuyNowResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "BuyNowResponse" : {
+        "type" : "object",
+        "properties" : {
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "orderId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "price" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "BidRequest" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        },
+        "required" : [ "amount" ]
+      },
+      "ApiResponseBidResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/BidResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "BidResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bidId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bidCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "endAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "extended" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "CategoryRequest" : {
         "type" : "object",
         "properties" : {
@@ -5419,6 +5669,59 @@
           }
         }
       },
+      "ApiResponseCursorResponseBidHistoryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseBidHistoryResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "BidHistoryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bidId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bidderId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "CursorResponseBidHistoryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BidHistoryResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ApiResponseListAuctionListResponse" : {
         "type" : "object",
         "properties" : {
@@ -5539,6 +5842,38 @@
     "code" : "AUCTION_011",
     "status" : 409,
     "message" : "다른 방송에 올라가 있는 경매입니다"
+  }, {
+    "code" : "AUCTION_012",
+    "status" : 409,
+    "message" : "진행 중인 경매가 아닙니다."
+  }, {
+    "code" : "AUCTION_013",
+    "status" : 409,
+    "message" : "경매 마감 시간이 지났습니다."
+  }, {
+    "code" : "AUCTION_014",
+    "status" : 403,
+    "message" : "본인 경매에는 입찰하거나 구매할 수 없습니다."
+  }, {
+    "code" : "AUCTION_015",
+    "status" : 409,
+    "message" : "이미 최고 입찰자입니다."
+  }, {
+    "code" : "AUCTION_016",
+    "status" : 400,
+    "message" : "입찰가가 최소 입찰가보다 낮습니다."
+  }, {
+    "code" : "AUCTION_017",
+    "status" : 400,
+    "message" : "입찰가가 즉시구매가 이상입니다. 즉시구매를 이용해주세요."
+  }, {
+    "code" : "AUCTION_018",
+    "status" : 409,
+    "message" : "입찰이 몰리고 있습니다. 잠시 후 다시 시도해주세요."
+  }, {
+    "code" : "AUCTION_019",
+    "status" : 400,
+    "message" : "즉시구매가 없는 경매입니다."
   }, {
     "code" : "AUTH_001",
     "status" : 401,
