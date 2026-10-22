@@ -59,6 +59,9 @@ describe('push: 로그아웃 정리와 구독 저장의 순서', () => {
     const release = releasePushSubscription();
     const save = vi.fn(async () => calls.push('SAVE'));
     await expect(runPushSave(save)).rejects.toBeInstanceOf(PushSaveBlocked);
+    // 정리 중에 같은 회원의 토큰만 재발급돼도 계속 막는다.
+    setSession({ accessToken: 't-refreshed', user: { userId: 1 } });
+    await expect(runPushSave(save)).rejects.toBeInstanceOf(PushSaveBlocked);
     await release;
     expect(save).not.toHaveBeenCalled();
     expect(calls).toEqual(['DELETE']);

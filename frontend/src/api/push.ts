@@ -22,11 +22,15 @@ export class PushSaveBlocked extends Error {
 
 /** 진행 중인 구독 저장들. 로그아웃 정리는 모두 끝난 뒤에 한다. */
 const pendingSaves = new Set<Promise<unknown>>();
-/** 로그아웃 정리를 시작했으면, 세션이 바뀔 때(로그아웃 완료·다음 로그인)까지 새 저장을 막는다. */
+/**
+ * 로그아웃 정리를 시작했으면, 로그인한 회원이 바뀔 때(로그아웃 완료로 비거나 다음 회원 로그인)까지 새 저장을 막는다.
+ * 토큰 재발급처럼 같은 회원의 세션만 바뀐 경우는 풀지 않는다.
+ * 정리가 끝난 직후(finally)에 풀지 않는 것은, 그때는 아직 세션이 남아 있어 그 사이에 저장이 다시 시작될 수 있기 때문이다.
+ */
 let releasing = false;
-let releasingSession = getSession();
+let releasingUserId: number | undefined;
 subscribeSession(() => {
-  if (getSession() !== releasingSession) releasing = false;
+  if (getSession()?.user.userId !== releasingUserId) releasing = false;
 });
 
 /**
@@ -50,7 +54,7 @@ export function runPushSave<T>(save: () => Promise<T>): Promise<T> {
  */
 export async function releasePushSubscription() {
   releasing = true;
-  releasingSession = getSession();
+  releasingUserId = getSession()?.user.userId;
   await Promise.all([...pendingSaves]);
   let subscription: PushSubscription | null = null;
   try {
