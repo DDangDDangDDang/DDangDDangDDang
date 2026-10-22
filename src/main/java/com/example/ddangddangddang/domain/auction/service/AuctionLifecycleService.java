@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.auction.service;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.event.AuctionEndedEvent;
+import com.example.ddangddangddang.domain.auction.event.AuctionStartedEvent;
 import com.example.ddangddangddang.domain.auction.event.LiveAuctionEvent;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
@@ -33,6 +34,7 @@ public class AuctionLifecycleService {
             return;
         }
         auction.start();
+        eventPublisher.publishEvent(new AuctionStartedEvent(auction.getId()));
         //방송 중인 방송에 올라간 경매면 시청 화면에 시작을 알린다
         LiveStream liveStream = auction.getLiveStream();
         if (liveStream != null && liveStream.getStatus() == LiveStreamStatus.LIVE) {

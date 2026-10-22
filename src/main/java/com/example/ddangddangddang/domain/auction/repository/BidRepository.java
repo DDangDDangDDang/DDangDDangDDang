@@ -10,6 +10,10 @@ import java.util.List;
 
 public interface BidRepository extends JpaRepository<Bid, Long> {
 
+    // 이 경매에 한 번이라도 입찰한 회원 (마감 임박·취소·종료 알림 대상)
+    @Query("select distinct b.bidderId from Bid b where b.auctionId = :auctionId")
+    List<Long> findBidderIds(@Param("auctionId") Long auctionId);
+
     /** 경매의 입찰 기록. cursor보다 id가 작은 것을 최신순으로 */
     @Query("""
             select b from Bid b

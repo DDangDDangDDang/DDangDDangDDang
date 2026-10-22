@@ -78,7 +78,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `/user/queue/moderation` | 방송 판매자 | `ModerationAlert` (AI가 확인이 필요하다고 본 채팅) |
 | `/user/queue/live-stream` | 방송 판매자 | `LiveStreamIdleMessage` (송출이 없어 곧 자동 종료됨·취소됨·종료됨) |
 | `/user/queue/dm` | 나 | `DmEvent` (1:1 채팅 새 메시지, 읽음) |
-| `/user/queue/notifications` | 나 | `NotificationResponse` (구독한 판매자가 방송을 시작함) |
+| `/user/queue/notifications` | 나 | `NotificationResponse` (구독한 판매자의 방송 시작, 경매 시작·상위 입찰·마감 10분 전·취소·낙찰·유찰) |
 
 ### 메시지 형식
 
@@ -99,6 +99,16 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 **LiveStreamUpdatedMessage**: `{ "type": "UPDATED", "liveStream": LiveStreamResponse }`
 - `liveStream`은 REST의 `LiveStreamResponse`와 같은 형식입니다. 바뀐 값만이 아니라 전체 정보이므로 받은 값으로 화면을 덮어쓰면 됩니다.
 - 방송 정보 수정뿐 아니라 방송을 시작할 때도 옵니다. (`status`가 `LIVE`) 방송 예정 화면에서 기다리던 시청자는 새로고침 없이 영상에 접속하고, 채팅에 `SYSTEM` "방송이 시작되었습니다." 안내도 옵니다.
+
+**NotificationResponse** (알림함 `GET /api/v1/notifications`와 같은 형식)
+- `type`: `LIVE_STARTED`(구독한 판매자 방송 시작), `AUCTION_STARTED`(알림 받기를 한 경매 시작), `AUCTION_OUTBID`(내 최고 입찰보다 높은 입찰), `AUCTION_CLOSING_SOON`(마감 10분 전), `AUCTION_CANCELED`, `AUCTION_WON`(내가 낙찰), `AUCTION_SOLD`·`AUCTION_FAILED`(판매자: 낙찰·유찰), `AUCTION_ENDED`(알림 받기·입찰한 경매가 끝남)
+- `title`·`body`·`link`: 화면에 그대로 보여 줄 문구와 누르면 갈 경로. 브라우저 알림(웹 푸시)과 같은 문구입니다.
+- 받는 사람: 시작은 알림 받기(`PUT /api/v1/auctions/{id}/alert`)를 한 회원, 상위 입찰은 밀려난 회원, 마감 임박·취소·종료는 알림 받기 + 입찰한 회원
+
+**브라우저 알림(웹 푸시)**: 탭을 닫아도 브라우저가 켜져 있으면 같은 알림이 브라우저 알림으로 옵니다.
+- `GET /api/v1/push/public-key`로 받은 키로 `pushManager.subscribe` → `POST /api/v1/push/subscriptions`로 저장, 로그아웃·끄기는 `DELETE /api/v1/push/subscriptions?endpoint=`
+- 서비스 워커(`frontend/public/sw.js`)가 받는 내용: `{ notificationId, type, title, body, link, tag }`
+- 서버 설정: `WEB_PUSH_PUBLIC_KEY`·`WEB_PUSH_PRIVATE_KEY`(VAPID, 비우면 서버를 켤 때마다 새로 만듦 — 로컬 전용), `WEB_PUSH_SUBJECT`
 
 **LiveAuctionChangedMessage**: `{ "type": "CHANGED", "auctionId": number }`
 - 바뀐 경매 번호만 옵니다. 받으면 방송의 경매 목록(`GET /api/v1/lives/{liveId}/auctions`)을 다시 불러옵니다.

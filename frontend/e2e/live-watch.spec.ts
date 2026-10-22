@@ -303,7 +303,8 @@ test.describe('판매자 송출', () => {
       // 판매자가 채팅 공지를 올리면 시청 화면 채팅창 위에 고정된다. 시청자가 닫아도 다시 들어오면 다시 보인다.
       const noticeText = `E2E 공지 ${Date.now()}`;
       await studio.getByLabel('채팅창 위에 고정할 공지').fill(noticeText);
-      await studio.getByRole('button', { name: '공지 올리기' }).click();
+      // 이어 쓰는 방송에 이미 공지가 있으면 버튼이 [공지 바꾸기]다.
+      await studio.getByRole('button', { name: /^공지 (올리기|바꾸기)$/ }).click();
       const watchNotice = watch.getByRole('note', { name: '판매자 공지' });
       await expect(watchNotice).toContainText(noticeText);
       await watch.getByRole('button', { name: '공지 닫기' }).click();
