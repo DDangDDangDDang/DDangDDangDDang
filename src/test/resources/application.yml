@@ -10,6 +10,12 @@ spring:
       ddl-auto: create-drop
     open-in-view: false
 
+  # 테스트는 로컬 개발용(0번)과 다른 Redis DB를 쓴다.
+  # 테스트용 빈 DB의 값(카테고리 캐시 [] 등)이 로컬 서버의 Redis에 남아 화면에 보이지 않게 한다.
+  data:
+    redis:
+      database: 15
+
 jwt:
   secret: dGVzdC1qd3Qtc2VjcmV0LWtleS1mb3ItZGRhbmctZGRhbmctZGRhbmctdGVzdA==
   access-token-validity: 30m
