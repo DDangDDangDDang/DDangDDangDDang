@@ -8,7 +8,7 @@ import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { SellerIdentity } from '@/components/seller/SellerIdentity';
 import { SubscribeButton } from '@/components/seller/SubscribeButton';
 import { useSellerProfile } from '@/lib/use-seller';
-import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
+import { Button, buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { AuctionPanel } from './AuctionPanel';
 import { Hashtags } from '@/components/live/Hashtags';
@@ -156,21 +156,18 @@ function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStr
           }
         />
         {liveStream.sellerId !== undefined && <SubscribeButton sellerId={liveStream.sellerId} subscribed={profile.data?.subscribed ?? false} />}
-        {canAsk && (
-          <Link
-            to={`/messages/${liveStream.sellerId}`}
-            onClick={(e) => {
-              // 로그인했으면 링크 그대로(시청 중이라 새 탭으로 열림, WatchNavigationGuard).
-              // 로그인하지 않았으면 로그인만 하고, 문의는 다시 누르게 한다. (로그인 뒤에 새 탭을 열면 브라우저가 팝업으로 막을 수 있어서)
-              if (session) return;
-              e.preventDefault();
-              guard(() => undefined);
-            }}
-            className={buttonVariants({ variant: 'outline', size: 'sm', className: 'ml-2' })}
-          >
-            판매자에게 문의
-          </Link>
-        )}
+        {/* 로그인했으면 링크(시청 중이라 새 탭으로 열림, WatchNavigationGuard).
+            로그인하지 않았으면 로그인 창만 여는 버튼이고, 로그인 뒤 다시 누르면 문의가 열린다. (로그인 뒤에 새 탭을 열면 팝업으로 막힐 수 있어서) */}
+        {canAsk &&
+          (session ? (
+            <Link to={`/messages/${liveStream.sellerId}`} className={buttonVariants({ variant: 'outline', size: 'sm', className: 'ml-2' })}>
+              판매자에게 문의
+            </Link>
+          ) : (
+            <Button variant="outline" size="sm" className="ml-2" onClick={() => guard(() => undefined)}>
+              판매자에게 문의
+            </Button>
+          ))}
       </div>
       {liveStream.description && (
         <p className="rounded-lg border border-neutral-100 bg-neutral-0 px-5 py-4 text-body whitespace-pre-line text-neutral-700">
