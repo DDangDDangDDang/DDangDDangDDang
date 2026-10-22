@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>포트원 충전 테스트 (개발용)</title>
+  <!-- 포트원 V2 브라우저 SDK -->
+  <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 0 16px; line-height: 1.5; }
+    h1 { font-size: 20px; }
+    label { display: block; margin-top: 12px; font-weight: 600; font-size: 14px; }
+    input { width: 100%; padding: 8px; box-sizing: border-box; font-family: monospace; }
+    button { margin-top: 16px; padding: 10px 16px; font-size: 15px; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 12px; white-space: pre-wrap; word-break: break-all; font-size: 13px; }
+    .note { color: #666; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>포트원 충전 테스트 (개발용)</h1>
+  <p class="note">
+    프론트 개발 서버(5173)에서 열어야 /api 요청이 백엔드로 전달됩니다.<br />
+    값은 이 페이지에만 입력되고 어디에도 저장되지 않습니다. API Secret은 넣지 마세요 (필요 없음).
+  </p>
+
+  <label>Access Token (로그인 응답의 data.accessToken)</label>
+  <input id="token" placeholder="eyJhbGciOi..." />
+
+  <label>상점 아이디 (storeId)</label>
+  <input id="storeId" placeholder="store-..." />
+
+  <label>채널키 (channelKey, 테스트 채널)</label>
+  <input id="channelKey" placeholder="channel-key-..." />
+
+  <label>충전 금액</label>
+  <input id="amount" type="number" value="1000" min="100" />
+
+  <p class="note">아래 구매자 정보는 KG이니시스 등 일부 PG에서 필수입니다. 테스트용 아무 값이나 넣어도 됩니다.</p>
+
+  <label>구매자 이름</label>
+  <input id="customerName" value="홍길동" />
+
+  <label>구매자 휴대폰 (숫자만)</label>
+  <input id="customerPhone" value="01012345678" />
+
+  <label>구매자 이메일</label>
+  <input id="customerEmail" value="test@example.com" />
+
+  <button id="pay">충전하기</button>
+
+  <h2 style="font-size:16px">진행 로그</h2>
+  <pre id="log">대기 중</pre>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const log = (msg, obj) => {
+      const line = obj === undefined ? msg : msg + '\n' + JSON.stringify(obj, null, 2);
+      $('log').textContent += '\n\n' + line;
+    };
+
+    async function api(path, body) {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + $('token').value.trim(),
+        },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.success === false) {
+        throw new Error(`HTTP ${res.status} ` + JSON.stringify(json));
+      }
+      return json.data;
+    }
+
+    $('pay').addEventListener('click', async () => {
+      $('log').textContent = '시작';
+      try {
+        // 1. 서버에 충전 요청 생성 → 서버가 paymentId를 만들어 준다
+        const charge = await api('/api/v1/points/charges', { amount: Number($('amount').value) });
+        log('1) 충전 요청 생성 완료', charge);
+
+        // 2. 포트원 결제창. paymentId와 금액은 반드시 서버가 준 값을 그대로 쓴다
+        const response = await PortOne.requestPayment({
+          storeId: $('storeId').value.trim(),
+          channelKey: $('channelKey').value.trim(),
+          paymentId: charge.paymentId,
+          orderName: charge.orderName,
+          totalAmount: charge.amount,
+          currency: 'CURRENCY_KRW',
+          payMethod: 'CARD',
+          customer: {
+            fullName: $('customerName').value.trim(),
+            phoneNumber: $('customerPhone').value.trim(),
+            email: $('customerEmail').value.trim(),
+          },
+        });
+        log('2) 결제창 결과', response);
+        if (response && response.code !== undefined) {
+          log('결제창에서 실패 또는 취소됨. 서버 확인은 계속 진행해서 FAILED 처리되는지 봅니다.');
+        }
+
+        // 3. 서버에 완료 확인 요청 → 서버가 포트원에 직접 조회해서 검증한다
+        const result = await api('/api/v1/points/charges/complete', { paymentId: charge.paymentId });
+        log('3) 서버 검증 결과 (status가 COMPLETE면 성공)', result);
+      } catch (e) {
+        log('에러: ' + e.message);
+      }
+    });
+  </script>
+</body>
+</html>

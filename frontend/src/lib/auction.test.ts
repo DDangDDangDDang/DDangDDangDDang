@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   auctionPhase,
+  auctionStatusTab,
   categoryFilterOptions,
   durationLabel,
   EMPTY_AUCTION_CONDITION,
@@ -118,5 +119,15 @@ describe('durationLabel', () => {
   it('진행 시간은 30초부터 3일까지 고를 수 있다 (서버 한도와 같음)', () => {
     expect(LIVE_AUCTION_DURATIONS[0]).toBe(30);
     expect(LIVE_AUCTION_DURATIONS.at(-1)).toBe(3 * 86400);
+  });
+});
+
+describe('auctionStatusTab', () => {
+  it('진행 중·시작 전은 그 탭, 마감·낙찰·유찰·취소는 종료 탭', () => {
+    expect(auctionStatusTab('ONGOING')).toBe('ONGOING');
+    expect(auctionStatusTab('READY')).toBe('READY');
+    for (const phase of ['CLOSING', 'ENDED', 'FAILED', 'CANCELED', undefined] as const) {
+      expect(auctionStatusTab(phase)).toBe('ENDED');
+    }
   });
 });

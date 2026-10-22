@@ -53,11 +53,12 @@ public class ProductService {
         //이번 페이지 상품들의 id만 모으기
         List<Long> productIds = products.getContent().stream().map(Product::getId).toList();
 
-        //상품별 최근 경매
+        //상품별 최근 경매 : 상품마다 최신 경매 id 조회 ->그 id 경매만 조회
         HashMap<Long, Auction> latestAuctions = new HashMap<>();
         if (!productIds.isEmpty()){
-            for (Auction auction : auctionRepository.findByProductIdInOrderByIdDesc(productIds)){
-                latestAuctions.putIfAbsent(auction.getProduct().getId(),auction);
+            List<Long> latestIds = auctionRepository.findLatestIdsByProductIds(productIds);
+            for (Auction auction : auctionRepository.findAllById(latestIds)){
+                latestAuctions.put(auction.getProduct().getId(),auction);
             }
         }
         return products.map(product -> ProductResponse.from(product,latestAuctions.get(product.getId())));

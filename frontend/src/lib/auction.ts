@@ -29,6 +29,14 @@ export function auctionPhase(auction: { status?: AuctionStatus; endAt?: string }
   return auction.status;
 }
 
+/** 판매자 스튜디오 경매 목록의 상태 탭 */
+export type AuctionStatusTab = 'ONGOING' | 'READY' | 'ENDED';
+
+/** 진행 중·시작 전이 아니면(마감 집계 중·낙찰·유찰·취소) 모두 종료 탭에 모은다. */
+export function auctionStatusTab(phase: AuctionPhase | undefined): AuctionStatusTab {
+  return phase === 'ONGOING' || phase === 'READY' ? phase : 'ENDED';
+}
+
 /** 서버 시각까지 남은 초 (지났으면 0) */
 export function secondsUntil(serverTime: string | undefined, now: Date): number {
   if (!serverTime) return 0;
