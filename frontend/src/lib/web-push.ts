@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import { ApiError, api, call, currentPushSubscription, errorMessage, getSession, trackPushSave } from '@/api';
+import { ApiError, api, call, currentPushSubscription, errorMessage, getSession, PushSaveBlocked, runPushSave } from '@/api';
 
 /*
  * 브라우저 알림(웹 푸시). 켜 두면 탭을 닫아도 브라우저가 켜져 있는 동안 알림함의 새 알림이 브라우저 알림으로 온다.
@@ -66,9 +66,9 @@ function guardFor(userId: number) {
   };
 }
 
-/** 구독 만들기·저장 전체를 로그아웃 정리보다 먼저 끝나게 묶는다. (@/api/push trackPushSave) */
+/** 구독 만들기·저장 전체를 로그아웃 정리보다 먼저 끝나게 묶는다. (@/api/push runPushSave) */
 function subscribeAndSave(ensureSameAccount: () => void) {
-  return trackPushSave(createAndSaveSubscription(ensureSameAccount));
+  return runPushSave(() => createAndSaveSubscription(ensureSameAccount));
 }
 
 async function createAndSaveSubscription(ensureSameAccount: () => void) {
@@ -135,7 +135,7 @@ export function useWebPush(userId: number | undefined) {
     const ensureSameAccount = guardFor(userId);
     subscribeAndSave(ensureSameAccount)
       .then(() => isCurrent(userId) && update({ state: 'on' }))
-      .catch((e) => !(e instanceof AccountChanged) && isCurrent(userId) && update({ state: 'off' }));
+      .catch((e) => !(e instanceof AccountChanged || e instanceof PushSaveBlocked) && isCurrent(userId) && update({ state: 'off' }));
   }, [userId]);
 
   const enable = useCallback(async () => {
@@ -154,7 +154,7 @@ export function useWebPush(userId: number | undefined) {
       rememberEnabled(userId, true);
       update({ state: 'on' });
     } catch (e) {
-      if (e instanceof AccountChanged || !isCurrent(userId)) return;
+      if (e instanceof AccountChanged || e instanceof PushSaveBlocked || !isCurrent(userId)) return;
       update({ error: e instanceof ApiError ? errorMessage(e) : '이 브라우저에서 알림을 켜지 못했어요. 브라우저 설정에서 알림을 허용했는지 확인해 주세요.' });
     } finally {
       if (isCurrent(userId)) update({ pending: false });
@@ -177,7 +177,7 @@ export function useWebPush(userId: number | undefined) {
       rememberEnabled(userId, false);
       update({ state: 'off' });
     } catch (e) {
-      if (e instanceof AccountChanged || !isCurrent(userId)) return;
+      if (e instanceof AccountChanged || e instanceof PushSaveBlocked || !isCurrent(userId)) return;
       update({ error: e instanceof ApiError ? errorMessage(e) : '이 브라우저에서 알림을 끄지 못했어요.' });
     } finally {
       if (isCurrent(userId)) update({ pending: false });

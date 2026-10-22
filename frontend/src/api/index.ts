@@ -2,7 +2,7 @@
 export { api, call } from './client';
 export { ApiError, errorMessage, isErrorCode } from './errors';
 export { login, logout, restoreSession, replaceSession, clearSession } from './auth';
-export { currentPushSubscription, trackPushSave } from './push';
+export { currentPushSubscription, PushSaveBlocked, runPushSave } from './push';
 export { useSession, getSession, subscribeSession, type Session, type UserInfo } from './session';
 export type { components, paths, operations } from './generated/schema';
 export type { ErrorCode } from './generated/error-codes';
