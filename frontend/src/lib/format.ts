@@ -26,6 +26,13 @@ export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR');
 }
 
+/** 점으로 나눈 날짜: "2026.10.21" (판매자 인증일 등) */
+export function formatDotDate(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+}
+
 /** 휴대폰 번호에 하이픈: 01012345678 → "010-1234-5678" */
 export function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
