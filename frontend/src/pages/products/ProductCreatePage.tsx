@@ -96,7 +96,7 @@ export function ProductCreatePage() {
           <Section title="경매">
             <fieldset className="flex flex-col gap-2">
               <legend className="sr-only">경매 방식</legend>
-              <Choice checked={choice === 'later'} onSelect={() => setChoice('later')} title="상품만 등록" description="방송 중에 판매자 스튜디오에서 진행 시간(30초~10분)을 정해 바로 경매를 시작해요." />
+              <Choice checked={choice === 'later'} onSelect={() => setChoice('later')} title="상품만 등록" description="방송 중에 판매자 스튜디오에서 진행 시간(30초~3일)을 정해 바로 경매를 시작해요." />
               <Choice checked={choice === 'schedule'} onSelect={() => setChoice('schedule')} title="경매 일정 바로 잡기" description="시작·마감 시각을 정해 두면 그 시간에 경매가 열려요." />
             </fieldset>
             {choice === 'schedule' && (

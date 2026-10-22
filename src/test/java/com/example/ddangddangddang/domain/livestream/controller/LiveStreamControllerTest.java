@@ -10,6 +10,8 @@ import com.example.ddangddangddang.domain.livestream.repository.LiveViewerStatsR
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
+import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
+import com.example.ddangddangddang.support.SellerFixture;
 import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.DisplayName;
@@ -59,6 +61,9 @@ class LiveStreamControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private SellerApplicationRepository sellerApplicationRepository;
 
     @Autowired
     private LiveStreamService liveStreamService;
@@ -147,6 +152,8 @@ class LiveStreamControllerTest {
         Long liveStreamId = longValue(create(seller, "홈 방송"), "$.data.id");
         given(mediaServerClient.createPublisherToken(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString())).willReturn("token");
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
+
         liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
         given(statsRepository.topViewers(anyInt())).willReturn(List.of(new Ranked(liveStreamId, 42)));
         given(statsRepository.topSurging(anyInt())).willReturn(List.of(new Ranked(liveStreamId, 12)));
@@ -202,6 +209,8 @@ class LiveStreamControllerTest {
         Long liveStreamId = longValue(create(seller, "손님 방송"), "$.data.id");
         given(mediaServerClient.createPublisherToken(anyString(), anyString(), anyString())).willReturn("token");
         given(mediaServerClient.createViewerToken(anyString(), anyString(), anyString())).willReturn("viewer-token");
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
+
         liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
 
         // 둘러보기: 토큰 없이 조회
@@ -249,6 +258,8 @@ class LiveStreamControllerTest {
         Member seller = signupAndLogin();
         Long liveStreamId = longValue(create(seller, "자동 종료 방송"), "$.data.id");
         given(mediaServerClient.createPublisherToken(anyString(), anyString(), anyString())).willReturn("token");
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
+
         liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
 
         liveStreamService.endForIdle(liveStreamId, seller.id());

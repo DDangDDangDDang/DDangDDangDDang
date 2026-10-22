@@ -13,6 +13,7 @@ import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
+import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import com.example.ddangddangddang.global.exception.ErrorCode;
@@ -67,6 +68,10 @@ class LiveStreamServiceTest {
     @Mock
     private ChatContentFilter contentFilter;
 
+    // 방송 시작은 판매자 인증을 받은 회원만 (기본은 인증 안 됨, 시작 테스트에서 인증으로 정한다)
+    @Mock
+    private SellerVerification sellerVerification;
+
     @Test
     @DisplayName("방송을 만들 때도 전각 공백만으로 된 제목은 COMMON_001로 막고 저장하지 않는다")
     void createWithUnicodeBlankTitle() {
@@ -83,6 +88,7 @@ class LiveStreamServiceTest {
     void startPublishesEvents() {
         LiveStream liveStream = liveStream(false);
         given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+        given(sellerVerification.isVerified(SELLER_ID)).willReturn(true);
 
         liveStreamService.start(LIVE_STREAM_ID, SELLER_ID, "판매자");
 
@@ -97,12 +103,39 @@ class LiveStreamServiceTest {
     @DisplayName("방송 서버에 방을 만들지 못하면 시작하지 않고 시청자에게 알리지도 않는다")
     void startFailsWithoutEvents() {
         given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(false)));
+        given(sellerVerification.isVerified(SELLER_ID)).willReturn(true);
         org.mockito.BDDMockito.willThrow(new BusinessException(LiveStreamErrorCode.MEDIA_SERVER_ERROR))
                 .given(mediaServerClient).createRoom(anyString());
 
         assertThatThrownBy(() -> liveStreamService.start(LIVE_STREAM_ID, SELLER_ID, "판매자"))
                 .isInstanceOf(BusinessException.class);
         then(eventPublisher).should(never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("판매자 인증을 받지 않은 회원은 방송을 시작할 수 없다 (LIVESTREAM_016)")
+    void startRequiresVerifiedSeller() {
+        LiveStream liveStream = liveStream(false);
+        given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+        assertThatThrownBy(() -> liveStreamService.start(LIVE_STREAM_ID, SELLER_ID, "판매자"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(LiveStreamErrorCode.NOT_VERIFIED_SELLER);
+        assertThat(liveStream.getStatus()).isEqualTo(LiveStreamStatus.SCHEDULED);
+        then(mediaServerClient).should(never()).createRoom(anyString());
+        then(eventPublisher).should(never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("남의 방송을 시작하려 하면 인증 여부와 상관없이 방송 주인 오류다 (LIVESTREAM_002)")
+    void startOthersStream() {
+        given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(false)));
+
+        assertThatThrownBy(() -> liveStreamService.start(LIVE_STREAM_ID, 2L, "다른 사람"))
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(LiveStreamErrorCode.NOT_OWNER);
+        then(sellerVerification).shouldHaveNoInteractions();
     }
 
     @Nested

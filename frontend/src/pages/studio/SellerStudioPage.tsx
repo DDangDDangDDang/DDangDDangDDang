@@ -2,14 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, Pencil, RefreshCw } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { api, call, errorMessage, isErrorCode, type Schema } from '@/api';
+import { api, call, errorMessage, isErrorCode, useSession, type Schema } from '@/api';
 import { ACTIVE_STREAM_KEY, START_STREAM_KEY, useBroadcast, useStudioPresence } from '@/components/broadcast/broadcast-context';
 import { IdleWarning } from '@/components/broadcast/IdleWarning';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Hashtags } from '@/components/live/Hashtags';
 import { LiveChat } from '@/components/live/LiveChat';
-import { Badge, Button, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { Badge, Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
+import { useSellerProfile } from '@/lib/use-seller';
 import { LiveAuctionProducts, LiveAuctionStatus } from './LiveAuctionPanel';
 import { ChatNoticeEditor } from './ChatNoticeEditor';
 import { ModerationPanel } from './ModerationPanel';
@@ -106,6 +107,10 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
   const flaggedIds = useMemo(() => new Set(alerts.map((a) => a.messageId)), [alerts]);
   // 방송 중 경매
   const liveAuctions = useLiveAuctions(liveStreamId);
+  // 방송 시작은 판매자 인증을 받은 회원만 (서버도 LIVESTREAM_016으로 막는다). 프로필을 불러오기 전에는 막지 않는다.
+  const session = useSession();
+  const myProfile = useSellerProfile(session?.user.userId);
+  const notVerified = myProfile.data !== undefined && !myProfile.data.verifiedSeller;
 
   const start = useMutation({
     mutationKey: START_STREAM_KEY,
@@ -119,6 +124,8 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
     onError: (error) => {
       // 다른 창에서 이미 시작했거나 끝냈으면 지금 상태를 다시 불러온다.
       if (isErrorCode(error, 'LIVESTREAM_003')) reload();
+      // 인증이 취소됐거나 아직이면 내 인증 상태를 다시 불러와 안내로 바꾼다.
+      if (isErrorCode(error, 'LIVESTREAM_016')) void myProfile.refetch();
     },
   });
 
@@ -190,12 +197,26 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
               </div>
             ) : (
               <div className="flex items-center gap-4">
-                <Button size="lg" loading={start.isPending} disabled={noDevice} onClick={() => start.mutate()}>
+                <Button size="lg" loading={start.isPending} disabled={noDevice || notVerified} onClick={() => start.mutate()}>
                   방송 시작
                 </Button>
                 <span className="text-label text-neutral-500">
-                  {noDevice ? '카메라나 마이크를 하나 이상 켜야 방송을 시작할 수 있어요.' : '시작하면 방송 목록에 LIVE로 나오고 시청자가 바로 볼 수 있어요.'}
+                  {notVerified
+                    ? '판매자 인증을 받아야 방송을 시작할 수 있어요.'
+                    : noDevice
+                      ? '카메라나 마이크를 하나 이상 켜야 방송을 시작할 수 있어요.'
+                      : '시작하면 방송 목록에 LIVE로 나오고 시청자가 바로 볼 수 있어요.'}
                 </span>
+              </div>
+            )}
+            {!isLive && notVerified && (
+              <div className="flex items-center justify-between gap-4 rounded-md bg-info-50 px-4 py-3">
+                <span className="text-label text-info-700">
+                  판매자 인증은 [판매자 인증]에서 신청하고, 관리자가 승인하면 바로 방송을 시작할 수 있어요. 그 전에도 방송을 만들고 카메라를 확인할 수 있어요.
+                </span>
+                <Link to="/me/seller" className={buttonVariants({ variant: 'outline', size: 'sm', className: 'shrink-0' })}>
+                  판매자 인증
+                </Link>
               </div>
             )}
             {start.isError && <Notice tone="error">{errorMessage(start.error)}</Notice>}
