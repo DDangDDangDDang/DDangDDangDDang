@@ -26,7 +26,7 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
-    @Column(nullable = false)
+    // 소셜 로그인으로만 가입한 유저는 비밀번호가 없다.
     private String password;
 
     @Column(nullable = false, unique = true, length = 20)
@@ -49,6 +49,15 @@ public class User extends BaseTimeEntity {
 
     public static User create(String email, String encodedPassword, String nickname, String phoneNumber) {
         return new User(email, encodedPassword, nickname, phoneNumber, UserRole.USER);
+    }
+
+    // 소셜 로그인 가입. 비밀번호 없음
+    public static User createSocial(String email, String nickname, String phoneNumber) {
+        return new User(email,null, nickname, phoneNumber, UserRole.USER);
+    }
+
+    public boolean hasPassword() {
+        return password != null;
     }
 
     /**
