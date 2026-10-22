@@ -138,3 +138,10 @@ springdoc:
   writer-with-order-by-keys: true
   # 실제 API만 명세에 넣는다. (actuator 제외)
   paths-to-match: /api/**
+
+# 웹 푸시(브라우저 알림). 키가 비어 있으면 서버를 켤 때마다 새로 만든다. (로컬 개발용, 운영에서는 반드시 고정 키를 환경변수로 넣는다)
+# 키 만들기: npx web-push generate-vapid-keys 의 Public Key / Private Key
+web-push:
+  public-key: ${WEB_PUSH_PUBLIC_KEY:}
+  private-key: ${WEB_PUSH_PRIVATE_KEY:}
+  subject: ${WEB_PUSH_SUBJECT:mailto:no-reply@ddangddangddang.com}

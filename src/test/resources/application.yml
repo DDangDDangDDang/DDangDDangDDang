@@ -46,3 +46,10 @@ live-stream:
   # 송출 없는 방송 자동 종료도 끈다. 동작은 LiveStreamIdleWatcherTest에서 직접 호출해 확인한다.
   idle:
     enabled: false
+
+# 테스트 중 푸시 서비스로 요청을 보내지 않고, 마감 임박 알림 스케줄러도 끈다. (AuctionAlertControllerTest에서 직접 호출해 확인)
+web-push:
+  enabled: false
+notification:
+  closing-soon:
+    enabled: false

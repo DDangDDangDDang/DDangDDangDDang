@@ -1,5 +1,6 @@
 import { api, call, refreshAccessToken } from './client';
 import type { components } from './generated/schema';
+import { releasePushSubscription } from './push';
 import { setSession, type UserInfo } from './session';
 
 export type LoginRequest = components['schemas']['LoginRequest'];
@@ -16,6 +17,8 @@ export async function login(body: LoginRequest) {
 /** 로그아웃. 서버 요청이 실패해도 화면에서는 로그아웃 상태로 만든다. */
 export async function logout() {
   try {
+    // 토큰이 살아 있을 때 이 브라우저의 알림 구독부터 지운다.
+    await releasePushSubscription();
     // Authorization 헤더는 클라이언트가 붙인다. (명세상 필수 파라미터라 빈 값으로 둔다)
     await call(api.POST('/api/v1/auth/logout', { params: { header: { Authorization: '' } } }));
   } finally {

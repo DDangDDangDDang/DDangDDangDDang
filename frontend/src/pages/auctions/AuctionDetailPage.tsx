@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api, call, errorMessage, isErrorCode, useSession } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
+import { AuctionAlertButton } from '@/components/auction/AuctionAlertButton';
 import { BidDialog } from '@/components/auction/BidDialog';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { ProductImage } from '@/components/order/OrderBits';
@@ -140,6 +141,8 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
               </Button>
             )}
             {!isMine && phase === 'READY' && <Notice>경매가 시작되면 입찰할 수 있어요.</Notice>}
+            {/* 시작 전·진행 중 경매는 알림 받기로 시작·마감 임박·취소·결과를 알림으로 받는다. (내 경매는 결과를 따로 알려 줌) */}
+            {!isMine && open && <AuctionAlertButton auctionId={auctionId} requireLogin={guard} />}
 
             {/* 방송에 올라간 경매: 방송 중이면 LIVE 표시와 함께 방송으로 가고, 끝났으면 "방송 종료"로 누를 수 없게 둔다. */}
             {auction.liveStreamId ? (

@@ -5,6 +5,7 @@ import com.example.ddangddangddang.domain.auction.dto.response.BidResponse;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.entity.Bid;
+import com.example.ddangddangddang.domain.auction.event.BidOutbidEvent;
 import com.example.ddangddangddang.domain.auction.event.BidPlacedEvent;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
@@ -69,6 +70,7 @@ class BidServiceTest {
         verify(pointService).hold(BIDDER, 10_000L, AUCTION_ID);
         verify(pointService, never()).replaceHold(any(), anyLong(), any(), anyLong(), any());
         verify(eventPublisher).publishEvent(any(BidPlacedEvent.class));
+        verify(eventPublisher, never()).publishEvent(any(BidOutbidEvent.class));
     }
 
     @Test
@@ -83,6 +85,8 @@ class BidServiceTest {
         bidService.tryPlaceBid(BIDDER, AUCTION_ID, 21_000L);
 
         verify(pointService).replaceHold(BIDDER, 21_000L, PREV_BIDDER, 20_000L, AUCTION_ID);
+        // 밀려난 이전 최고 입찰자에게 알린다
+        verify(eventPublisher).publishEvent(new BidOutbidEvent(AUCTION_ID, PREV_BIDDER, 21_000L));
     }
 
     @Test

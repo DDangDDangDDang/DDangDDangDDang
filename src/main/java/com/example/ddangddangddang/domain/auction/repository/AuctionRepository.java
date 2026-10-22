@@ -31,6 +31,10 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
     //종료 시간이 지난 ONGOING 경매(ONGOING -> ENDED/FAILED 대상)
     List<Auction> findByStatusAndEndAtLessThanEqual(AuctionStatus status, LocalDateTime now);
 
+    //마감 임박 알림: 종료 시각이 [from, to] 사이인 진행 중 경매. 알림 문구에 쓰는 상품을 같이 읽는다.
+    @EntityGraph(attributePaths = {"product"})
+    List<Auction> findByStatusAndEndAtBetween(AuctionStatus status, LocalDateTime from, LocalDateTime to);
+
     //이 방송에 올라간 경매(최신순 50개). 응답에 쓰는 상품·판매자를 같이 읽는다.
     @EntityGraph(attributePaths = {"product", "product.seller", "liveStream"})
     List<Auction> findTop50ByLiveStreamIdOrderByIdDesc(Long liveStreamId);
