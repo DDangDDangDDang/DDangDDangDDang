@@ -22,8 +22,8 @@ public final class LiveStreamHashtags {
     // 저장 길이: 5개 × (# + 20자) + 공백 4개 = 109
     public static final int COLUMN_LENGTH = 120;
 
-    // 한글·영문·숫자·밑줄만. 공백·#·특수문자는 태그 구분과 검색에 쓰이므로 넣을 수 없다.
-    private static final Pattern TAG = Pattern.compile("^[\\p{L}\\p{N}_]{1," + MAX_LENGTH + "}$");
+    // 한글(완성형)·영문·숫자·밑줄만. 다른 문자권(한자·가나 등)과 공백·#·특수문자는 넣을 수 없다. (공백·#은 태그 구분과 검색에 쓰임)
+    private static final Pattern TAG = Pattern.compile("^[가-힣A-Za-z0-9_]{1," + MAX_LENGTH + "}$");
 
     private LiveStreamHashtags() {
     }

@@ -6,7 +6,8 @@
 export const HASHTAG_MAX_COUNT = 5;
 export const HASHTAG_MAX_LENGTH = 20;
 
-const TAG = new RegExp(`^[\\p{L}\\p{N}_]{1,${HASHTAG_MAX_LENGTH}}$`, 'u');
+// 서버와 같은 문자 범위: 한글(완성형)·영문·숫자·밑줄 (LiveStreamHashtags.TAG)
+const TAG = new RegExp(`^[가-힣A-Za-z0-9_]{1,${HASHTAG_MAX_LENGTH}}$`);
 
 export type HashtagAddResult = { tags: string[]; error?: string };
 

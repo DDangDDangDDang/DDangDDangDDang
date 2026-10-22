@@ -36,8 +36,12 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
   const query = useQuery({
     queryKey: ['auction', auctionId],
     queryFn: () => call(api.GET('/api/v1/auctions/{auctionId}', { params: { path: { auctionId } } })),
-    // 시작 전 경매도 다시 불러온다. 방송에 올라간 경매는 방송이 끝나면 "방송 중 경매"(live) 표시를 내려야 한다.
-    refetchInterval: (q) => (q.state.data?.status === 'ONGOING' || q.state.data?.status === 'READY' ? REFRESH_MS : false),
+    // 시작 전 경매도 다시 불러온다. 방송에 올라간 경매는 방송이 끝나면 "방송 중 경매"(live) 표시를 내려야 하므로,
+    // 경매가 먼저 끝났어도 연결된 방송이 아직 방송 중(live)이면 계속 다시 불러온다.
+    refetchInterval: (q) => {
+      const data = q.state.data;
+      return data?.status === 'ONGOING' || data?.status === 'READY' || data?.live ? REFRESH_MS : false;
+    },
   });
   const auction = query.data;
   const productId = auction?.productId;

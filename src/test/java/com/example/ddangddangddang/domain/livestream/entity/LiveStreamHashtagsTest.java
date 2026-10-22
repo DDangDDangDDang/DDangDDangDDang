@@ -35,8 +35,8 @@ class LiveStreamHashtagsTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"띄어 쓴 태그", "나이키#운동화", "한정판!", "가나다라마바사아자차카타파하가나다라마바사", "%", "a,b"})
-    @DisplayName("공백·#·특수문자가 있거나 20자를 넘으면 LIVESTREAM_015")
+    @ValueSource(strings = {"띄어 쓴 태그", "나이키#운동화", "한정판!", "가나다라마바사아자차카타파하가나다라마바사", "%", "a,b", "漢字", "カナ", "ㅋㅋ", "①"})
+    @DisplayName("공백·#·특수문자, 다른 문자권(한자·가나·자모·원문자)이 있거나 20자를 넘으면 LIVESTREAM_015")
     void invalid(String tag) {
         assertThatThrownBy(() -> LiveStreamHashtags.normalize(List.of(tag)))
                 .isInstanceOf(BusinessException.class)

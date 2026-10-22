@@ -19,6 +19,11 @@ describe('addHashtag', () => {
     expect(addHashtag([], 'a'.repeat(20)).tags).toHaveLength(1);
   });
 
+  it('한글·영문·숫자·밑줄 밖의 문자권(한자·가나·자모·원문자)은 오류', () => {
+    for (const tag of ['漢字', 'カナ', 'ㅋㅋ', '①']) expect(addHashtag([], tag).error).toBeDefined();
+    expect(addHashtag([], 'Nike_2026신상').tags).toEqual(['Nike_2026신상']);
+  });
+
   it('5개를 넘으면 오류', () => {
     const five = ['a', 'b', 'c', 'd', 'e'];
     expect(addHashtag(five, 'f')).toEqual({ tags: five, error: '해시태그는 5개까지 넣을 수 있어요.' });
