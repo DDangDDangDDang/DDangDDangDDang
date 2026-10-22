@@ -1,5 +1,5 @@
 import { Gavel, Plus } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link } from 'react-router';
 import { errorMessage, type Schema } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
@@ -194,8 +194,19 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
   // 상태 탭: 기본은 진행 중. 시작 전·종료 경매는 탭을 바꿔서 본다.
   const [tab, setTab] = useState<AuctionStatusTab>('ONGOING');
   const byTab = (key: AuctionStatusTab) => list.filter((a) => auctionStatusTab(auctionPhase(a, now)) === key);
-  const running = byTab('ONGOING');
   const shown = byTab(tab);
+  // 탭 패턴: 좌우 화살표·Home·End로 탭을 옮기고, 옮긴 탭에 포커스를 준다.
+  const tabRefs = useRef<Partial<Record<AuctionStatusTab, HTMLButtonElement | null>>>({});
+  const moveTab = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const index = STATUS_TABS.findIndex((item) => item.key === tab);
+    const last = STATUS_TABS.length - 1;
+    const next = { ArrowRight: index === last ? 0 : index + 1, ArrowLeft: index === 0 ? last : index - 1, Home: 0, End: last }[event.key];
+    const target = next === undefined ? undefined : STATUS_TABS[next];
+    if (!target) return;
+    event.preventDefault();
+    setTab(target.key);
+    tabRefs.current[target.key]?.focus();
+  };
   const cancel = auctions.cancel;
   const [cancelTarget, setCancelTarget] = useState<Schema<'AuctionResponse'>>();
 
@@ -203,7 +214,7 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
     <Card aria-labelledby="running-auctions-title">
       <CardHeader>
         <CardTitle id="running-auctions-title" className="flex items-center gap-2 text-body-lg">
-          진행 중인 경매 <span className="num text-brand-700">{running.length}</span>
+          이 방송의 경매 <span className="num text-brand-700">{list.length}</span>
         </CardTitle>
       </CardHeader>
       <CardBody className="flex flex-col gap-3">
@@ -211,10 +222,17 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
           {STATUS_TABS.map((item) => (
             <button
               key={item.key}
+              ref={(el) => {
+                tabRefs.current[item.key] = el;
+              }}
+              id={`auction-tab-${item.key}`}
               type="button"
               role="tab"
               aria-selected={tab === item.key}
+              aria-controls="auction-tabpanel"
+              tabIndex={tab === item.key ? 0 : -1}
               onClick={() => setTab(item.key)}
+              onKeyDown={moveTab}
               className={cn(
                 'h-8 flex-1 rounded-sm px-2 text-label font-semibold transition-colors',
                 tab === item.key ? 'bg-neutral-0 text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-900',
@@ -224,51 +242,53 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
             </button>
           ))}
         </div>
-        <ul aria-live="polite" aria-label="이 방송의 경매" className="flex max-h-[360px] flex-col gap-2 overflow-y-auto">
-          {auctions.loadingAuctions && list.length === 0 ? (
-            <li>
-              <Skeleton className="h-24" />
-            </li>
-          ) : list.length === 0 ? (
-            <li className="rounded-md bg-neutral-25 px-3 py-3 text-label text-neutral-500">경매 상품에서 [경매 시작]이나 [이 방송에 올리기]를 누르면 여기에서 현재가와 남은 시간을 볼 수 있어요.</li>
-          ) : shown.length === 0 ? (
-            <li className="rounded-md bg-neutral-25 px-3 py-3 text-label text-neutral-500">{STATUS_TABS.find((item) => item.key === tab)?.empty}</li>
-          ) : (
-            shown.map((auction) => {
-              const phase = auctionPhase(auction, now);
-              return (
-                <li key={auction.id} className="flex flex-col gap-2 rounded-md bg-neutral-25 px-3 py-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <AuctionPhaseBadge phase={phase} />
-                      <Link to={`/auctions/${auction.id}`} target="_blank" rel="noreferrer" className="truncate text-body font-semibold hover:underline">
-                        {auction.productName || '상품'}
-                      </Link>
-                    </span>
-                    <AuctionTime status={auction.status} startAt={auction.startAt} endAt={auction.endAt} />
-                  </div>
-                  <dl className="grid grid-cols-2 gap-1 text-caption">
-                    <div>
-                      <dt className="text-neutral-500">{phase === 'ENDED' ? '낙찰가' : '현재가'}</dt>
-                      <dd className="num text-body font-bold">{formatPoint(auction.currentPrice ?? 0)}</dd>
+        <div id="auction-tabpanel" role="tabpanel" aria-labelledby={`auction-tab-${tab}`}>
+          <ul aria-live="polite" aria-label="이 방송의 경매" className="flex max-h-[360px] flex-col gap-2 overflow-y-auto">
+            {auctions.loadingAuctions && list.length === 0 ? (
+              <li>
+                <Skeleton className="h-24" />
+              </li>
+            ) : list.length === 0 ? (
+              <li className="rounded-md bg-neutral-25 px-3 py-3 text-label text-neutral-500">경매 상품에서 [경매 시작]이나 [이 방송에 올리기]를 누르면 여기에서 현재가와 남은 시간을 볼 수 있어요.</li>
+            ) : shown.length === 0 ? (
+              <li className="rounded-md bg-neutral-25 px-3 py-3 text-label text-neutral-500">{STATUS_TABS.find((item) => item.key === tab)?.empty}</li>
+            ) : (
+              shown.map((auction) => {
+                const phase = auctionPhase(auction, now);
+                return (
+                  <li key={auction.id} className="flex flex-col gap-2 rounded-md bg-neutral-25 px-3 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <AuctionPhaseBadge phase={phase} />
+                        <Link to={`/auctions/${auction.id}`} target="_blank" rel="noreferrer" className="truncate text-body font-semibold hover:underline">
+                          {auction.productName || '상품'}
+                        </Link>
+                      </span>
+                      <AuctionTime status={auction.status} startAt={auction.startAt} endAt={auction.endAt} />
                     </div>
-                    <div>
-                      <dt className="text-neutral-500">입찰 수</dt>
-                      <dd className="text-body font-bold">
-                        <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
-                      </dd>
-                    </div>
-                  </dl>
-                  {phase === 'ONGOING' && (auction.bidCount ?? 0) === 0 && (
-                    <Button variant="outline" size="sm" className="self-end" onClick={() => setCancelTarget(auction)}>
-                      경매 취소
-                    </Button>
-                  )}
-                </li>
-              );
-            })
-          )}
-        </ul>
+                    <dl className="grid grid-cols-2 gap-1 text-caption">
+                      <div>
+                        <dt className="text-neutral-500">{phase === 'ENDED' ? '낙찰가' : '현재가'}</dt>
+                        <dd className="num text-body font-bold">{formatPoint(auction.currentPrice ?? 0)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-neutral-500">입찰 수</dt>
+                        <dd className="text-body font-bold">
+                          <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
+                        </dd>
+                      </div>
+                    </dl>
+                    {phase === 'ONGOING' && (auction.bidCount ?? 0) === 0 && (
+                      <Button variant="outline" size="sm" className="self-end" onClick={() => setCancelTarget(auction)}>
+                        경매 취소
+                      </Button>
+                    )}
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
       </CardBody>
       <ConfirmDialog
         open={cancelTarget !== undefined}
