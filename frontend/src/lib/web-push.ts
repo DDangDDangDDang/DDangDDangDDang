@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import { ApiError, api, call, currentPushSubscription, errorMessage, getSession } from '@/api';
+import { ApiError, api, call, currentPushSubscription, errorMessage, getSession, trackPushSave } from '@/api';
 
 /*
  * 브라우저 알림(웹 푸시). 켜 두면 탭을 닫아도 브라우저가 켜져 있는 동안 알림함의 새 알림이 브라우저 알림으로 온다.
@@ -66,7 +66,12 @@ function guardFor(userId: number) {
   };
 }
 
-async function subscribeAndSave(ensureSameAccount: () => void) {
+/** 구독 만들기·저장 전체를 로그아웃 정리보다 먼저 끝나게 묶는다. (@/api/push trackPushSave) */
+function subscribeAndSave(ensureSameAccount: () => void) {
+  return trackPushSave(createAndSaveSubscription(ensureSameAccount));
+}
+
+async function createAndSaveSubscription(ensureSameAccount: () => void) {
   const registration = await navigator.serviceWorker.register(SERVICE_WORKER_URL);
   await navigator.serviceWorker.ready;
   const key = await call(api.GET('/api/v1/push/public-key'));

@@ -4683,17 +4683,17 @@
           "endpoint" : {
             "type" : "string",
             "maxLength" : 1000,
-            "minLength" : 0
+            "minLength" : 1
           },
           "p256dh" : {
             "type" : "string",
             "maxLength" : 100,
-            "minLength" : 0
+            "minLength" : 1
           },
           "auth" : {
             "type" : "string",
             "maxLength" : 50,
-            "minLength" : 0
+            "minLength" : 1
           }
         },
         "required" : [ "auth", "endpoint", "p256dh" ]

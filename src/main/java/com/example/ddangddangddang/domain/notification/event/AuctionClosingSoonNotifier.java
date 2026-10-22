@@ -4,8 +4,10 @@ import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.notification.entity.AuctionClosingNotice;
+import com.example.ddangddangddang.domain.notification.entity.Notification;
 import com.example.ddangddangddang.domain.notification.entity.NotificationType;
 import com.example.ddangddangddang.domain.notification.repository.AuctionClosingNoticeRepository;
+import com.example.ddangddangddang.domain.notification.repository.NotificationRepository;
 import com.example.ddangddangddang.domain.notification.service.NotificationDispatcher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +37,7 @@ public class AuctionClosingSoonNotifier {
 
     private final AuctionRepository auctionRepository;
     private final AuctionClosingNoticeRepository noticeRepository;
+    private final NotificationRepository notificationRepository;
     private final AuctionNotifier auctionNotifier;
     private final NotificationDispatcher notificationDispatcher;
     private final TransactionTemplate transactionTemplate;
@@ -43,17 +46,18 @@ public class AuctionClosingSoonNotifier {
 
     @Autowired
     public AuctionClosingSoonNotifier(AuctionRepository auctionRepository, AuctionClosingNoticeRepository noticeRepository,
-                                      AuctionNotifier auctionNotifier, NotificationDispatcher notificationDispatcher,
+                                      NotificationRepository notificationRepository, AuctionNotifier auctionNotifier, NotificationDispatcher notificationDispatcher,
                                       TransactionTemplate transactionTemplate,
                                       @Value("${notification.closing-soon.enabled:true}") boolean enabled) {
-        this(auctionRepository, noticeRepository, auctionNotifier, notificationDispatcher, transactionTemplate, enabled, Clock.systemDefaultZone());
+        this(auctionRepository, noticeRepository, notificationRepository, auctionNotifier, notificationDispatcher, transactionTemplate, enabled, Clock.systemDefaultZone());
     }
 
     AuctionClosingSoonNotifier(AuctionRepository auctionRepository, AuctionClosingNoticeRepository noticeRepository,
-                               AuctionNotifier auctionNotifier, NotificationDispatcher notificationDispatcher,
+                               NotificationRepository notificationRepository, AuctionNotifier auctionNotifier, NotificationDispatcher notificationDispatcher,
                                TransactionTemplate transactionTemplate, boolean enabled, Clock clock) {
         this.auctionRepository = auctionRepository;
         this.noticeRepository = noticeRepository;
+        this.notificationRepository = notificationRepository;
         this.auctionNotifier = auctionNotifier;
         this.notificationDispatcher = notificationDispatcher;
         this.transactionTemplate = transactionTemplate;
@@ -78,39 +82,36 @@ public class AuctionClosingSoonNotifier {
             return;
         }
         for (Target target : targets) {
-            if (!claim(target.auctionId(), now)) {
-                continue;
-            }
             try {
-                notificationDispatcher.dispatch(AuctionNotifier.notifications(auctionNotifier.watchers(target.auctionId()),
-                        NotificationType.AUCTION_CLOSING_SOON, target.auctionId(), target.productName(), null));
+                List<Notification> saved = claimAndSave(target, now);
+                if (!saved.isEmpty()) {
+                    notificationDispatcher.deliver(saved);
+                }
             } catch (RuntimeException e) {
-                // 알림 저장이 실패했으면(대상 조회·저장 오류) 기록을 지워 다음 주기에 다시 보낸다.
-                // 저장 뒤의 실시간·웹 푸시 실패는 dispatch가 삼키므로 여기로 오지 않아 중복 저장되지 않는다.
-                log.warn("마감 임박 알림을 보내지 못해 다음 주기에 다시 보냅니다. auctionId={}", target.auctionId(), e);
-                release(target.auctionId());
+                // 기록과 알림이 함께 롤백됐으므로 다음 주기에 다시 보낸다.
+                log.warn("마감 임박 알림을 저장하지 못해 다음 주기에 다시 보냅니다. auctionId={}", target.auctionId(), e);
             }
         }
     }
 
-    /** 이 경매의 마감 임박 알림을 이 서버가 맡는다. 이미 보냈으면 false */
-    private boolean claim(Long auctionId, LocalDateTime now) {
-        if (noticeRepository.existsById(auctionId)) {
-            return false;
+    /**
+     * 보냈다는 기록과 알림을 한 트랜잭션에 저장한다. (기록만 남고 알림이 빠지는 일이 없게)
+     * 이미 다른 주기·서버가 보냈으면 빈 목록. 실시간·웹 푸시는 커밋 뒤에 보낸다.
+     */
+    private List<Notification> claimAndSave(Target target, LocalDateTime now) {
+        if (noticeRepository.existsById(target.auctionId())) {
+            return List.of();
         }
+        List<Notification> notifications = AuctionNotifier.notifications(auctionNotifier.watchers(target.auctionId()),
+                NotificationType.AUCTION_CLOSING_SOON, target.auctionId(), target.productName(), null);
         try {
-            transactionTemplate.executeWithoutResult(status -> noticeRepository.saveAndFlush(new AuctionClosingNotice(auctionId, now)));
-            return true;
+            List<Notification> saved = transactionTemplate.execute(status -> {
+                noticeRepository.saveAndFlush(new AuctionClosingNotice(target.auctionId(), now));
+                return notificationRepository.saveAll(notifications);
+            });
+            return saved == null ? List.of() : saved;
         } catch (DataIntegrityViolationException e) {
-            return false;
-        }
-    }
-
-    private void release(Long auctionId) {
-        try {
-            noticeRepository.deleteById(auctionId);
-        } catch (RuntimeException e) {
-            log.warn("마감 임박 알림 기록을 지우지 못했습니다. auctionId={}", auctionId, e);
+            return List.of(); // 다른 서버가 먼저 기록함
         }
     }
 
