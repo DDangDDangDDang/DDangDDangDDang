@@ -1,14 +1,16 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, BellRing } from 'lucide-react';
+import { Bell, Gavel, Settings } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { api, call, errorMessage, useSession, type Schema } from '@/api';
-import { Button, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatDateTime } from '@/lib/format';
 import { NOTIFICATIONS_KEY } from '@/lib/notification-events';
 import { notificationLink, notificationTitle } from '@/lib/notification-view';
 import { useLeaveSafeNavigate } from '@/lib/watch-navigation';
 import { useWebPush } from '@/lib/web-push';
+import { BrowserPushSetting } from './BrowserPushSetting';
 import { NotificationIcon } from './NotificationIcon';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 
@@ -105,11 +107,16 @@ function NotificationPanel({ hasUnread, push, onClose }: { hasUnread: boolean; p
     <div role="dialog" aria-label="알림" className="absolute top-12 right-0 z-50 flex w-[360px] flex-col rounded-lg border border-neutral-100 bg-neutral-0 shadow-md">
       <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
         <strong className="text-body font-bold">알림</strong>
-        <Button variant="ghost" size="sm" disabled={!hasUnread} loading={readAll.isPending} onClick={() => readAll.mutate()}>
-          모두 읽음
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" disabled={!hasUnread} loading={readAll.isPending} onClick={() => readAll.mutate()}>
+            모두 읽음
+          </Button>
+          <Link to="/me/notifications" onClick={onClose} aria-label="알림 설정" title="알림 설정" className="flex size-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-50">
+            <Settings className="size-4" aria-hidden="true" />
+          </Link>
+        </div>
       </div>
-      <BrowserPushSetting push={push} />
+      <BrowserPushSetting push={push} className="border-b border-neutral-100 px-4 py-3" />
       <div className="max-h-[420px] overflow-y-auto">
         {query.isPending ? (
           <div className="flex flex-col gap-2 p-4">
@@ -146,38 +153,10 @@ function NotificationPanel({ hasUnread, push, onClose }: { hasUnread: boolean; p
         <div ref={sentinelRef} />
         {query.isFetchingNextPage && <Skeleton className="m-4 h-14" />}
       </div>
-    </div>
-  );
-}
-
-/** 브라우저 알림 켜기·끄기. 지원하지 않는 브라우저면 그리지 않는다. */
-function BrowserPushSetting({ push }: { push: ReturnType<typeof useWebPush> }) {
-  if (push.state === 'unsupported') return null;
-  return (
-    <div className="flex flex-col gap-2 border-b border-neutral-100 px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex min-w-0 flex-1 items-center gap-2 text-label text-neutral-700">
-          {push.state === 'on' ? (
-            <BellRing className="size-4 shrink-0 text-brand-500" aria-hidden="true" />
-          ) : (
-            <BellOff className="size-4 shrink-0" aria-hidden="true" />
-          )}
-          {push.state === 'on' ? '브라우저 알림 켜짐 · 탭을 닫아도 알려 드려요' : '브라우저 알림 · 탭을 닫아도 알려 드려요'}
-        </span>
-        {push.state === 'on' ? (
-          <Button variant="ghost" size="sm" className="shrink-0" loading={push.pending} onClick={() => void push.disable()}>
-            끄기
-          </Button>
-        ) : (
-          push.state === 'off' && (
-            <Button variant="outline" size="sm" className="shrink-0" loading={push.pending} onClick={() => void push.enable()}>
-              켜기
-            </Button>
-          )
-        )}
-      </div>
-      {push.state === 'denied' && <Notice tone="info">이 사이트의 알림이 차단돼 있어요. 주소창 왼쪽 아이콘 → 알림을 허용으로 바꾼 뒤 새로고침해 주세요.</Notice>}
-      {push.error && <Notice tone="error">{push.error}</Notice>}
+      <Link to="/me/auction-alerts" onClick={onClose} className="flex items-center justify-center gap-1.5 border-t border-neutral-100 px-4 py-2.5 text-label font-semibold text-neutral-700 hover:bg-neutral-25">
+        <Gavel className="size-4" aria-hidden="true" />
+        알림 받는 경매 보기
+      </Link>
     </div>
   );
 }

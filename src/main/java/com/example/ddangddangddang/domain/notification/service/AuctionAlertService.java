@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.notification.service;
 
+import com.example.ddangddangddang.domain.auction.dto.response.AuctionListResponse;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
@@ -8,13 +9,23 @@ import com.example.ddangddangddang.domain.notification.dto.AuctionAlertResponse;
 import com.example.ddangddangddang.domain.notification.entity.AuctionAlert;
 import com.example.ddangddangddang.domain.notification.exception.NotificationErrorCode;
 import com.example.ddangddangddang.domain.notification.repository.AuctionAlertRepository;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
+import com.example.ddangddangddang.domain.product.entity.Product;
+import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /** 경매 알림 받기·끄기 */
 @Service
@@ -25,6 +36,34 @@ public class AuctionAlertService {
     private final AuctionRepository auctionRepository;
     private final AuctionAlertRepository auctionAlertRepository;
     private final TransactionTemplate transactionTemplate;
+
+    static final int MAX_PAGE_SIZE = 50;
+
+    /**
+     * 내가 알림 받기를 한 경매. 최근에 받기로 한 것부터, 경매 목록 카드와 같은 형식으로 준다.
+     * 다음 페이지는 nextCursor를 cursor로 넘긴다. (경매가 지워졌으면 그 줄은 뺀다)
+     */
+    public CursorResponse<AuctionListResponse> getMine(Long userId, Long cursor, int size) {
+        int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
+        List<AuctionAlert> alerts = auctionAlertRepository.findMine(userId, cursor, PageRequest.of(0, pageSize + 1));
+        Map<Long, Auction> auctions = auctionRepository.findAllById(alerts.stream().map(AuctionAlert::getAuctionId).toList())
+                .stream().collect(Collectors.toMap(Auction::getId, Function.identity()));
+        CursorResponse<AuctionListResponse> page = CursorResponse.of(alerts, pageSize,
+                alert -> {
+                    Auction auction = auctions.get(alert.getAuctionId());
+                    return auction == null ? null : toListItem(auction);
+                },
+                AuctionAlert::getId);
+        return new CursorResponse<>(page.content().stream().filter(Objects::nonNull).toList(), page.nextCursor(), page.hasNext());
+    }
+
+    private static AuctionListResponse toListItem(Auction auction) {
+        Product product = auction.getProduct();
+        boolean live = auction.getLiveStream() != null && auction.getLiveStream().getStatus() == LiveStreamStatus.LIVE;
+        return new AuctionListResponse(auction.getId(), product.getId(), product.getName(),
+                product.getCategory() == null ? null : product.getCategory().getName(),
+                auction.getCurrentPrice(), auction.getBidCount(), auction.getStatus(), auction.getStartAt(), auction.getEndAt(), live);
+    }
 
     public AuctionAlertResponse get(Long userId, Long auctionId) {
         if (!auctionRepository.existsById(auctionId)) {

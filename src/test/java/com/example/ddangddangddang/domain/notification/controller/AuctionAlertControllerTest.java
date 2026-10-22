@@ -182,6 +182,75 @@ class AuctionAlertControllerTest {
         mockMvc.perform(get("/api/v1/push/public-key")).andExpect(status().isUnauthorized());
     }
 
+    @Test
+    @DisplayName("내가 알림 받기를 한 경매를 최근에 받기로 한 것부터 경매 카드 형식으로 보여 주고, 끄면 빠진다")
+    void myAlerts() throws Exception {
+        Member seller = signupAndLogin();
+        Member viewer = signupAndLogin();
+        Long first = createAuction(seller, LocalDateTime.now().plusHours(1), LocalDateTime.now().plusHours(2));
+        Long second = createAuction(seller, LocalDateTime.now().plusHours(1), LocalDateTime.now().plusHours(3));
+        alert(viewer, first);
+        alert(viewer, second);
+
+        mockMvc.perform(get("/api/v1/users/me/auction-alerts").param("size", "1").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].auctionId").value(second))
+                .andExpect(jsonPath("$.data.content[0].productName").value("알림 상품"))
+                .andExpect(jsonPath("$.data.content[0].categoryName").value("카메라"))
+                .andExpect(jsonPath("$.data.content[0].status").value("READY"))
+                .andExpect(jsonPath("$.data.hasNext").value(true));
+
+        mockMvc.perform(delete("/api/v1/auctions/{id}/alert", second).header(HttpHeaders.AUTHORIZATION, viewer.bearer()));
+        mockMvc.perform(get("/api/v1/users/me/auction-alerts").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].auctionId").value(first))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+        mockMvc.perform(get("/api/v1/users/me/auction-alerts")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("알림 설정: 기본은 모두 켜짐이고, 끈 묶음의 알림은 알림함에 쌓이지 않고 실시간으로도 오지 않는다. 다시 켜면 받는다")
+    void settings() throws Exception {
+        Member seller = signupAndLogin();
+        Member viewer = signupAndLogin();
+        mockMvc.perform(get("/api/v1/notifications/settings").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data.length()").value(6))
+                .andExpect(jsonPath("$.data[?(@.enabled == false)]").isEmpty())
+                .andExpect(jsonPath("$.data[?(@.category == 'AUCTION_RESULT')].label").value("경매 결과"));
+
+        // 경매 취소 알림을 끈다. (두 번 꺼도 그대로)
+        updateSetting(viewer, "AUCTION_CANCELED", false);
+        updateSetting(viewer, "AUCTION_CANCELED", false)
+                .andExpect(jsonPath("$.data[?(@.category == 'AUCTION_CANCELED')].enabled").value(false))
+                .andExpect(jsonPath("$.data[?(@.category == 'AUCTION_STARTED')].enabled").value(true));
+
+        Long auctionId = createAuction(seller, LocalDateTime.now().plusHours(1), LocalDateTime.now().plusHours(2));
+        alert(viewer, auctionId);
+        mockMvc.perform(post("/api/v1/auctions/{id}/cancel", auctionId).header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                .andExpect(status().is2xxSuccessful());
+        verify(stompBroadcaster, after(1000).never()).sendToUser(eq(viewer.id()), eq("/queue/notifications"), argThat(message ->
+                message instanceof NotificationResponse n && n.type() == NotificationType.AUCTION_CANCELED));
+        mockMvc.perform(get("/api/v1/notifications/unread-count").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data.count").value(0));
+
+        // 다시 켜면 받는다
+        updateSetting(viewer, "AUCTION_CANCELED", true)
+                .andExpect(jsonPath("$.data[?(@.enabled == false)]").isEmpty());
+        Long another = createAuction(seller, LocalDateTime.now().plusHours(1), LocalDateTime.now().plusHours(2));
+        alert(viewer, another);
+        mockMvc.perform(post("/api/v1/auctions/{id}/cancel", another).header(HttpHeaders.AUTHORIZATION, seller.bearer()));
+        verify(stompBroadcaster, timeout(5000)).sendToUser(eq(viewer.id()), eq("/queue/notifications"), argThat(message ->
+                message instanceof NotificationResponse n && n.type() == NotificationType.AUCTION_CANCELED && n.auctionId().equals(another)));
+
+        // 없는 묶음은 400
+        updateSetting(viewer, "NOPE", false).andExpect(status().isBadRequest());
+    }
+
+    private ResultActions updateSetting(Member member, String category, boolean enabled) throws Exception {
+        return mockMvc.perform(put("/api/v1/notifications/settings/{category}", category).header(HttpHeaders.AUTHORIZATION, member.bearer())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\": " + enabled + "}"));
+    }
+
     private ResultActions alert(Member member, Long auctionId) throws Exception {
         return mockMvc.perform(put("/api/v1/auctions/{id}/alert", auctionId).header(HttpHeaders.AUTHORIZATION, member.bearer()));
     }

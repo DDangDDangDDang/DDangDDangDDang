@@ -21,6 +21,17 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     Optional<Notification> findByIdAndUserId(Long id, Long userId);
 
+    /** 보관 기간이 지난 알림을 지운다. (NotificationCleaner, 한 번에 지우는 양을 제한하려고 id 범위로 나눠 부른다) */
+    @Modifying
+    @Query("delete from Notification n where n.createdAt < :before and n.id <= :maxId")
+    int deleteOlderThan(@Param("before") LocalDateTime before, @Param("maxId") Long maxId);
+
+    @Query("select max(n.id) from Notification n where n.createdAt < :before")
+    Long findMaxIdOlderThan(@Param("before") LocalDateTime before);
+
+    @Query("select min(n.id) from Notification n")
+    Long findMinId();
+
     @Modifying
     @Query("update Notification n set n.readAt = :now where n.userId = :userId and n.readAt is null")
     int readAll(@Param("userId") Long userId, @Param("now") LocalDateTime now);

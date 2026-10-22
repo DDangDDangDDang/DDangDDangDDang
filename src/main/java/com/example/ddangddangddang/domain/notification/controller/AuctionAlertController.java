@@ -1,8 +1,10 @@
 package com.example.ddangddangddang.domain.notification.controller;
 
+import com.example.ddangddangddang.domain.auction.dto.response.AuctionListResponse;
 import com.example.ddangddangddang.domain.notification.dto.AuctionAlertResponse;
 import com.example.ddangddangddang.domain.notification.service.AuctionAlertService;
 import com.example.ddangddangddang.global.common.ApiResponse;
+import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,22 +17,31 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/auctions/{auctionId}/alert")
+@RequestMapping("/api/v1")
 public class AuctionAlertController {
 
     private final AuctionAlertService auctionAlertService;
 
-    @GetMapping
+    /** 내가 알림 받기를 한 경매 (최근에 받기로 한 것부터, 경매 목록 카드와 같은 형식) */
+    @GetMapping("/users/me/auction-alerts")
+    public ResponseEntity<ApiResponse<CursorResponse<AuctionListResponse>>> getMine(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.ok(auctionAlertService.getMine(authUser.id(), cursor, size)));
+    }
+
+    @GetMapping("/auctions/{auctionId}/alert")
     public ResponseEntity<ApiResponse<AuctionAlertResponse>> get(@AuthenticationPrincipal AuthUser authUser, @PathVariable Long auctionId) {
         return ResponseEntity.ok(ApiResponse.ok(auctionAlertService.get(authUser.id(), auctionId)));
     }
 
-    @PutMapping
+    @PutMapping("/auctions/{auctionId}/alert")
     public ResponseEntity<ApiResponse<AuctionAlertResponse>> subscribe(@AuthenticationPrincipal AuthUser authUser, @PathVariable Long auctionId) {
         return ResponseEntity.ok(ApiResponse.ok(auctionAlertService.subscribe(authUser.id(), auctionId)));
     }
 
-    @DeleteMapping
+    @DeleteMapping("/auctions/{auctionId}/alert")
     public ResponseEntity<ApiResponse<AuctionAlertResponse>> unsubscribe(@AuthenticationPrincipal AuthUser authUser, @PathVariable Long auctionId) {
         return ResponseEntity.ok(ApiResponse.ok(auctionAlertService.unsubscribe(authUser.id(), auctionId)));
     }
