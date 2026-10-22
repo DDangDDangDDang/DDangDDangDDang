@@ -58,6 +58,10 @@ export function AlertedAuctionsPage() {
           ))}
         </Grid>
       )}
+      {/* 다음 페이지만 실패하면 지금 카드는 두고 아래에서 다시 불러오게 한다. */}
+      {query.isFetchNextPageError && (
+        <ErrorState message={errorMessage(query.error)} onRetry={() => void query.fetchNextPage()} />
+      )}
       <div ref={sentinelRef} />
       {query.isFetchingNextPage && (
         <Grid>

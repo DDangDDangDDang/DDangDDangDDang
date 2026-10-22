@@ -74,7 +74,8 @@ export function NotificationSettingsPage() {
                   <SettingRow
                     key={setting.category}
                     setting={setting}
-                    pending={update.isPending && update.variables?.category === setting.category}
+                    // 바꾸는 중에는 모든 스위치를 막는다. (응답 순서가 바뀌어 앞 응답이 뒤 변경을 덮지 않게)
+                    pending={update.isPending}
                     onChange={(enabled) => setting.category && update.mutate({ category: setting.category, enabled })}
                   />
                 ))}

@@ -13,22 +13,30 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 @SpringBootTest
 class NotificationCleanerTest {
-
-    @Autowired
-    private NotificationCleaner cleaner;
 
     @Autowired
     private NotificationRepository notificationRepository;
 
     @Autowired
     private AuctionClosingNoticeRepository closingNoticeRepository;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -40,20 +48,42 @@ class NotificationCleanerTest {
     private TokenBlacklistRepository tokenBlacklistRepository;
 
     @Test
-    @DisplayName("보관 기간(90일)이 지난 알림과 30일이 지난 마감 임박 기록만 지운다")
-    void deletesOnlyOldOnes() {
-        Notification old = notificationRepository.save(Notification.auction(990_001L, NotificationType.AUCTION_ENDED, 1L, "오래된 알림", null));
-        Notification recent = notificationRepository.save(Notification.auction(990_001L, NotificationType.AUCTION_ENDED, 1L, "최근 알림", null));
-        jdbcTemplate.update("update notifications set created_at = ? where id = ?", LocalDateTime.now().minusDays(91), old.getId());
-        closingNoticeRepository.save(new AuctionClosingNotice(990_101L, LocalDateTime.now().minusDays(31)));
-        closingNoticeRepository.save(new AuctionClosingNotice(990_102L, LocalDateTime.now().minusDays(1)));
+    @DisplayName("보관 기간(90일)·마감 임박 기록(30일)보다 오래된 것만 지우고, 딱 그 기간인 것은 남긴다")
+    void deletesOnlyOlderThanRetention() {
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        NotificationCleaner cleaner = new NotificationCleaner(notificationRepository, closingNoticeRepository, transactionTemplate,
+                true, Duration.ofDays(90), Clock.fixed(now.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault()));
+
+        Long older = saveNotificationCreatedAt(now.minusDays(90).minusSeconds(1));
+        Long exactly = saveNotificationCreatedAt(now.minusDays(90));
+        Long recent = saveNotificationCreatedAt(now.minusDays(1));
+        closingNoticeRepository.save(new AuctionClosingNotice(990_101L, now.minusDays(30).minusSeconds(1)));
+        closingNoticeRepository.save(new AuctionClosingNotice(990_102L, now.minusDays(30)));
 
         int deleted = cleaner.clean();
 
         assertThat(deleted).isGreaterThanOrEqualTo(1);
-        assertThat(notificationRepository.findById(old.getId())).isEmpty();
-        assertThat(notificationRepository.findById(recent.getId())).isPresent();
+        assertThat(notificationRepository.findById(older)).isEmpty();
+        assertThat(notificationRepository.findById(exactly)).isPresent();
+        assertThat(notificationRepository.findById(recent)).isPresent();
         assertThat(closingNoticeRepository.existsById(990_101L)).isFalse();
         assertThat(closingNoticeRepository.existsById(990_102L)).isTrue();
+    }
+
+    @Test
+    @DisplayName("조회·삭제가 실패해도 예외를 밖으로 내지 않고 0건으로 끝낸다 (다음 날 다시)")
+    void failureIsSwallowed() {
+        NotificationRepository failing = mock(NotificationRepository.class);
+        given(failing.findIdsOlderThan(any(), any())).willThrow(new IllegalStateException("DB 연결 끊김"));
+        NotificationCleaner cleaner = new NotificationCleaner(failing, closingNoticeRepository, transactionTemplate,
+                true, Duration.ofDays(90), Clock.systemDefaultZone());
+
+        assertThat(cleaner.clean()).isZero();
+    }
+
+    private Long saveNotificationCreatedAt(LocalDateTime createdAt) {
+        Notification saved = notificationRepository.save(Notification.auction(990_001L, NotificationType.AUCTION_ENDED, 1L, "정리 확인", null));
+        jdbcTemplate.update("update notifications set created_at = ? where id = ?", createdAt, saved.getId());
+        return saved.getId();
     }
 }

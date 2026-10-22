@@ -5,6 +5,7 @@ import com.example.ddangddangddang.domain.notification.repository.NotificationRe
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -12,6 +13,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 오래된 알림을 정리한다. 매일 새벽(기본 04:30)에 한 번 돈다.
@@ -22,7 +24,7 @@ import java.time.LocalDateTime;
  * notification.cleanup.retention  알림 보관 기간. 기본 90일 (지나면 알림함에서 사라진다)
  * </pre>
  *
- * - 한 번에 지우는 양을 BATCH_SIZE개 정도로 나눠, 큰 삭제로 다른 요청이 오래 기다리지 않게 한다.
+ * - 지울 알림 id를 BATCH_SIZE개씩 찾아 지워, 큰 삭제로 다른 요청이 오래 기다리지 않게 한다.
  * - 마감 임박 알림 기록(auction_closing_notices)은 경매가 끝나면 쓸 일이 없어 30일이 지나면 지운다.
  * - 서버가 여러 대면 같은 시각에 함께 돌지만, 같은 행을 지우는 것뿐이라 결과는 같다.
  */
@@ -71,17 +73,16 @@ public class NotificationCleaner {
         LocalDateTime before = now.minus(retention);
         int deleted = 0;
         try {
-            Long maxId = notificationRepository.findMaxIdOlderThan(before);
-            Long minId = notificationRepository.findMinId();
-            if (maxId != null && minId != null) {
-                // id가 작은 쪽부터 BATCH_SIZE씩 올라가며 지운다. (오래된 알림은 id도 작다)
-                for (long upTo = minId + BATCH_SIZE - 1; ; upTo += BATCH_SIZE) {
-                    long limit = Math.min(upTo, maxId);
-                    Integer count = transactionTemplate.execute(status -> notificationRepository.deleteOlderThan(before, limit));
-                    deleted += count == null ? 0 : count;
-                    if (limit >= maxId) {
-                        break;
-                    }
+            // 지울 알림 id를 BATCH_SIZE개씩 찾아 그 id만 지운다. 덜 찾았으면 남은 것이 없다.
+            while (true) {
+                List<Long> ids = notificationRepository.findIdsOlderThan(before, PageRequest.of(0, BATCH_SIZE));
+                if (ids.isEmpty()) {
+                    break;
+                }
+                Integer count = transactionTemplate.execute(status -> notificationRepository.deleteByIds(ids));
+                deleted += count == null ? 0 : count;
+                if (ids.size() < BATCH_SIZE) {
+                    break;
                 }
             }
             transactionTemplate.executeWithoutResult(status -> closingNoticeRepository.deleteOlderThan(now.minus(CLOSING_NOTICE_RETENTION)));
