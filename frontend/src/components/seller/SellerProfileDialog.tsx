@@ -1,9 +1,10 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Building2, CalendarDays, Clock, Gavel, PackageCheck, Radio, ShieldCheck, Truck, Users } from 'lucide-react';
+import { Building2, CalendarDays, Clock, Gavel, Gift, PackageCheck, Radio, ShieldCheck, Truck, Users } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, type Schema } from '@/api';
 import { AuctionPhaseBadge } from '@/components/auction/AuctionBits';
+import { PowerSellerBadge } from '@/components/donation/PowerSellerBadge';
 import { Badge, buttonVariants, Dialog, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { cn } from '@/lib/cn';
@@ -79,6 +80,8 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
               사업자
             </Badge>
           )}
+          {/* 받은 도네이션 포인트로 파워 판매자를 산 판매자 */}
+          {profile.powerSeller && <PowerSellerBadge />}
           {profile.liveStreamId ? (
             <Badge variant="live">
               <span aria-hidden="true" className="size-1.5 rounded-full bg-neutral-0" />
@@ -160,6 +163,13 @@ function InfoTab({ profile }: { profile: Profile }) {
             label="판매자 인증"
             value={profile.verifiedSeller ? (profile.verifiedAt ? `${formatDotDate(profile.verifiedAt)} 인증` : '인증') : '인증 전'}
             hint={profile.joinedAt ? `${formatDate(profile.joinedAt)} 가입` : undefined}
+          />
+          {/* 시청자가 방송에서 도네이션 포인트로 응원한 기록. 구매 확정한 회원만 포인트가 있어, 실제로 거래한 사람들의 응원이다. */}
+          <Stat
+            icon={<Gift className="size-4" aria-hidden="true" />}
+            label="응원"
+            value={`${formatNumber(trust?.donorCount ?? 0)}명`}
+            hint={`최근 ${formatNumber(trust?.donationWindowDays ?? 0)}일 · ${formatPoint(trust?.receivedDonationPoints ?? 0)} 받음`}
           />
         </dl>
       </section>

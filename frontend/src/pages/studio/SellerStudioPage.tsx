@@ -17,6 +17,7 @@ import { ChatNoticeEditor } from './ChatNoticeEditor';
 import { ModerationPanel } from './ModerationPanel';
 import { StreamForm } from './StreamForm';
 import { StudioStage } from './StudioStage';
+import { DonationEffects } from '@/components/donation/DonationEffects';
 import { useLiveAuctions } from './use-live-auctions';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
@@ -215,8 +216,12 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             onToggle={(kind) => void media.toggle(kind)}
             onSelectDevice={(kind, deviceId) => void media.selectDevice(kind, deviceId)}
             overlay={
-              // 시청 화면은 왼쪽 아래. 여기는 마이크·카메라 버튼 바로 위에 둔다.
-              <FeaturedAuctionSlot featuredAuctionId={liveStream.featuredAuctionId} auctions={liveAuctions.auctions} className="absolute bottom-20 left-4" />
+              <>
+                {/* 시청 화면은 왼쪽 아래. 여기는 마이크·카메라 버튼 바로 위에 둔다. */}
+                <FeaturedAuctionSlot featuredAuctionId={liveStream.featuredAuctionId} auctions={liveAuctions.auctions} className="absolute bottom-20 left-4" />
+                {/* 시청자가 보낸 도네이션 선물을 판매자도 같은 자리(오른쪽 위)에서 본다. */}
+                <DonationEffects messages={chat.messages} className="absolute top-4 right-4" />
+              </>
             }
           />
 

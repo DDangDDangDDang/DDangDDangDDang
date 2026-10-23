@@ -6,6 +6,7 @@ import { formatDateTime, formatNumber } from '@/lib/format';
 import { LIVE_STREAM_STATUS_LABEL } from '@/lib/labels';
 import { Hashtags } from './Hashtags';
 import { RecordedBadge } from './RecordedBadge';
+import { PowerSellerBadge } from '@/components/donation/PowerSellerBadge';
 
 type Card = Schema<'LiveStreamCard'>;
 
@@ -33,6 +34,7 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
             </Badge>
           )}
           {isLive && card.recorded && <RecordedBadge />}
+          {card.powerSeller && <PowerSellerBadge tone="onVideo" />}
         </div>
         {isLive && showIncrease && (card.viewerIncrease ?? 0) > 0 && (
           <Badge variant="warning" className="absolute right-3 bottom-3">
