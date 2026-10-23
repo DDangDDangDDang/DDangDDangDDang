@@ -19,16 +19,29 @@ const REFRESH_MS = 10_000;
  * - 현재가·입찰 수·마감 시각은 실시간(/topic/auctions/{id})으로 바뀐다.
  * - 입찰·즉시 구매는 되돌릴 수 없어 한 번 더 확인한 뒤 보낸다.
  */
-export function BidDialog({ auctionId, onClose, showDetailLink = true }: { auctionId?: number; onClose: () => void; showDetailLink?: boolean }) {
+/**
+ * realtime: 이 창이 직접 경매 실시간 메시지를 받을지. 이미 같은 경매를 구독하는 화면(경매 상세)에서 열면 끈다. (같은 캐시를 함께 씀)
+ */
+export function BidDialog({
+  auctionId,
+  onClose,
+  showDetailLink = true,
+  realtime = true,
+}: {
+  auctionId?: number;
+  onClose: () => void;
+  showDetailLink?: boolean;
+  realtime?: boolean;
+}) {
   return (
     <Dialog open={auctionId !== undefined} onClose={onClose} title="입찰하기" className="w-[480px]">
       {/* 다른 경매를 열면 입력을 처음부터 시작한다. */}
-      {auctionId !== undefined && <BidForm key={auctionId} auctionId={auctionId} showDetailLink={showDetailLink} />}
+      {auctionId !== undefined && <BidForm key={auctionId} auctionId={auctionId} showDetailLink={showDetailLink} realtime={realtime} />}
     </Dialog>
   );
 }
 
-function BidForm({ auctionId, showDetailLink }: { auctionId: number; showDetailLink: boolean }) {
+function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; showDetailLink: boolean; realtime: boolean }) {
   const session = useSession();
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -49,7 +62,7 @@ function BidForm({ auctionId, showDetailLink }: { auctionId: number; showDetailL
   const [confirmAmount, setConfirmAmount] = useState<number>();
   const [confirmBuyNow, setConfirmBuyNow] = useState(false);
   const [result, setResult] = useState<{ kind: 'bid'; amount: number; extended: boolean } | { kind: 'buy'; orderId?: number; price: number }>();
-  useAuctionRealtime(auctionId);
+  useAuctionRealtime(auctionId, realtime);
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: auctionKey(auctionId) });
