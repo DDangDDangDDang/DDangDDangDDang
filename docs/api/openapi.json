@@ -4089,6 +4089,53 @@
         }
       }
     },
+    "/api/v1/products/{productId}/auctions" : {
+      "get" : {
+        "tags" : [ "auction-controller" ],
+        "operationId" : "auctionProductAuctionHistory",
+        "parameters" : [ {
+          "name" : "productId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListAuctionResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/points/wallet" : {
       "get" : {
         "tags" : [ "point-controller" ],
@@ -8495,6 +8542,10 @@
     "code" : "PRODUCT_004",
     "status" : 409,
     "message" : "경매 상태가 대기 OR 진행 중인 상품은 수정,삭제 불가능합니다."
+  }, {
+    "code" : "PRODUCT_005",
+    "status" : 403,
+    "message" : "본인 상품의 경매 이력만 볼수 있습니다."
   }, {
     "code" : "SELLER_001",
     "status" : 409,
