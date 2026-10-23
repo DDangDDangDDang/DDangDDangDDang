@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { BellOff } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
-import { api, call, errorMessage } from '@/api';
+import { api, call, errorMessage, type paths } from '@/api';
 import { AuctionCard, AuctionCardSkeleton } from '@/components/auction/AuctionBits';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button, buttonVariants, EmptyState, ErrorState, Notice } from '@/components/ui';
@@ -11,7 +11,8 @@ import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 const PAGE_SIZE = 20;
 const ALERTS_KEY = ['auction-alerts', 'mine'] as const;
 
-type Filter = 'ACTIVE' | 'ENDED';
+/** 요청 파라미터 filter (ACTIVE: 시작 전·진행 중, ENDED: 낙찰·유찰·취소). 명세에서 생성된 타입 */
+type Filter = NonNullable<NonNullable<paths['/api/v1/users/me/auction-alerts']['get']['parameters']['query']>['filter']>;
 
 const TABS: { key: Filter; label: string; empty: string; emptyDescription: string }[] = [
   {
@@ -73,6 +74,8 @@ export function AlertedAuctionsPage() {
             key={item.key}
             type="button"
             role="tab"
+            id={`alerted-auctions-tab-${item.key}`}
+            aria-controls="alerted-auctions-panel"
             aria-selected={filter === item.key}
             onClick={() => setParams(item.key === 'ENDED' ? { filter: 'ended' } : {}, { replace: true })}
             className={cn(
@@ -84,6 +87,8 @@ export function AlertedAuctionsPage() {
           </button>
         ))}
       </div>
+      {/* 선택한 탭의 목록 */}
+      <div role="tabpanel" id="alerted-auctions-panel" aria-labelledby={`alerted-auctions-tab-${filter}`}>
       {turnOff.isError && (
         <Notice tone="error" className="mb-4">
           {errorMessage(turnOff.error)}
@@ -137,6 +142,7 @@ export function AlertedAuctionsPage() {
           <AuctionCardSkeleton />
         </Grid>
       )}
+      </div>
     </div>
   );
 }
