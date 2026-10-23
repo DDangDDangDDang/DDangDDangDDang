@@ -20,6 +20,9 @@ import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
+import com.example.ddangddangddang.domain.user.entity.User;
+import com.example.ddangddangddang.domain.user.entity.UserRole;
+import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
 import com.example.ddangddangddang.support.SellerFixture;
@@ -36,6 +39,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -52,6 +56,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -91,6 +96,9 @@ class DonationControllerTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private JwtProvider jwtProvider;
 
     @Autowired
     private LiveStreamRepository liveStreamRepository;
@@ -339,6 +347,64 @@ class DonationControllerTest {
         wallet(buyer).andExpect(jsonPath("$.data.giftableBalance").value(500));
         earner.backfill();
         wallet(buyer).andExpect(jsonPath("$.data.giftableBalance").value(500));
+    }
+
+    @Test
+    @DisplayName("관리자가 정책을 바꾸면 재시작 없이 바로 적용되고, 바꾼 기록이 남는다. 말이 안 되는 값은 거부한다")
+    void policy() throws Exception {
+        Member viewer = signupAndLogin();
+        Member seller = signupAndLogin();
+        Member otherSeller = signupAndLogin();
+        Long live = liveStream(seller, true);
+        donationPointService.earn(ORDER_SEQ.incrementAndGet(), viewer.id(), otherSeller.id(), 100_000L);
+
+        // 관리자만 볼 수 있다.
+        mockMvc.perform(get("/api/v1/admin/donation-policy").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/admin/donation-policy").header(HttpHeaders.AUTHORIZATION, adminBearer()))
+                .andExpect(jsonPath("$.data.policy.minGift").value(100))
+                .andExpect(jsonPath("$.data.policy.monthlyGiftLimitPerSeller").value(5_000));
+
+        // 최소 선물이 선물 단위로 나누어떨어지지 않으면 거부
+        changePolicy(150, 5_000, "잘못된 값").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("DONATION_011"));
+        try {
+            changePolicy(100, 300, "판매자당 한 달 300P로 낮춤").andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.usingDefaults").value(false))
+                    .andExpect(jsonPath("$.data.policy.monthlyGiftLimitPerSeller").value(300));
+
+            // 바로 적용된다.
+            mockMvc.perform(get("/api/v1/live-streams/{id}/donations/me", live).header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                    .andExpect(jsonPath("$.data.monthlyLimit").value(300));
+            gift(viewer, live, 400, null, UUID.randomUUID().toString())
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("DONATION_003"));
+            gift(viewer, live, 300, null, UUID.randomUUID().toString()).andExpect(status().isCreated());
+
+            mockMvc.perform(get("/api/v1/admin/donation-policy/history").header(HttpHeaders.AUTHORIZATION, adminBearer()))
+                    .andExpect(jsonPath("$.data.content[0].memo").value("판매자당 한 달 300P로 낮춤"))
+                    .andExpect(jsonPath("$.data.content[0].changedBy").value(900_002));
+        } finally {
+            // 다른 테스트가 기본 정책으로 돌도록 되돌린다.
+            changePolicy(100, 5_000, "테스트 뒤 기본값으로").andExpect(status().isOk());
+        }
+    }
+
+    private ResultActions changePolicy(long minGift, long monthlyGiftLimitPerSeller, String memo) throws Exception {
+        String body = """
+                {"earnRatePercent": 1, "maxEarnPerOrder": 1000, "monthlyEarnLimit": 10000, "pointValidDays": 90, "expiringNoticeDays": 7,
+                 "minGift": %d, "giftUnit": 100, "maxGift": 5000, "monthlyGiftLimitPerSeller": %d, "trustWindowDays": 90,
+                 "powerSellerPrice": 30000, "powerSellerDays": 30, "promotedLiveSlots": 4, "memo": "%s"}
+                """.formatted(minGift, monthlyGiftLimitPerSeller, memo);
+        return mockMvc.perform(put("/api/v1/admin/donation-policy").header(HttpHeaders.AUTHORIZATION, adminBearer())
+                .contentType(MediaType.APPLICATION_JSON).content(body));
+    }
+
+    // Access Token의 권한 클레임만으로 인증하므로, 관리자 권한을 가진 토큰을 직접 만든다.
+    private String adminBearer() {
+        User admin = User.create("donation-admin@test.com", "encoded", "관리자");
+        ReflectionTestUtils.setField(admin, "id", 900_002L);
+        ReflectionTestUtils.setField(admin, "role", UserRole.ADMIN);
+        return "Bearer " + jwtProvider.createAccessToken(admin);
     }
 
     private ResultActions gift(Member giver, Long liveStreamId, long amount, String message, String key) throws Exception {

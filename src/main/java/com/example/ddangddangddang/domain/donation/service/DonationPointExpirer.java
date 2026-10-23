@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.donation.service;
 
-import com.example.ddangddangddang.domain.donation.config.DonationProperties;
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicies;
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicy;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointHistory;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointHistoryType;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointLot;
@@ -45,22 +46,22 @@ public class DonationPointExpirer {
     private final DonationWalletLocker walletLocker;
     private final NotificationDispatcher notificationDispatcher;
     private final TransactionTemplate transactionTemplate;
-    private final DonationProperties properties;
+    private final DonationPolicies policies;
     private final boolean enabled;
     private final Clock clock;
 
     @Autowired
     public DonationPointExpirer(DonationPointLotRepository lotRepository, DonationPointHistoryRepository historyRepository,
                                 DonationWalletLocker walletLocker, NotificationDispatcher notificationDispatcher,
-                                TransactionTemplate transactionTemplate, DonationProperties properties,
+                                TransactionTemplate transactionTemplate, DonationPolicies policies,
                                 @Value("${donation.expiry.enabled:true}") boolean enabled) {
-        this(lotRepository, historyRepository, walletLocker, notificationDispatcher, transactionTemplate, properties, enabled,
+        this(lotRepository, historyRepository, walletLocker, notificationDispatcher, transactionTemplate, policies, enabled,
                 Clock.systemDefaultZone());
     }
 
     DonationPointExpirer(DonationPointLotRepository lotRepository, DonationPointHistoryRepository historyRepository,
                          DonationWalletLocker walletLocker, NotificationDispatcher notificationDispatcher,
-                         TransactionTemplate transactionTemplate, DonationProperties properties, boolean enabled, Clock clock) {
+                         TransactionTemplate transactionTemplate, DonationPolicies policies, boolean enabled, Clock clock) {
         this.lotRepository = lotRepository;
         this.historyRepository = historyRepository;
         this.walletLocker = walletLocker;
@@ -69,7 +70,7 @@ public class DonationPointExpirer {
         this.transactionTemplate = new TransactionTemplate(transactionTemplate.getTransactionManager());
         this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.transactionTemplate.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
-        this.properties = properties;
+        this.policies = policies;
         this.enabled = enabled;
         this.clock = clock;
     }
@@ -131,7 +132,7 @@ public class DonationPointExpirer {
     /** 곧 사라질 포인트가 있는 회원에게 알린다. @return 알린 회원 수 */
     public int notifyExpiring() {
         LocalDateTime now = LocalDateTime.now(clock);
-        LocalDateTime until = now.plus(properties.expiringNoticeBefore());
+        LocalDateTime until = now.plus(policies.current().expiringNoticeBefore());
         int notified = 0;
         try {
             // 회원 단위로 넘긴다. 한 회원의 묶음이 여러 페이지로 나뉘어 알림이 두 번 가지 않게, 회원을 고른 뒤 그 회원의 묶음을 모두 합친다.

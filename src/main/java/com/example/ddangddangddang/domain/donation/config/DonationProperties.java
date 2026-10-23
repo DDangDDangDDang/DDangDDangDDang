@@ -1,12 +1,13 @@
 package com.example.ddangddangddang.domain.donation.config;
 
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicy;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
 
 /**
- * 도네이션 포인트 설정. 모든 값에 기본값이 있어 application.yml에 적지 않아도 동작한다.
- * 운영하며 바꿀 수 있도록 숫자는 모두 여기에 둔다.
+ * 도네이션 포인트 정책의 처음 값. 운영 중에는 관리자가 DB(donation_policies)에서 바꾸고, DB에 정책이 하나도 없을 때만 이 값을 쓴다.
+ * (DonationPolicies.current) 모든 값에 기본값이 있어 application.yml에 적지 않아도 동작한다.
  *
  * <pre>
  * donation.earn-rate-percent              구매 확정 시 낙찰가의 몇 %를 적립할지. 기본 1 (%)
@@ -61,8 +62,11 @@ public record DonationProperties(
         return new DonationProperties(null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
-    /** 낙찰가에 대한 적립 포인트 (한 달 한도는 따로 본다). 1P 미만은 버린다. */
-    public long earnFor(long finalPrice) {
-        return Math.min(maxEarnPerOrder, Math.max(0, finalPrice) * earnRatePercent / 100);
+    /** 처음 정책 (기간은 일 단위로) */
+    public DonationPolicy toPolicy() {
+        return new DonationPolicy(earnRatePercent, maxEarnPerOrder, monthlyEarnLimit,
+                (int) pointValidFor.toDays(), (int) expiringNoticeBefore.toDays(),
+                minGift, giftUnit, maxGift, monthlyGiftLimitPerSeller,
+                (int) trustWindow.toDays(), powerSellerPrice, (int) powerSellerPeriod.toDays(), promotedLiveSlots);
     }
 }

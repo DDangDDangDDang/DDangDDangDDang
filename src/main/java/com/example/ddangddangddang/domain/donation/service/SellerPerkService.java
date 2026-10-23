@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.donation.service;
 
-import com.example.ddangddangddang.domain.donation.config.DonationProperties;
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicies;
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicy;
 import com.example.ddangddangddang.domain.donation.dto.SellerPerkResponse;
 import com.example.ddangddangddang.domain.donation.dto.SellerShopItemResponse;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointHistory;
@@ -36,37 +37,38 @@ public class SellerPerkService {
     private final DonationWalletLocker walletLocker;
     private final SellerVerification sellerVerification;
     private final DonationTransactions transactions;
-    private final DonationProperties properties;
+    private final DonationPolicies policies;
     private final Clock clock;
 
     @Autowired
     public SellerPerkService(SellerPerkRepository perkRepository, DonationPointHistoryRepository historyRepository,
                              DonationWalletLocker walletLocker, SellerVerification sellerVerification, DonationTransactions transactions,
-                             DonationProperties properties) {
-        this(perkRepository, historyRepository, walletLocker, sellerVerification, transactions, properties, Clock.systemDefaultZone());
+                             DonationPolicies policies) {
+        this(perkRepository, historyRepository, walletLocker, sellerVerification, transactions, policies, Clock.systemDefaultZone());
     }
 
     SellerPerkService(SellerPerkRepository perkRepository, DonationPointHistoryRepository historyRepository,
                       DonationWalletLocker walletLocker, SellerVerification sellerVerification, DonationTransactions transactions,
-                      DonationProperties properties, Clock clock) {
+                      DonationPolicies policies, Clock clock) {
         this.perkRepository = perkRepository;
         this.historyRepository = historyRepository;
         this.walletLocker = walletLocker;
         this.sellerVerification = sellerVerification;
         this.transactions = transactions;
-        this.properties = properties;
+        this.policies = policies;
         this.clock = clock;
     }
 
     /** 판매자 상점 상품 */
     public List<SellerShopItemResponse> getShop() {
+        DonationPolicy policy = policies.current();
         return List.of(new SellerShopItemResponse(
                 SellerPerkType.POWER_SELLER,
                 "파워 판매자",
                 "%d일 동안 라이브 목록 맨 위에 방송이 올라가고, 프로필과 방송 카드에 파워 판매자 배지가 붙어요."
-                        .formatted(properties.powerSellerPeriod().toDays()),
-                properties.powerSellerPrice(),
-                properties.powerSellerPeriod().toDays()
+                        .formatted(policy.powerSellerDays()),
+                policy.powerSellerPrice(),
+                policy.powerSellerDays()
         ));
     }
 
@@ -84,12 +86,13 @@ public class SellerPerkService {
             throw new BusinessException(DonationErrorCode.NOT_VERIFIED_SELLER);
         }
         walletLocker.prepare(sellerId);
-        return transactions.execute(() -> purchaseLocked(sellerId, type));
+        DonationPolicy policy = policies.current();
+        return transactions.execute(() -> purchaseLocked(sellerId, type, policy));
     }
 
-    private SellerPerkResponse purchaseLocked(Long sellerId, SellerPerkType type) {
-        long price = price(type);
-        Duration period = period(type);
+    private SellerPerkResponse purchaseLocked(Long sellerId, SellerPerkType type, DonationPolicy policy) {
+        long price = price(type, policy);
+        Duration period = period(type, policy);
         DonationWallet wallet = walletLocker.lock(sellerId);
         wallet.spendReceived(price);
 
@@ -105,15 +108,15 @@ public class SellerPerkService {
         return SellerPerkResponse.from(perk);
     }
 
-    private long price(SellerPerkType type) {
+    private long price(SellerPerkType type, DonationPolicy policy) {
         return switch (type) {
-            case POWER_SELLER -> properties.powerSellerPrice();
+            case POWER_SELLER -> policy.powerSellerPrice();
         };
     }
 
-    private Duration period(SellerPerkType type) {
+    private Duration period(SellerPerkType type, DonationPolicy policy) {
         return switch (type) {
-            case POWER_SELLER -> properties.powerSellerPeriod();
+            case POWER_SELLER -> policy.powerSellerPeriod();
         };
     }
 }

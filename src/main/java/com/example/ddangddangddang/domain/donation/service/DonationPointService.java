@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.donation.service;
 
-import com.example.ddangddangddang.domain.donation.config.DonationProperties;
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicies;
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicy;
 import com.example.ddangddangddang.domain.donation.dto.DonationPointHistoryResponse;
 import com.example.ddangddangddang.domain.donation.dto.DonationWalletResponse;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointHistory;
@@ -36,41 +37,42 @@ public class DonationPointService {
     private final DonationPointLotRepository lotRepository;
     private final DonationPointHistoryRepository historyRepository;
     private final DonationTransactions transactions;
-    private final DonationProperties properties;
+    private final DonationPolicies policies;
     private final Clock clock;
 
     @Autowired
     public DonationPointService(DonationWalletRepository walletRepository, DonationWalletLocker walletLocker,
                                 DonationPointLotRepository lotRepository, DonationPointHistoryRepository historyRepository,
-                                DonationTransactions transactions, DonationProperties properties) {
-        this(walletRepository, walletLocker, lotRepository, historyRepository, transactions, properties, Clock.systemDefaultZone());
+                                DonationTransactions transactions, DonationPolicies policies) {
+        this(walletRepository, walletLocker, lotRepository, historyRepository, transactions, policies, Clock.systemDefaultZone());
     }
 
     DonationPointService(DonationWalletRepository walletRepository, DonationWalletLocker walletLocker,
                          DonationPointLotRepository lotRepository, DonationPointHistoryRepository historyRepository,
-                         DonationTransactions transactions, DonationProperties properties, Clock clock) {
+                         DonationTransactions transactions, DonationPolicies policies, Clock clock) {
         this.walletRepository = walletRepository;
         this.walletLocker = walletLocker;
         this.lotRepository = lotRepository;
         this.historyRepository = historyRepository;
         this.transactions = transactions;
-        this.properties = properties;
+        this.policies = policies;
         this.clock = clock;
     }
 
     /** 내 도네이션 포인트. 지갑이 아직 없으면(적립·선물한 적 없음) 0으로 보여 준다. */
     @Transactional(readOnly = true)
     public DonationWalletResponse getWallet(Long userId) {
+        DonationPolicy policy = policies.current();
         LocalDateTime now = LocalDateTime.now(clock);
         DonationWallet wallet = walletRepository.findByUserId(userId).orElse(null);
         MonthRange month = MonthRange.of(now);
         return new DonationWalletResponse(
                 wallet == null ? 0 : wallet.getGiftableBalance(),
                 wallet == null ? 0 : wallet.getReceivedBalance(),
-                lotRepository.sumExpiringBetween(userId, now, now.plus(properties.expiringNoticeBefore())),
+                lotRepository.sumExpiringBetween(userId, now, now.plus(policy.expiringNoticeBefore())),
                 lotRepository.findNextExpiry(userId, now),
                 lotRepository.sumEarnedBetween(userId, month.from(), month.to()),
-                properties.monthlyEarnLimit()
+                policy.monthlyEarnLimit()
         );
     }
 
@@ -88,12 +90,13 @@ public class DonationPointService {
      * @return 적립한 포인트. 이미 적립한 주문이거나 한도를 다 썼거나 적립할 금액이 없으면 0
      */
     public long earn(Long orderId, Long buyerId, Long sellerId, long finalPrice) {
-        long wanted = properties.earnFor(finalPrice);
+        DonationPolicy policy = policies.current();
         walletLocker.prepare(buyerId);
-        return transactions.execute(() -> earnLocked(orderId, buyerId, sellerId, wanted));
+        return transactions.execute(() -> earnLocked(orderId, buyerId, sellerId, finalPrice, policy));
     }
 
-    private long earnLocked(Long orderId, Long buyerId, Long sellerId, long wanted) {
+    private long earnLocked(Long orderId, Long buyerId, Long sellerId, long finalPrice, DonationPolicy policy) {
+        long wanted = policy.earnFor(finalPrice);
         LocalDateTime now = LocalDateTime.now(clock);
         DonationWallet wallet = walletLocker.lock(buyerId);
         // 같은 주문은 한 번만 (지갑을 잠근 뒤에 확인해 동시에 온 적립도 한 번만. 마지막으로 order_id 유니크가 막는다)
@@ -102,13 +105,13 @@ public class DonationPointService {
         }
         MonthRange month = MonthRange.of(now);
         long earnedThisMonth = lotRepository.sumEarnedBetween(buyerId, month.from(), month.to());
-        long amount = Math.max(0, Math.min(wanted, properties.monthlyEarnLimit() - earnedThisMonth));
+        long amount = Math.max(0, Math.min(wanted, policy.monthlyEarnLimit() - earnedThisMonth));
         if (amount == 0) {
             // 한도를 다 썼거나 적립할 포인트가 없는(낙찰가가 아주 작은) 주문도 0P 묶음으로 남긴다. 적립 보정(DonationPointEarner.backfill)이 나중에 다시 적립하지 않게 한다.
             lotRepository.save(DonationPointLot.earn(buyerId, orderId, sellerId, 0, now, now));
             return 0;
         }
-        lotRepository.save(DonationPointLot.earn(buyerId, orderId, sellerId, amount, now, now.plus(properties.pointValidFor())));
+        lotRepository.save(DonationPointLot.earn(buyerId, orderId, sellerId, amount, now, now.plus(policy.pointValidFor())));
         wallet.earn(amount);
         historyRepository.save(DonationPointHistory.of(wallet, DonationPointHistoryType.EARN, amount, orderId));
         return amount;

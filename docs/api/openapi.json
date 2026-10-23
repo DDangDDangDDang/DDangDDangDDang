@@ -484,6 +484,90 @@
         }
       }
     },
+    "/api/v1/admin/donation-policy" : {
+      "get" : {
+        "tags" : [ "admin-donation-policy-controller" ],
+        "operationId" : "adminDonationPolicyGetCurrent",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDonationPolicyResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "admin-donation-policy-controller" ],
+        "operationId" : "adminDonationPolicyChange",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DonationPolicyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDonationPolicyResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/seller-perks" : {
       "post" : {
         "tags" : [ "seller-perk-controller" ],
@@ -5186,6 +5270,62 @@
         }
       }
     },
+    "/api/v1/admin/donation-policy/history" : {
+      "get" : {
+        "tags" : [ "admin-donation-policy-controller" ],
+        "operationId" : "adminDonationPolicyGetHistory",
+        "parameters" : [ {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseDonationPolicyResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/dm/reports" : {
       "get" : {
         "tags" : [ "admin-dm-report-controller" ],
@@ -5573,6 +5713,166 @@
           },
           "subscribed" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "DonationPolicyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "earnRatePercent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxEarnPerOrder" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyEarnLimit" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pointValidDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "expiringNoticeDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minGift" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "giftUnit" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "maxGift" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyGiftLimitPerSeller" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "trustWindowDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "powerSellerPrice" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "powerSellerDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "promotedLiveSlots" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "memo" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "earnRatePercent", "expiringNoticeDays", "giftUnit", "maxEarnPerOrder", "maxGift", "minGift", "monthlyEarnLimit", "monthlyGiftLimitPerSeller", "pointValidDays", "powerSellerDays", "powerSellerPrice", "promotedLiveSlots", "trustWindowDays" ]
+      },
+      "ApiResponseDonationPolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/DonationPolicyResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "DonationPolicy" : {
+        "type" : "object",
+        "properties" : {
+          "earnRatePercent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxEarnPerOrder" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyEarnLimit" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pointValidDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "expiringNoticeDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minGift" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "giftUnit" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "maxGift" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyGiftLimitPerSeller" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "trustWindowDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "powerSellerPrice" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "powerSellerDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "promotedLiveSlots" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DonationPolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "usingDefaults" : {
+            "type" : "boolean"
+          },
+          "policy" : {
+            "$ref" : "#/components/schemas/DonationPolicy"
+          },
+          "changedBy" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "memo" : {
+            "type" : "string"
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -8715,6 +9015,38 @@
           }
         }
       },
+      "ApiResponseCursorResponseDonationPolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseDonationPolicyResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CursorResponseDonationPolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DonationPolicyResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ApiResponseCursorResponseDmReportResponse" : {
         "type" : "object",
         "properties" : {
@@ -9030,6 +9362,10 @@
     "code" : "DONATION_010",
     "status" : 409,
     "message" : "이미 다른 선물에 쓴 요청 키입니다. 새 요청 키로 다시 보내 주세요."
+  }, {
+    "code" : "DONATION_011",
+    "status" : 400,
+    "message" : "도네이션 포인트 정책 값이 올바르지 않습니다."
   }, {
     "code" : "LIVECHAT_001",
     "status" : 429,

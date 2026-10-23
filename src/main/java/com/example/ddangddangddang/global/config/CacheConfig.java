@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.global.config;
 
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicy;
 import com.example.ddangddangddang.domain.category.dto.response.CategoryResponse;
 import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
@@ -23,6 +24,8 @@ public class CacheConfig implements CachingConfigurer {
 
     //캐시 이름
     public static final String CATEGORIES ="categories";
+    // 도네이션 포인트 정책 (DonationPolicies.current). 선물·적립마다 읽어 캐시하고, 관리자가 바꾸면 지운다.
+    public static final String DONATION_POLICY = "donationPolicy";
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory){
@@ -37,8 +40,15 @@ public class CacheConfig implements CachingConfigurer {
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
                         new JacksonJsonRedisSerializer<>(jsonMapper,categoryListType)
                 ));
+        RedisCacheConfiguration donationPolicyConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(10)) //삭제를 놓쳐도 10분 뒤 자동 새로 만들기
+                .disableCachingNullValues()
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
+                        new JacksonJsonRedisSerializer<>(jsonMapper, jsonMapper.getTypeFactory().constructType(DonationPolicy.class))
+                ));
         return RedisCacheManager.builder(connectionFactory)
                 .withCacheConfiguration(CATEGORIES, categoryConfig)
+                .withCacheConfiguration(DONATION_POLICY, donationPolicyConfig)
                 .transactionAware() //DB 커밋이 끝난 뒤에 캐시 삭제
                 .build();
 

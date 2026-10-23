@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.donation.service;
 
-import com.example.ddangddangddang.domain.donation.config.DonationProperties;
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicies;
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicy;
 import com.example.ddangddangddang.domain.donation.dto.DonationRequest;
 import com.example.ddangddangddang.domain.donation.dto.DonationResponse;
 import com.example.ddangddangddang.domain.donation.dto.DonationStatusResponse;
@@ -62,7 +63,7 @@ public class DonationService {
     private final ChatContentFilter contentFilter;
     private final ApplicationEventPublisher eventPublisher;
     private final DonationTransactions transactions;
-    private final DonationProperties properties;
+    private final DonationPolicies policies;
     private final Clock clock;
 
     @Autowired
@@ -70,16 +71,16 @@ public class DonationService {
                            DonationLotUsageRepository usageRepository, DonationPointHistoryRepository historyRepository,
                            DonationWalletRepository walletRepository, DonationWalletLocker walletLocker,
                            LiveStreamRepository liveStreamRepository, ChatContentFilter contentFilter,
-                           ApplicationEventPublisher eventPublisher, DonationTransactions transactions, DonationProperties properties) {
+                           ApplicationEventPublisher eventPublisher, DonationTransactions transactions, DonationPolicies policies) {
         this(donationRepository, lotRepository, usageRepository, historyRepository, walletRepository, walletLocker,
-                liveStreamRepository, contentFilter, eventPublisher, transactions, properties, Clock.systemDefaultZone());
+                liveStreamRepository, contentFilter, eventPublisher, transactions, policies, Clock.systemDefaultZone());
     }
 
     DonationService(DonationRepository donationRepository, DonationPointLotRepository lotRepository,
                     DonationLotUsageRepository usageRepository, DonationPointHistoryRepository historyRepository,
                     DonationWalletRepository walletRepository, DonationWalletLocker walletLocker,
                     LiveStreamRepository liveStreamRepository, ChatContentFilter contentFilter,
-                    ApplicationEventPublisher eventPublisher, DonationTransactions transactions, DonationProperties properties, Clock clock) {
+                    ApplicationEventPublisher eventPublisher, DonationTransactions transactions, DonationPolicies policies, Clock clock) {
         this.donationRepository = donationRepository;
         this.lotRepository = lotRepository;
         this.usageRepository = usageRepository;
@@ -90,13 +91,14 @@ public class DonationService {
         this.contentFilter = contentFilter;
         this.eventPublisher = eventPublisher;
         this.transactions = transactions;
-        this.properties = properties;
+        this.policies = policies;
         this.clock = clock;
     }
 
     /** 선물 창 정보: 이 방송의 판매자에게 지금 얼마까지 선물할 수 있는지 */
     @Transactional(readOnly = true)
     public DonationStatusResponse getStatus(Long liveStreamId, Long giverId) {
+        DonationPolicy policy = policies.current();
         LiveStream liveStream = findLiveStream(liveStreamId);
         Long sellerId = liveStream.getSellerId();
         LocalDateTime now = LocalDateTime.now(clock);
@@ -106,19 +108,21 @@ public class DonationService {
                 sellerId,
                 lotRepository.sumUsableFor(giverId, sellerId, now),
                 giftable,
-                properties.monthlyGiftLimitPerSeller(),
+                policy.monthlyGiftLimitPerSeller(),
                 given,
-                Math.max(0, properties.monthlyGiftLimitPerSeller() - given),
-                properties.minGift(),
-                properties.giftUnit(),
-                properties.maxGift()
+                Math.max(0, policy.monthlyGiftLimitPerSeller() - given),
+                policy.minGift(),
+                policy.giftUnit(),
+                policy.maxGift()
         );
     }
 
     /** 선물하기. 커밋 뒤 방송 화면에 "누구님이 몇 P를 선물했어요"를 알린다. (DonationSentEvent) */
     public DonationResponse gift(Long liveStreamId, Long giverId, String giverNickname, DonationRequest request) {
+        // 한 선물 안에서는 같은 정책을 쓴다. (도중에 관리자가 바꿔도 섞이지 않게)
+        DonationPolicy policy = policies.current();
         long amount = request.amount();
-        validateAmount(amount);
+        validateAmount(amount, policy);
         String message = blankToNull(request.message());
         validateMessage(message);
         LiveStream liveStream = findLiveStream(liveStreamId);
@@ -130,11 +134,11 @@ public class DonationService {
             throw new BusinessException(DonationErrorCode.NOT_LIVE);
         }
         walletLocker.prepare(giverId, sellerId);
-        return transactions.execute(() -> giftLocked(liveStreamId, sellerId, giverId, giverNickname, amount, message, request.requestKey()));
+        return transactions.execute(() -> giftLocked(liveStreamId, sellerId, giverId, giverNickname, amount, message, request.requestKey(), policy));
     }
 
     private DonationResponse giftLocked(Long liveStreamId, Long sellerId, Long giverId, String giverNickname,
-                                        long amount, String message, String requestKey) {
+                                        long amount, String message, String requestKey, DonationPolicy policy) {
         Map<Long, DonationWallet> wallets = walletLocker.lockBoth(giverId, sellerId);
         DonationWallet giverWallet = wallets.get(giverId);
         DonationWallet sellerWallet = wallets.get(sellerId);
@@ -148,7 +152,7 @@ public class DonationService {
             if (donation.getAmount() != amount || !donation.getLiveStreamId().equals(liveStreamId)) {
                 throw new BusinessException(DonationErrorCode.REQUEST_KEY_REUSED);
             }
-            return response(donation, giverWallet, givenThisMonth(giverId, donation.getSellerId(), now));
+            return response(donation, giverWallet, givenThisMonth(giverId, donation.getSellerId(), now), policy);
         }
         // 방송 상태는 잠근 뒤에 다시 본다. (선물하는 사이 방송이 끝났을 수 있음)
         if (findLiveStream(liveStreamId).getStatus() != LiveStreamStatus.LIVE) {
@@ -156,7 +160,7 @@ public class DonationService {
         }
 
         long given = givenThisMonth(giverId, sellerId, now);
-        long remaining = properties.monthlyGiftLimitPerSeller() - given;
+        long remaining = policy.monthlyGiftLimitPerSeller() - given;
         if (amount > remaining) {
             throw new BusinessException(DonationErrorCode.MONTHLY_GIFT_LIMIT_EXCEEDED,
                     "이 판매자에게 이번 달 선물할 수 있는 포인트는 %,dP 남았습니다.".formatted(Math.max(0, remaining)));
@@ -189,12 +193,12 @@ public class DonationService {
         historyRepository.save(DonationPointHistory.of(sellerWallet, DonationPointHistoryType.RECEIVE, amount, donation.getId()));
 
         eventPublisher.publishEvent(new DonationSentEvent(donation.getId(), liveStreamId, giverId, giverNickname, amount, message));
-        return response(donation, giverWallet, given + amount);
+        return response(donation, giverWallet, given + amount, policy);
     }
 
-    private DonationResponse response(Donation donation, DonationWallet giverWallet, long givenThisMonth) {
+    private DonationResponse response(Donation donation, DonationWallet giverWallet, long givenThisMonth, DonationPolicy policy) {
         return new DonationResponse(donation.getId(), donation.getAmount(), giverWallet.getGiftableBalance(),
-                Math.max(0, properties.monthlyGiftLimitPerSeller() - givenThisMonth));
+                Math.max(0, policy.monthlyGiftLimitPerSeller() - givenThisMonth));
     }
 
     private long givenThisMonth(Long giverId, Long sellerId, LocalDateTime now) {
@@ -202,10 +206,10 @@ public class DonationService {
         return donationRepository.sumGivenBetween(giverId, sellerId, month.from(), month.to());
     }
 
-    private void validateAmount(long amount) {
-        if (amount < properties.minGift() || amount > properties.maxGift() || amount % properties.giftUnit() != 0) {
+    private void validateAmount(long amount, DonationPolicy policy) {
+        if (amount < policy.minGift() || amount > policy.maxGift() || amount % policy.giftUnit() != 0) {
             throw new BusinessException(DonationErrorCode.INVALID_GIFT_AMOUNT,
-                    "선물은 %,dP부터 %,dP까지 %,dP 단위로 할 수 있습니다.".formatted(properties.minGift(), properties.maxGift(), properties.giftUnit()));
+                    "선물은 %,dP부터 %,dP까지 %,dP 단위로 할 수 있습니다.".formatted(policy.minGift(), policy.maxGift(), policy.giftUnit()));
         }
     }
 

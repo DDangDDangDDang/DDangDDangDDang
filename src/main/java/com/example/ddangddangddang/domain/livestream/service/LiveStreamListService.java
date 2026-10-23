@@ -1,6 +1,6 @@
 package com.example.ddangddangddang.domain.livestream.service;
 
-import com.example.ddangddangddang.domain.donation.config.DonationProperties;
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicies;
 import com.example.ddangddangddang.domain.donation.service.PowerSellers;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCard;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
@@ -46,7 +46,7 @@ public class LiveStreamListService {
     private final LiveStreamRepository liveStreamRepository;
     private final LiveStreamCardAssembler cardAssembler;
     private final PowerSellers powerSellers;
-    private final DonationProperties donationProperties;
+    private final DonationPolicies donationPolicies;
 
     /**
      * @param status  null이면 LIVE
@@ -80,10 +80,11 @@ public class LiveStreamListService {
     /** 방송 중인 파워 판매자 방송 (맨 위에 올릴 것). 파워 판매자가 없으면 빈 목록 */
     private List<LiveStream> promoted(Long sellerId, String pattern) {
         Set<Long> power = powerSellers.all();
-        if (power.isEmpty() || donationProperties.promotedLiveSlots() <= 0) {
+        int slots = power.isEmpty() ? 0 : donationPolicies.current().promotedLiveSlots();
+        if (slots <= 0) {
             return List.of();
         }
-        return liveStreamRepository.findPromotedLive(sellerId, pattern, power, PageRequest.of(0, donationProperties.promotedLiveSlots()));
+        return liveStreamRepository.findPromotedLive(sellerId, pattern, power, PageRequest.of(0, slots));
     }
 
     /**

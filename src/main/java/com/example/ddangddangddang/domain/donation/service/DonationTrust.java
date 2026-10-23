@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.donation.service;
 
-import com.example.ddangddangddang.domain.donation.config.DonationProperties;
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicies;
+import com.example.ddangddangddang.domain.donation.policy.DonationPolicy;
 import com.example.ddangddangddang.domain.donation.repository.DonationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -19,15 +20,16 @@ import java.time.LocalDateTime;
 public class DonationTrust {
 
     private final DonationRepository donationRepository;
-    private final DonationProperties properties;
+    private final DonationPolicies policies;
 
     /** @return 최근 trustWindow(기본 90일) 동안의 응원한 사람 수, 받은 포인트, 기간(일) */
     public Summary of(Long sellerId) {
-        LocalDateTime since = LocalDateTime.now().minus(properties.trustWindow());
+        DonationPolicy policy = policies.current();
+        LocalDateTime since = LocalDateTime.now().minus(policy.trustWindow());
         return new Summary(
                 donationRepository.countDonorsSince(sellerId, since),
                 donationRepository.sumReceivedSince(sellerId, since),
-                properties.trustWindow().toDays()
+                policy.trustWindowDays()
         );
     }
 
