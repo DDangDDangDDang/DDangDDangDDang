@@ -29,6 +29,8 @@ import { ProductAuctionPage } from '@/pages/products/ProductAuctionPage';
 import { ProductCreatePage } from '@/pages/products/ProductCreatePage';
 import { ProductEditPage } from '@/pages/products/ProductEditPage';
 import { SellerStudioPage } from '@/pages/studio/SellerStudioPage';
+import { KakaoCallbackPage } from '@/pages/auth/KakaoCallbackPage';
+import { KakaoSignupPage } from '@/pages/auth/KakaoSignupPage';
 
 /**
  * 화면 목록. 새 화면은 src/pages에 만들고 여기에 경로를 추가한다.
@@ -45,6 +47,9 @@ export const router = createBrowserRouter([
       { path: '/login', element: <LoginPage /> },
       { path: '/signup', element: <SignupPage /> },
       { path: '/find-email', element: <FindEmailPage /> },
+      // 카카오 로그인: 카카오가 돌려보내는 콜백, 처음 온 사용자의 추가 정보
+      { path: '/oauth/kakao/callback', element: <KakaoCallbackPage /> },
+      { path: '/signup/kakao', element: <KakaoSignupPage /> },
       // 로그인 전 재설정 + 내 정보의 [비밀번호 변경]이 같은 화면을 쓴다.
       { path: '/password-reset', element: <PasswordResetPage /> },
 
