@@ -19,6 +19,8 @@ import { usePublisher } from './use-publisher';
  */
 /** 경고를 받던 방송이 끝난 뒤 자동 종료 알림(IDLE_ENDED)을 기다리는 시간 */
 const IDLE_ENDED_GRACE_MS = 10_000;
+/** 녹화 영상 여부를 방송 정보에 맞추지 못했을 때 다시 맞추는 간격 */
+const RECORDED_SYNC_RETRY_MS = 3000;
 
 export function BroadcastProvider({ children }: { children: ReactNode }) {
   const session = useSession();
@@ -64,20 +66,26 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   const sendingRecorded = sourceKind === 'recorded' && recorded.camera.track !== undefined;
   const serverRecorded = liveStream?.recorded ?? false;
   const syncRecorded = liveStreamId !== undefined && ownerId === liveStreamId && serverRecorded !== sendingRecorded;
+  // 맞추지 못하면(네트워크 오류, 동시 수정 충돌) 잠시 뒤 다시 맞춘다. 값이 어긋난 채 남으면 시청자·구독자에게 잘못 보인다.
+  const [syncAttempt, setSyncAttempt] = useState(0);
   useEffect(() => {
     if (!syncRecorded || liveStreamId === undefined) return;
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     void call(
       api.PATCH('/api/v1/live-streams/{liveStreamId}', { params: { path: { liveStreamId } }, body: { recorded: sendingRecorded } }),
     )
       .then((updated) => {
         if (!cancelled && updated) queryClient.setQueryData(ACTIVE_STREAM_KEY, updated);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) retryTimer = setTimeout(() => setSyncAttempt((n) => n + 1), RECORDED_SYNC_RETRY_MS);
+      });
     return () => {
       cancelled = true;
+      clearTimeout(retryTimer);
     };
-  }, [syncRecorded, liveStreamId, sendingRecorded, queryClient]);
+  }, [syncRecorded, liveStreamId, sendingRecorded, queryClient, syncAttempt]);
 
   // 방송 채팅·검토 알림 (STOMP). 방송이 바뀌면 처음부터 쌓는다.
   const [messages, setMessages] = useState<ChatMessage[]>([]);
