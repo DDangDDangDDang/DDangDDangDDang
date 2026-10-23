@@ -202,6 +202,24 @@ public class AuctionService {
         return auctionRepository.findPopular(limit);
     }
 
+    //상품의 경매 이력(판매자 본인만). 이상품으로 열었던 경매 전부(유찰,취소 포함)
+    @Transactional(readOnly = true)
+    public List<AuctionResponse> productAuctionHistory(Long sellerId, Long productId) {
+        //상품 조회(삭제된 상품인지)
+        Product product = productRepository.findById(productId).filter(
+                        found -> found.getStatus() != Status.DELETED)
+                .orElseThrow(() -> new BusinessException(ProductErrorCode.NOT_FOUND)
+                );
+
+        //본인 상품인지
+        if (!product.getSeller().getId().equals(sellerId)){
+            throw new BusinessException(ProductErrorCode.NOT_OWNER_AUCTION_HISTORY);
+        }
+
+        return auctionRepository.findTop50ByProductIdOrderByIdDesc(productId)
+                .stream().map(AuctionResponse::from).toList();
+    }
+
     // 동시 같은 경매 수정시 먼저 반영 요청을 성공후 나머지는 409 CONCURRENT_UPDATE 응답
     private void flushWithVersionCheck(Auction auction) {
         try {

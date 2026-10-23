@@ -88,6 +88,15 @@ public class AuctionController {
         return ResponseEntity.ok(ApiResponse.ok(auctionService.myOpenAuctions(authUser.id())));
     }
 
+    //상품의 경매 이력(판매자 본인만). 이상품으로 열었던 경매 전부(유찰,취소 포함)
+    @GetMapping("/products/{productId}/auctions")
+    ResponseEntity<ApiResponse<List<AuctionResponse>>> productAuctionHistory(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long productId){
+        return ResponseEntity.ok(ApiResponse.ok(auctionService.productAuctionHistory(authUser.id(), productId)));
+    }
+
+
     //경매 목록 조회 및 검색(누구나)
     @GetMapping("/auctions")
     ResponseEntity<ApiResponse<Page<AuctionListResponse>>> searchAuctions(
