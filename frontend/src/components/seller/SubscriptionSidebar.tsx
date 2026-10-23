@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Users } from 'lucide-react';
+import { Clapperboard, Users } from 'lucide-react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, useSession, type Schema } from '@/api';
 import { SellerAvatar } from '@/components/seller/SellerAvatar';
@@ -11,6 +11,7 @@ type Subscribed = Schema<'SubscribedSellerResponse'>;
 
 /**
  * 홈·라이브 목록 왼쪽: 내가 구독 중인 판매자. 방송 중인 판매자가 위에 오고 이름 옆에 LIVE가 붙는다. LIVE를 누르면 그 방송으로 간다.
+ * 미리 녹화한 영상을 내보내는 방송이면 이름 아래에 녹화 영상 표시가 붙는다.
  * 인증 판매자는 이름을 누르면 판매자 프로필 창이 열린다. 로그인하지 않았으면 안내 문구만 보여 준다. (로그인 버튼은 화면 오른쪽 위 하나)
  */
 export function SubscriptionSidebar() {
@@ -72,7 +73,16 @@ function SubscribedRow({ seller }: { seller: Subscribed }) {
   const identity = (
     <>
       <SellerAvatar name={name} verified={seller.verifiedSeller} size="sm" />
-      <span className="truncate text-body font-semibold">{name}</span>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate text-body font-semibold">{name}</span>
+        {/* 목록 폭이 좁아 이름을 가리지 않도록 이름 아래에 둔다. */}
+        {seller.liveStreamId && seller.liveRecorded && (
+          <span className="flex items-center gap-1 text-caption text-neutral-500">
+            <Clapperboard className="size-3" aria-hidden="true" />
+            녹화 영상
+          </span>
+        )}
+      </span>
     </>
   );
 
@@ -86,7 +96,12 @@ function SubscribedRow({ seller }: { seller: Subscribed }) {
         <span className="flex min-w-0 items-center gap-2.5">{identity}</span>
       )}
       {seller.liveStreamId ? (
-        <Link to={`/lives/${seller.liveStreamId}`} aria-label={`${name} 방송 보러 가기${seller.liveTitle ? `: ${seller.liveTitle}` : ''}`} title={seller.liveTitle}>
+        <Link
+          to={`/lives/${seller.liveStreamId}`}
+          aria-label={`${name} ${seller.liveRecorded ? '녹화 영상 ' : ''}방송 보러 가기${seller.liveTitle ? `: ${seller.liveTitle}` : ''}`}
+          title={seller.liveTitle}
+          className="shrink-0"
+        >
           <Badge variant="live" className="shrink-0">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-neutral-0" />
             LIVE

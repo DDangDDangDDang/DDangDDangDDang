@@ -91,7 +91,8 @@ public class SubscriptionService {
                     User user = users.get(id);
                     LiveStream stream = live.get(id);
                     return new SubscribedSellerResponse(id, user == null ? null : user.getNickname(), verified.contains(id),
-                            stream == null ? null : stream.getId(), stream == null ? null : stream.getTitle());
+                            stream == null ? null : stream.getId(), stream == null ? null : stream.getTitle(),
+                            stream != null && stream.isRecorded());
                 })
                 // 정렬이 안정적이라 같은 그룹 안에서는 최근 구독순이 유지된다.
                 .sorted(Comparator.comparing((SubscribedSellerResponse s) -> s.liveStreamId() == null))

@@ -144,6 +144,9 @@ public class LiveStreamService {
         if (hashtags != null) {
             changed = liveStream.changeHashtags(hashtags) || changed;
         }
+        if (request.recorded() != null) {
+            changed = liveStream.changeRecorded(request.recorded()) || changed;
+        }
         if (!changed) {
             return LiveStreamResponse.from(liveStream);
         }

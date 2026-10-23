@@ -5154,6 +5154,9 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "recorded" : {
+            "type" : "boolean"
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "SCHEDULED", "LIVE", "ENDED" ]
@@ -5609,6 +5612,9 @@
           },
           "liveTitle" : {
             "type" : "string"
+          },
+          "liveRecorded" : {
+            "type" : "boolean"
           },
           "auctionId" : {
             "type" : "integer",
@@ -6907,6 +6913,9 @@
             "items" : {
               "type" : "string"
             }
+          },
+          "recorded" : {
+            "type" : "boolean"
           }
         }
       },
@@ -6960,6 +6969,9 @@
           },
           "liveTitle" : {
             "type" : "string"
+          },
+          "liveRecorded" : {
+            "type" : "boolean"
           }
         }
       },
@@ -7649,6 +7661,9 @@
           "viewerIncrease" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "recorded" : {
+            "type" : "boolean"
           }
         }
       },

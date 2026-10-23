@@ -46,6 +46,10 @@ public class Notification extends BaseTimeEntity {
     @Column(name = "live_title", length = 100)
     private String liveTitle;
 
+    // 방송 시작 알림: 미리 녹화한 영상 방송인지. 다른 알림은 null
+    @Column(name = "live_recorded")
+    private Boolean liveRecorded;
+
     // 경매 알림: 경매, 그때의 상품명, 금액(새 최고가·낙찰가)
     @Column(name = "auction_id")
     private Long auctionId;
@@ -70,7 +74,20 @@ public class Notification extends BaseTimeEntity {
     }
 
     public static Notification liveStarted(Long userId, Long sellerId, String sellerNickname, Long liveStreamId, String liveTitle) {
-        return new Notification(userId, NotificationType.LIVE_STARTED, sellerId, sellerNickname, liveStreamId, liveTitle);
+        return liveStarted(userId, sellerId, sellerNickname, liveStreamId, liveTitle, false);
+    }
+
+    /** recorded: 미리 녹화한 영상 방송이면 true (알림 문구에 "녹화 영상"을 붙인다) */
+    public static Notification liveStarted(Long userId, Long sellerId, String sellerNickname, Long liveStreamId, String liveTitle,
+                                           boolean recorded) {
+        Notification notification = new Notification(userId, NotificationType.LIVE_STARTED, sellerId, sellerNickname, liveStreamId, liveTitle);
+        notification.liveRecorded = recorded;
+        return notification;
+    }
+
+    /** 미리 녹화한 영상 방송의 시작 알림인지 */
+    public boolean isLiveRecorded() {
+        return Boolean.TRUE.equals(liveRecorded);
     }
 
     /** 경매 알림. type은 AUCTION_으로 시작하는 것, price는 없으면 null */

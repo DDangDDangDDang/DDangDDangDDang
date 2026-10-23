@@ -10,6 +10,7 @@ import java.util.List;
  * viewerCount: 현재 시청자 수 (판매자 제외), viewerIncrease: 최근 5분(설정값) 동안 늘어난 시청자 수. 방송 중이 아니거나 집계 전이면 0
  * scheduledStartAt: 방송 시작 예정 시간 (정하지 않았으면 null), startedAt·endedAt: 실제 시작·종료 시간
  * sellerNickname: 탈퇴 등으로 회원을 찾지 못하면 null
+ * recorded: 카메라 대신 미리 녹화한 영상을 내보내는 방송 (카드에 "녹화 영상" 표시)
  */
 public record LiveStreamCard(
         Long liveStreamId,
@@ -23,6 +24,7 @@ public record LiveStreamCard(
         LocalDateTime startedAt,
         LocalDateTime endedAt,
         int viewerCount,
-        int viewerIncrease
+        int viewerIncrease,
+        boolean recorded
 ) {
 }

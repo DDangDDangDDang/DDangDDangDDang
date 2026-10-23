@@ -131,7 +131,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
 
   // 카메라·마이크, 송출(LiveKit), 채팅·검토 알림(STOMP)은 앱 전체에서 이어진다. (BroadcastProvider)
   useStudioPresence();
-  const { media, publisher, chat, alerts, dismissAlert, idle } = useBroadcast();
+  const { media, source, publisher, chat, alerts, dismissAlert, idle } = useBroadcast();
   const flaggedIds = useMemo(() => new Set(alerts.map((a) => a.messageId)), [alerts]);
   // 방송 중 경매
   const liveAuctions = useLiveAuctions(liveStreamId, liveStream.featuredAuctionId);
@@ -210,6 +210,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             live={isLive}
             camera={media.camera}
             microphone={media.microphone}
+            source={source}
             publisher={publisher}
             onToggle={(kind) => void media.toggle(kind)}
             onSelectDevice={(kind, deviceId) => void media.selectDevice(kind, deviceId)}

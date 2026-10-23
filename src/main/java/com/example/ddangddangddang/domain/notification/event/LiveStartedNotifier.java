@@ -56,7 +56,7 @@ public class LiveStartedNotifier {
         }
         String nickname = userRepository.findById(sellerId).map(User::getNickname).orElse(null);
         notificationDispatcher.dispatch(subscriberIds.stream()
-                .map(id -> Notification.liveStarted(id, sellerId, nickname, liveStreamId, liveStream.getTitle()))
+                .map(id -> Notification.liveStarted(id, sellerId, nickname, liveStreamId, liveStream.getTitle(), liveStream.isRecorded()))
                 .toList());
     }
 }

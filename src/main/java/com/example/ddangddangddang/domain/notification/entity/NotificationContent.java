@@ -17,7 +17,8 @@ public record NotificationContent(String title, String body, String link) {
         String auctionLink = "/auctions/" + notification.getAuctionId();
         return switch (notification.getType()) {
             case LIVE_STARTED -> new NotificationContent(
-                    (notification.getSellerNickname() == null ? "구독한 판매자" : notification.getSellerNickname()) + "님이 방송을 시작했어요",
+                    (notification.getSellerNickname() == null ? "구독한 판매자" : notification.getSellerNickname())
+                            + (notification.isLiveRecorded() ? "님이 녹화 영상 방송을 시작했어요" : "님이 방송을 시작했어요"),
                     notification.getLiveTitle(), "/lives/" + notification.getLiveStreamId());
             case AUCTION_STARTED -> new NotificationContent("경매가 시작됐어요", product + " 경매에 지금 입찰할 수 있어요.", auctionLink);
             case AUCTION_OUTBID -> new NotificationContent("더 높은 입찰이 들어왔어요",
