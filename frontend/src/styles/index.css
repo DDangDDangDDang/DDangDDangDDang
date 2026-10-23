@@ -79,6 +79,24 @@
 
   /* 움직임: 방송 화면 도네이션 선물 이펙트가 튀어 오르며 나타난다 (DonationEffects) */
   --animate-donation-pop: donation-pop 320ms ease-out;
+  /* 선물 안내 가운데에서 별이 --star-x·--star-y 쪽으로 튀어나오며 돌다가 사라진다 */
+  --animate-donation-star: donation-star 1100ms ease-out both;
+  @keyframes donation-star {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.4) rotate(0deg);
+    }
+    10% {
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(calc(-50% + var(--star-x)), calc(-50% + var(--star-y))) scale(1) rotate(200deg);
+    }
+  }
   @keyframes donation-pop {
     0% {
       opacity: 0;

@@ -61,6 +61,8 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
   const [bidAuctionId, setBidAuctionId] = useState<number>();
   // 도네이션 선물 창 (로그인해야 함)
   const [giftOpen, setGiftOpen] = useState(false);
+  // 방송 소리를 켰는지. 선물 효과음은 소리를 켠 시청자에게만 낸다. (소리를 꺼 둔 사람에게 갑자기 소리가 나지 않게)
+  const [soundOn, setSoundOn] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatError, setChatError] = useState<string>();
@@ -109,6 +111,7 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
           <LiveVideo
             liveStream={liveStream}
             video={video}
+            onSoundChange={setSoundOn}
             overlay={
               <>
                 <FeaturedAuctionSlot
@@ -118,7 +121,7 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
                   className="absolute bottom-4 left-4"
                 />
                 {/* 도네이션 선물 이펙트: 영상 오른쪽 위 (소리·전체 화면 버튼과 겹치지 않게) */}
-                <DonationEffects messages={messages} className="absolute top-4 right-4" />
+                <DonationEffects messages={messages} sound={soundOn} className="absolute top-4 right-4" />
               </>
             }
           />
