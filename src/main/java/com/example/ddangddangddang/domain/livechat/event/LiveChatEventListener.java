@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.livechat.event;
 
 import com.example.ddangddangddang.domain.auction.event.LiveAuctionEvent;
+import com.example.ddangddangddang.domain.donation.event.DonationSentEvent;
 import com.example.ddangddangddang.domain.livechat.service.LiveChatService;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamEndedEvent;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
@@ -29,6 +30,14 @@ public class LiveChatEventListener {
     @TransactionalEventListener
     public void handleLiveStreamEnded(LiveStreamEndedEvent event) {
         liveChatService.sendSystemMessage(event.liveStreamId(), event.idle() ? IDLE_ENDED_MESSAGE : STREAM_ENDED_MESSAGE);
+    }
+
+    /**
+     * 선물이 커밋된 뒤에만 방송 화면에 알린다. 선물이 롤백되면(한도 초과 등) 이펙트도 뜨지 않는다.
+     */
+    @TransactionalEventListener
+    public void handleDonationSent(DonationSentEvent event) {
+        liveChatService.sendDonationMessage(event.liveStreamId(), event.giverId(), event.giverNickname(), event.amount(), event.message());
     }
 
     /**

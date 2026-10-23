@@ -1,4 +1,4 @@
-import { Ban, Clock, Gavel, PackageCheck, Radio, TrendingUp, Trophy, type LucideIcon } from 'lucide-react';
+import { Ban, Clock, Gavel, Gift, Hourglass, PackageCheck, Radio, TrendingUp, Trophy, type LucideIcon } from 'lucide-react';
 import type { NotificationMessage } from '@/api';
 import { cn } from '@/lib/cn';
 
@@ -14,6 +14,8 @@ const ICONS: Record<NotificationType, LucideIcon> = {
   AUCTION_SOLD: PackageCheck,
   AUCTION_FAILED: Gavel,
   AUCTION_ENDED: Gavel,
+  DONATION_POINT_EARNED: Gift,
+  DONATION_POINT_EXPIRING: Hourglass,
 };
 
 /** 알림 종류별 동그란 아이콘. 서둘러야 하는 알림(방송 시작·상위 입찰·마감 임박·낙찰)은 강조색 */

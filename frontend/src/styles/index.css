@@ -23,6 +23,8 @@
   --color-brand-500: #d63f0e; /* 주요 버튼 (흰 글자 4.6:1) */
   --color-brand-600: #b8340a; /* hover */
   --color-brand-700: #8f2806; /* 경고 글자 */
+  /* 금색 · 3,000P 이상 도네이션 선물의 별과 테두리 (영상 위 어두운 배경에서만 쓴다) */
+  --color-gold-300: #ffd76a;
   /* 카카오 로그인 버튼. 카카오 디자인 가이드가 정한 색이라 브랜드 색과 따로 둔다 */
   --color-kakao: #fee500;
   --color-kakao-hover: #f5dc00;
@@ -76,6 +78,51 @@
   /* 그림자 */
   --shadow-sm: 0 1px 2px rgba(28, 26, 24, 0.06); /* 카드 */
   --shadow-md: 0 8px 24px rgba(28, 26, 24, 0.12); /* 토스트, 메뉴 */
+
+  /* 움직임: 방송 화면 도네이션 선물 이펙트가 튀어 오르며 나타난다 (DonationEffects) */
+  --animate-donation-pop: donation-pop 320ms ease-out;
+  /* 선물 안내 가운데에서 별이 --star-x·--star-y 쪽으로 튀어나오며 돌다가 사라진다 */
+  --animate-donation-star: donation-star 1100ms ease-out both; /* 길이는 단계마다 animationDuration으로 바꾼다 */
+  /* 3,000P 이상 선물 안내 둘레가 금색으로 두 번 빛난다 */
+  --animate-donation-glow: donation-glow 900ms ease-in-out 2;
+  @keyframes donation-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-gold-300) 0%, transparent);
+    }
+    50% {
+      box-shadow: 0 0 28px 6px color-mix(in srgb, var(--color-gold-300) 60%, transparent);
+    }
+  }
+  @keyframes donation-star {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.4) rotate(0deg);
+    }
+    10% {
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(calc(-50% + var(--star-x)), calc(-50% + var(--star-y))) scale(1) rotate(200deg);
+    }
+  }
+  @keyframes donation-pop {
+    0% {
+      opacity: 0;
+      transform: translateY(12px) scale(0.92);
+    }
+    70% {
+      opacity: 1;
+      transform: translateY(-2px) scale(1.03);
+    }
+    100% {
+      transform: translateY(0) scale(1);
+    }
+  }
 }
 
 /* 숫자 전용 글꼴 + 고정폭 숫자 (금액, 남은 시간, 시청자 수) */

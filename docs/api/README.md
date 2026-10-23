@@ -90,12 +90,15 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | `messageId` | string | 메시지 ID (UUID). 검토 알림이 가리키는 메시지를 찾을 때 씀 |
-| `type` | `"CHAT"` \| `"SYSTEM"` | `SYSTEM`은 서버 안내(방송 시작·종료 등). 이때 `senderId`, `nickname`은 null |
+| `type` | `"CHAT"` \| `"SYSTEM"` \| `"DONATION"` | `SYSTEM`은 서버 안내(방송 시작·종료 등). 이때 `senderId`, `nickname`은 null. `DONATION`은 도네이션 포인트 선물 |
 | `liveStreamId` | number | |
-| `senderId` | number \| null | |
-| `nickname` | string \| null | |
-| `content` | string | |
+| `senderId` | number \| null | `DONATION`이면 선물한 사람 |
+| `nickname` | string \| null | `DONATION`이면 선물한 사람 |
+| `content` | string \| null | `DONATION`이면 선물과 함께 보낸 한마디 (없으면 null) |
 | `sentAt` | string | |
+| `amount` | number \| null | `DONATION`에만 있음. 선물한 포인트 |
+
+- `DONATION`은 `POST /api/v1/live-streams/{id}/donations`가 커밋된 뒤에 옵니다. 방송 화면 한쪽에 "`nickname`님이 `amount` P를 선물했어요" 이펙트를 띄우고, 채팅에도 한 줄 남깁니다.
 
 **LiveStreamUpdatedMessage**: `{ "type": "UPDATED", "liveStream": LiveStreamResponse }`
 - `liveStream`은 REST의 `LiveStreamResponse`와 같은 형식입니다. 바뀐 값만이 아니라 전체 정보이므로 받은 값으로 화면을 덮어쓰면 됩니다.

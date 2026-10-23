@@ -6,6 +6,8 @@ import { Badge, buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
 import { useBroadcast } from './broadcast-context';
+import { DonationEffects } from '@/components/donation/DonationEffects';
+import { useStudioDonationSound } from '@/lib/donation-sound';
 import { IdleWarning } from './IdleWarning';
 
 /** 송출 연결 상태 문구 (송출 중이 아닐 때만) */
@@ -24,7 +26,9 @@ const PHASE_TEXT: Partial<Record<string, string>> = {
  * 마이크·카메라를 끄거나 스튜디오로 돌아갈 수 있다.
  */
 export function MiniBroadcast() {
-  const { publishing, liveStream, media, publisher, unseen, idle } = useBroadcast();
+  const { publishing, liveStream, media, publisher, unseen, idle, chat } = useBroadcast();
+  // 스튜디오에서 정한 선물 효과음 설정을 따른다.
+  const [donationSound] = useStudioDonationSound();
   const location = useLocation();
   const [folded, setFolded] = useState(false);
   if (!publishing || !liveStream || location.pathname === '/studio') return null;
@@ -72,6 +76,8 @@ export function MiniBroadcast() {
                 <span className="num">{formatNumber(publisher.viewerCount)}</span>명 시청
               </Badge>
             )}
+            {/* 다른 화면에 가 있어도 도네이션 선물이 오면 작게 알려 준다. */}
+            <DonationEffects messages={chat.messages} compact sound={donationSound} className="absolute inset-x-2 bottom-2 flex justify-center" />
           </div>
           {phaseText && (
             <p role="status" className="bg-brand-50 px-3 py-1.5 text-caption text-brand-700">

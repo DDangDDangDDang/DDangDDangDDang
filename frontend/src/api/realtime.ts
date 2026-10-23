@@ -18,15 +18,20 @@ import { getAccessToken } from './session';
  * - 서버가 ERROR 프레임으로 끊으면(토큰 만료 등) 다음 연결 전에 토큰을 재발급한다.
  */
 
-/** 방송 채팅 (`/topic/live-streams/{id}/chat`). SYSTEM은 서버 안내(방송 종료 등)로 senderId, nickname이 null */
+/**
+ * 방송 채팅 (`/topic/live-streams/{id}/chat`). SYSTEM은 서버 안내(방송 종료 등)로 senderId, nickname이 null
+ * DONATION은 도네이션 포인트 선물: 선물한 사람(senderId·nickname), 포인트(amount), 함께 보낸 한마디(content, 없으면 null)
+ */
 export type ChatMessage = {
   messageId: string;
-  type: 'CHAT' | 'SYSTEM';
+  type: 'CHAT' | 'SYSTEM' | 'DONATION';
   liveStreamId: number;
   senderId: number | null;
   nickname: string | null;
-  content: string;
+  content: string | null;
   sentAt: string;
+  /** DONATION에만 있다 */
+  amount?: number | null;
 };
 
 /** 방송 정보 변경 (`/topic/live-streams/{id}`). 바뀐 값만이 아니라 전체 정보 */

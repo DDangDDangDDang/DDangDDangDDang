@@ -5,6 +5,7 @@ import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
 import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
+import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
 import com.example.ddangddangddang.domain.order.entity.OrderRole;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
@@ -20,6 +21,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -49,6 +51,9 @@ class OrderServiceTest {
 
     @Mock
     private PointService pointService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @Nested
     @DisplayName("주문 생성")
@@ -243,7 +248,7 @@ class OrderServiceTest {
     class ConfirmPurchase {
 
         @Test
-        @DisplayName("구매자가 확정하면 COMPLETED가 되고 판매자에게 낙찰 금액을 정산한다")
+        @DisplayName("구매자가 확정하면 COMPLETED가 되고 판매자에게 낙찰 금액을 정산하며, 도네이션 포인트 적립을 알린다")
         void success() {
             Order order = shippableOrder(10L);
             order.ship(Courier.CJ, "1234567890");
@@ -253,6 +258,7 @@ class OrderServiceTest {
 
             assertThat(response.status()).isEqualTo(OrderStatus.COMPLETED);
             verify(pointService).settle(SELLER_ID, 500_000L, 10L);
+            verify(eventPublisher).publishEvent(new OrderConfirmedEvent(10L, BUYER_ID, SELLER_ID, 500_000L));
         }
 
         @Test

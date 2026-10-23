@@ -9,5 +9,7 @@ public enum NotificationType {
     AUCTION_WON,           // 내가 낙찰받음 (입찰 마감·즉시 구매)
     AUCTION_SOLD,          // (판매자) 내 경매가 낙찰됨
     AUCTION_FAILED,        // (판매자) 내 경매가 입찰 없이 끝남 (유찰)
-    AUCTION_ENDED          // 알림 받기·입찰한 경매가 다른 사람에게 낙찰되거나 유찰로 끝남
+    AUCTION_ENDED,         // 알림 받기·입찰한 경매가 다른 사람에게 낙찰되거나 유찰로 끝남
+    DONATION_POINT_EARNED,   // 구매 확정으로 도네이션 포인트가 적립됨
+    DONATION_POINT_EXPIRING  // 도네이션 포인트가 곧 사라짐 (유효기간 7일 전)
 }

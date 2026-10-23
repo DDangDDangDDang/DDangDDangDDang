@@ -90,6 +90,16 @@ public class Notification extends BaseTimeEntity {
         return Boolean.TRUE.equals(liveRecorded);
     }
 
+    /**
+     * 도네이션 포인트 알림. type은 DONATION_POINT_로 시작하는 것. price에 포인트(적립한·곧 사라질)를 담는다.
+     * 경매·방송과 상관없는 알림이라 다른 칸은 비워 둔다.
+     */
+    public static Notification donationPoint(Long userId, NotificationType type, long points) {
+        Notification notification = new Notification(userId, type, null, null, null, null);
+        notification.price = points;
+        return notification;
+    }
+
     /** 경매 알림. type은 AUCTION_으로 시작하는 것, price는 없으면 null */
     public static Notification auction(Long userId, NotificationType type, Long auctionId, String productName, Long price) {
         Notification notification = new Notification(userId, type, null, null, null, null);

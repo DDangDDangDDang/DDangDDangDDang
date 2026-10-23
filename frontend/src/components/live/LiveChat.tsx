@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 're
 import { useSession, type ChatMessage, type RealtimeStatus } from '@/api';
 import { Badge, Notice } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { formatPoint } from '@/lib/format';
 import { CHAT_MAX_LENGTH, isSendableChat } from '@/lib/live-room';
 
 type Props = {
@@ -192,6 +193,15 @@ export function LiveChat({ messages, sellerId, canChat, status, error, onSend, f
 function ChatLine({ message, isSeller, isMine, flagged }: { message: ChatMessage; isSeller: boolean; isMine: boolean; flagged: boolean }) {
   if (message.type === 'SYSTEM') {
     return <li className="self-center rounded-full bg-neutral-50 px-3 py-1 text-caption text-neutral-500">{message.content}</li>;
+  }
+  // 도네이션 선물: 채팅에 한 줄로 남긴다. (방송 화면 이펙트는 따로)
+  if (message.type === 'DONATION') {
+    return (
+      <li className="self-center rounded-full bg-brand-50 px-3 py-1 text-caption font-semibold text-brand-700">
+        {message.nickname || '알 수 없음'}님이 <span className="num">{formatPoint(message.amount ?? 0)}</span>를 선물했어요
+        {message.content && <span className="font-normal text-neutral-700"> · {message.content}</span>}
+      </li>
+    );
   }
   return (
     <li className={cn('leading-relaxed break-words', flagged && '-mx-2 rounded-md bg-brand-50 px-2 py-1')}>

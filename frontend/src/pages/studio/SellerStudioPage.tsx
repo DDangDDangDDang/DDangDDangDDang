@@ -17,6 +17,9 @@ import { ChatNoticeEditor } from './ChatNoticeEditor';
 import { ModerationPanel } from './ModerationPanel';
 import { StreamForm } from './StreamForm';
 import { StudioStage } from './StudioStage';
+import { DonationEffects } from '@/components/donation/DonationEffects';
+import { DonationSoundToggle } from '@/components/donation/DonationSoundToggle';
+import { useStudioDonationSound } from '@/lib/donation-sound';
 import { useLiveAuctions } from './use-live-auctions';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
@@ -132,6 +135,8 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
   // 카메라·마이크, 송출(LiveKit), 채팅·검토 알림(STOMP)은 앱 전체에서 이어진다. (BroadcastProvider)
   useStudioPresence();
   const { media, source, publisher, chat, alerts, dismissAlert, idle } = useBroadcast();
+  // 시청자가 선물하면 효과음 (스튜디오에서 켜고 끔, 기본 켜짐)
+  const [donationSound] = useStudioDonationSound();
   const flaggedIds = useMemo(() => new Set(alerts.map((a) => a.messageId)), [alerts]);
   // 방송 중 경매
   const liveAuctions = useLiveAuctions(liveStreamId, liveStream.featuredAuctionId);
@@ -215,8 +220,12 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             onToggle={(kind) => void media.toggle(kind)}
             onSelectDevice={(kind, deviceId) => void media.selectDevice(kind, deviceId)}
             overlay={
-              // 시청 화면은 왼쪽 아래. 여기는 마이크·카메라 버튼 바로 위에 둔다.
-              <FeaturedAuctionSlot featuredAuctionId={liveStream.featuredAuctionId} auctions={liveAuctions.auctions} className="absolute bottom-20 left-4" />
+              <>
+                {/* 시청 화면은 왼쪽 아래. 여기는 마이크·카메라 버튼 바로 위에 둔다. */}
+                <FeaturedAuctionSlot featuredAuctionId={liveStream.featuredAuctionId} auctions={liveAuctions.auctions} className="absolute bottom-20 left-4" />
+                {/* 시청자가 보낸 도네이션 선물을 판매자도 같은 자리(오른쪽 위)에서 본다. */}
+                <DonationEffects messages={chat.messages} sound={donationSound} className="absolute top-4 right-4" />
+              </>
             }
           />
 
@@ -227,6 +236,9 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
                   방송 종료
                 </Button>
                 <span className="text-label text-neutral-500">종료하면 시청자 연결이 끊기고 채팅에 종료 안내가 나가요. 종료한 방송은 다시 시작할 수 없어요.</span>
+                <span className="ml-auto shrink-0">
+                  <DonationSoundToggle />
+                </span>
               </div>
             ) : (
               <div className="flex items-center gap-4">

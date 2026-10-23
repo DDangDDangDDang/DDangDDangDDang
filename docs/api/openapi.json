@@ -114,7 +114,7 @@
           "required" : true,
           "schema" : {
             "type" : "string",
-            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_RESULT" ]
+            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_RESULT", "DONATION_POINT" ]
           }
         } ],
         "requestBody" : {
@@ -457,6 +457,138 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseAuctionAlertResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/donation-policy" : {
+      "get" : {
+        "tags" : [ "admin-donation-policy-controller" ],
+        "operationId" : "adminDonationPolicyGetCurrent",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDonationPolicyResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "admin-donation-policy-controller" ],
+        "operationId" : "adminDonationPolicyChange",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DonationPolicyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDonationPolicyResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/seller-perks" : {
+      "post" : {
+        "tags" : [ "seller-perk-controller" ],
+        "operationId" : "sellerPerkPurchase",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SellerPerkPurchaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSellerPerkResponse"
                 }
               }
             }
@@ -1505,6 +1637,63 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseLiveStreamResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/live-streams/{liveStreamId}/donations" : {
+      "post" : {
+        "tags" : [ "donation-controller" ],
+        "operationId" : "donationGift",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DonationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDonationResponse"
                 }
               }
             }
@@ -4062,6 +4251,82 @@
         "security" : [ ]
       }
     },
+    "/api/v1/seller-perks/shop" : {
+      "get" : {
+        "tags" : [ "seller-perk-controller" ],
+        "operationId" : "sellerPerkGetShop",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSellerShopItemResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/seller-perks/me" : {
+      "get" : {
+        "tags" : [ "seller-perk-controller" ],
+        "operationId" : "sellerPerkGetMine",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSellerPerkResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/seller-applications/me" : {
       "get" : {
         "tags" : [ "seller-application-controller" ],
@@ -4586,6 +4851,53 @@
         }
       }
     },
+    "/api/v1/live-streams/{liveStreamId}/donations/me" : {
+      "get" : {
+        "tags" : [ "donation-controller" ],
+        "operationId" : "donationGetStatus",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDonationStatusResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live-streams/me/active" : {
       "get" : {
         "tags" : [ "live-stream-controller" ],
@@ -4671,6 +4983,100 @@
           }
         },
         "security" : [ ]
+      }
+    },
+    "/api/v1/donation-points/wallet" : {
+      "get" : {
+        "tags" : [ "donation-controller" ],
+        "operationId" : "donationGetWallet",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDonationWalletResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/donation-points/histories" : {
+      "get" : {
+        "tags" : [ "donation-controller" ],
+        "operationId" : "donationGetHistories",
+        "parameters" : [ {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseDonationPointHistoryResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/dm/unread-count" : {
@@ -4884,6 +5290,62 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseCursorResponseSellerApplicationResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/donation-policy/history" : {
+      "get" : {
+        "tags" : [ "admin-donation-policy-controller" ],
+        "operationId" : "adminDonationPolicyGetHistory",
+        "parameters" : [ {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseDonationPolicyResponse"
                 }
               }
             }
@@ -5152,7 +5614,7 @@
         "properties" : {
           "category" : {
             "type" : "string",
-            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_RESULT" ]
+            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_RESULT", "DONATION_POINT" ]
           },
           "label" : {
             "type" : "string"
@@ -5298,6 +5760,215 @@
           },
           "subscribed" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "DonationPolicyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "earnRatePercent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxEarnPerOrder" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyEarnLimit" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pointValidDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "expiringNoticeDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minGift" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "giftUnit" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "maxGift" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyGiftLimitPerSeller" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "trustWindowDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "powerSellerPrice" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "powerSellerDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "promotedLiveSlots" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "memo" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "earnRatePercent", "expiringNoticeDays", "giftUnit", "maxEarnPerOrder", "maxGift", "minGift", "monthlyEarnLimit", "monthlyGiftLimitPerSeller", "pointValidDays", "powerSellerDays", "powerSellerPrice", "promotedLiveSlots", "trustWindowDays" ]
+      },
+      "ApiResponseDonationPolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/DonationPolicyResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "DonationPolicy" : {
+        "type" : "object",
+        "properties" : {
+          "earnRatePercent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxEarnPerOrder" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyEarnLimit" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pointValidDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "expiringNoticeDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minGift" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "giftUnit" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "maxGift" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyGiftLimitPerSeller" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "trustWindowDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "powerSellerPrice" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "powerSellerDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "promotedLiveSlots" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DonationPolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "usingDefaults" : {
+            "type" : "boolean"
+          },
+          "policy" : {
+            "$ref" : "#/components/schemas/DonationPolicy"
+          },
+          "changedBy" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "memo" : {
+            "type" : "string"
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "SellerPerkPurchaseRequest" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "POWER_SELLER" ]
+          }
+        },
+        "required" : [ "type" ]
+      },
+      "ApiResponseSellerPerkResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SellerPerkResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "SellerPerkResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "POWER_SELLER" ]
+          },
+          "price" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "startsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endsAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -5693,7 +6364,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_WON", "AUCTION_SOLD", "AUCTION_FAILED", "AUCTION_ENDED" ]
+            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_WON", "AUCTION_SOLD", "AUCTION_FAILED", "AUCTION_ENDED", "DONATION_POINT_EARNED", "DONATION_POINT_EXPIRING" ]
           },
           "sellerId" : {
             "type" : "integer",
@@ -5930,6 +6601,61 @@
           },
           "token" : {
             "type" : "string"
+          }
+        }
+      },
+      "DonationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "message" : {
+            "type" : "string",
+            "maxLength" : 50,
+            "minLength" : 0
+          },
+          "requestKey" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "amount", "requestKey" ]
+      },
+      "ApiResponseDonationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/DonationResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "DonationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "donationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "giftableBalance" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "remainingThisMonth" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -7307,6 +8033,9 @@
           "businessSeller" : {
             "type" : "boolean"
           },
+          "powerSeller" : {
+            "type" : "boolean"
+          },
           "storeName" : {
             "type" : "string"
           },
@@ -7371,6 +8100,18 @@
           "averageShippingHours" : {
             "type" : "number",
             "format" : "double"
+          },
+          "donorCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "receivedDonationPoints" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "donationWindowDays" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -7443,6 +8184,63 @@
           "liveStreamId" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "ApiResponseListSellerShopItemResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SellerShopItemResponse"
+            }
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "SellerShopItemResponse" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "POWER_SELLER" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "price" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "periodDays" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ApiResponseListSellerPerkResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SellerPerkResponse"
+            }
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
@@ -7775,6 +8573,60 @@
           },
           "recorded" : {
             "type" : "boolean"
+          },
+          "powerSeller" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ApiResponseDonationStatusResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/DonationStatusResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "DonationStatusResponse" : {
+        "type" : "object",
+        "properties" : {
+          "sellerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "giftableBalance" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyLimit" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "givenThisMonth" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "remainingThisMonth" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "minGift" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "giftUnit" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "maxGift" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -7812,6 +8664,114 @@
             "items" : {
               "$ref" : "#/components/schemas/LiveStreamCard"
             }
+          }
+        }
+      },
+      "ApiResponseDonationWalletResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/DonationWalletResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "DonationWalletResponse" : {
+        "type" : "object",
+        "properties" : {
+          "giftableBalance" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "receivedBalance" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "expiringSoon" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nextExpiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "earnedThisMonth" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyEarnLimit" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ApiResponseCursorResponseDonationPointHistoryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseDonationPointHistoryResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CursorResponseDonationPointHistoryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DonationPointHistoryResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "DonationPointHistoryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "EARN", "GIFT", "RECEIVE", "EXPIRE", "SPEND" ]
+          },
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "giftableAfter" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "receivedAfter" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "refId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -8098,6 +9058,38 @@
           }
         }
       },
+      "ApiResponseCursorResponseDonationPolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseDonationPolicyResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CursorResponseDonationPolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DonationPolicyResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ApiResponseCursorResponseDmReportResponse" : {
         "type" : "object",
         "properties" : {
@@ -8373,6 +9365,46 @@
     "code" : "DM_013",
     "status" : 404,
     "message" : "신고를 찾을 수 없습니다."
+  }, {
+    "code" : "DONATION_001",
+    "status" : 400,
+    "message" : "선물할 수 없는 포인트입니다."
+  }, {
+    "code" : "DONATION_002",
+    "status" : 400,
+    "message" : "선물할 수 있는 도네이션 포인트가 부족합니다."
+  }, {
+    "code" : "DONATION_003",
+    "status" : 400,
+    "message" : "이 판매자에게 이번 달 선물할 수 있는 포인트를 넘었습니다."
+  }, {
+    "code" : "DONATION_004",
+    "status" : 400,
+    "message" : "방송 중인 판매자에게만 선물할 수 있습니다."
+  }, {
+    "code" : "DONATION_005",
+    "status" : 400,
+    "message" : "내 방송에는 선물할 수 없습니다."
+  }, {
+    "code" : "DONATION_007",
+    "status" : 400,
+    "message" : "선물 메시지에 넣을 수 없는 내용이 있습니다."
+  }, {
+    "code" : "DONATION_008",
+    "status" : 400,
+    "message" : "받은 도네이션 포인트가 부족합니다."
+  }, {
+    "code" : "DONATION_009",
+    "status" : 403,
+    "message" : "판매자 인증을 받은 회원만 구매할 수 있습니다."
+  }, {
+    "code" : "DONATION_010",
+    "status" : 409,
+    "message" : "이미 다른 선물에 쓴 요청 키입니다. 새 요청 키로 다시 보내 주세요."
+  }, {
+    "code" : "DONATION_011",
+    "status" : 400,
+    "message" : "도네이션 포인트 정책 값이 올바르지 않습니다."
   }, {
     "code" : "LIVECHAT_001",
     "status" : 429,
