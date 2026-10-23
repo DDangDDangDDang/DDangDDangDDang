@@ -99,4 +99,9 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
     @Query("select a from Auction  a where  a.product.seller.id = :sellerId and a.status in :statuses and (:cursor is null or a.id <:cursor) order by a.id desc")
     List<Auction> findSellerHistoryByStatuses(@Param("sellerId") Long sellerId, @Param("statuses") List<AuctionStatus> statuses,@Param("cursor") Long cursor, Pageable pageable);
 
+
+    /*상품의 경매 이력(최신순 50) : 현 상품으로 지금까지 열었던 경매 전부(유찰,취소 포함),
+    추후 같은 상품 올리시 시작가 정하는데 참고용*/
+    @EntityGraph(attributePaths ={"product","product.seller","liveStream"})
+    List<Auction> findTop50ByProductIdOrderByIdDesc(Long productId);
 }
