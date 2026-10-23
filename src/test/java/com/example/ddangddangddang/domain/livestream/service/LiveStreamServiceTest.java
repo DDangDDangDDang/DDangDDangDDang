@@ -250,6 +250,28 @@ class LiveStreamServiceTest {
         }
 
         @Test
+        @DisplayName("녹화 영상 여부를 보내면 바꿔 시청자에게 알리고, 보내지 않으면 그대로 둔다")
+        void recorded() {
+            LiveStream liveStream = liveStream(true);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            LiveStreamResponse recorded = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest(null, null, null, null, null, true));
+            assertThat(recorded.recorded()).isTrue();
+
+            LiveStreamResponse kept = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID, new LiveStreamUpdateRequest("새 제목", null));
+            assertThat(kept.recorded()).isTrue();
+
+            // 같은 값이면 바뀐 것이 없어 알리지 않는다.
+            liveStreamService.update(LIVE_STREAM_ID, SELLER_ID, new LiveStreamUpdateRequest(null, null, null, null, null, true));
+
+            LiveStreamResponse camera = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest(null, null, null, null, null, false));
+            assertThat(camera.recorded()).isFalse();
+            then(eventPublisher).should(org.mockito.Mockito.times(3)).publishEvent(any(LiveStreamUpdatedEvent.class));
+        }
+
+        @Test
         @DisplayName("해시태그에도 연락처 같은 막힌 내용은 넣을 수 없다 (LIVESTREAM_009)")
         void hashtagContentNotAllowed() {
             given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(true)));

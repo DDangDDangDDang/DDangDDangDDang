@@ -55,7 +55,7 @@ public class LiveStreamCardAssembler {
                 .map(stream -> new LiveStreamCard(stream.getId(), stream.getTitle(), stream.getHashtagList(), stream.getStatus(), stream.getSellerId(),
                         nicknames.get(stream.getSellerId()), stream.getScheduledStartAt(), stream.getStartedAt(),
                         stream.getEndedAt(), viewerCounts.getOrDefault(stream.getId(), 0),
-                        viewerIncreases.getOrDefault(stream.getId(), 0)))
+                        viewerIncreases.getOrDefault(stream.getId(), 0), stream.isRecorded()))
                 .toList();
     }
 }

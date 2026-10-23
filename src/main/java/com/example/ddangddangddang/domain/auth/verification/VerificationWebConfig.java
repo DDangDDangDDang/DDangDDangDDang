@@ -20,7 +20,8 @@ public class VerificationWebConfig implements WebMvcConfigurer {
                 .addPathPatterns(
                         "/api/v1/auth/signup/phone/code",
                         "/api/v1/auth/find-email/code",
-                        "/api/v1/auth/password-reset/code"
+                        "/api/v1/auth/password-reset/code",
+                        "/api/v1/auth/oauth/kakao/phone/code"
                 );
     }
 }

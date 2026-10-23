@@ -6,6 +6,7 @@ import com.example.ddangddangddang.domain.auth.oauth.OAuthErrorCode;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignup;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignupRepository;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
+import com.example.ddangddangddang.domain.auth.verification.VerificationRateLimitRepository;
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.point.repository.PointWalletRepository;
 import com.example.ddangddangddang.domain.user.entity.SocialAccount;
@@ -75,6 +76,10 @@ class OAuthControllerTest {
     @MockitoBean
     private VerificationService verificationService;
 
+    // 인증번호 요청 횟수(Redis). 기본값 0이라 IP 제한에 걸리지 않는다.
+    @MockitoBean
+    private VerificationRateLimitRepository verificationRateLimitRepository;
+
     @BeforeEach
     void stubPhoneVerification() {
         SignupFixture.stubPhoneVerification(verificationService);
@@ -139,6 +144,37 @@ class OAuthControllerTest {
                             .content("{\"code\": \"auth-code\"}"))
                     .andExpect(status().isServiceUnavailable())
                     .andExpect(jsonPath("$.error.code").value("OAUTH_005"));
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /api/v1/auth/oauth/kakao/phone/code")
+    class PhoneCode {
+
+        @Test
+        @DisplayName("이미 가입된 번호에도 인증번호를 보낸다 (일반 가입은 USER_004)")
+        void registeredPhone() throws Exception {
+            userRepository.save(User.create("old@test.com", "encoded", "기존회원", "01055556666"));
+            given(pendingSocialSignupRepository.find("signup-token")).willReturn(Optional.of(
+                    new PendingSocialSignup(SocialProvider.KAKAO, KAKAO_ID, null, null)));
+
+            mockMvc.perform(post("/api/v1/auth/oauth/kakao/phone/code")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"signupToken\": \"signup-token\", \"phoneNumber\": \"01055556666\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.expiresIn").value(300));
+        }
+
+        @Test
+        @DisplayName("가입 대기 토큰이 없으면 400 OAUTH_003")
+        void expiredSignupToken() throws Exception {
+            given(pendingSocialSignupRepository.find("expired")).willReturn(Optional.empty());
+
+            mockMvc.perform(post("/api/v1/auth/oauth/kakao/phone/code")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"signupToken\": \"expired\", \"phoneNumber\": \"01055556666\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("OAUTH_003"));
         }
     }
 

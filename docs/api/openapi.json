@@ -2389,6 +2389,55 @@
         "security" : [ ]
       }
     },
+    "/api/v1/auth/oauth/kakao/phone/code" : {
+      "post" : {
+        "tags" : [ "o-auth-controller" ],
+        "operationId" : "oAuthSendPhoneCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/KakaoPhoneCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCodeSentResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
     "/api/v1/auth/logout" : {
       "post" : {
         "tags" : [ "auth-controller" ],
@@ -5201,6 +5250,9 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "recorded" : {
+            "type" : "boolean"
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "SCHEDULED", "LIVE", "ENDED" ]
@@ -5656,6 +5708,9 @@
           },
           "liveTitle" : {
             "type" : "string"
+          },
+          "liveRecorded" : {
+            "type" : "boolean"
           },
           "auctionId" : {
             "type" : "integer",
@@ -6496,6 +6551,21 @@
           }
         }
       },
+      "KakaoPhoneCodeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "signupToken" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "phoneNumber" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^01[016789]\\d{7,8}$"
+          }
+        },
+        "required" : [ "phoneNumber", "signupToken" ]
+      },
       "LoginRequest" : {
         "type" : "object",
         "properties" : {
@@ -6954,6 +7024,9 @@
             "items" : {
               "type" : "string"
             }
+          },
+          "recorded" : {
+            "type" : "boolean"
           }
         }
       },
@@ -7007,6 +7080,9 @@
           },
           "liveTitle" : {
             "type" : "string"
+          },
+          "liveRecorded" : {
+            "type" : "boolean"
           }
         }
       },
@@ -7696,6 +7772,9 @@
           "viewerIncrease" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "recorded" : {
+            "type" : "boolean"
           }
         }
       },

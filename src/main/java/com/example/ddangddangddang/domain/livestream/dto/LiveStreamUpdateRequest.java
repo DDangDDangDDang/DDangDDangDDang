@@ -9,6 +9,7 @@ import java.util.List;
 /**
  * 방송 정보 수정. 보낸 값만 바꾸고, 보내지 않은(null) 값은 그대로 둔다.
  * description, notice를 빈 문자열("")로 보내면 지운다. hashtags는 빈 목록([])으로 보내면 지운다.
+ * recorded는 판매자 스튜디오가 영상 소스(카메라·녹화 영상)를 바꿀 때 보낸다.
  */
 public record LiveStreamUpdateRequest(
         // null은 통과하고, 값을 보냈다면 공백만으로 이뤄질 수 없다. (?U)로 전각 공백 같은 유니코드 공백도 공백으로 본다.
@@ -28,7 +29,10 @@ public record LiveStreamUpdateRequest(
         String notice,
 
         // 해시태그 전체. 보내면 이 목록으로 바꾸고, 빈 목록([])이면 모두 지운다. (규칙은 LiveStreamCreateRequest.hashtags)
-        List<String> hashtags
+        List<String> hashtags,
+
+        // 카메라 대신 미리 녹화한 영상을 내보내는지. 대기 중·방송 중에 바꿀 수 있다.
+        Boolean recorded
 ) {
     public LiveStreamUpdateRequest(String title, String description) {
         this(title, description, null, null);
@@ -40,5 +44,9 @@ public record LiveStreamUpdateRequest(
 
     public LiveStreamUpdateRequest(String title, String description, LocalDateTime scheduledStartAt, String notice) {
         this(title, description, scheduledStartAt, notice, null);
+    }
+
+    public LiveStreamUpdateRequest(String title, String description, LocalDateTime scheduledStartAt, String notice, List<String> hashtags) {
+        this(title, description, scheduledStartAt, notice, hashtags, null);
     }
 }

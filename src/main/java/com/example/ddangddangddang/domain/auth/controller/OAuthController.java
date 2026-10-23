@@ -9,6 +9,8 @@ import com.example.ddangddangddang.domain.auth.dto.KakaoSignupResult;
 import com.example.ddangddangddang.domain.auth.service.OAuthService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.jwt.RefreshTokenCookieProvider;
+import com.example.ddangddangddang.domain.auth.dto.CodeSentResponse;
+import com.example.ddangddangddang.domain.auth.dto.KakaoPhoneCodeRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -39,6 +41,16 @@ public class OAuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookieProvider.create(result.refreshToken()).toString())
                 .body(ApiResponse.ok(result.response()));
+    }
+
+    /**
+     * 카카오 가입 화면의 휴대폰 인증번호 발송. 이미 가입된 번호에도 보낸다. (같은 번호의 기존 계정에 카카오를 연결)
+     * 인증번호 확인은 일반 가입과 같은 POST /api/v1/auth/signup/phone/verify를 쓴다.
+     */
+    @PostMapping("/phone/code")
+    public ResponseEntity<ApiResponse<CodeSentResponse>> sendPhoneCode(@Valid @RequestBody KakaoPhoneCodeRequest request) {
+        long expiresIn = oAuthService.sendSignupPhoneCode(request.signupToken(), request.phoneNumber());
+        return ResponseEntity.ok(ApiResponse.ok(new CodeSentResponse(expiresIn)));
     }
 
     @PostMapping("/signup")

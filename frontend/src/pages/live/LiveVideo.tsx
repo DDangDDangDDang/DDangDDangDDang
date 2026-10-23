@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { errorMessage, type Schema } from "@/api";
+import { RecordedBadge } from "@/components/live/RecordedBadge";
 import { Badge, Button } from "@/components/ui";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { IDLE_AUTO_END_MINUTES } from "@/lib/media";
@@ -27,7 +28,7 @@ type Props = {
   overlay?: ReactNode;
 };
 
-/** 방송 영상 영역: 영상 + LIVE·시청자 수 배지 + 소리·전체 화면 버튼. 방송 상태별 안내도 이 자리에 보여준다. */
+/** 방송 영상 영역: 영상 + LIVE·녹화 영상·시청자 수 배지 + 소리·전체 화면 버튼. 방송 상태별 안내도 이 자리에 보여준다. */
 export function LiveVideo({ liveStream, video, overlay }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   // 브라우저는 사용자가 누르기 전에는 소리를 재생하지 못하게 하므로 음소거로 시작한다.
@@ -66,6 +67,8 @@ export function LiveVideo({ liveStream, video, overlay }: Props) {
             />
             LIVE
           </Badge>
+          {/* 판매자가 카메라 대신 미리 녹화한 영상을 내보내는 중 */}
+          {liveStream.recorded && <RecordedBadge className="h-7 px-2.5" />}
           {video.viewerCount !== undefined && (
             <Badge className="h-7 bg-stage/70 px-2.5 font-normal text-neutral-0">
               <Eye className="size-3.5" aria-hidden="true" />
