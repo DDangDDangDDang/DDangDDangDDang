@@ -6,6 +6,7 @@ import { AuthCard } from '@/components/layout/PageHeader';
 import { Button, Input, Notice } from '@/components/ui';
 import { safeRedirect } from '@/lib/redirect';
 import type { LoginLocationState } from './LoginPage';
+import { KakaoLoginButton, OrDivider } from '@/components/auth/KakaoLoginButton';
 
 export function SignupPage() {
   const session = useSession();
@@ -68,6 +69,8 @@ export function SignupPage() {
         </>
       }
     >
+      <KakaoLoginButton redirect={redirect} />
+      <OrDivider />
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input label="이메일" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <Input

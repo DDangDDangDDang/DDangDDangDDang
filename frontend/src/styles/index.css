@@ -23,6 +23,9 @@
   --color-brand-500: #d63f0e; /* 주요 버튼 (흰 글자 4.6:1) */
   --color-brand-600: #b8340a; /* hover */
   --color-brand-700: #8f2806; /* 경고 글자 */
+  /* 카카오 로그인 버튼. 카카오 디자인 가이드가 정한 색이라 브랜드 색과 따로 둔다 */
+  --color-kakao: #fee500;
+  --color-kakao-hover: #f5dc00;
 
   /* 중립 · 따뜻한 회색 */
   --color-neutral-0: #ffffff; /* 카드 */

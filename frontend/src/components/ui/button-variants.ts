@@ -14,6 +14,8 @@ export const buttonVariants = cva(
         outline: 'border border-neutral-200 bg-neutral-0 text-neutral-900 hover:bg-neutral-50',
         /** 배경 없는 버튼 (헤더 메뉴, 아이콘 버튼) */
         ghost: 'bg-transparent text-neutral-900 hover:bg-neutral-50',
+        /** 카카오 로그인 버튼만 (카카오 디자인 가이드: 노란 바탕, 검은 글자) */
+        kakao: 'bg-kakao text-neutral-900 hover:bg-kakao-hover',
       },
       size: {
         sm: 'h-9 px-3 text-label',
