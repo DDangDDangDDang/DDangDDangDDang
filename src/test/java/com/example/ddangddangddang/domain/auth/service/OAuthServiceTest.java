@@ -75,6 +75,9 @@ class OAuthServiceTest {
     @Mock
     private AuthService authService;
 
+    @Mock
+    private SignupVerificationService signupVerificationService;
+
     @Nested
     @DisplayName("카카오 로그인")
     class Login {
@@ -256,6 +259,33 @@ class OAuthServiceTest {
             assertThat(result.response().linkedExistingAccount()).isFalse();
             verify(verificationService, never()).consumeMatchingToken(any(), anyString(), anyString());
             verify(pendingSocialSignupRepository).delete(SIGNUP_TOKEN);
+        }
+    }
+
+    @Nested
+    @DisplayName("카카오 가입 휴대폰 인증번호")
+    class SignupPhoneCode {
+
+        @Test
+        @DisplayName("가입 대기 토큰이 있으면 이미 가입된 번호에도 보낼 수 있는 소셜 가입용으로 보낸다")
+        void send() {
+            given(pendingSocialSignupRepository.find(SIGNUP_TOKEN)).willReturn(Optional.of(
+                    new PendingSocialSignup(SocialProvider.KAKAO, KAKAO_ID, null, null)));
+            given(signupVerificationService.sendCodeForSocialSignup(PHONE)).willReturn(300L);
+
+            assertThat(oAuthService.sendSignupPhoneCode(SIGNUP_TOKEN, PHONE)).isEqualTo(300L);
+            verify(signupVerificationService, never()).sendCode(anyString());
+        }
+
+        @Test
+        @DisplayName("가입 대기 토큰이 없거나 만료됐으면 OAUTH_003, 문자를 보내지 않는다")
+        void expiredSignupToken() {
+            given(pendingSocialSignupRepository.find("expired")).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> oAuthService.sendSignupPhoneCode("expired", PHONE))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode").isEqualTo(OAuthErrorCode.SIGNUP_TOKEN_EXPIRED);
+            verify(signupVerificationService, never()).sendCodeForSocialSignup(anyString());
         }
     }
 

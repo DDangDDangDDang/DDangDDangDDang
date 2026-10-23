@@ -126,9 +126,19 @@ export function KakaoSignupPage() {
                     kind="phone"
                     verified={verified !== null}
                     onTargetChange={() => setVerified(null)}
+                    // 일반 가입용(/signup/phone/code)은 이미 가입된 번호를 막으므로, 기존 계정 연결이 되도록 카카오 가입용을 쓴다
                     sendCode={async (phoneNumber) => {
-                        const data = await call(api.POST('/api/v1/auth/signup/phone/code', { body: { phoneNumber } }));
-                        return data?.expiresIn ?? 300;
+                        try {
+                            const data = await call(api.POST('/api/v1/auth/oauth/kakao/phone/code', { body: { signupToken, phoneNumber } }));
+                            return data?.expiresIn ?? 300;
+                        } catch (e) {
+                            // 가입 대기 시간(10분)이 지났으면 카카오 로그인부터 다시 하게 한다
+                            if (isErrorCode(e, 'OAUTH_003')) {
+                                setError(errorMessage(e));
+                                setExpired(true);
+                            }
+                            throw e;
+                        }
                     }}
                     verify={async (phoneNumber, code) => {
                         const data = await call(api.POST('/api/v1/auth/signup/phone/verify', { body: { phoneNumber, code } }));
