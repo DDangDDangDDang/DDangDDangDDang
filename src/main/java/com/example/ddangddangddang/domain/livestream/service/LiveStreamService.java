@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.livestream.service;
 
+import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
+import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
@@ -56,6 +58,8 @@ public class LiveStreamService {
     private final ChatContentFilter contentFilter;
     // 방송 만들기·시작은 판매자 인증(관리자 승인)을 받은 회원만 할 수 있다.
     private final SellerVerification sellerVerification;
+    // 영상 위에 띄울 경매가 이 방송에 올라간 경매인지 확인할 때만 쓴다. (경매 정보는 바꾸지 않음)
+    private final AuctionRepository auctionRepository;
 
     /**
      * 방송을 만든다. 판매자는 종료되지 않은(대기 중·방송 중) 방송을 하나만 가질 수 있다.
@@ -141,6 +145,31 @@ public class LiveStreamService {
             changed = liveStream.changeHashtags(hashtags) || changed;
         }
         if (!changed) {
+            return LiveStreamResponse.from(liveStream);
+        }
+        flushWithVersionCheck(liveStream);
+
+        LiveStreamResponse response = LiveStreamResponse.from(liveStream);
+        eventPublisher.publishEvent(new LiveStreamUpdatedEvent(response));
+        return response;
+    }
+
+    /**
+     * 영상 위에 띄울 경매를 정한다. auctionId가 null이면 내린다. 한 번에 하나만 띄우고, 새로 띄우면 이전 경매는 내려간다.
+     * 이 방송에 올라간 시작 전·진행 중 경매만 띄울 수 있다. 바뀌면 커밋 뒤 시청자 화면에 방송 정보 변경으로 알린다.
+     */
+    @Transactional
+    public LiveStreamResponse changeFeaturedAuction(Long liveStreamId, Long sellerId, Long auctionId) {
+        LiveStream liveStream = findById(liveStreamId);
+        // 주인이 아닌 사람에게는 경매가 있는지 알려 주지 않고 권한 오류를 먼저 낸다. (엔티티에서도 다시 확인)
+        if (!liveStream.isOwner(sellerId)) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_OWNER);
+        }
+        if (auctionId != null && !auctionRepository.existsByIdAndLiveStreamIdAndStatusIn(
+                auctionId, liveStreamId, List.of(AuctionStatus.READY, AuctionStatus.ONGOING))) {
+            throw new BusinessException(LiveStreamErrorCode.FEATURED_AUCTION_NOT_AVAILABLE);
+        }
+        if (!liveStream.changeFeaturedAuction(sellerId, auctionId)) {
             return LiveStreamResponse.from(liveStream);
         }
         flushWithVersionCheck(liveStream);

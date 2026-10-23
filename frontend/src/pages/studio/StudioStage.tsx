@@ -15,6 +15,8 @@ type Props = {
   publisher: PublisherState & { retry: () => void };
   onToggle: (kind: MediaKind) => void;
   onSelectDevice: (kind: MediaKind, deviceId: string) => void;
+  /** 영상 위에 띄운 경매. 시청자에게 보이는 모습 그대로 미리보기 위에 그린다. */
+  overlay?: ReactNode;
 };
 
 /** 내 카메라 미리보기 + 송출 상태 + 마이크·카메라 켜기/끄기 + 장치 선택 */
@@ -25,6 +27,7 @@ export function StudioStage({
   publisher,
   onToggle,
   onSelectDevice,
+  overlay,
 }: Props) {
   const showVideo = camera.track && camera.enabled;
 
@@ -55,6 +58,7 @@ export function StudioStage({
               </OverlayLine>
             </div>
           )}
+        {live && overlay}
 
         <div className="absolute bottom-4 left-4 flex gap-2">
           <StageToggle

@@ -22,6 +22,7 @@ public enum LiveStreamErrorCode implements ErrorCode {
     SCHEDULE_CHANGE_NOT_ALLOWED(HttpStatus.CONFLICT, "LIVESTREAM_011", "방송 시작 예정 시간은 방송을 시작하기 전에만 바꿀 수 있습니다."),
     INVALID_SCHEDULED_START(HttpStatus.BAD_REQUEST, "LIVESTREAM_012", "방송 시작 예정 시간은 지금부터 30일 이내로 정해 주세요."),
     TOO_MANY_GUEST_JOINS(HttpStatus.TOO_MANY_REQUESTS, "LIVESTREAM_013", "시청 입장 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."),
+    FEATURED_AUCTION_NOT_AVAILABLE(HttpStatus.CONFLICT, "LIVESTREAM_014", "이 방송에 올라간 시작 전·진행 중 경매만 영상 위에 띄울 수 있습니다."),
     INVALID_HASHTAG(HttpStatus.BAD_REQUEST, "LIVESTREAM_015", "해시태그는 한글·영문·숫자·밑줄(_)로 20자까지 쓸 수 있습니다."),
     NOT_VERIFIED_SELLER(HttpStatus.FORBIDDEN, "LIVESTREAM_016", "판매자 인증을 받은 회원만 방송을 만들고 시작할 수 있습니다.");
 

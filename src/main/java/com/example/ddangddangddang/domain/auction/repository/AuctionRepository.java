@@ -39,6 +39,9 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
     @EntityGraph(attributePaths = {"product", "product.seller", "liveStream"})
     List<Auction> findTop50ByLiveStreamIdOrderByIdDesc(Long liveStreamId);
 
+    //이 방송에 올라간 경매 중 주어진 상태인지(방송 영상 위에 띄울 경매 확인)
+    boolean existsByIdAndLiveStreamIdAndStatusIn(Long id, Long liveStreamId, List<AuctionStatus> statuses);
+
     //판매자의 경매 중 주어진 상태인 것(최신순 50개)
     @EntityGraph(attributePaths = {"product", "product.seller", "liveStream"})
     List<Auction> findTop50ByProductSellerIdAndStatusInOrderByIdDesc(Long sellerId, List<AuctionStatus> statuses);

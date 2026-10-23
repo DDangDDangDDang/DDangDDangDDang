@@ -6,6 +6,7 @@ import {
   durationLabel,
   EMPTY_AUCTION_CONDITION,
   LIVE_AUCTION_DURATIONS,
+  featuredAuction,
   formatAmountInput,
   leafCategoryOptions,
   parseAmount,
@@ -21,6 +22,29 @@ const categories = [
   { id: 1, name: '카메라', children: [{ id: 11, name: '필름 카메라' }, { id: 12, name: '렌즈' }] },
   { id: 2, name: '시계', children: [] },
 ];
+
+describe('featuredAuction', () => {
+  const auctions = [
+    { id: 1, status: 'ONGOING' as const, endAt: '2026-10-21T12:05:00' },
+    { id: 2, status: 'READY' as const, endAt: '2026-10-21T13:00:00' },
+    { id: 3, status: 'ONGOING' as const, endAt: '2026-10-21T11:59:00' },
+    { id: 4, status: 'ENDED' as const, endAt: '2026-10-21T11:00:00' },
+    { id: 5, status: 'CANCELED' as const, endAt: '2026-10-21T13:00:00' },
+  ];
+
+  it('띄운 경매가 시작 전·진행 중·마감 집계 중이면 그 경매', () => {
+    expect(featuredAuction(1, auctions, NOW)?.id).toBe(1);
+    expect(featuredAuction(2, auctions, NOW)?.id).toBe(2);
+    expect(featuredAuction(3, auctions, NOW)?.id).toBe(3);
+  });
+
+  it('끝났거나 취소됐거나 목록에 없거나 띄운 경매가 없으면 없음', () => {
+    expect(featuredAuction(4, auctions, NOW)).toBeUndefined();
+    expect(featuredAuction(5, auctions, NOW)).toBeUndefined();
+    expect(featuredAuction(99, auctions, NOW)).toBeUndefined();
+    expect(featuredAuction(undefined, auctions, NOW)).toBeUndefined();
+  });
+});
 
 describe('auctionPhase', () => {
   it('진행 중인데 마감 시각이 지났으면 마감으로 본다', () => {

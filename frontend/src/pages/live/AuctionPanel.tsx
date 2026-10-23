@@ -4,18 +4,16 @@ import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits
 import { Button, Card, CardBody, CardHeader, CardTitle, ErrorState, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { formatNumber, formatPoint } from '@/lib/format';
-import { useLiveStreamAuctions } from '@/lib/use-live-stream-auctions';
+import { useLiveStreamAuctions, WATCH_AUCTION_REFRESH_MS } from '@/lib/use-live-stream-auctions';
 import { useNow } from '@/lib/use-now';
 
-/** 진행 중인 경매의 현재가·입찰 수를 이 간격으로 다시 불러온다. (입찰 실시간 메시지가 아직 없음) */
-const REFRESH_MS = 5000;
 
 /**
  * 이 방송에 올라간 경매 중 시작 전·진행 중인 것. 판매자가 경매를 열거나 방송에 올리면 바로 나온다. (경매 변경 알림)
  * 방송과 경매는 별개 도메인이라 방송 화면은 보여주기만 한다. 입찰은 방송을 떠나지 않도록 입찰 창(onOpen)에서 한다.
  */
 export function AuctionPanel({ liveStreamId, onOpen }: { liveStreamId: number; onOpen: (auctionId: number, ongoing: boolean) => void }) {
-  const query = useLiveStreamAuctions(liveStreamId, REFRESH_MS);
+  const query = useLiveStreamAuctions(liveStreamId, WATCH_AUCTION_REFRESH_MS);
   const now = useNow(1000);
   const open = (query.data ?? []).filter((a) => {
     const phase = auctionPhase(a, now);

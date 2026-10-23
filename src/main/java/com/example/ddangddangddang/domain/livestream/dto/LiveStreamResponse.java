@@ -18,6 +18,8 @@ public record LiveStreamResponse(
         List<String> hashtags,
         // 채팅창 고정 공지 (없으면 null)
         String notice,
+        // 영상 위에 띄운 경매 ID (없으면 null). 경매 정보는 이 방송의 경매 목록(GET /lives/{id}/auctions)에서 찾는다.
+        Long featuredAuctionId,
         LiveStreamStatus status,
         LocalDateTime createdAt,
         LocalDateTime scheduledStartAt,
@@ -32,6 +34,7 @@ public record LiveStreamResponse(
                 liveStream.getDescription(),
                 liveStream.getHashtagList(),
                 liveStream.getNotice(),
+                liveStream.getFeaturedAuctionId(),
                 liveStream.getStatus(),
                 liveStream.getCreatedAt(),
                 liveStream.getScheduledStartAt(),

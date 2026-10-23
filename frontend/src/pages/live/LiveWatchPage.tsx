@@ -4,12 +4,14 @@ import { useCallback, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ApiError, api, call, errorMessage, isErrorCode, useSession, type ChatMessage, type Schema } from '@/api';
 import { BidDialog } from '@/components/auction/BidDialog';
+import { FeaturedAuctionSlot } from '@/components/auction/FeaturedAuctionOverlay';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { SellerIdentity } from '@/components/seller/SellerIdentity';
 import { SubscribeButton } from '@/components/seller/SubscribeButton';
 import { useSellerProfile } from '@/lib/use-seller';
 import { Button, buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
+import { useLiveStreamAuctions, WATCH_AUCTION_REFRESH_MS } from '@/lib/use-live-stream-auctions';
 import { AuctionPanel } from './AuctionPanel';
 import { Hashtags } from '@/components/live/Hashtags';
 import { LiveChat } from '@/components/live/LiveChat';
@@ -72,6 +74,10 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
   const isLive = liveStream?.status === 'LIVE';
   const video = useLiveVideo(liveStreamId, isLive, refetchLiveStream);
 
+  // 판매자가 영상 위에 띄운 경매. 경매 목록은 옆 경매 카드와 같은 쿼리라 한 번만 불러온다.
+  const auctions = useLiveStreamAuctions(liveStreamId, WATCH_AUCTION_REFRESH_MS);
+  const openAuction = (auctionId: number, ongoing: boolean) => (ongoing ? guard(() => setBidAuctionId(auctionId)) : setBidAuctionId(auctionId));
+
   const location = useLocation();
   const sellerNickname = video.sellerName ?? (location.state as LiveWatchLocationState)?.sellerNickname;
 
@@ -95,12 +101,23 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
 
       <div className="flex items-start gap-6">
         <section aria-label="방송" className="flex min-w-0 flex-1 flex-col gap-5">
-          <LiveVideo liveStream={liveStream} video={video} />
+          <LiveVideo
+            liveStream={liveStream}
+            video={video}
+            overlay={
+              <FeaturedAuctionSlot
+                featuredAuctionId={liveStream.featuredAuctionId}
+                auctions={auctions.data ?? []}
+                onOpen={openAuction}
+                className="absolute bottom-4 left-4"
+              />
+            }
+          />
           <StreamInfo liveStream={liveStream} sellerNickname={sellerNickname} guard={guard} />
         </section>
 
         <aside aria-label="경매와 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
-          <AuctionPanel liveStreamId={liveStreamId} onOpen={(auctionId, ongoing) => (ongoing ? guard(() => setBidAuctionId(auctionId)) : setBidAuctionId(auctionId))} />
+          <AuctionPanel liveStreamId={liveStreamId} onOpen={openAuction} />
           <LiveChat
             messages={messages}
             sellerId={liveStream.sellerId}
