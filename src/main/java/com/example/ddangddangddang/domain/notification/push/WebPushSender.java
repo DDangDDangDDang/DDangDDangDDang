@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.notification.push;
 
 import com.example.ddangddangddang.domain.notification.entity.Notification;
 import com.example.ddangddangddang.domain.notification.entity.NotificationContent;
+import com.example.ddangddangddang.domain.notification.repository.NotificationPreferenceRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -13,9 +14,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -34,6 +37,7 @@ public class WebPushSender {
     private static final Duration TOKEN_VALIDITY = Duration.ofHours(12);
 
     private final PushSubscriptionRepository repository;
+    private final NotificationPreferenceRepository preferenceRepository;
     private final VapidKeys vapidKeys;
     private final WebPushProperties properties;
     private final ObjectMapper objectMapper;
@@ -41,14 +45,16 @@ public class WebPushSender {
     private final Clock clock;
 
     @Autowired
-    public WebPushSender(PushSubscriptionRepository repository, VapidKeys vapidKeys, WebPushProperties properties, ObjectMapper objectMapper) {
-        this(repository, vapidKeys, properties, objectMapper,
+    public WebPushSender(PushSubscriptionRepository repository, NotificationPreferenceRepository preferenceRepository,
+                         VapidKeys vapidKeys, WebPushProperties properties, ObjectMapper objectMapper) {
+        this(repository, preferenceRepository, vapidKeys, properties, objectMapper,
                 HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build(), Clock.systemUTC());
     }
 
-    WebPushSender(PushSubscriptionRepository repository, VapidKeys vapidKeys, WebPushProperties properties, ObjectMapper objectMapper,
-                  HttpClient httpClient, Clock clock) {
+    WebPushSender(PushSubscriptionRepository repository, NotificationPreferenceRepository preferenceRepository,
+                  VapidKeys vapidKeys, WebPushProperties properties, ObjectMapper objectMapper, HttpClient httpClient, Clock clock) {
         this.repository = repository;
+        this.preferenceRepository = preferenceRepository;
         this.vapidKeys = vapidKeys;
         this.properties = properties;
         this.objectMapper = objectMapper;
@@ -60,15 +66,19 @@ public class WebPushSender {
         if (!properties.enabled() || notifications.isEmpty()) {
             return;
         }
-        Map<Long, List<PushSubscription>> byUser = repository
-                .findByUserIdIn(notifications.stream().map(Notification::getUserId).distinct().toList())
+        List<Long> userIds = notifications.stream().map(Notification::getUserId).distinct().toList();
+        Map<Long, List<PushSubscription>> byUser = repository.findByUserIdIn(userIds)
                 .stream().collect(Collectors.groupingBy(PushSubscription::getUserId));
+        if (byUser.isEmpty()) {
+            return;
+        }
+        Set<Long> showWhenVisible = new HashSet<>(preferenceRepository.findPushWhenVisibleUserIds(byUser.keySet()));
         for (Notification notification : notifications) {
             List<PushSubscription> subscriptions = byUser.getOrDefault(notification.getUserId(), List.of());
             if (subscriptions.isEmpty()) {
                 continue;
             }
-            byte[] payload = payload(notification);
+            byte[] payload = payload(notification, showWhenVisible.contains(notification.getUserId()));
             for (PushSubscription subscription : subscriptions) {
                 try {
                     send(subscription, payload);
@@ -82,23 +92,24 @@ public class WebPushSender {
     /**
      * 서비스 워커가 받는 내용: 알림 제목·내용, 누르면 열 경로, 같은 알림을 한 번만 띄우기 위한 tag
      * 푸시 본문 한도(WebPushCrypto.MAX_PLAINTEXT)를 넘으면 내용(body)을 줄인다. (알림 문구는 짧아 보통은 그대로)
+     * showWhenVisible: 회원이 "사이트를 보고 있을 때도 브라우저 알림 받기"를 켰는지. 끄면 서비스 워커는 보고 있는 탭이 있을 때 띄우지 않는다.
      */
-    byte[] payload(Notification notification) {
+    byte[] payload(Notification notification, boolean showWhenVisible) {
         NotificationContent content = NotificationContent.of(notification);
         String body = content.body() == null ? "" : content.body();
-        byte[] bytes = payload(notification, content, body);
+        byte[] bytes = payload(notification, content, body, showWhenVisible);
         while (bytes.length > WebPushCrypto.MAX_PLAINTEXT && !body.isEmpty()) {
             int excess = bytes.length - WebPushCrypto.MAX_PLAINTEXT;
             body = body.substring(0, Math.max(0, body.length() - Math.max(1, excess / 3) - 1)) + "…";
             if (body.length() <= 1) {
                 body = "";
             }
-            bytes = payload(notification, content, body);
+            bytes = payload(notification, content, body, showWhenVisible);
         }
         return bytes;
     }
 
-    private byte[] payload(Notification notification, NotificationContent content, String body) {
+    private byte[] payload(Notification notification, NotificationContent content, String body, boolean showWhenVisible) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("notificationId", notification.getId());
         payload.put("type", notification.getType().name());
@@ -106,6 +117,7 @@ public class WebPushSender {
         payload.put("body", body);
         payload.put("link", content.link());
         payload.put("tag", "notification-" + notification.getId());
+        payload.put("showWhenVisible", showWhenVisible);
         return objectMapper.writeValueAsBytes(payload);
     }
 

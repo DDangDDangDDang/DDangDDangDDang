@@ -22,7 +22,14 @@ vi.mock('@/api', async (importOriginal) => {
     api: { GET: request('GET'), POST: request('POST') },
     call: async (r: Request) => {
       server.requests.push(r);
-      if (r.path === '/api/v1/points/charges') return { chargeId: 1, paymentId: 'point-charge-1', amount: server.chargeAmount, orderName: '10,000 포인트 충전' };
+      if (r.path === '/api/v1/points/charges')
+        return {
+          chargeId: 1,
+          paymentId: 'point-charge-1',
+          amount: server.chargeAmount,
+          orderName: '10,000 포인트 충전',
+          customer: { fullName: '구매자', email: 'buyer@test.com', phoneNumber: '01012345678' },
+        };
       if (r.path === '/api/v1/points/charges/complete') {
         if (server.completeFailures > 0) {
           server.completeFailures -= 1;
@@ -91,12 +98,36 @@ describe('PointChargeDialog', () => {
         totalAmount: 10000,
         currency: 'KRW',
         payMethod: 'CARD',
+        customer: { fullName: '구매자', email: 'buyer@test.com', phoneNumber: '01012345678' },
       }),
     );
     expect(server.requests.map((r) => r.path)).toEqual(['/api/v1/points/charges', '/api/v1/points/charges/complete']);
     expect(server.requests[0]?.body).toEqual({ amount: 10000 });
     expect(server.requests[1]?.body).toEqual({ paymentId: 'point-charge-1' });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['points'] });
+  });
+
+  it('포트원 결제창이 떠 있는 동안 충전 창을 숨기고(결제창을 가리지 않게), 끝나면 다시 보여준다', async () => {
+    let openDuringPayment: boolean | undefined;
+    portOne.requestPayment.mockImplementation(async () => {
+      openDuringPayment = document.querySelector('dialog')?.open;
+      return paid;
+    });
+    renderDialog();
+    await payTenThousand();
+
+    expect(await screen.findByText(/10,000 P를 충전했어요/)).toBeInTheDocument();
+    expect(openDuringPayment).toBe(false);
+    expect(document.querySelector('dialog')?.open).toBe(true);
+  });
+
+  it('결제창이 예외로 끝나도 충전 창을 다시 보여준다', async () => {
+    portOne.requestPayment.mockRejectedValue(new Error('popup closed'));
+    renderDialog();
+    await payTenThousand();
+
+    await screen.findByRole('button', { name: '결제 확인 다시 하기' });
+    expect(document.querySelector('dialog')?.open).toBe(true);
   });
 
   it('결제창이 code를 주면(취소·실패) 결제 확인을 부르지 않고 이유를 보여준다', async () => {
@@ -162,6 +193,15 @@ describe('PointChargeDialog', () => {
     await userEvent.click(recheck);
     expect(await screen.findByText(/10,000 P를 충전했어요/)).toBeInTheDocument();
     expect(server.requests.filter((r) => r.path === '/api/v1/points/charges')).toHaveLength(1);
+  });
+
+  it('결제창이 예외로 끝나면 "알 수 없는 오류" 대신 포트원이 준 이유를 보여준다', async () => {
+    portOne.requestPayment.mockRejectedValue(new Error('이니시스 V2 일반 결제의 경우 구매자 이메일은 필수 입력입니다.'));
+    renderDialog();
+    await payTenThousand();
+
+    expect(await screen.findByText(/결제창을 열지 못했어요\. 이니시스 V2 일반 결제의 경우 구매자 이메일은 필수 입력입니다\./)).toBeInTheDocument();
+    expect(screen.queryByText(/알 수 없는 오류/)).not.toBeInTheDocument();
   });
 
   it('붙잡아 둔 결제가 포트원에 없으면(POINT_031) 놓고 새로 충전할 수 있게 한다', async () => {

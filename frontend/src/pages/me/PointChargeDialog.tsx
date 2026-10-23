@@ -1,7 +1,8 @@
 import * as PortOne from '@portone/browser-sdk/v2';
 import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { api, call, errorMessage, isErrorCode } from '@/api';
+import { flushSync } from 'react-dom';
+import { api, ApiError, call, errorMessage, isErrorCode } from '@/api';
 import { Button, Dialog, Input, Notice } from '@/components/ui';
 import { formatAmountInput, parseAmount } from '@/lib/auction';
 import { cn } from '@/lib/cn';
@@ -25,15 +26,25 @@ export function PointChargeDialog({ open, onClose }: { open: boolean; onClose: (
   const paying = useIsMutating({ mutationKey: CHARGE_KEY }) > 0;
   // 확인이 안 된 결제. 창을 닫았다 열어도 남도록 창 바깥(이 컴포넌트)에 둔다.
   const [unconfirmed, setUnconfirmed] = useState<string>();
+  // 포트원 결제창이 떠 있는 동안 이 창을 숨긴다. (<dialog>가 결제창을 덮고 클릭을 막는다)
+  const [paymentWindowOpen, setPaymentWindowOpen] = useState(false);
   return (
-    <Dialog open={open} onClose={onClose} closeDisabled={paying} title="포인트 충전" description="1원은 1포인트예요. 충전한 포인트로 경매에 입찰할 수 있어요." className="w-[520px]">
+    <Dialog open={open} onClose={onClose} closeDisabled={paying} suspended={paymentWindowOpen} title="포인트 충전" description="1원은 1포인트예요. 충전한 포인트로 경매에 입찰할 수 있어요." className="w-[520px]">
       {/* 닫았다 열면 이전 입력·결과 없이 새로 시작한다. */}
-      {open && <ChargeForm unconfirmed={unconfirmed} onUnconfirmedChange={setUnconfirmed} />}
+      {open && <ChargeForm unconfirmed={unconfirmed} onUnconfirmedChange={setUnconfirmed} onPaymentWindowChange={setPaymentWindowOpen} />}
     </Dialog>
   );
 }
 
-function ChargeForm({ unconfirmed, onUnconfirmedChange }: { unconfirmed?: string; onUnconfirmedChange: (paymentId: string | undefined) => void }) {
+function ChargeForm({
+  unconfirmed,
+  onUnconfirmedChange,
+  onPaymentWindowChange,
+}: {
+  unconfirmed?: string;
+  onUnconfirmedChange: (paymentId: string | undefined) => void;
+  onPaymentWindowChange: (open: boolean) => void;
+}) {
   const queryClient = useQueryClient();
   const config = portOneConfig();
   const [amount, setAmount] = useState('');
@@ -50,17 +61,31 @@ function ChargeForm({ unconfirmed, onUnconfirmedChange }: { unconfirmed?: string
 
       // 결제창을 여는 순간부터 결제가 됐을 수 있다. 결제창이 예기치 않게 실패해도(예외) 확인할 수 있도록 먼저 붙잡아 둔다.
       onUnconfirmedChange(request.paymentId);
-      const payment = await PortOne.requestPayment({
-        storeId: portOne.storeId,
-        channelKey: portOne.channelKey,
-        paymentId: request.paymentId,
-        orderName: request.orderName || `${formatNumber(value)} 포인트 충전`,
-        totalAmount: request.amount,
-        currency: 'KRW',
-        payMethod: 'CARD',
-        // SDK 필수값이라 지금 주소를 넣는다. PC 결제창은 팝업이라 결과는 Promise로 받는다.
-        redirectUrl: window.location.href,
-      });
+      // 결제창을 띄우기 전에 이 창을 먼저 숨긴다. flushSync로 바로 반영해야 결제창이 뜨는 순간 가려지지 않는다.
+      flushSync(() => onPaymentWindowChange(true));
+      let payment;
+      try {
+        payment = await PortOne.requestPayment({
+          storeId: portOne.storeId,
+          channelKey: portOne.channelKey,
+          paymentId: request.paymentId,
+          orderName: request.orderName || `${formatNumber(value)} 포인트 충전`,
+          totalAmount: request.amount,
+          currency: 'KRW',
+          payMethod: 'CARD',
+          // 구매자 정보. KG이니시스는 이메일 등이 없으면 결제창을 열지 않는다. 서버가 회원 정보에서 채워 준다.
+          customer: {
+            fullName: request.customer?.fullName ?? undefined,
+            email: request.customer?.email ?? undefined,
+            phoneNumber: request.customer?.phoneNumber ?? undefined,
+          },
+          // SDK 필수값이라 지금 주소를 넣는다. PC에서는 결제창이 이 페이지 위에 뜨고 결과는 Promise로 받는다.
+          redirectUrl: window.location.href,
+        });
+      } finally {
+        // 결제창이 닫히면(성공·취소·실패·예외 모두) 이 창을 다시 보여준다.
+        onPaymentWindowChange(false);
+      }
       // code가 있으면 결제창을 닫았거나 결제가 실패한 것. 충전 요청은 서버에 PENDING으로 남아도 괜찮다.
       if (payment?.code !== undefined) {
         onUnconfirmedChange(undefined);
@@ -162,7 +187,7 @@ function ChargeForm({ unconfirmed, onUnconfirmedChange }: { unconfirmed?: string
       </dl>
 
       {!config && <Notice tone="error">충전 설정이 필요합니다. 관리자에게 결제 설정(포트원 상점 ID·채널 키)을 요청해 주세요.</Notice>}
-      {charge.isError && <Notice tone="error">{errorMessage(charge.error)}</Notice>}
+      {charge.isError && <Notice tone="error">{chargeErrorMessage(charge.error)}</Notice>}
       {recheck.isError && <Notice tone="error">결제 결과를 확인하지 못했어요. {errorMessage(recheck.error)}</Notice>}
       {result && <ResultNotice result={result} />}
 
@@ -180,6 +205,16 @@ function ChargeForm({ unconfirmed, onUnconfirmedChange }: { unconfirmed?: string
       )}
     </form>
   );
+}
+
+/**
+ * 서버 오류는 공통 문구로 보여주고, 포트원 결제창이 던진 오류(입력값 거절 등)는 포트원이 준 이유를 그대로 보여준다.
+ * 그냥 errorMessage를 쓰면 포트원 오류가 "알 수 없는 오류"로만 보여 원인을 알 수 없다.
+ */
+function chargeErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) return errorMessage(error);
+  if (error instanceof Error && error.message) return `결제창을 열지 못했어요. ${error.message}`;
+  return errorMessage(error);
 }
 
 function ResultNotice({ result }: { result: Result }) {

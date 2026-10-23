@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.notification.event;
 
+import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
+import com.example.ddangddangddang.domain.notification.repository.AuctionAlertRepository;
 import com.example.ddangddangddang.domain.notification.repository.AuctionClosingNoticeRepository;
 import com.example.ddangddangddang.domain.notification.repository.NotificationRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +28,8 @@ import java.util.List;
  *
  * - 지울 알림 id를 BATCH_SIZE개씩 찾아 지워, 큰 삭제로 다른 요청이 오래 기다리지 않게 한다.
  * - 마감 임박 알림 기록(auction_closing_notices)은 경매가 끝나면 쓸 일이 없어 30일이 지나면 지운다.
+ * - 알림 받기(auction_alerts)는 경매가 끝나거나(낙찰·유찰) 취소된 지 7일이 지나면 지운다. (알림 받는 경매 목록에서 사라짐)
+ * - 세 정리는 서로 따로 해서, 하나가 실패해도 나머지는 한다.
  * - 서버가 여러 대면 같은 시각에 함께 돌지만, 같은 행을 지우는 것뿐이라 결과는 같다.
  */
 @Slf4j
@@ -34,9 +38,12 @@ public class NotificationCleaner {
 
     static final int BATCH_SIZE = 1000;
     static final Duration CLOSING_NOTICE_RETENTION = Duration.ofDays(30);
+    /** 끝난 경매도 결과를 볼 수 있게 알림 받는 경매 목록에 이만큼 남겨 둔다 */
+    static final Duration ENDED_ALERT_RETENTION = Duration.ofDays(7);
 
     private final NotificationRepository notificationRepository;
     private final AuctionClosingNoticeRepository closingNoticeRepository;
+    private final AuctionAlertRepository auctionAlertRepository;
     private final TransactionTemplate transactionTemplate;
     private final boolean enabled;
     private final Duration retention;
@@ -44,16 +51,18 @@ public class NotificationCleaner {
 
     @Autowired
     public NotificationCleaner(NotificationRepository notificationRepository, AuctionClosingNoticeRepository closingNoticeRepository,
-                               TransactionTemplate transactionTemplate,
+                               AuctionAlertRepository auctionAlertRepository, TransactionTemplate transactionTemplate,
                                @Value("${notification.cleanup.enabled:true}") boolean enabled,
                                @Value("${notification.cleanup.retention:90d}") Duration retention) {
-        this(notificationRepository, closingNoticeRepository, transactionTemplate, enabled, retention, Clock.systemDefaultZone());
+        this(notificationRepository, closingNoticeRepository, auctionAlertRepository, transactionTemplate, enabled, retention, Clock.systemDefaultZone());
     }
 
     NotificationCleaner(NotificationRepository notificationRepository, AuctionClosingNoticeRepository closingNoticeRepository,
-                        TransactionTemplate transactionTemplate, boolean enabled, Duration retention, Clock clock) {
+                        AuctionAlertRepository auctionAlertRepository, TransactionTemplate transactionTemplate,
+                        boolean enabled, Duration retention, Clock clock) {
         this.notificationRepository = notificationRepository;
         this.closingNoticeRepository = closingNoticeRepository;
+        this.auctionAlertRepository = auctionAlertRepository;
         this.transactionTemplate = transactionTemplate;
         this.enabled = enabled;
         this.retention = retention;
@@ -96,6 +105,12 @@ public class NotificationCleaner {
             transactionTemplate.executeWithoutResult(status -> closingNoticeRepository.deleteOlderThan(now.minus(CLOSING_NOTICE_RETENTION)));
         } catch (RuntimeException e) {
             log.warn("오래된 마감 임박 알림 기록을 정리하지 못했습니다. 다음 날 다시 합니다.", e);
+        }
+        try {
+            transactionTemplate.executeWithoutResult(status -> auctionAlertRepository.deleteForAuctionsEndedBefore(
+                    List.of(AuctionStatus.ENDED, AuctionStatus.FAILED), AuctionStatus.CANCELED, now.minus(ENDED_ALERT_RETENTION)));
+        } catch (RuntimeException e) {
+            log.warn("끝난 경매의 알림 받기를 정리하지 못했습니다. 다음 날 다시 합니다.", e);
         }
         return deleted;
     }

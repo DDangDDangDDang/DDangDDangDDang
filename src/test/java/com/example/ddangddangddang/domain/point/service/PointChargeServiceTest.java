@@ -16,6 +16,8 @@ import com.example.ddangddangddang.domain.point.infra.PaymentStatus;
 import com.example.ddangddangddang.domain.point.repository.PointChargeRepository;
 import com.example.ddangddangddang.domain.point.repository.PointHistoryRepository;
 import com.example.ddangddangddang.domain.point.repository.PointWalletRepository;
+import com.example.ddangddangddang.domain.user.entity.User;
+import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -61,6 +63,9 @@ class PointChargeServiceTest {
     @Mock
     private PaymentGateway paymentGateway;
 
+    @Mock
+    private UserRepository userRepository;
+
     @Nested
     @DisplayName("충전 요청 생성")
     class CreateChargeRequest {
@@ -70,6 +75,8 @@ class PointChargeServiceTest {
         void success() {
             PointChargeRequest request = new PointChargeRequest();
             ReflectionTestUtils.setField(request, "amount", AMOUNT);
+            User buyer = User.create("buyer@test.com", "pw", "구매자", "01012345678");
+            given(userRepository.findById(USER_ID)).willReturn(Optional.of(buyer));
             given(pointChargeRepository.save(any(PointCharge.class)))
                     .willAnswer(invocation -> {
                         PointCharge saved = invocation.getArgument(0);
@@ -84,6 +91,10 @@ class PointChargeServiceTest {
             assertThat(response.paymentId()).hasSizeLessThanOrEqualTo(40);
             assertThat(response.amount()).isEqualTo(AMOUNT);
             assertThat(response.orderName()).isEqualTo("10,000 포인트 충전");
+            // KG이니시스 등에서 필수인 구매자 정보
+            assertThat(response.customer().fullName()).isEqualTo("구매자");
+            assertThat(response.customer().email()).isEqualTo("buyer@test.com");
+            assertThat(response.customer().phoneNumber()).isEqualTo("01012345678");
         }
     }
 

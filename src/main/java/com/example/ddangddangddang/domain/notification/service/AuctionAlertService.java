@@ -5,6 +5,7 @@ import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
+import com.example.ddangddangddang.domain.notification.dto.AuctionAlertFilter;
 import com.example.ddangddangddang.domain.notification.dto.AuctionAlertResponse;
 import com.example.ddangddangddang.domain.notification.entity.AuctionAlert;
 import com.example.ddangddangddang.domain.notification.exception.NotificationErrorCode;
@@ -41,11 +42,12 @@ public class AuctionAlertService {
 
     /**
      * 내가 알림 받기를 한 경매. 최근에 받기로 한 것부터, 경매 목록 카드와 같은 형식으로 준다.
+     * filter로 진행 중·예정(ACTIVE)과 끝난 경매(ENDED)를 나눠 본다. 끝난 경매는 끝난 지 7일이 지나면 정리된다. (NotificationCleaner)
      * 다음 페이지는 nextCursor를 cursor로 넘긴다. (경매가 지워졌으면 그 줄은 뺀다)
      */
-    public CursorResponse<AuctionListResponse> getMine(Long userId, Long cursor, int size) {
+    public CursorResponse<AuctionListResponse> getMine(Long userId, AuctionAlertFilter filter, Long cursor, int size) {
         int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
-        List<AuctionAlert> alerts = auctionAlertRepository.findMine(userId, cursor, PageRequest.of(0, pageSize + 1));
+        List<AuctionAlert> alerts = auctionAlertRepository.findMine(userId, filter.statuses(), cursor, PageRequest.of(0, pageSize + 1));
         Map<Long, Auction> auctions = auctionRepository.findAllById(alerts.stream().map(AuctionAlert::getAuctionId).toList())
                 .stream().collect(Collectors.toMap(Auction::getId, Function.identity()));
         CursorResponse<AuctionListResponse> page = CursorResponse.of(alerts, pageSize,

@@ -73,6 +73,7 @@ portone:
   api-url: ${PORTONE_API_URL:https://api.portone.io}
   api-secret: ${PORTONE_API_SECRET:}          # ← 기본값에 실제 시크릿을 넣지 말 것
   webhook-secret: ${PORTONE_WEBHOOK_SECRET:}  # 포트원 콘솔 > 결제연동 > 웹훅 에서 발급
+  store-id: ${PORTONE_STORE_ID:}
 
 point:
   payout:
