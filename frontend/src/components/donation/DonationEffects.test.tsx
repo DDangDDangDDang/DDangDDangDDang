@@ -48,19 +48,23 @@ describe('DonationEffects 효과음', () => {
     expect(chime).not.toHaveBeenCalled();
   });
 
-  it('선물이 클수록 별이 많이 튀어나온다 (1,000P 미만 6개, 1,000P 이상 10개, 3,000P 이상 18개와 강조 테두리)', () => {
-    const stars = (amount: number) => {
+  it('선물이 클수록 별이 많고 화려하다: 1,000P 미만 작은 별 6개, 1,000P 이상 별·반짝이 12개와 테두리, 3,000P 이상 두 번 터지는 24개와 금색 빛', () => {
+    const burst = (amount: number) => {
       const { container, rerender, unmount } = render(<DonationEffects messages={[]} />);
       rerender(<DonationEffects messages={[gift(String(amount), amount)]} />);
       const status = screen.getByRole('status');
-      const count = container.querySelectorAll('[aria-hidden="true"].absolute > svg').length;
-      const ring = status.className.includes('ring-2');
+      const particles = [...container.querySelectorAll('[data-particle]')];
+      const result = {
+        count: particles.length,
+        sparkles: particles.some((p) => p.getAttribute('data-particle') === 'sparkle'),
+        ring: status.className.includes('ring-1') ? 'ring' : status.className.includes('animate-donation-glow') ? 'glow' : 'none',
+      };
       unmount();
-      return { count, ring };
+      return result;
     };
-    expect(stars(500)).toEqual({ count: 6, ring: false });
-    expect(stars(1_000)).toEqual({ count: 10, ring: false });
-    expect(stars(3_000)).toEqual({ count: 18, ring: true });
+    expect(burst(500)).toEqual({ count: 6, sparkles: false, ring: 'none' });
+    expect(burst(1_000)).toEqual({ count: 12, sparkles: true, ring: 'ring' });
+    expect(burst(3_000)).toEqual({ count: 24, sparkles: true, ring: 'glow' });
   });
 
   it('스튜디오 효과음 켜기/끄기는 기본 켜짐이고, 끄면 기억하며, 켤 때 한 번 들려준다', async () => {

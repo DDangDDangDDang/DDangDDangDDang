@@ -1,4 +1,4 @@
-import { Gift, Sparkles, Star } from 'lucide-react';
+import { Gift, Sparkle, Sparkles, Star } from 'lucide-react';
 import { useEffect, useRef, type CSSProperties } from 'react';
 import type { ChatMessage } from '@/api';
 import { cn } from '@/lib/cn';
@@ -46,17 +46,19 @@ export function DonationEffects({
           className={cn(
             'animate-donation-pop relative flex items-center gap-3 rounded-lg bg-brand-500 text-neutral-0 shadow-md',
             compact ? 'px-3 py-2' : 'max-w-[420px] px-4 py-3',
-            tier === 'large' && 'ring-2 ring-brand-300',
+            // 1,000P 이상은 테두리, 3,000P 이상은 금색 테두리가 두 번 반짝인다.
+            tier === 'medium' && 'ring-1 ring-brand-300',
+            tier === 'large' && 'animate-donation-glow ring-2 ring-gold-300',
           )}
         >
           <StarBurst tier={tier} compact={compact} />
-          <span className={cn('relative flex shrink-0 items-center justify-center rounded-full bg-neutral-0/20', compact ? 'size-7' : 'size-10')}>
+          <span className={cn('relative z-10 flex shrink-0 items-center justify-center rounded-full bg-neutral-0/20', compact ? 'size-7' : 'size-10')}>
             <Gift className={compact ? 'size-4' : 'size-5'} aria-hidden="true" />
           </span>
-          <span className="relative flex min-w-0 flex-col">
+          <span className="relative z-10 flex min-w-0 flex-col">
             <span className={cn('font-bold', compact ? 'text-label' : 'text-body-lg')}>
               {effect.nickname}님이 <span className="num">{formatPoint(effect.amount)}</span>를 선물했어요
-              {tier === 'large' && <Sparkles className="ml-1 inline size-4 align-[-2px] text-brand-100" aria-hidden="true" />}
+              {tier === 'large' && <Sparkles className="ml-1 inline size-4 align-[-2px] text-gold-300" aria-hidden="true" />}
             </span>
             {effect.message && !compact && <span className="truncate text-body text-neutral-0/90">{effect.message}</span>}
           </span>
@@ -66,38 +68,79 @@ export function DonationEffects({
   );
 }
 
-/** 단계별 별 개수와 퍼지는 거리(px) */
-const BURST: Record<DonationTier, { count: number; distance: number }> = {
-  small: { count: 6, distance: 90 },
-  medium: { count: 10, distance: 130 },
-  large: { count: 18, distance: 180 },
-};
-const STAR_COLORS = ['text-brand-100', 'text-neutral-0', 'text-brand-300'];
+type Particle = { shape: 'star' | 'sparkle'; size: string; color: string };
+const FALLBACK_PARTICLE: Particle = { shape: 'star', size: 'size-3', color: 'text-neutral-0' };
 
-/** 안내 가운데에서 별이 사방으로 튀어나왔다가 사라진다. (장식이라 화면 읽기 프로그램에는 숨긴다) */
+/**
+ * 단계별 별 이펙트. 선물이 클수록 많고·크고·멀리·오래 퍼지고, 3,000P 이상은 금색 별이 두 번 터진다.
+ * - waves: 터지는 횟수 (두 번째는 조금 늦게, 더 멀리)
+ * - count: 한 번에 튀어나오는 수, distance: 퍼지는 거리(px), duration: 한 개가 날아가는 시간(ms)
+ * - particles: 모양·크기·색을 차례로 돌려 쓴다
+ */
+const BURST: Record<DonationTier, { waves: number; count: number; distance: number; duration: number; particles: Particle[] }> = {
+  small: {
+    waves: 1,
+    count: 6,
+    distance: 80,
+    duration: 900,
+    particles: [
+      { shape: 'star', size: 'size-3', color: 'text-neutral-0' },
+      { shape: 'star', size: 'size-3', color: 'text-brand-100' },
+    ],
+  },
+  medium: {
+    waves: 1,
+    count: 12,
+    distance: 130,
+    duration: 1100,
+    particles: [
+      { shape: 'star', size: 'size-5', color: 'text-brand-100' },
+      { shape: 'sparkle', size: 'size-4', color: 'text-neutral-0' },
+      { shape: 'star', size: 'size-4', color: 'text-brand-300' },
+    ],
+  },
+  large: {
+    waves: 2,
+    count: 12,
+    distance: 170,
+    duration: 1400,
+    particles: [
+      { shape: 'star', size: 'size-6', color: 'text-gold-300' },
+      { shape: 'sparkle', size: 'size-5', color: 'text-neutral-0' },
+      { shape: 'star', size: 'size-5', color: 'text-brand-300' },
+      { shape: 'sparkle', size: 'size-4', color: 'text-gold-300' },
+    ],
+  },
+};
+
+/** 안내 가운데에서 별이 튀어나왔다가 사라진다. (장식이라 화면 읽기 프로그램에는 숨긴다) */
 function StarBurst({ tier, compact }: { tier: DonationTier; compact: boolean }) {
-  const { count, distance } = BURST[tier];
-  const reach = compact ? distance * 0.5 : distance;
+  const { waves, count, distance, duration, particles } = BURST[tier];
   return (
-    <span aria-hidden="true" className="absolute top-1/2 left-1/2 motion-reduce:hidden">
-      {Array.from({ length: count }, (_, i) => {
-        // 안내가 영상 위쪽에 떠서 위로 튀면 잘리므로, 옆과 아래(-25도~205도)로 고르게 퍼지게 한다. 조금씩 어긋나게 해서 자연스럽게.
-        const angle = (-25 + (230 * i) / Math.max(1, count - 1)) * (Math.PI / 180) + (i % 2 === 0 ? 0.08 : -0.06);
+    <span aria-hidden="true" className="absolute top-1/2 left-1/2 z-0 motion-reduce:hidden">
+      {Array.from({ length: waves * count }, (_, n) => {
+        const wave = Math.floor(n / count);
+        const i = n % count;
+        // 안내가 영상 위쪽에 떠서 위로 튀면 잘리므로, 옆과 아래(-25도~205도)로 고르게 퍼지게 한다.
+        // 두 번째 터짐은 첫 번째 사이사이로 어긋나게, 조금 늦게, 더 멀리 퍼진다.
+        const offset = wave === 0 ? 0 : 0.5;
+        const angle = (-25 + (230 * (i + offset)) / Math.max(1, count - 1 + offset)) * (Math.PI / 180) + (i % 2 === 0 ? 0.08 : -0.06);
+        const reach = (compact ? distance * 0.5 : distance) * (wave === 0 ? 1 : 1.3);
         const length = reach * (0.65 + ((i * 37) % 10) / 28);
+        const particle = particles[n % particles.length] ?? FALLBACK_PARTICLE;
         const style = {
           '--star-x': `${Math.round(Math.cos(angle) * length)}px`,
           '--star-y': `${Math.round(Math.sin(angle) * length)}px`,
-          animationDelay: `${(i % 3) * 60}ms`,
+          animationDuration: `${duration}ms`,
+          animationDelay: `${wave * 350 + (i % 3) * 60}ms`,
         } as CSSProperties;
+        const Shape = particle.shape === 'star' ? Star : Sparkle;
         return (
-          <Star
-            key={i}
+          <Shape
+            key={n}
+            data-particle={particle.shape}
             style={style}
-            className={cn(
-              'animate-donation-star absolute fill-current',
-              compact ? 'size-3' : i % 3 === 0 ? 'size-5' : 'size-4',
-              STAR_COLORS[i % STAR_COLORS.length],
-            )}
+            className={cn('animate-donation-star absolute fill-current', compact ? 'size-3' : particle.size, particle.color)}
           />
         );
       })}
