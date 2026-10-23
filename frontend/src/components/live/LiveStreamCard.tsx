@@ -5,6 +5,7 @@ import { Badge, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { LIVE_STREAM_STATUS_LABEL } from '@/lib/labels';
 import { Hashtags } from './Hashtags';
+import { RecordedBadge } from './RecordedBadge';
 
 type Card = Schema<'LiveStreamCard'>;
 
@@ -31,6 +32,7 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
               <span className="num">{formatNumber(card.viewerCount ?? 0)}</span>명 시청
             </Badge>
           )}
+          {isLive && card.recorded && <RecordedBadge />}
         </div>
         {isLive && showIncrease && (card.viewerIncrease ?? 0) > 0 && (
           <Badge variant="warning" className="absolute right-3 bottom-3">

@@ -4,8 +4,9 @@ import { ApiError, api, call, errorMessage, useSession, type ChatMessage, type M
 import { readBroadcastOwner, writeBroadcastOwner } from '@/lib/broadcast-owner';
 import { appendChatMessage, prependModerationAlert } from '@/lib/live-room';
 import { useLiveRealtime } from '@/lib/use-live-realtime';
-import { ACTIVE_STREAM_KEY, BroadcastContext, START_STREAM_KEY, type ActiveLiveStream, type Broadcast } from './broadcast-context';
+import { ACTIVE_STREAM_KEY, BroadcastContext, START_STREAM_KEY, type ActiveLiveStream, type Broadcast, type VideoSource } from './broadcast-context';
 import { useLocalMedia } from './use-local-media';
+import { useRecordedVideo } from './use-recorded-video';
 import { usePublisher } from './use-publisher';
 
 /**
@@ -50,9 +51,33 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
 
   const reload = useCallback(() => void queryClient.invalidateQueries({ queryKey: ACTIVE_STREAM_KEY }), [queryClient]);
 
-  // 카메라·마이크와 송출 (LiveKit)
-  const media = useLocalMedia(publishing || (liveStream !== undefined && studioOpen));
+  // 카메라·마이크(또는 녹화 영상)와 송출 (LiveKit). 녹화 영상을 고르면 카메라는 끈다.
+  const [sourceKind, setSourceKind] = useState<VideoSource>('camera');
+  const mediaWanted = publishing || (liveStream !== undefined && studioOpen);
+  const camera = useLocalMedia(mediaWanted && sourceKind === 'camera');
+  const recorded = useRecordedVideo(mediaWanted && sourceKind === 'recorded');
+  const media = sourceKind === 'recorded' ? recorded : camera;
   const publisher = usePublisher(liveStreamId ?? 0, publishing, { camera: media.camera.track, microphone: media.microphone.track }, reload);
+
+  // 녹화 영상을 송출하는지 방송 정보(recorded)에 맞춘다. 시청자·구독자에게 "녹화 영상"으로 보이게.
+  // 송출을 맡은 탭만 맞춘다. (다른 탭이 서로 덮어쓰지 않게) 새로고침하면 고른 파일은 사라져 카메라로 돌아온다.
+  const sendingRecorded = sourceKind === 'recorded' && recorded.camera.track !== undefined;
+  const serverRecorded = liveStream?.recorded ?? false;
+  const syncRecorded = liveStreamId !== undefined && ownerId === liveStreamId && serverRecorded !== sendingRecorded;
+  useEffect(() => {
+    if (!syncRecorded || liveStreamId === undefined) return;
+    let cancelled = false;
+    void call(
+      api.PATCH('/api/v1/live-streams/{liveStreamId}', { params: { path: { liveStreamId } }, body: { recorded: sendingRecorded } }),
+    )
+      .then((updated) => {
+        if (!cancelled && updated) queryClient.setQueryData(ACTIVE_STREAM_KEY, updated);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [syncRecorded, liveStreamId, sendingRecorded, queryClient]);
 
   // 방송 채팅·검토 알림 (STOMP). 방송이 바뀌면 처음부터 쌓는다.
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -146,6 +171,7 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
       live,
       publishing,
       media,
+      source: { kind: sourceKind, setKind: setSourceKind, recorded },
       publisher,
       chat: {
         messages,
@@ -163,7 +189,7 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
       reload,
       setStudioOpen,
     }),
-    [liveStream, live, publishing, media, publisher, messages, realtime.status, chatError, sendChat, alerts, idleEndsAt, autoEnded, unseen, reload, setStudioOpen],
+    [liveStream, live, publishing, media, sourceKind, recorded, publisher, messages, realtime.status, chatError, sendChat, alerts, idleEndsAt, autoEnded, unseen, reload, setStudioOpen],
   );
 
   return <BroadcastContext.Provider value={value}>{children}</BroadcastContext.Provider>;
