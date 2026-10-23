@@ -23,6 +23,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -70,6 +71,7 @@ public class OAuthService {
      * 카카오 가입의 휴대폰 인증번호 발송. 일반 가입과 달리 이미 가입된 번호에도 보낸다. (그 계정에 카카오를 연결하므로)
      * 카카오 로그인을 거친 사용자(가입 대기 토큰이 있는 사용자)만 쓸 수 있다.
      */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public long sendSignupPhoneCode(String signupToken, String phoneNumber) {
         if (pendingSocialSignupRepository.find(signupToken).isEmpty()) {
             throw new BusinessException(OAuthErrorCode.SIGNUP_TOKEN_EXPIRED);
