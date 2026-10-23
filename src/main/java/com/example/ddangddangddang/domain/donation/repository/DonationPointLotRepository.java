@@ -15,17 +15,19 @@ public interface DonationPointLotRepository extends JpaRepository<DonationPointL
     boolean existsByOrderId(Long orderId);
 
     /**
-     * 적립 보정: from ~ to 사이에 구매 확정했는데 적립 묶음이 없는 주문. (적립 이벤트 처리가 실패한 주문)
+     * 적립 보정: from ~ to 사이에 구매 확정했는데 적립 묶음이 없는 주문. (적립 이벤트 처리가 실패한 주문) afterId보다 큰 주문을 ID 순으로
      * 주문 도메인을 읽기만 한다.
      */
     @Query("""
             select o from Order o
             where o.status = com.example.ddangddangddang.domain.order.entity.OrderStatus.COMPLETED
               and o.completedAt >= :from and o.completedAt < :to
+              and o.id > :afterId
               and not exists (select 1 from DonationPointLot l where l.orderId = o.id)
             order by o.id asc
             """)
-    List<Order> findConfirmedWithoutLot(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, Pageable pageable);
+    List<Order> findConfirmedWithoutLot(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+                                        @Param("afterId") Long afterId, Pageable pageable);
 
     /** from ~ to(제외) 사이에 적립한 합계 (한 달 적립 한도) */
     @Query("""

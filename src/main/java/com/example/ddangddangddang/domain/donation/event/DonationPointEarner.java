@@ -69,25 +69,20 @@ public class DonationPointEarner {
         LocalDateTime from = now.minus(BACKFILL_WINDOW);
         LocalDateTime to = now.minus(BACKFILL_DELAY);
         int processed = 0;
-        int failed = 0;
         try {
+            // 주문 ID 순으로 넘긴다. 실패한 주문은 이번에는 건너뛰고 다음 날 다시 한다.
+            Long afterId = 0L;
             while (true) {
-                // 적립에 성공한(0P 포함) 주문은 다음 조회에서 빠진다. 실패한 주문이 앞에 남아 같은 페이지를 계속 받지 않도록 그만큼 건너뛴다.
-                List<Order> orders = lotRepository.findConfirmedWithoutLot(from, to, PageRequest.of(0, BACKFILL_BATCH_SIZE + failed));
-                List<Order> todo = orders.subList(Math.min(failed, orders.size()), orders.size());
-                if (todo.isEmpty()) {
-                    break;
-                }
-                for (Order order : todo) {
+                List<Order> orders = lotRepository.findConfirmedWithoutLot(from, to, afterId, PageRequest.of(0, BACKFILL_BATCH_SIZE));
+                for (Order order : orders) {
                     if (earn(order.getId(), order.getBuyerId(), order.getSellerId(), order.getFinalPrice())) {
                         processed++;
-                    } else {
-                        failed++;
                     }
                 }
-                if (orders.size() < BACKFILL_BATCH_SIZE + failed) {
+                if (orders.size() < BACKFILL_BATCH_SIZE) {
                     break;
                 }
+                afterId = orders.get(orders.size() - 1).getId();
             }
         } catch (RuntimeException e) {
             log.warn("도네이션 포인트 적립 보정을 끝내지 못했습니다. 다음 날 다시 합니다.", e);
@@ -100,16 +95,22 @@ public class DonationPointEarner {
 
     /** @return 처리했으면 true (적립했거나 적립할 포인트가 없음), 실패했으면 false */
     private boolean earn(Long orderId, Long buyerId, Long sellerId, long finalPrice) {
+        long points;
         try {
-            long points = donationPointService.earn(orderId, buyerId, sellerId, finalPrice);
-            if (points > 0) {
-                notificationDispatcher.dispatch(List.of(
-                        Notification.donationPoint(buyerId, NotificationType.DONATION_POINT_EARNED, points)));
-            }
-            return true;
+            points = donationPointService.earn(orderId, buyerId, sellerId, finalPrice);
         } catch (RuntimeException e) {
             log.warn("도네이션 포인트를 적립하지 못했습니다. 새벽 보정에서 다시 합니다. orderId={}", orderId, e);
             return false;
         }
+        // 적립은 끝났으므로 알림이 실패해도 적립 실패로 보지 않는다.
+        if (points > 0) {
+            try {
+                notificationDispatcher.dispatch(List.of(
+                        Notification.donationPoint(buyerId, NotificationType.DONATION_POINT_EARNED, points)));
+            } catch (RuntimeException e) {
+                log.warn("도네이션 포인트 적립 알림을 보내지 못했습니다. orderId={}", orderId, e);
+            }
+        }
+        return true;
     }
 }
