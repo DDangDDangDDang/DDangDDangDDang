@@ -32,15 +32,18 @@ export function WatchProvider({ children }: { children: ReactNode }) {
   const liveStreamId = session?.liveStreamId ?? 0;
   const video = useLiveVideo(liveStreamId, !!session?.live && !ended, onRoomClosed);
 
+  // 지금 보고 있는 방송. (open에서 다른 방송으로 바뀌는지 판단할 때 쓴다)
+  const sessionIdRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    sessionIdRef.current = session?.liveStreamId;
+  }, [session?.liveStreamId]);
+
   const open = useCallback((next: WatchSession, onPageRoomClosed: () => void) => {
     onPageRoomClosedRef.current = onPageRoomClosed;
     setPageStreamId(next.liveStreamId);
-    setSession((prev) => {
-      // 작은 플레이어로 보던 방송으로 돌아오면 연결을 그대로 쓴다.
-      if (prev?.liveStreamId === next.liveStreamId) return prev;
-      setEnded(false);
-      return next;
-    });
+    if (sessionIdRef.current !== next.liveStreamId) setEnded(false);
+    // 작은 플레이어로 보던 방송으로 돌아오면 연결을 그대로 쓴다.
+    setSession((prev) => (prev?.liveStreamId === next.liveStreamId ? prev : next));
   }, []);
 
   const update = useCallback((next: WatchSession) => {
@@ -66,12 +69,10 @@ export function WatchProvider({ children }: { children: ReactNode }) {
 
   const { startAudio } = video;
   const toggleSound = useCallback(() => {
-    setMuted((current) => {
-      // 소리를 켤 때는 사용자가 누른 순간에 재생을 허용한다.
-      if (current) void startAudio();
-      return !current;
-    });
-  }, [startAudio]);
+    // 소리를 켤 때는 사용자가 누른 순간에 재생을 허용한다.
+    if (muted) void startAudio();
+    setMuted(!muted);
+  }, [muted, startAudio]);
 
   const value = useMemo<Watch>(
     () => ({
