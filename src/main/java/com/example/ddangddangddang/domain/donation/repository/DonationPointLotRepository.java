@@ -4,10 +4,12 @@ import com.example.ddangddangddang.domain.donation.entity.DonationPointLot;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface DonationPointLotRepository extends JpaRepository<DonationPointLot, Long> {
@@ -81,6 +83,11 @@ public interface DonationPointLotRepository extends JpaRepository<DonationPointL
             where l.userId = :userId and l.expiresAt <= :now and l.remaining > 0
             """)
     List<DonationPointLot> findExpired(@Param("userId") Long userId, @Param("now") LocalDateTime now);
+
+    /** 곧 사라진다고 알린 묶음으로 표시한다. (알림을 저장한 뒤에) */
+    @Modifying(clearAutomatically = true)
+    @Query("update DonationPointLot l set l.expiryNotified = true where l.id in :ids")
+    int markExpiryNotified(@Param("ids") Collection<Long> ids);
 
     /** 곧 사라질 묶음 중 아직 알리지 않은 것 */
     @Query("""
