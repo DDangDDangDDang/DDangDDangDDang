@@ -192,6 +192,21 @@ class OAuthControllerTest {
         }
 
         @Test
+        @DisplayName("다른 번호로 인증한 토큰이면 400 VERIFY_004, 회원을 만들지 않는다")
+        void otherPhoneToken() throws Exception {
+            mockMvc.perform(post("/api/v1/auth/oauth/kakao/signup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"signupToken": "signup-token", "nickname": "새회원", "email": "new@test.com",
+                                     "phoneNumber": "%s", "phoneVerificationToken": "%s"}
+                                    """.formatted(PHONE, SignupFixture.tokenOf("01099999999"))))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VERIFY_004"));
+
+            assertThat(userRepository.findByEmail("new@test.com")).isEmpty();
+        }
+
+        @Test
         @DisplayName("닉네임 형식이 틀리면 400")
         void invalidNickname() throws Exception {
             mockMvc.perform(post("/api/v1/auth/oauth/kakao/signup")

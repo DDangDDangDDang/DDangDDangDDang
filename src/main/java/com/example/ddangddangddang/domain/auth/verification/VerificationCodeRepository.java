@@ -46,6 +46,21 @@ public class VerificationCodeRepository {
             redis.call('DEL', KEYS[1], KEYS[2])
             return 1
             """, Long.class);
+
+    /**
+     * KEYS[1] 인증 완료 토큰 / ARGV[1] 기대하는 대상(휴대폰 번호 등)
+     * - 토큰이 없거나 다른 대상의 토큰 → 0 (지우지 않음)
+     * - 같은 대상 → 삭제 → 1
+     */
+    private static final RedisScript<Long> CONSUME_IF_MATCHES_SCRIPT = RedisScript.of("""
+            local saved = redis.call('GET', KEYS[1])
+            if not saved or saved ~= ARGV[1] then
+                return 0
+            end
+            redis.call('DEL', KEYS[1])
+            return 1
+            """, Long.class);
+
     private final StringRedisTemplate redisTemplate;
 
     /** 재전송 대기 중이 아니면 대기를 시작하고 true. 이미 대기 중이면 false (SET NX로 원자적으로 확인) */
@@ -79,7 +94,16 @@ public class VerificationCodeRepository {
     public void saveToken(VerificationPurpose purpose, String token, String target, Duration ttl) {
         redisTemplate.opsForValue().set(key("token", purpose, token), target, ttl);
     }
-
+    /**
+     * 토큰이 기대한 대상의 것일 때만 삭제하고 true. 확인과 삭제를 Lua 스크립트로 한 번에 실행한다.
+     * GETDEL로 먼저 꺼낸 뒤 비교하면, 대상이 달라 실패한 요청도 토큰을 지워 버린다.
+     */
+    public boolean consumeTokenIfMatches(VerificationPurpose purpose, String token, String expectedTarget) {
+        Long result = redisTemplate.execute(CONSUME_IF_MATCHES_SCRIPT,
+                List.of(key("token", purpose, token)), expectedTarget);
+        return result != null && result == 1;
+    }
+    
     /** 토큰을 꺼내면서 삭제한다(GETDEL). 같은 토큰을 두 번 쓸 수 없다. */
     public Optional<String> consumeToken(VerificationPurpose purpose, String token) {
         return Optional.ofNullable(redisTemplate.opsForValue().getAndDelete(key("token", purpose, token)));

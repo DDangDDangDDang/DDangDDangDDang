@@ -40,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -140,7 +141,6 @@ class OAuthServiceTest {
         void createUser() {
             noLinkedKakao();
             given(userRepository.findByPhoneNumber(PHONE)).willReturn(Optional.empty());
-            given(verificationService.consumeToken(VerificationPurpose.SIGNUP_PHONE, "phone-token")).willReturn(PHONE);
             given(userRepository.save(any(User.class))).willAnswer(invocation -> {
                 User saved = invocation.getArgument(0);
                 ReflectionTestUtils.setField(saved, "id", 10L);
@@ -156,6 +156,7 @@ class OAuthServiceTest {
             assertThat(userCaptor.getValue().getNickname()).isEqualTo("경매왕");
             assertThat(userCaptor.getValue().getPhoneNumber()).isEqualTo(PHONE);
             assertThat(userCaptor.getValue().hasPassword()).isFalse();
+            verify(verificationService).consumeMatchingToken(VerificationPurpose.SIGNUP_PHONE, "phone-token", PHONE);
             verify(pointService).createWallet(10L);
             verifyLinked(10L);
             verify(pendingSocialSignupRepository).delete(SIGNUP_TOKEN);
@@ -171,13 +172,13 @@ class OAuthServiceTest {
             noLinkedKakao();
             given(userRepository.findByPhoneNumber(PHONE)).willReturn(Optional.of(existing));
             given(socialAccountRepository.existsByUserIdAndProvider(3L, SocialProvider.KAKAO)).willReturn(false);
-            given(verificationService.consumeToken(VerificationPurpose.SIGNUP_PHONE, "phone-token")).willReturn(PHONE);
             given(authService.issueTokens(existing)).willReturn(loginResult(existing));
 
             KakaoSignupResult result = oAuthService.signupWithKakao(request);
 
             verify(userRepository, never()).save(any());
             verify(pointService, never()).createWallet(anyLong());
+            verify(verificationService).consumeMatchingToken(VerificationPurpose.SIGNUP_PHONE, "phone-token", PHONE);
             verifyLinked(3L);
             verify(pendingSocialSignupRepository).delete(SIGNUP_TOKEN);
             assertThat(result.response().linkedExistingAccount()).isTrue();
@@ -194,7 +195,7 @@ class OAuthServiceTest {
             assertThatThrownBy(() -> oAuthService.signupWithKakao(request))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode").isEqualTo(OAuthErrorCode.ALREADY_LINKED_OTHER_ACCOUNT);
-            verify(verificationService, never()).consumeToken(any(), anyString());
+            verify(verificationService, never()).consumeMatchingToken(any(), anyString(), anyString());
             verify(pendingSocialSignupRepository, never()).delete(anyString());
         }
 
@@ -208,7 +209,7 @@ class OAuthServiceTest {
             assertThatThrownBy(() -> oAuthService.signupWithKakao(request))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode").isEqualTo(UserErrorCode.DUPLICATE_EMAIL);
-            verify(verificationService, never()).consumeToken(any(), anyString());
+            verify(verificationService, never()).consumeMatchingToken(any(), anyString(), anyString());
             verify(pendingSocialSignupRepository, never()).delete(anyString());
         }
 
@@ -222,16 +223,17 @@ class OAuthServiceTest {
             assertThatThrownBy(() -> oAuthService.signupWithKakao(request))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode").isEqualTo(UserErrorCode.DUPLICATE_NICKNAME);
-            verify(verificationService, never()).consumeToken(any(), anyString());
+            verify(verificationService, never()).consumeMatchingToken(any(), anyString(), anyString());
             verify(pendingSocialSignupRepository, never()).delete(anyString());
         }
 
         @Test
-        @DisplayName("인증한 번호와 요청한 번호가 다르면 VERIFY_004")
+        @DisplayName("요청한 번호로 인증한 토큰이 아니면 VERIFY_004, 회원을 만들지 않는다")
         void phoneMismatch() {
             noLinkedKakao();
             given(userRepository.findByPhoneNumber(PHONE)).willReturn(Optional.empty());
-            given(verificationService.consumeToken(VerificationPurpose.SIGNUP_PHONE, "phone-token")).willReturn("01099999999");
+            willThrow(new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN))
+                    .given(verificationService).consumeMatchingToken(VerificationPurpose.SIGNUP_PHONE, "phone-token", PHONE);
 
             assertThatThrownBy(() -> oAuthService.signupWithKakao(request))
                     .isInstanceOf(BusinessException.class)
@@ -252,7 +254,7 @@ class OAuthServiceTest {
 
             assertThat(result.response().user().userId()).isEqualTo(5L);
             assertThat(result.response().linkedExistingAccount()).isFalse();
-            verify(verificationService, never()).consumeToken(any(), anyString());
+            verify(verificationService, never()).consumeMatchingToken(any(), anyString(), anyString());
             verify(pendingSocialSignupRepository).delete(SIGNUP_TOKEN);
         }
     }

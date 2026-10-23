@@ -8,7 +8,6 @@ import com.example.ddangddangddang.domain.auth.oauth.KakaoUser;
 import com.example.ddangddangddang.domain.auth.oauth.OAuthErrorCode;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignup;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignupRepository;
-import com.example.ddangddangddang.domain.auth.verification.VerificationErrorCode;
 import com.example.ddangddangddang.domain.auth.verification.VerificationPurpose;
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.point.service.PointService;
@@ -69,7 +68,7 @@ public class OAuthService {
     /**
      * 검사를 모두 마친 뒤에 1회용 토큰(휴대폰 인증 토큰 → 가입 대기 토큰)을 쓴다.
      * 닉네임 중복 같은 입력 실패로 토큰을 헛되이 쓰지 않게 하기 위함.
-     * 같은 요청이 두 번 동시에 와도 휴대폰 인증 토큰은 한 번만 꺼낼 수 있으므로(GETDEL) 하나만 통과한다.
+     * 같은 요청이 두 번 동시에 와도 휴대폰 인증 토큰은 한 번만 쓸 수 있으므로 하나만 통과한다.
      */
     @Transactional
     public KakaoSignupResult signupWithKakao(KakaoSignupRequest request) {
@@ -120,13 +119,10 @@ public class OAuthService {
         return user;
     }
 
-    /** 인증한 번호와 요청한 번호가 같아야 한다. (다른 번호로 인증하고 남의 번호를 보내는 것 방지) */
+    /** 요청한 번호로 인증한 토큰이어야 쓴다. 번호가 다르면 VERIFY_004이고 토큰은 남는다. */
     private void consumePhoneVerification(KakaoSignupRequest request) {
-        String verifiedPhoneNumber = verificationService.consumeToken(
-                VerificationPurpose.SIGNUP_PHONE, request.phoneVerificationToken());
-        if (!verifiedPhoneNumber.equals(request.phoneNumber())) {
-            throw new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
-        }
+        verificationService.consumeMatchingToken(
+                VerificationPurpose.SIGNUP_PHONE, request.phoneVerificationToken(), request.phoneNumber());
     }
 
     private User findUser(Long userId) {
