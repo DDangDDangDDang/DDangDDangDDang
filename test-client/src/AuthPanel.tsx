@@ -1,7 +1,6 @@
-import { FormEvent, SetStateAction, useEffect, useState} from 'react';
+import { FormEvent, useEffect, useState} from 'react';
 import {ApiError, errorText, login, sendSignupPhoneCode, signup, verifySignupPhone} from './api';
 import type {Log} from './App';
-// @ts-ignore
 import RecoveryPanel from './RecoveryPanel';
 
 type Props = { log: Log };
@@ -107,7 +106,7 @@ export default function AuthPanel({log}: Props) {
         <RecoveryPanel
             kind={mode}
             log={log}
-            onBack={(foundEmail: SetStateAction<string>) => {
+            onBack={(foundEmail) => {
               if (foundEmail) setEmail(foundEmail);
               setPassword('');
               setError(null);
