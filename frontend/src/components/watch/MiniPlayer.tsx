@@ -1,5 +1,5 @@
 import { Eye, Loader2, RefreshCw, Volume2, VolumeX, X } from 'lucide-react';
-import { Link, useLocation } from 'react-router';
+import { Link, matchPath, useLocation } from 'react-router';
 import { useBroadcast } from '@/components/broadcast/broadcast-context';
 import { Badge, buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
@@ -16,7 +16,9 @@ export function MiniPlayer() {
   const { session, pageOpen, video, muted, toggleSound, ended, close } = useWatch();
   const broadcast = useBroadcast();
   const { pathname } = useLocation();
-  if (!session || pageOpen || (!session.live && !ended)) return null;
+  // 시청 화면 경로에서는 숨긴다. 화면이 방송을 여는 effect가 돌기 전 첫 렌더에서 소리가 두 번 나지 않게.
+  const onWatchPage = matchPath('/lives/:liveStreamId', pathname) !== null;
+  if (!session || pageOpen || onWatchPage || (!session.live && !ended)) return null;
 
   const sellerBroadcastShown = broadcast.publishing && broadcast.liveStream !== undefined && pathname !== '/studio';
   const watchPath = `/lives/${session.liveStreamId}`;
