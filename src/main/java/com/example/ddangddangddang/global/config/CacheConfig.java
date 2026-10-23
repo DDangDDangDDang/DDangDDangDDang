@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.cache.RedisCacheWriter;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
@@ -46,7 +47,10 @@ public class CacheConfig implements CachingConfigurer {
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
                         new JacksonJsonRedisSerializer<>(jsonMapper, jsonMapper.getTypeFactory().constructType(DonationPolicy.class))
                 ));
-        return RedisCacheManager.builder(connectionFactory)
+        // 캐시 쓰기·삭제를 끝까지 기다린다. (immediateWrites)
+        // Spring Data Redis 4는 Lettuce를 쓰면 기본으로 비동기로 지워서, 카테고리·정책을 바꾸자마자 다시 조회하면 지우기 전의 예전 값이 나왔다.
+        RedisCacheWriter cacheWriter = RedisCacheWriter.create(connectionFactory, writer -> writer.immediateWrites());
+        return RedisCacheManager.builder(cacheWriter)
                 .withCacheConfiguration(CATEGORIES, categoryConfig)
                 .withCacheConfiguration(DONATION_POLICY, donationPolicyConfig)
                 .transactionAware() //DB 커밋이 끝난 뒤에 캐시 삭제

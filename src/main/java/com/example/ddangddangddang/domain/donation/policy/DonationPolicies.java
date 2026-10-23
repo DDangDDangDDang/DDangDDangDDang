@@ -54,7 +54,7 @@ public class DonationPolicies {
     }
 
     @Transactional
-    // 지금 정책 하나만 캐시하므로 그 키를 지운다. (allEntries로 비우면 Redis 캐시가 지워지지 않아 키를 지정한다)
+    // 지금 정책 하나만 캐시하므로 그 키를 지운다. 커밋 뒤에 바로 지워진다. (CacheConfig: 트랜잭션 인식 + 즉시 쓰기)
     @CacheEvict(cacheNames = CacheConfig.DONATION_POLICY, key = "'current'")
     public DonationPolicyResponse change(Long adminId, DonationPolicyRequest request) {
         DonationPolicy policy = request.toPolicy();
