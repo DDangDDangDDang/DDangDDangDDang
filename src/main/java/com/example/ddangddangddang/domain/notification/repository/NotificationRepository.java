@@ -21,6 +21,14 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     Optional<Notification> findByIdAndUserId(Long id, Long userId);
 
+    /** 보관 기간이 지난 알림 id (NotificationCleaner가 한 번에 지울 만큼씩 찾는다) */
+    @Query("select n.id from Notification n where n.createdAt < :before order by n.id")
+    List<Long> findIdsOlderThan(@Param("before") LocalDateTime before, Pageable pageable);
+
+    @Modifying
+    @Query("delete from Notification n where n.id in :ids")
+    int deleteByIds(@Param("ids") List<Long> ids);
+
     @Modifying
     @Query("update Notification n set n.readAt = :now where n.userId = :userId and n.readAt is null")
     int readAll(@Param("userId") Long userId, @Param("now") LocalDateTime now);

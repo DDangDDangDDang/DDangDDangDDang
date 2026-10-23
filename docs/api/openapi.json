@@ -104,6 +104,63 @@
         }
       }
     },
+    "/api/v1/notifications/settings/{category}" : {
+      "put" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "notificationUpdateSetting",
+        "parameters" : [ {
+          "name" : "category",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_RESULT" ]
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NotificationSettingRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListNotificationSettingResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auctions/{auctionId}/alert" : {
       "get" : {
         "tags" : [ "auction-alert-controller" ],
@@ -3494,6 +3551,62 @@
         }
       }
     },
+    "/api/v1/users/me/auction-alerts" : {
+      "get" : {
+        "tags" : [ "auction-alert-controller" ],
+        "operationId" : "auctionAlertGetMine",
+        "parameters" : [ {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseAuctionListResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sellers/{sellerId}/profile" : {
       "get" : {
         "tags" : [ "seller-controller" ],
@@ -4019,6 +4132,44 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseUnreadNotificationCountResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/settings" : {
+      "get" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "notificationGetSettings",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListNotificationSettingResponse"
                 }
               }
             }
@@ -4578,6 +4729,50 @@
           "subscriberCount" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "NotificationSettingRequest" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "enabled" ]
+      },
+      "ApiResponseListNotificationSettingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NotificationSettingResponse"
+            }
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "NotificationSettingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string",
+            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_RESULT" ]
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
           }
         }
       },
@@ -6416,6 +6611,80 @@
           }
         }
       },
+      "ApiResponseCursorResponseAuctionListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseAuctionListResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "AuctionListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "productId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "productName" : {
+            "type" : "string"
+          },
+          "categoryName" : {
+            "type" : "string"
+          },
+          "currentPrice" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bidCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "READY", "ONGOING", "ENDED", "FAILED", "CANCELED" ]
+          },
+          "startAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "live" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "CursorResponseAuctionListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AuctionListResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ApiResponseSellerProfileResponse" : {
         "type" : "object",
         "properties" : {
@@ -7083,48 +7352,6 @@
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "AuctionListResponse" : {
-        "type" : "object",
-        "properties" : {
-          "auctionId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "productId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "productName" : {
-            "type" : "string"
-          },
-          "categoryName" : {
-            "type" : "string"
-          },
-          "currentPrice" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "bidCount" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "status" : {
-            "type" : "string",
-            "enum" : [ "READY", "ONGOING", "ENDED", "FAILED", "CANCELED" ]
-          },
-          "startAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "endAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "live" : {
-            "type" : "boolean"
           }
         }
       },

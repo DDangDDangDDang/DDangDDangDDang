@@ -18,6 +18,8 @@ import { LiveWatchPage } from '@/pages/live/LiveWatchPage';
 import { MyInfoPage } from '@/pages/me/MyInfoPage';
 import { MessagesPage } from '@/pages/messages/MessagesPage';
 import { PointsPage } from '@/pages/me/PointsPage';
+import { AlertedAuctionsPage } from '@/pages/me/AlertedAuctionsPage';
+import { NotificationSettingsPage } from '@/pages/me/NotificationSettingsPage';
 import { SellerApplicationPage } from '@/pages/me/SellerApplicationPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { OrderDetailPage } from '@/pages/orders/OrderDetailPage';
@@ -59,6 +61,8 @@ export const router = createBrowserRouter([
           { path: '/me', element: <MyInfoPage /> },
           { path: '/points', element: <PointsPage /> },
           { path: '/me/seller', element: <SellerApplicationPage /> },
+          { path: '/me/notifications', element: <NotificationSettingsPage /> },
+          { path: '/me/auction-alerts', element: <AlertedAuctionsPage /> },
           { path: '/orders', element: <OrdersPage /> },
           { path: '/orders/:orderId', element: <OrderDetailPage /> },
           { path: '/studio', element: <SellerStudioPage /> },

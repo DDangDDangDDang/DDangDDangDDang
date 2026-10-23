@@ -102,8 +102,8 @@ public class AuctionClosingSoonNotifier {
         if (noticeRepository.existsById(target.auctionId())) {
             return List.of();
         }
-        List<Notification> notifications = AuctionNotifier.notifications(auctionNotifier.watchers(target.auctionId()),
-                NotificationType.AUCTION_CLOSING_SOON, target.auctionId(), target.productName(), null);
+        List<Notification> notifications = notificationDispatcher.withoutMuted(AuctionNotifier.notifications(auctionNotifier.watchers(target.auctionId()),
+                NotificationType.AUCTION_CLOSING_SOON, target.auctionId(), target.productName(), null));
         try {
             List<Notification> saved = transactionTemplate.execute(status -> {
                 noticeRepository.saveAndFlush(new AuctionClosingNotice(target.auctionId(), now));

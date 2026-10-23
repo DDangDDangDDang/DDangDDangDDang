@@ -53,3 +53,6 @@ web-push:
 notification:
   closing-soon:
     enabled: false
+  # 오래된 알림 정리 스케줄러도 끈다. (NotificationCleanerTest에서 직접 호출해 확인)
+  cleanup:
+    enabled: false
