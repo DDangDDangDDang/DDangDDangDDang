@@ -5,20 +5,33 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BidDialog } from './BidDialog';
 
-type Request = { path: string };
+type Request = { path: string; method?: string; init?: { body?: { amount?: number } } };
 
 // 진행 중인 경매(현재가 15,000P, 단위 1,000P, 입찰 3회)와 내 지갑(잔액 20,000P). walletFails면 지갑 조회가 실패한다.
-const state = vi.hoisted(() => ({ walletFails: false }));
+const state = vi.hoisted(() => ({ walletFails: false, bidFails: false, buyNowPrice: undefined as number | undefined, posts: [] as { path: string; amount?: number }[] }));
 vi.mock('@/api', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/api')>();
   const endAt = new Date(Date.now() + 10 * 60_000).toISOString();
   return {
     ...original,
     useSession: () => ({ accessToken: 't', user: { userId: 2 } }),
-    api: { GET: (path: string) => ({ path }) },
+    api: {
+      GET: (path: string) => ({ path, method: 'GET' }),
+      POST: (path: string, init: Request['init']) => ({ path, method: 'POST', init }),
+    },
+    // 실시간 연결은 하지 않는다.
+    connectRealtime: () => ({ subscribe: () => () => undefined, close: () => undefined }),
     call: async (r: Request) => {
+      if (r.method === 'POST') {
+        state.posts.push({ path: r.path, amount: r.init?.body?.amount });
+        if (r.path.endsWith('/bids')) {
+          if (state.bidFails) throw new original.ApiError('AUCTION_016', '입찰가가 최소 입찰가보다 낮습니다.', 400);
+          return { bidId: 9, auctionId: 1, amount: r.init?.body?.amount, bidCount: 4, endAt, extended: true };
+        }
+        return { auctionId: 1, orderId: 77, price: state.buyNowPrice };
+      }
       if (r.path === '/api/v1/auctions/{auctionId}')
-        return { id: 1, productName: '필름 카메라', status: 'ONGOING', startPrice: 10000, currentPrice: 15000, bidUnit: 1000, bidCount: 3, endAt };
+        return { id: 1, productName: '필름 카메라', status: 'ONGOING', startPrice: 10000, currentPrice: 15000, bidUnit: 1000, bidCount: 3, endAt, buyNowPrice: state.buyNowPrice };
       if (r.path === '/api/v1/points/wallet') {
         if (state.walletFails) throw new original.ApiError('COMMON_500', '서버 오류', 500);
         return { balance: 20000 };
@@ -41,6 +54,9 @@ function renderDialog(showDetailLink?: boolean) {
 describe('BidDialog', () => {
   beforeEach(() => {
     state.walletFails = false;
+    state.bidFails = false;
+    state.buyNowPrice = undefined;
+    state.posts = [];
     // jsdom에는 <dialog>의 showModal·close가 없다.
     HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
       this.open = true;
@@ -50,13 +66,48 @@ describe('BidDialog', () => {
     };
   });
 
-  it('[최소]를 누르면 현재가 + 입찰 단위가 들어가고, 입찰하면 준비 중 안내를 보여준다', async () => {
+  it('[최소]를 누르면 현재가 + 입찰 단위가 들어가고, 한 번 더 확인한 뒤 입찰한다', async () => {
     renderDialog();
     await userEvent.click(await screen.findByRole('button', { name: '최소' }));
     expect(screen.getByLabelText('입찰 금액')).toHaveValue('16,000');
 
     await userEvent.click(screen.getByRole('button', { name: '16,000 P 입찰하기' }));
-    expect(await screen.findByText(/입찰 기능을 준비하고 있어요/)).toBeInTheDocument();
+    // 확인 전에는 보내지 않는다
+    expect(screen.getByRole('group', { name: '입찰 확인' })).toHaveTextContent('16,000 P로 입찰할까요?');
+    expect(state.posts).toEqual([]);
+
+    await userEvent.click(screen.getByRole('button', { name: '16,000 P 입찰 확정' }));
+    expect(await screen.findByText(/16,000 P로 입찰했어요\. 지금 최고 입찰자예요\./)).toBeInTheDocument();
+    expect(screen.getByText(/마감이 30초 늘어났어요/)).toBeInTheDocument();
+    expect(state.posts).toEqual([{ path: '/api/v1/auctions/{auctionId}/bids', amount: 16000 }]);
+  });
+
+  it('입찰이 거절되면(그 사이 현재가가 오름) 이유를 보여 준다', async () => {
+    state.bidFails = true;
+    renderDialog();
+    await userEvent.click(await screen.findByRole('button', { name: '최소' }));
+    await userEvent.click(screen.getByRole('button', { name: '16,000 P 입찰하기' }));
+    await userEvent.click(screen.getByRole('button', { name: '16,000 P 입찰 확정' }));
+    expect(await screen.findByText('그 사이 현재가가 올랐어요. 금액을 다시 정해 주세요.')).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: '입찰 확인' })).not.toBeInTheDocument();
+  });
+
+  it('즉시구매가가 있으면 한 번 더 확인한 뒤 즉시 구매하고, 주문 내역으로 안내한다', async () => {
+    state.buyNowPrice = 19000;
+    renderDialog();
+    await userEvent.click(await screen.findByRole('button', { name: /즉시 구매 19,000 P/ }));
+    expect(screen.getByRole('group', { name: '즉시 구매 확인' })).toHaveTextContent('19,000 P에 바로 낙찰받을까요?');
+    await userEvent.click(screen.getByRole('button', { name: '19,000 P 즉시 구매 확정' }));
+    expect(state.posts).toEqual([{ path: '/api/v1/auctions/{auctionId}/buy-now', amount: undefined }]);
+  });
+
+  it('즉시구매가 이상으로는 입찰하지 않고 즉시 구매로 안내한다', async () => {
+    state.buyNowPrice = 19000;
+    renderDialog();
+    await userEvent.type(await screen.findByLabelText('입찰 금액'), '19000');
+    await userEvent.click(screen.getByRole('button', { name: '19,000 P 입찰하기' }));
+    expect(screen.getByText('즉시구매가 이상으로는 입찰할 수 없어요. [즉시 구매]를 이용해 주세요.')).toBeInTheDocument();
+    expect(state.posts).toEqual([]);
   });
 
   it('아래에 입찰 전 경고문(취소 불가·낙찰 시 되돌릴 수 없음)과 경매 상세 링크를 보여준다', async () => {

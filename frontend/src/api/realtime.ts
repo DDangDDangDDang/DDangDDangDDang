@@ -41,6 +41,15 @@ export type LiveAuctionChangedMessage = {
   auctionId: number;
 };
 
+/**
+ * 경매 한 건의 변경 (`/topic/auctions/{id}`). 손님도 받는다.
+ * - 입찰이 반영됨: bidderId·amount·bidCount·endAt·extended (마감 30초 전 안쪽 입찰이면 endAt이 늘어남)
+ * - 경매가 끝남: result(ENDED 낙찰, FAILED 유찰)·winnerId·finalPrice
+ */
+export type AuctionRealtimeMessage =
+  | { auctionId: number; bidderId: number; amount: number; bidCount: number; endAt: string; extended: boolean }
+  | { auctionId: number; result: 'ENDED' | 'FAILED'; sellerId: number; winnerId: number | null; finalPrice: number | null; productName: string };
+
 /** AI가 확인이 필요하다고 본 채팅 (`/user/queue/moderation`). 방송 판매자에게만 온다. */
 export type ModerationAlert = {
   liveStreamId: number;
@@ -89,6 +98,7 @@ export const REALTIME = {
   liveChat: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}/chat`,
   liveStream: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}`,
   liveAuctions: (liveStreamId: number) => `/topic/live-streams/${liveStreamId}/auctions`,
+  auction: (auctionId: number) => `/topic/auctions/${auctionId}`,
   errors: '/user/queue/errors',
   moderation: '/user/queue/moderation',
   liveStreamIdle: '/user/queue/live-stream',

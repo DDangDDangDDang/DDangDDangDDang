@@ -51,6 +51,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             Pattern.compile("^/topic/live-streams/\\d+$"),
             // 방송에 올라간 경매 변경 알림 (시작·방송에 올림·취소·마감)
             Pattern.compile("^/topic/live-streams/\\d+/auctions$"),
+            // 경매 한 건의 입찰·종료 (현재가·입찰 수·마감 시각 실시간 갱신)
+            Pattern.compile("^/topic/auctions/\\d+$"),
             Pattern.compile("^/user/queue/errors$"),
             // 판매자에게만 오는 채팅 검토 알림 (내 방송의 알림만 나에게 전달됨)
             Pattern.compile("^/user/queue/moderation$"),
@@ -62,11 +64,12 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             Pattern.compile("^/user/queue/notifications$")
     );
 
-    // 손님(로그인하지 않은 연결)이 구독할 수 있는 경로: 방송 채팅, 방송 정보 변경, 방송의 경매 변경
+    // 손님(로그인하지 않은 연결)이 구독할 수 있는 경로: 방송 채팅, 방송 정보 변경, 방송의 경매 변경, 경매 한 건의 입찰·종료
     private static final List<Pattern> GUEST_SUBSCRIBABLE_DESTINATIONS = List.of(
             Pattern.compile("^/topic/live-streams/\\d+/chat$"),
             Pattern.compile("^/topic/live-streams/\\d+$"),
-            Pattern.compile("^/topic/live-streams/\\d+/auctions$")
+            Pattern.compile("^/topic/live-streams/\\d+/auctions$"),
+            Pattern.compile("^/topic/auctions/\\d+$")
     );
 
     private final AccessTokenAuthenticator accessTokenAuthenticator;
