@@ -4557,6 +4557,20 @@
           }
         }
       },
+      "Customer" : {
+        "type" : "object",
+        "properties" : {
+          "fullName" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "phoneNumber" : {
+            "type" : "string"
+          }
+        }
+      },
       "PointChargeResponse" : {
         "type" : "object",
         "properties" : {
@@ -4573,6 +4587,9 @@
           },
           "orderName" : {
             "type" : "string"
+          },
+          "customer" : {
+            "$ref" : "#/components/schemas/Customer"
           }
         }
       },

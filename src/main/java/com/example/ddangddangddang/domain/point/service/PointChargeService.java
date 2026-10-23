@@ -14,6 +14,9 @@ import com.example.ddangddangddang.domain.point.infra.PaymentInfo;
 import com.example.ddangddangddang.domain.point.repository.PointChargeRepository;
 import com.example.ddangddangddang.domain.point.repository.PointHistoryRepository;
 import com.example.ddangddangddang.domain.point.repository.PointWalletRepository;
+import com.example.ddangddangddang.domain.user.entity.User;
+import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
+import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,11 +44,14 @@ public class PointChargeService {
     private final PointWalletRepository pointWalletRepository;
     private final PointHistoryRepository pointHistoryRepository;
     private final PaymentGateway paymentGateway;
+    private final UserRepository userRepository;
 
     @Transactional
     public PointChargeResponse createChargeRequest(Long userId, PointChargeRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
         PointCharge pointCharge = PointCharge.create(userId, request.getAmount(), generatePaymentId());
-        return PointChargeResponse.from(pointChargeRepository.save(pointCharge));
+        return PointChargeResponse.of(pointChargeRepository.save(pointCharge), user);
     }
 
     /**
@@ -154,6 +160,10 @@ public class PointChargeService {
                 .orElse(null);
     }
 
+    /**
+     * 결제 ID(PG사에 넘어가는 주문번호).
+     * KG이니시스는 주문번호를 40자까지만 받는다. "charge-"(7자) + 하이픈 뺀 UUID(32자) = 39자.
+     */
     private String generatePaymentId() {
         return "charge-" + UUID.randomUUID().toString().replace("-", "");
     }
