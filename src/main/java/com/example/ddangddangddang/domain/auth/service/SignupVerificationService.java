@@ -26,6 +26,18 @@ public class SignupVerificationService {
         if (userRepository.existsByPhoneNumber(phoneNumber)) {
             throw new BusinessException(UserErrorCode.DUPLICATE_PHONE_NUMBER);
         }
+        return issueAndSend(phoneNumber);
+    }
+
+    /**
+     * 소셜 가입용. 이미 가입된 번호도 보낸다.
+     * 같은 번호의 회원이 있으면 가입 대신 그 계정에 소셜 계정을 연결하기 때문이다. (OAuthService.signupWithKakao)
+     */
+    public long sendCodeForSocialSignup(String phoneNumber) {
+        return issueAndSend(phoneNumber);
+    }
+
+    private long issueAndSend(String phoneNumber) {
         String code = verificationService.issueCode(VerificationPurpose.SIGNUP_PHONE, phoneNumber);
         smsSender.send(phoneNumber, "[땅땅땅] 회원가입 인증번호 [" + code + "]를 입력해 주세요.");
         return VerificationService.CODE_TTL.toSeconds();

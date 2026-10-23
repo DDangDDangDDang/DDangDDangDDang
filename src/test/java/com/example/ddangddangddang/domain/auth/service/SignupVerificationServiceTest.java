@@ -63,4 +63,16 @@ class SignupVerificationServiceTest {
         verify(verificationService, never()).issueCode(any(), anyString());
         verify(smsSender, never()).send(anyString(), anyString());
     }
+
+    @Test
+    @DisplayName("소셜 가입용은 이미 가입된 번호에도 인증번호를 보낸다 (기존 계정에 소셜 계정을 연결하므로)")
+    void socialSignupAllowsRegisteredPhone() {
+        given(verificationService.issueCode(VerificationPurpose.SIGNUP_PHONE, PHONE)).willReturn("123456");
+
+        long expiresIn = signupVerificationService.sendCodeForSocialSignup(PHONE);
+
+        assertThat(expiresIn).isEqualTo(300);
+        verify(smsSender).send(eq(PHONE), contains("123456"));
+        verify(userRepository, never()).existsByPhoneNumber(anyString());
+    }
 }
