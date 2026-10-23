@@ -85,12 +85,17 @@ public class NotificationCleaner {
                     break;
                 }
             }
-            transactionTemplate.executeWithoutResult(status -> closingNoticeRepository.deleteOlderThan(now.minus(CLOSING_NOTICE_RETENTION)));
-            if (deleted > 0) {
-                log.info("보관 기간({})이 지난 알림 {}건을 지웠습니다.", retention, deleted);
-            }
         } catch (RuntimeException e) {
             log.warn("오래된 알림을 정리하지 못했습니다. 다음 날 다시 합니다.", e);
+        }
+        if (deleted > 0) {
+            log.info("보관 기간({})이 지난 알림 {}건을 지웠습니다.", retention, deleted);
+        }
+        // 알림 정리가 실패해도 마감 임박 기록 정리는 따로 한다.
+        try {
+            transactionTemplate.executeWithoutResult(status -> closingNoticeRepository.deleteOlderThan(now.minus(CLOSING_NOTICE_RETENTION)));
+        } catch (RuntimeException e) {
+            log.warn("오래된 마감 임박 알림 기록을 정리하지 못했습니다. 다음 날 다시 합니다.", e);
         }
         return deleted;
     }

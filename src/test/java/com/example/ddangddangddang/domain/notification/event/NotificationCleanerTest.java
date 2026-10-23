@@ -71,14 +71,16 @@ class NotificationCleanerTest {
     }
 
     @Test
-    @DisplayName("조회·삭제가 실패해도 예외를 밖으로 내지 않고 0건으로 끝낸다 (다음 날 다시)")
+    @DisplayName("알림 정리가 실패해도 예외를 밖으로 내지 않고 0건으로 끝내며, 마감 임박 기록 정리는 따로 한다")
     void failureIsSwallowed() {
         NotificationRepository failing = mock(NotificationRepository.class);
         given(failing.findIdsOlderThan(any(), any())).willThrow(new IllegalStateException("DB 연결 끊김"));
         NotificationCleaner cleaner = new NotificationCleaner(failing, closingNoticeRepository, transactionTemplate,
                 true, Duration.ofDays(90), Clock.systemDefaultZone());
+        closingNoticeRepository.save(new AuctionClosingNotice(990_201L, LocalDateTime.now().minusDays(31)));
 
         assertThat(cleaner.clean()).isZero();
+        assertThat(closingNoticeRepository.existsById(990_201L)).isFalse();
     }
 
     private Long saveNotificationCreatedAt(LocalDateTime createdAt) {
