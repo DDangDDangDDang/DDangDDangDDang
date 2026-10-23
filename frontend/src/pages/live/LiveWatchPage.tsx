@@ -21,7 +21,7 @@ import { LiveChat } from '@/components/live/LiveChat';
 import { appendChatMessage } from '@/lib/live-room';
 import { LiveVideo } from './LiveVideo';
 import { useLiveRealtime } from '@/lib/use-live-realtime';
-import { useLiveVideo } from './use-live-video';
+import { useWatchStream } from '@/components/watch/watch-context';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
 
@@ -61,8 +61,6 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
   const [bidAuctionId, setBidAuctionId] = useState<number>();
   // 도네이션 선물 창 (로그인해야 함)
   const [giftOpen, setGiftOpen] = useState(false);
-  // 방송 소리를 켰는지. 선물 효과음은 소리를 켠 시청자에게만 낸다. (소리를 꺼 둔 사람에게 갑자기 소리가 나지 않게)
-  const [soundOn, setSoundOn] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatError, setChatError] = useState<string>();
@@ -79,7 +77,10 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
 
   const liveStream = query.data;
   const isLive = liveStream?.status === 'LIVE';
-  const video = useLiveVideo(liveStreamId, isLive, refetchLiveStream);
+  // 방송 영상·소리는 앱 전체에서 이어 본다. 이 화면을 떠나도 방송 중이면 오른쪽 아래 작은 플레이어에서 이어지고, 돌아오면 다시 접속하지 않는다.
+  const { video, muted, toggleSound } = useWatchStream({ liveStreamId, title: liveStream?.title, live: isLive }, refetchLiveStream);
+  // 선물 효과음은 방송 소리를 켠 시청자에게만 낸다. (소리를 꺼 둔 사람에게 갑자기 소리가 나지 않게)
+  const soundOn = !muted;
 
   // 판매자가 영상 위에 띄운 경매. 경매 목록은 옆 경매 카드와 같은 쿼리라 한 번만 불러온다.
   const auctions = useLiveStreamAuctions(liveStreamId, WATCH_AUCTION_REFRESH_MS);
@@ -111,7 +112,8 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
           <LiveVideo
             liveStream={liveStream}
             video={video}
-            onSoundChange={setSoundOn}
+            muted={muted}
+            onToggleSound={toggleSound}
             overlay={
               <>
                 <FeaturedAuctionSlot
@@ -205,7 +207,7 @@ function StreamInfo({
             선물하기
           </Button>
         )}
-        {/* 로그인했으면 링크(시청 중이라 새 탭으로 열림, WatchNavigationGuard).
+        {/* 로그인했으면 링크(옮겨 가도 방송은 작은 플레이어에서 이어짐).
             로그인하지 않았으면 로그인 창만 여는 버튼이고, 로그인 뒤 다시 누르면 문의가 열린다. (로그인 뒤에 새 탭을 열면 팝업으로 막힐 수 있어서) */}
         {canAsk &&
           (session ? (

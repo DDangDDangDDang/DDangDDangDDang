@@ -23,13 +23,14 @@ import { cn } from "@/lib/cn";
 import { DONATION_WALLET_KEY } from "@/lib/donation";
 import { formatNumber } from "@/lib/format";
 import { useSellerProfile } from "@/lib/use-seller";
-import { WatchNavigationGuard } from "@/lib/watch-navigation";
+import { MiniPlayer } from "@/components/watch/MiniPlayer";
+import { WatchProvider } from "@/components/watch/WatchProvider";
 
 /**
  * 모든 화면 공통 틀: 상단 헤더 + 가운데 정렬된 본문 (최대 폭 1360px)
  * 판매자 송출(BroadcastProvider)을 여기에 두어 방송 중에 다른 화면으로 가도 송출이 이어지고, 작은 방송 창이 뜬다.
  * 판매자 프로필 창(SellerProfileProvider)과 방송 시작 알림 팝업(LiveStartToasts)도 앱 전체에 하나씩 둔다.
- * 방송 시청 중에 다른 화면으로 가는 링크는 새 탭으로 연다. (WatchNavigationGuard, 시청이 끊기지 않게)
+ * 시청자 방송 시청(WatchProvider)도 여기에 두어, 방송을 보다가 다른 화면으로 가면 오른쪽 아래 작은 플레이어(MiniPlayer)에서 이어진다.
  */
 export function AppLayout() {
   const session = useSession();
@@ -39,30 +40,32 @@ export function AppLayout() {
   );
   return (
     <BroadcastProvider>
-      <SellerProfileProvider>
-        <div className="min-h-screen">
-          {session?.user.userId !== undefined && (
-            <DmRealtime userId={session.user.userId} />
-          )}
-          <WatchNavigationGuard />
-          <AppHeader />
-          <main className="mx-auto max-w-[1360px] px-8 pt-6 pb-14">
-            {/* 상단 탭 화면에서는 왼쪽에 구독 중인 판매자를 보여 준다. (방송 중이면 LIVE를 눌러 바로 들어간다) */}
-            {showSubscriptions ? (
-              <div className="flex items-start gap-8">
-                <SubscriptionSidebar />
-                <div className="min-w-0 flex-1">
-                  <Outlet />
-                </div>
-              </div>
-            ) : (
-              <Outlet />
+      <WatchProvider>
+        <SellerProfileProvider>
+          <div className="min-h-screen">
+            {session?.user.userId !== undefined && (
+              <DmRealtime userId={session.user.userId} />
             )}
-          </main>
-          <MiniBroadcast />
-          {session && <LiveStartToasts />}
-        </div>
-      </SellerProfileProvider>
+            <AppHeader />
+            <main className="mx-auto max-w-[1360px] px-8 pt-6 pb-14">
+              {/* 상단 탭 화면에서는 왼쪽에 구독 중인 판매자를 보여 준다. (방송 중이면 LIVE를 눌러 바로 들어간다) */}
+              {showSubscriptions ? (
+                <div className="flex items-start gap-8">
+                  <SubscriptionSidebar />
+                  <div className="min-w-0 flex-1">
+                    <Outlet />
+                  </div>
+                </div>
+              ) : (
+                <Outlet />
+              )}
+            </main>
+            <MiniBroadcast />
+            <MiniPlayer />
+            {session && <LiveStartToasts />}
+          </div>
+        </SellerProfileProvider>
+      </WatchProvider>
     </BroadcastProvider>
   );
 }
