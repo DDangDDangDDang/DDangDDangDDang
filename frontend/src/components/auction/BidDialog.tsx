@@ -151,7 +151,16 @@ function BidForm({ auctionId, showDetailLink }: { auctionId: number; showDetailL
         </div>
       </dl>
 
-      {ongoing ? (
+      {/* 즉시 구매가 끝나면 경매 상태가 아직 바뀌지 않았어도 결과만 보여 주고, 더 입찰·구매하지 못하게 한다. */}
+      {result?.kind === 'buy' ? (
+        <Notice tone="success">
+          {formatPoint(result.price)}에 즉시 구매했어요. 낙찰받은 상품은{' '}
+          <Link to={result.orderId ? `/orders/${result.orderId}` : '/orders'} target="_blank" rel="noreferrer" className="font-semibold underline">
+            주문 내역
+          </Link>
+          에서 확인하세요.
+        </Notice>
+      ) : ongoing ? (
         <>
           <div role="group" aria-label="금액 빠르게 정하기" className="grid grid-cols-4 gap-2">
             {BID_STEPS.map((step) => {
@@ -243,14 +252,6 @@ function BidForm({ auctionId, showDetailLink }: { auctionId: number; showDetailL
             />
           ) : null}
         </>
-      ) : result?.kind === 'buy' ? (
-        <Notice tone="success">
-          {formatPoint(result.price)}에 즉시 구매했어요. 낙찰받은 상품은{' '}
-          <Link to={result.orderId ? `/orders/${result.orderId}` : '/orders'} target="_blank" rel="noreferrer" className="font-semibold underline">
-            주문 내역
-          </Link>
-          에서 확인하세요.
-        </Notice>
       ) : (
         <Notice>{phase === 'READY' ? '경매가 시작되면 입찰할 수 있어요.' : '입찰이 끝난 경매예요.'}</Notice>
       )}

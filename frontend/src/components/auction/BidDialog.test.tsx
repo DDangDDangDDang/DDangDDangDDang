@@ -99,6 +99,10 @@ describe('BidDialog', () => {
     expect(screen.getByRole('group', { name: '즉시 구매 확인' })).toHaveTextContent('19,000 P에 바로 낙찰받을까요?');
     await userEvent.click(screen.getByRole('button', { name: '19,000 P 즉시 구매 확정' }));
     expect(state.posts).toEqual([{ path: '/api/v1/auctions/{auctionId}/buy-now', amount: undefined }]);
+    // 경매가 아직 진행 중으로 보여도 결과를 보여 주고, 더 입찰·구매하지 못하게 한다.
+    expect(await screen.findByText(/19,000 P에 즉시 구매했어요/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /입찰하기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /즉시 구매/ })).not.toBeInTheDocument();
   });
 
   it('즉시구매가 이상으로는 입찰하지 않고 즉시 구매로 안내한다', async () => {
