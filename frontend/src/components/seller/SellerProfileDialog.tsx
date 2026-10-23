@@ -7,7 +7,7 @@ import { AuctionPhaseBadge } from '@/components/auction/AuctionBits';
 import { Badge, buttonVariants, Dialog, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { cn } from '@/lib/cn';
-import { formatDate, formatDateTime, formatNumber, formatPoint } from '@/lib/format';
+import { formatDate, formatDateTime, formatDotDate, formatNumber, formatPoint } from '@/lib/format';
 import { formatBroadcastDuration, formatShippingTime, soldRate } from '@/lib/seller';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 import { useNow } from '@/lib/use-now';
@@ -158,7 +158,7 @@ function InfoTab({ profile }: { profile: Profile }) {
           <Stat
             icon={<ShieldCheck className="size-4" aria-hidden="true" />}
             label="판매자 인증"
-            value={profile.verifiedSeller && profile.verifiedAt ? formatDate(profile.verifiedAt) : '-'}
+            value={profile.verifiedSeller ? (profile.verifiedAt ? `${formatDotDate(profile.verifiedAt)} 인증` : '인증') : '인증 전'}
             hint={profile.joinedAt ? `${formatDate(profile.joinedAt)} 가입` : undefined}
           />
         </dl>

@@ -17,16 +17,16 @@ const REFRESH_MS = 3000;
  * 입찰 창: 방송 시청·경매 상세에서 화면을 옮기지 않고 현재가를 보며 입찰 금액을 정한다.
  * 입찰 API가 아직 없어 금액 확인까지만 하고, [입찰하기]는 준비 중 안내를 보여준다. (입찰 API가 생기면 onSubmit에 붙인다)
  */
-export function BidDialog({ auctionId, onClose }: { auctionId?: number; onClose: () => void }) {
+export function BidDialog({ auctionId, onClose, showDetailLink = true }: { auctionId?: number; onClose: () => void; showDetailLink?: boolean }) {
   return (
     <Dialog open={auctionId !== undefined} onClose={onClose} title="입찰하기" className="w-[480px]">
       {/* 다른 경매를 열면 입력을 처음부터 시작한다. */}
-      {auctionId !== undefined && <BidForm key={auctionId} auctionId={auctionId} />}
+      {auctionId !== undefined && <BidForm key={auctionId} auctionId={auctionId} showDetailLink={showDetailLink} />}
     </Dialog>
   );
 }
 
-function BidForm({ auctionId }: { auctionId: number }) {
+function BidForm({ auctionId, showDetailLink }: { auctionId: number; showDetailLink: boolean }) {
   const session = useSession();
   const query = useQuery({
     queryKey: ['auction', auctionId],
@@ -174,9 +174,26 @@ function BidForm({ auctionId }: { auctionId: number }) {
         <Notice>{phase === 'READY' ? '경매가 시작되면 입찰할 수 있어요.' : '입찰이 끝난 경매예요.'}</Notice>
       )}
 
-      <Link to={`/auctions/${auctionId}`} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'self-center' })}>
-        경매 상세 새 탭에서 보기
-      </Link>
+      <BidWarning />
+      {/* 경매 상세에서 연 창에는 같은 화면으로 가는 링크를 두지 않는다. */}
+      {showDetailLink && (
+        <Link to={`/auctions/${auctionId}`} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'self-center' })}>
+          경매 상세 새 탭에서 보기
+        </Link>
+      )}
     </form>
+  );
+}
+
+/** 입찰 전에 알아야 할 것. 입찰은 취소할 수 없고, 낙찰되면 묶인 포인트가 결제된다. (서버: 입찰 시 홀딩, 상위 입찰 시 해제, 낙찰 시 차감) */
+function BidWarning() {
+  return (
+    <ul aria-label="입찰 전 확인" className="flex list-disc flex-col gap-0.5 rounded-md bg-neutral-25 py-2.5 pr-3 pl-7 text-caption text-neutral-700">
+      <li>입찰은 취소할 수 없어요.</li>
+      <li>입찰하면 입찰 금액만큼 포인트가 묶이고, 더 높은 입찰이 들어오면 바로 풀려요.</li>
+      <li>
+        <strong className="font-semibold text-neutral-900">낙찰되면 묶인 포인트가 결제되고 되돌릴 수 없어요.</strong> 금액을 확인하고 입찰해 주세요.
+      </li>
+    </ul>
   );
 }

@@ -3,6 +3,7 @@ import { Ban } from 'lucide-react';
 import { Link } from 'react-router';
 import { api, call, errorMessage } from '@/api';
 import { Badge, Button, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { SellerAvatar } from '@/components/seller/SellerAvatar';
 import { cn } from '@/lib/cn';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
@@ -47,9 +48,7 @@ export function RoomList({ activeUserId }: { activeUserId?: number }) {
                     aria-current={active ? 'page' : undefined}
                     className={cn('flex items-center gap-3 border-b border-neutral-100 px-5 py-3.5 transition-colors', active ? 'bg-neutral-50' : 'hover:bg-neutral-25')}
                   >
-                    <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700">
-                      {name.slice(0, 1)}
-                    </span>
+                    <SellerAvatar name={name} verified={room.otherUser?.verifiedSeller ?? false} />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="flex items-center justify-between gap-2">
                         <strong className="truncate text-body font-semibold">{name}</strong>

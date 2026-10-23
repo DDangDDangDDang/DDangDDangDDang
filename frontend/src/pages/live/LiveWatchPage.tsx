@@ -1,14 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { ApiError, api, call, errorMessage, isErrorCode, useSession, type ChatMessage, type Schema } from '@/api';
 import { BidDialog } from '@/components/auction/BidDialog';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { SellerIdentity } from '@/components/seller/SellerIdentity';
 import { SubscribeButton } from '@/components/seller/SubscribeButton';
 import { useSellerProfile } from '@/lib/use-seller';
-import { buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
+import { Button, buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { AuctionPanel } from './AuctionPanel';
 import { Hashtags } from '@/components/live/Hashtags';
@@ -124,7 +124,6 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
 
 function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStream; sellerNickname?: string; guard: (action: () => void) => void }) {
   const session = useSession();
-  const navigate = useNavigate();
   const name = sellerNickname || '판매자';
   // 구독자 수·내 구독 여부 (판매자 이름 옆 SellerIdentity와 같은 캐시)
   const profile = useSellerProfile(liveStream.sellerId);
@@ -157,20 +156,18 @@ function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStr
           }
         />
         {liveStream.sellerId !== undefined && <SubscribeButton sellerId={liveStream.sellerId} subscribed={profile.data?.subscribed ?? false} />}
-        {canAsk && (
-          <Link
-            to={`/messages/${liveStream.sellerId}`}
-            onClick={(e) => {
-              // 로그인하지 않았으면 로그인 창을 띄우고, 로그인하면 문의 화면으로 간다.
-              if (session) return;
-              e.preventDefault();
-              guard(() => navigate(`/messages/${liveStream.sellerId}`));
-            }}
-            className={buttonVariants({ variant: 'outline', size: 'sm', className: 'ml-2' })}
-          >
-            판매자에게 문의
-          </Link>
-        )}
+        {/* 로그인했으면 링크(시청 중이라 새 탭으로 열림, WatchNavigationGuard).
+            로그인하지 않았으면 로그인 창만 여는 버튼이고, 로그인 뒤 다시 누르면 문의가 열린다. (로그인 뒤에 새 탭을 열면 팝업으로 막힐 수 있어서) */}
+        {canAsk &&
+          (session ? (
+            <Link to={`/messages/${liveStream.sellerId}`} className={buttonVariants({ variant: 'outline', size: 'sm', className: 'ml-2' })}>
+              판매자에게 문의
+            </Link>
+          ) : (
+            <Button variant="outline" size="sm" className="ml-2" onClick={() => guard(() => undefined)}>
+              판매자에게 문의
+            </Button>
+          ))}
       </div>
       {liveStream.description && (
         <p className="rounded-lg border border-neutral-100 bg-neutral-0 px-5 py-4 text-body whitespace-pre-line text-neutral-700">

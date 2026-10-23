@@ -28,11 +28,11 @@ vi.mock('@/api', async (importOriginal) => {
   };
 });
 
-function renderDialog() {
+function renderDialog(showDetailLink?: boolean) {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter>
-        <BidDialog auctionId={1} onClose={() => {}} />
+        <BidDialog auctionId={1} onClose={() => {}} showDetailLink={showDetailLink} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -57,6 +57,20 @@ describe('BidDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '16,000 P 입찰하기' }));
     expect(await screen.findByText(/입찰 기능을 준비하고 있어요/)).toBeInTheDocument();
+  });
+
+  it('아래에 입찰 전 경고문(취소 불가·낙찰 시 되돌릴 수 없음)과 경매 상세 링크를 보여준다', async () => {
+    renderDialog();
+    const warning = await screen.findByRole('list', { name: '입찰 전 확인' });
+    expect(warning).toHaveTextContent('입찰은 취소할 수 없어요.');
+    expect(warning).toHaveTextContent('낙찰되면 묶인 포인트가 결제되고 되돌릴 수 없어요.');
+    expect(screen.getByRole('link', { name: '경매 상세 새 탭에서 보기' })).toBeInTheDocument();
+  });
+
+  it('경매 상세에서 연 입찰 창에는 [경매 상세 새 탭에서 보기]가 없다', async () => {
+    renderDialog(false);
+    expect(await screen.findByRole('list', { name: '입찰 전 확인' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '경매 상세 새 탭에서 보기' })).not.toBeInTheDocument();
   });
 
   it('잔액보다 큰 금액은 입찰 단계로 넘어가지 않고 입력 아래에 알려준다', async () => {

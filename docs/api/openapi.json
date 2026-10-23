@@ -5348,6 +5348,9 @@
           },
           "nickname" : {
             "type" : "string"
+          },
+          "verifiedSeller" : {
+            "type" : "boolean"
           }
         }
       },

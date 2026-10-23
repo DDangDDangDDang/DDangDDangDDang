@@ -8,8 +8,11 @@ import com.example.ddangddangddang.domain.category.exception.CategoryErrorCode;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
 import com.example.ddangddangddang.domain.product.entity.Status;
 import com.example.ddangddangddang.domain.product.repository.ProductRepository;
+import com.example.ddangddangddang.global.config.CacheConfig;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,7 @@ public class CategoryService {
     private final ProductRepository productRepository;
 
     //카테고리 전체 조회
+    @Cacheable(cacheNames = CacheConfig.CATEGORIES)
     @Transactional(readOnly = true)
     public List<CategoryResponse> findAdd() {
         List<Category> all = categoryRepository.findAllByOrderBySortOrderAscIdAsc();
@@ -53,6 +57,7 @@ public class CategoryService {
     }
 
     //카테고리 생성
+    @CacheEvict(cacheNames = CacheConfig.CATEGORIES, allEntries = true)
     public CategoryResponse creation(CategoryRequest request) {
         Category parent = null;
 
@@ -87,6 +92,7 @@ public class CategoryService {
     }
 
     //카테고리 수정
+    @CacheEvict(cacheNames = CacheConfig.CATEGORIES, allEntries = true)
     public CategoryResponse updateCategory(Long categoryId, UpdateRequest request) {
         Category category = categoryRepository.findById(categoryId).orElseThrow(
                 () -> new BusinessException(CategoryErrorCode.NOT_FOUND));
@@ -113,6 +119,7 @@ public class CategoryService {
         }
 
     //카테고리 삭제
+    @CacheEvict(cacheNames = CacheConfig.CATEGORIES, allEntries = true)
     public void delete(Long categoryId) {
         Category category = categoryRepository.findById(categoryId).orElseThrow(
                 () -> new BusinessException(CategoryErrorCode.NOT_FOUND));
