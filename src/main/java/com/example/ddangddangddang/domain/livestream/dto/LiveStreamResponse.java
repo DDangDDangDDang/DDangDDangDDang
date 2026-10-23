@@ -20,6 +20,8 @@ public record LiveStreamResponse(
         String notice,
         // 영상 위에 띄운 경매 ID (없으면 null). 경매 정보는 이 방송의 경매 목록(GET /lives/{id}/auctions)에서 찾는다.
         Long featuredAuctionId,
+        // 카메라 대신 미리 녹화한 영상을 내보내는 방송인지 (시청 화면에 "녹화 영상" 표시)
+        boolean recorded,
         LiveStreamStatus status,
         LocalDateTime createdAt,
         LocalDateTime scheduledStartAt,
@@ -35,6 +37,7 @@ public record LiveStreamResponse(
                 liveStream.getHashtagList(),
                 liveStream.getNotice(),
                 liveStream.getFeaturedAuctionId(),
+                liveStream.isRecorded(),
                 liveStream.getStatus(),
                 liveStream.getCreatedAt(),
                 liveStream.getScheduledStartAt(),

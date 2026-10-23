@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -59,6 +60,13 @@ public class LiveStream extends BaseTimeEntity {
     // 방송과 경매는 별개 도메인이라 연관관계 없이 ID만 둔다. 이 방송에 올라간 경매인지는 띄울 때 서비스에서 확인한다.
     @Column(name = "featured_auction_id")
     private Long featuredAuctionId;
+
+    // 카메라 대신 미리 녹화한 영상을 내보내는 방송인지. 판매자가 스튜디오에서 영상 소스를 바꾸면 함께 바뀐다.
+    // 시청 화면·방송 목록·구독 목록·방송 시작 알림에 "녹화 영상" 표시를 한다.
+    // 이미 있는 방송과 SQL로 직접 넣는 행은 카메라 방송(false)으로 본다.
+    @ColumnDefault("false")
+    @Column(nullable = false)
+    private boolean recorded;
 
     // LiveKit 방 이름. 외부에 노출되므로 순번 ID 대신 UUID 사용
     @Column(name = "room_name", nullable = false, unique = true, length = 64)
@@ -179,6 +187,19 @@ public class LiveStream extends BaseTimeEntity {
             return false;
         }
         this.hashtags = column;
+        return true;
+    }
+
+    /**
+     * 녹화 영상 방송인지 바꾼다. 방송 정보 수정(update)으로 주인·종료 여부를 확인한 뒤 호출한다.
+     *
+     * @return 실제로 바뀌었으면 true
+     */
+    public boolean changeRecorded(boolean recorded) {
+        if (this.recorded == recorded) {
+            return false;
+        }
+        this.recorded = recorded;
         return true;
     }
 
