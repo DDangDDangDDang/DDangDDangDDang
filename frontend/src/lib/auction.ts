@@ -37,6 +37,22 @@ export function auctionStatusTab(phase: AuctionPhase | undefined): AuctionStatus
   return phase === 'ONGOING' || phase === 'READY' ? phase : 'ENDED';
 }
 
+/**
+ * 판매자가 영상 위에 띄운 경매. (방송 정보의 featuredAuctionId를 방송 경매 목록에서 찾는다)
+ * 시작 전·진행 중(마감 집계 중 포함)일 때만 띄우고, 끝나거나 취소되면 판매자가 내리지 않아도 보이지 않는다.
+ */
+export function featuredAuction<T extends { id?: number; status?: AuctionStatus; endAt?: string }>(
+  featuredAuctionId: number | undefined,
+  auctions: T[],
+  now: Date,
+): T | undefined {
+  if (featuredAuctionId === undefined) return undefined;
+  const auction = auctions.find((a) => a.id === featuredAuctionId);
+  if (!auction) return undefined;
+  const phase = auctionPhase(auction, now);
+  return phase === 'READY' || phase === 'ONGOING' || phase === 'CLOSING' ? auction : undefined;
+}
+
 /** 서버 시각까지 남은 초 (지났으면 0) */
 export function secondsUntil(serverTime: string | undefined, now: Date): number {
   if (!serverTime) return 0;

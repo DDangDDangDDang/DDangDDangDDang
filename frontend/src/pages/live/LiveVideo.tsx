@@ -23,10 +23,12 @@ type Props = {
     retry: () => void;
     startAudio: () => Promise<void> | undefined;
   };
+  /** 판매자가 영상 위에 띄운 경매. 영상 안에 그려 전체 화면에서도 보인다. */
+  overlay?: ReactNode;
 };
 
 /** 방송 영상 영역: 영상 + LIVE·시청자 수 배지 + 소리·전체 화면 버튼. 방송 상태별 안내도 이 자리에 보여준다. */
-export function LiveVideo({ liveStream, video }: Props) {
+export function LiveVideo({ liveStream, video, overlay }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   // 브라우저는 사용자가 누르기 전에는 소리를 재생하지 못하게 하므로 음소거로 시작한다.
   const [muted, setMuted] = useState(true);
@@ -73,6 +75,8 @@ export function LiveVideo({ liveStream, video }: Props) {
           )}
         </div>
       )}
+
+      {isLive && overlay}
 
       {playing && (
         <div className="absolute right-4 bottom-4 flex gap-2">

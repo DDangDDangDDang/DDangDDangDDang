@@ -1,12 +1,12 @@
-import { Gavel, Plus } from 'lucide-react';
+import { Gavel, MonitorPlay, Plus } from 'lucide-react';
 import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link } from 'react-router';
 import { errorMessage, type Schema } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
 import { AuctionConditionFields } from '@/components/auction/AuctionConditionFields';
-import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { Badge, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
-import { auctionPhase, auctionStatusTab, type AuctionStatusTab, EMPTY_AUCTION_CONDITION, validateAuctionCondition, type AuctionConditionErrors, type AuctionConditionValues } from '@/lib/auction';
+import { auctionPhase, auctionStatusTab, type AuctionStatusTab, EMPTY_AUCTION_CONDITION, featuredAuction, validateAuctionCondition, type AuctionConditionErrors, type AuctionConditionValues } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 import { ProductCreateDialog } from './ProductCreateDialog';
@@ -181,6 +181,26 @@ function ActiveAuction({ auction, live, auctions }: { auction: Schema<'AuctionRe
   );
 }
 
+/** 영상 위에 띄우기·내리기. 한 번에 하나만 띄우므로 다른 경매를 띄우면 지금 띄운 경매는 내려간다. */
+function FeatureButton({ auction, auctions }: { auction: Schema<'AuctionResponse'>; auctions: LiveAuctions }) {
+  const feature = auctions.feature;
+  const featuredNow = auction.id === auctions.featuredAuctionId;
+  const pendingThis = feature.isPending && feature.variables === (featuredNow ? null : auction.id);
+  const name = auction.productName || '상품';
+  return (
+    <Button
+      size="sm"
+      variant={featuredNow ? 'outline' : 'secondary'}
+      aria-label={`${name} ${featuredNow ? '영상에서 내리기' : '영상에 띄우기'}`}
+      loading={pendingThis}
+      disabled={feature.isPending && !pendingThis}
+      onClick={() => auction.id && feature.mutate(featuredNow ? null : auction.id)}
+    >
+      {featuredNow ? '영상에서 내리기' : '영상에 띄우기'}
+    </Button>
+  );
+}
+
 /** 이 방송에 올라간 경매: 진행 중인 것을 위에, 끝난 것은 아래에. 현재가·입찰 수·남은 시간과 취소 버튼. */
 const STATUS_TABS: { key: AuctionStatusTab; label: string; empty: string }[] = [
   { key: 'ONGOING', label: '진행 중', empty: '지금 진행 중인 경매가 없어요.' },
@@ -209,6 +229,8 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
   };
   const cancel = auctions.cancel;
   const [cancelTarget, setCancelTarget] = useState<Schema<'AuctionResponse'>>();
+  const featured = featuredAuction(auctions.featuredAuctionId, list, now);
+  const feature = auctions.feature;
 
   return (
     <Card aria-labelledby="running-auctions-title">
@@ -218,6 +240,8 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
         </CardTitle>
       </CardHeader>
       <CardBody className="flex flex-col gap-3">
+        {list.length > 0 && !featured && <p className="text-caption text-neutral-500">[영상에 띄우기]를 누르면 시청자 영상 위에 그 경매의 현재가와 남은 시간이 보여요.</p>}
+        {feature.isError && <Notice tone="error">{errorMessage(feature.error)}</Notice>}
         <div role="tablist" aria-label="경매 상태" className="flex gap-1 rounded-md bg-neutral-50 p-1">
           {STATUS_TABS.map((item) => (
             <button
@@ -278,10 +302,25 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
                         </dd>
                       </div>
                     </dl>
-                    {phase === 'ONGOING' && (auction.bidCount ?? 0) === 0 && (
-                      <Button variant="outline" size="sm" className="self-end" onClick={() => setCancelTarget(auction)}>
-                        경매 취소
-                      </Button>
+                    {(phase === 'READY' || phase === 'ONGOING') && (
+                      <div className="flex items-center justify-between gap-2">
+                        {auction.id === featured?.id ? (
+                          <Badge variant="info">
+                            <MonitorPlay className="size-3.5" aria-hidden="true" />
+                            영상에 띄움
+                          </Badge>
+                        ) : (
+                          <span />
+                        )}
+                        <div className="flex gap-2">
+                          {phase === 'ONGOING' && (auction.bidCount ?? 0) === 0 && (
+                            <Button variant="outline" size="sm" onClick={() => setCancelTarget(auction)}>
+                              경매 취소
+                            </Button>
+                          )}
+                          <FeatureButton auction={auction} auctions={auctions} />
+                        </div>
+                      </div>
                     )}
                   </li>
                 );

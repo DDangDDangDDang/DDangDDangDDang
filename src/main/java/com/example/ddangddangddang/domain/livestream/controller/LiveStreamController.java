@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.livestream.controller;
 
+import com.example.ddangddangddang.domain.livestream.dto.FeaturedAuctionRequest;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCard;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamHomeResponse;
@@ -82,6 +83,28 @@ public class LiveStreamController {
             @PathVariable Long liveStreamId,
             @Valid @RequestBody LiveStreamUpdateRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(liveStreamService.update(liveStreamId, authUser.id(), request)));
+    }
+
+    /**
+     * 판매자가 영상 위에 띄울 경매를 정한다. 한 번에 하나만 띄우고, 시청자 화면에 바로 반영된다.
+     */
+    @PutMapping("/{liveStreamId}/featured-auction")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> featureAuction(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @Valid @RequestBody FeaturedAuctionRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                liveStreamService.changeFeaturedAuction(liveStreamId, authUser.id(), request.auctionId())));
+    }
+
+    /**
+     * 영상 위에 띄운 경매를 내린다.
+     */
+    @DeleteMapping("/{liveStreamId}/featured-auction")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> unfeatureAuction(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.changeFeaturedAuction(liveStreamId, authUser.id(), null)));
     }
 
     /**

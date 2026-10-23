@@ -8,6 +8,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from '@
  *    시작한 경매와 미리 만들어 둔 경매(방송에 올리기)가 시청 화면의 경매 목록과 채팅 안내에 바로 나온다.
  *    방송 예정 화면에서 기다리던 시청자는 판매자가 시작하면 새로고침 없이 영상을 보고, 채팅에 시작 안내가 올라온다.
  *    방송을 만들 때 넣은 해시태그가 시청 화면과 방송 목록 카드에 나온다.
+ *    판매자가 영상 위에 띄운 경매가 시청 화면 영상 위에 나오고, 내리면 사라진다.
  *    판매자가 올린 채팅 공지가 시청 화면 채팅창 위에 고정되고, 닫아도 다시 들어오면 보인다. 경매 목록의 [입찰하기]는 입찰 창을 연다.
  *
  * 로컬 백엔드(MySQL·Redis·LiveKit 포함)가 떠 있어야 한다. 계정은 환경변수로 받는다. (frontend/README.md "E2E 테스트")
@@ -372,6 +373,11 @@ test.describe('판매자 송출', () => {
         await expect(watch).toHaveURL(/\/lives\/\d+$/);
         await bidDialog.getByRole('button', { name: '닫기' }).click();
         await expect(bidDialog).toBeHidden();
+        // 진행 중인 경매를 영상 위에 띄우면 시청 화면 영상 위에서도 바로 입찰 창을 열 수 있다.
+        await studio.getByRole('button', { name: `${productName} 영상에 띄우기` }).click();
+        await watch.getByRole('region', { name: '영상 위 경매' }).getByRole('button', { name: `${productName} 입찰하기` }).click();
+        await expect(bidDialog.getByText(productName)).toBeVisible();
+        await bidDialog.getByRole('button', { name: '닫기' }).click();
       } else {
         await productDialog.getByRole('button', { name: '닫기' }).click();
       }
@@ -384,6 +390,18 @@ test.describe('판매자 송출', () => {
         await expect(watch.getByRole('list', { name: '이 방송의 경매' }).getByText(scheduled.name)).toBeVisible();
         await expect(watch.getByRole('list', { name: '채팅 메시지' }).getByText(`‘${scheduled.name}’ 경매가 방송에 올라왔습니다`, { exact: false })).toBeVisible();
         await test.info().attach('시청 화면 (이 방송의 경매)', { body: await watch.screenshot(), contentType: 'image/png' });
+
+        // 판매자가 경매 하나를 영상 위에 띄우면 시청 화면 영상 위에 바로 나오고(먼저 띄운 경매는 내려감), 내리면 사라진다.
+        await studio.getByRole('button', { name: `${scheduled.name} 영상에 띄우기` }).click();
+        await expect(studio.getByRole('region', { name: '영상 위 경매' }).getByText(scheduled.name)).toBeVisible();
+        const overlay = watch.getByRole('region', { name: '영상 위 경매' });
+        await expect(overlay.getByText(scheduled.name)).toBeVisible();
+        await expect(overlay).toHaveCount(1);
+        await expect(overlay.getByText('시작가')).toBeVisible();
+        await test.info().attach('시청 화면 (영상 위 경매)', { body: await watch.screenshot(), contentType: 'image/png' });
+        await test.info().attach('스튜디오 (영상 위 경매)', { body: await studio.screenshot(), contentType: 'image/png' });
+        await studio.getByRole('button', { name: `${scheduled.name} 영상에서 내리기` }).click();
+        await expect(overlay).toBeHidden();
       }
 
       // 방송 중에 연 경매의 상세: 방송 중이면 "LIVE 방송 보러 가기"가 나온다. (방송이 끝나면 아래에서 "방송 종료"로 바뀌는지 본다)

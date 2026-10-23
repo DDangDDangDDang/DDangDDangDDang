@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Hashtags } from '@/components/live/Hashtags';
 import { LiveChat } from '@/components/live/LiveChat';
 import { Badge, Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { FeaturedAuctionSlot } from '@/components/auction/FeaturedAuctionOverlay';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { useSellerProfile } from '@/lib/use-seller';
 import { LiveAuctionProducts, LiveAuctionStatus } from './LiveAuctionPanel';
@@ -133,7 +134,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
   const { media, publisher, chat, alerts, dismissAlert, idle } = useBroadcast();
   const flaggedIds = useMemo(() => new Set(alerts.map((a) => a.messageId)), [alerts]);
   // 방송 중 경매
-  const liveAuctions = useLiveAuctions(liveStreamId);
+  const liveAuctions = useLiveAuctions(liveStreamId, liveStream.featuredAuctionId);
   // 방송 시작은 판매자 인증을 받은 회원만 (서버도 LIVESTREAM_016으로 막는다). 프로필을 불러오기 전에는 막지 않는다.
   const session = useSession();
   const myProfile = useSellerProfile(session?.user.userId);
@@ -212,6 +213,10 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             publisher={publisher}
             onToggle={(kind) => void media.toggle(kind)}
             onSelectDevice={(kind, deviceId) => void media.selectDevice(kind, deviceId)}
+            overlay={
+              // 시청 화면은 왼쪽 아래. 여기는 마이크·카메라 버튼 바로 위에 둔다.
+              <FeaturedAuctionSlot featuredAuctionId={liveStream.featuredAuctionId} auctions={liveAuctions.auctions} className="absolute bottom-20 left-4" />
+            }
           />
 
           <div className="flex flex-col gap-3 rounded-lg border border-neutral-100 bg-neutral-0 px-5 py-4">

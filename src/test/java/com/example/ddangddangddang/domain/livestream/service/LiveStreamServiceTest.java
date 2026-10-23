@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.livestream.service;
 
+import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
+import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.livechat.moderation.ContentViolation;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
@@ -69,6 +71,9 @@ class LiveStreamServiceTest {
     // 기본은 막을 내용 없음(Optional.empty). 막는 경우만 따로 정한다.
     @Mock
     private ChatContentFilter contentFilter;
+
+    @Mock
+    private AuctionRepository auctionRepository;
 
     // 방송 만들기·시작은 판매자 인증을 받은 회원만. 기본은 인증된 판매자로 두고, 인증 전 테스트에서만 false로 바꾼다.
     @Mock
@@ -345,6 +350,105 @@ class LiveStreamServiceTest {
 
         private void assertUpdateError(Long requesterId, LiveStreamUpdateRequest request, ErrorCode errorCode) {
             assertThatThrownBy(() -> liveStreamService.update(LIVE_STREAM_ID, requesterId, request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(errorCode);
+            then(liveStreamRepository).should(never()).saveAndFlush(any());
+            then(eventPublisher).should(never()).publishEvent(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("영상 위에 띄울 경매")
+    class FeaturedAuction {
+
+        private static final Long AUCTION_ID = 30L;
+
+        @Test
+        @DisplayName("이 방송의 시작 전·진행 중 경매를 띄우면 저장하고 변경 이벤트로 시청자 화면에 알린다")
+        void feature() {
+            LiveStream liveStream = liveStream(true);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+            given(auctionRepository.existsByIdAndLiveStreamIdAndStatusIn(AUCTION_ID, LIVE_STREAM_ID,
+                    List.of(AuctionStatus.READY, AuctionStatus.ONGOING))).willReturn(true);
+
+            LiveStreamResponse response = liveStreamService.changeFeaturedAuction(LIVE_STREAM_ID, SELLER_ID, AUCTION_ID);
+
+            assertThat(response.featuredAuctionId()).isEqualTo(AUCTION_ID);
+            then(liveStreamRepository).should().saveAndFlush(liveStream);
+            ArgumentCaptor<LiveStreamUpdatedEvent> captor = ArgumentCaptor.forClass(LiveStreamUpdatedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            assertThat(captor.getValue().liveStream().featuredAuctionId()).isEqualTo(AUCTION_ID);
+        }
+
+        @Test
+        @DisplayName("null이면 띄운 경매를 내리고, 경매는 확인하지 않는다")
+        void unfeature() {
+            LiveStream liveStream = liveStream(true);
+            ReflectionTestUtils.setField(liveStream, "featuredAuctionId", AUCTION_ID);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            LiveStreamResponse response = liveStreamService.changeFeaturedAuction(LIVE_STREAM_ID, SELLER_ID, null);
+
+            assertThat(response.featuredAuctionId()).isNull();
+            then(auctionRepository).shouldHaveNoInteractions();
+            then(eventPublisher).should().publishEvent(any(LiveStreamUpdatedEvent.class));
+        }
+
+        @Test
+        @DisplayName("이미 띄운 경매를 다시 띄우면 저장하지 않고 알리지도 않는다")
+        void sameAuction() {
+            LiveStream liveStream = liveStream(true);
+            ReflectionTestUtils.setField(liveStream, "featuredAuctionId", AUCTION_ID);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+            given(auctionRepository.existsByIdAndLiveStreamIdAndStatusIn(any(), any(), any())).willReturn(true);
+
+            liveStreamService.changeFeaturedAuction(LIVE_STREAM_ID, SELLER_ID, AUCTION_ID);
+
+            then(liveStreamRepository).should(never()).saveAndFlush(any());
+            then(eventPublisher).should(never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("이 방송에 올라가지 않았거나 끝난 경매는 띄울 수 없다 (LIVESTREAM_014)")
+        void notOnThisLive() {
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(true)));
+            given(auctionRepository.existsByIdAndLiveStreamIdAndStatusIn(any(), any(), any())).willReturn(false);
+
+            assertFeatureError(SELLER_ID, AUCTION_ID, LiveStreamErrorCode.FEATURED_AUCTION_NOT_AVAILABLE);
+        }
+
+        @Test
+        @DisplayName("다른 사람의 방송에는 경매가 있는지 보기 전에 막는다 (LIVESTREAM_002)")
+        void notOwner() {
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(true)));
+
+            assertFeatureError(2L, AUCTION_ID, LiveStreamErrorCode.NOT_OWNER);
+            then(auctionRepository).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("방송을 시작하기 전에는 띄울 수 없다 (LIVESTREAM_004)")
+        void notLive() {
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(false)));
+            given(auctionRepository.existsByIdAndLiveStreamIdAndStatusIn(any(), any(), any())).willReturn(true);
+
+            assertFeatureError(SELLER_ID, AUCTION_ID, LiveStreamErrorCode.NOT_LIVE);
+        }
+
+        @Test
+        @DisplayName("방송이 끝나면 띄운 경매도 내려간다")
+        void clearedOnEnd() {
+            LiveStream liveStream = liveStream(true);
+            ReflectionTestUtils.setField(liveStream, "featuredAuctionId", AUCTION_ID);
+
+            liveStream.end(SELLER_ID);
+
+            assertThat(liveStream.getFeaturedAuctionId()).isNull();
+        }
+
+        private void assertFeatureError(Long requesterId, Long auctionId, ErrorCode errorCode) {
+            assertThatThrownBy(() -> liveStreamService.changeFeaturedAuction(LIVE_STREAM_ID, requesterId, auctionId))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(errorCode);

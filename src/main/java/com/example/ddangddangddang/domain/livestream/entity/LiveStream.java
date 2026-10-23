@@ -55,6 +55,11 @@ public class LiveStream extends BaseTimeEntity {
     @Column(length = LiveStreamHashtags.COLUMN_LENGTH)
     private String hashtags;
 
+    // 판매자가 영상 위에 띄운 경매. 없으면 null
+    // 방송과 경매는 별개 도메인이라 연관관계 없이 ID만 둔다. 이 방송에 올라간 경매인지는 띄울 때 서비스에서 확인한다.
+    @Column(name = "featured_auction_id")
+    private Long featuredAuctionId;
+
     // LiveKit 방 이름. 외부에 노출되므로 순번 ID 대신 UUID 사용
     @Column(name = "room_name", nullable = false, unique = true, length = 64)
     private String roomName;
@@ -177,6 +182,26 @@ public class LiveStream extends BaseTimeEntity {
         return true;
     }
 
+    /**
+     * 영상 위에 띄울 경매를 바꾼다. null이면 내린다. 띄우기는 방송 중일 때만, 내리기는 종료 전이면 할 수 있다. 방송 주인만 바꿀 수 있다.
+     *
+     * @return 실제로 바뀌었으면 true
+     */
+    public boolean changeFeaturedAuction(Long requesterId, Long auctionId) {
+        validateOwner(requesterId);
+        if (status == LiveStreamStatus.ENDED) {
+            throw new BusinessException(LiveStreamErrorCode.ALREADY_ENDED);
+        }
+        if (auctionId != null && status != LiveStreamStatus.LIVE) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_LIVE);
+        }
+        if (Objects.equals(auctionId, this.featuredAuctionId)) {
+            return false;
+        }
+        this.featuredAuctionId = auctionId;
+        return true;
+    }
+
     public void start(Long requesterId) {
         validateOwner(requesterId);
         if (status != LiveStreamStatus.SCHEDULED) {
@@ -192,6 +217,7 @@ public class LiveStream extends BaseTimeEntity {
         this.endedAt = LocalDateTime.now();
         // 종료되면 판매자가 새 방송을 만들 수 있게 비운다.
         this.activeSellerId = null;
+        this.featuredAuctionId = null;
     }
 
     public void validateJoinable() {
