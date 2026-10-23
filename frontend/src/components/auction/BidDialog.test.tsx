@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,7 +8,7 @@ import { BidDialog } from './BidDialog';
 type Request = { path: string; method?: string; init?: { body?: { amount?: number } } };
 
 // 진행 중인 경매(현재가 15,000P, 단위 1,000P, 입찰 3회)와 내 지갑(잔액 20,000P). walletFails면 지갑 조회가 실패한다.
-const state = vi.hoisted(() => ({ walletFails: false, bidFails: false, currentPrice: 15000, buyNowPrice: undefined as number | undefined, posts: [] as { path: string; amount?: number }[] }));
+const state = vi.hoisted(() => ({ walletFails: false, bidFails: false, currentPrice: 15000, onAuctionMessage: undefined as ((message: unknown) => void) | undefined, buyNowPrice: undefined as number | undefined, posts: [] as { path: string; amount?: number }[] }));
 vi.mock('@/api', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/api')>();
   const endAt = new Date(Date.now() + 10 * 60_000).toISOString();
@@ -19,8 +19,14 @@ vi.mock('@/api', async (importOriginal) => {
       GET: (path: string) => ({ path, method: 'GET' }),
       POST: (path: string, init: Request['init']) => ({ path, method: 'POST', init }),
     },
-    // 실시간 연결은 하지 않는다.
-    connectRealtime: () => ({ subscribe: () => () => undefined, close: () => undefined }),
+    // 실시간 연결은 하지 않고, 경매 메시지를 받는 함수만 남겨 테스트에서 직접 보낸다.
+    connectRealtime: () => ({
+      subscribe: (_destination: string, onMessage: (message: unknown) => void) => {
+        state.onAuctionMessage = onMessage;
+        return () => undefined;
+      },
+      close: () => undefined,
+    }),
     call: async (r: Request) => {
       if (r.method === 'POST') {
         state.posts.push({ path: r.path, amount: r.init?.body?.amount });
@@ -56,6 +62,7 @@ describe('BidDialog', () => {
     state.walletFails = false;
     state.bidFails = false;
     state.currentPrice = 15000;
+    state.onAuctionMessage = undefined;
     state.buyNowPrice = undefined;
     state.posts = [];
     // jsdom에는 <dialog>의 showModal·close가 없다.
@@ -101,9 +108,12 @@ describe('BidDialog', () => {
     renderDialog();
     await userEvent.click(await screen.findByRole('button', { name: '최소' }));
     await userEvent.click(screen.getByRole('button', { name: '16,000 P 입찰하기' }));
-    // 내 입찰 직후 다른 사람이 17,000P로 입찰했다.
-    state.currentPrice = 17000;
     await userEvent.click(screen.getByRole('button', { name: '16,000 P 입찰 확정' }));
+    expect(await screen.findByText(/지금 최고 입찰자예요/)).toBeInTheDocument();
+
+    // 그 뒤 다른 사람이 17,000P로 입찰했다는 실시간 메시지가 온다.
+    state.currentPrice = 17000;
+    act(() => state.onAuctionMessage?.({ auctionId: 1, bidderId: 3, amount: 17000, bidCount: 5, endAt: new Date(Date.now() + 10 * 60_000).toISOString(), extended: false }));
     expect(await screen.findByText('16,000 P 입찰보다 높은 입찰이 들어왔어요. 다시 입찰할 수 있어요.')).toBeInTheDocument();
     expect(screen.queryByText(/지금 최고 입찰자예요/)).not.toBeInTheDocument();
   });
