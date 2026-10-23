@@ -89,9 +89,6 @@ public class DonationPointService {
      */
     public long earn(Long orderId, Long buyerId, Long sellerId, long finalPrice) {
         long wanted = properties.earnFor(finalPrice);
-        if (wanted <= 0) {
-            return 0;
-        }
         walletLocker.prepare(buyerId);
         return transactions.execute(() -> earnLocked(orderId, buyerId, sellerId, wanted));
     }
@@ -105,8 +102,10 @@ public class DonationPointService {
         }
         MonthRange month = MonthRange.of(now);
         long earnedThisMonth = lotRepository.sumEarnedBetween(buyerId, month.from(), month.to());
-        long amount = Math.min(wanted, properties.monthlyEarnLimit() - earnedThisMonth);
-        if (amount <= 0) {
+        long amount = Math.max(0, Math.min(wanted, properties.monthlyEarnLimit() - earnedThisMonth));
+        if (amount == 0) {
+            // 한도를 다 썼거나 적립할 포인트가 없는(낙찰가가 아주 작은) 주문도 0P 묶음으로 남긴다. 적립 보정(DonationPointEarner.backfill)이 나중에 다시 적립하지 않게 한다.
+            lotRepository.save(DonationPointLot.earn(buyerId, orderId, sellerId, 0, now, now));
             return 0;
         }
         lotRepository.save(DonationPointLot.earn(buyerId, orderId, sellerId, amount, now, now.plus(properties.pointValidFor())));

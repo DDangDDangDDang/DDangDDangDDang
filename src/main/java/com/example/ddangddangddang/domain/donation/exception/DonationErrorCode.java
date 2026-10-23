@@ -17,7 +17,8 @@ public enum DonationErrorCode implements ErrorCode {
     OWN_SELLER_POINT(HttpStatus.BAD_REQUEST, "DONATION_006", "이 판매자와의 거래로 받은 포인트는 이 판매자에게 선물할 수 없습니다."),
     MESSAGE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "DONATION_007", "선물 메시지에 넣을 수 없는 내용이 있습니다."),
     INSUFFICIENT_RECEIVED(HttpStatus.BAD_REQUEST, "DONATION_008", "받은 도네이션 포인트가 부족합니다."),
-    NOT_VERIFIED_SELLER(HttpStatus.FORBIDDEN, "DONATION_009", "판매자 인증을 받은 회원만 구매할 수 있습니다.");
+    NOT_VERIFIED_SELLER(HttpStatus.FORBIDDEN, "DONATION_009", "판매자 인증을 받은 회원만 구매할 수 있습니다."),
+    REQUEST_KEY_REUSED(HttpStatus.CONFLICT, "DONATION_010", "이미 다른 선물에 쓴 요청 키입니다. 새 요청 키로 다시 보내 주세요.");
 
     private final HttpStatus status;
     private final String code;

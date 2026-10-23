@@ -144,6 +144,10 @@ public class DonationService {
         Optional<Donation> sent = donationRepository.findByGiverIdAndRequestKey(giverId, requestKey);
         if (sent.isPresent()) {
             Donation donation = sent.get();
+            // 같은 키로 다른 선물(금액·방송이 다름)을 보내면 처음 결과를 돌려주지 않고 거부한다. (두 번째 선물이 된 줄 알지 않게)
+            if (donation.getAmount() != amount || !donation.getLiveStreamId().equals(liveStreamId)) {
+                throw new BusinessException(DonationErrorCode.REQUEST_KEY_REUSED);
+            }
             return response(donation, giverWallet, givenThisMonth(giverId, donation.getSellerId(), now));
         }
         // 방송 상태는 잠근 뒤에 다시 본다. (선물하는 사이 방송이 끝났을 수 있음)

@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.donation.controller;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointLot;
+import com.example.ddangddangddang.domain.donation.event.DonationPointEarner;
 import com.example.ddangddangddang.domain.donation.repository.DonationPointLotRepository;
 import com.example.ddangddangddang.domain.donation.service.DonationPointExpirer;
 import com.example.ddangddangddang.domain.donation.service.DonationPointService;
@@ -14,7 +15,10 @@ import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
 import com.example.ddangddangddang.domain.notification.dto.NotificationResponse;
 import com.example.ddangddangddang.domain.notification.entity.NotificationType;
+import com.example.ddangddangddang.domain.order.entity.Courier;
+import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
+import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
@@ -29,6 +33,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -77,6 +82,15 @@ class DonationControllerTest {
 
     @Autowired
     private DonationWalletLocker walletLocker;
+
+    @Autowired
+    private DonationPointEarner earner;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private LiveStreamRepository liveStreamRepository;
@@ -132,7 +146,10 @@ class DonationControllerTest {
             donationPointService.earn(ORDER_SEQ.incrementAndGet(), buyer.id(), seller.id(), 5_000_000L);
         }
         assertThat(donationPointService.earn(ORDER_SEQ.incrementAndGet(), buyer.id(), seller.id(), 5_000_000L)).isEqualTo(650);
-        assertThat(donationPointService.earn(ORDER_SEQ.incrementAndGet(), buyer.id(), seller.id(), 5_000_000L)).isZero();
+        long capped = ORDER_SEQ.incrementAndGet();
+        assertThat(donationPointService.earn(capped, buyer.id(), seller.id(), 5_000_000L)).isZero();
+        // 한도에 걸린 주문도 처리한 주문으로 남아, 적립 보정이 다음 달에 다시 적립하지 않는다.
+        assertThat(lotRepository.existsByOrderId(capped)).isTrue();
         wallet(buyer).andExpect(jsonPath("$.data.giftableBalance").value(10_000))
                 .andExpect(jsonPath("$.data.earnedThisMonth").value(10_000));
         mockMvc.perform(get("/api/v1/donation-points/histories").header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
@@ -172,6 +189,10 @@ class DonationControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.donationId").value(((Number) JsonPath.read(first, "$.data.donationId")).longValue()))
                 .andExpect(jsonPath("$.data.giftableBalance").value(700));
+        wallet(viewer).andExpect(jsonPath("$.data.giftableBalance").value(700));
+        // 같은 키로 다른 선물(금액이 다름)을 보내면 처음 결과를 돌려주지 않고 거부한다.
+        gift(viewer, liveStreamId, 500, null, key)
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("DONATION_010"));
         wallet(viewer).andExpect(jsonPath("$.data.giftableBalance").value(700));
         wallet(seller).andExpect(jsonPath("$.data.receivedBalance").value(300));
         mockMvc.perform(get("/api/v1/donation-points/histories").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
@@ -299,6 +320,25 @@ class DonationControllerTest {
         mockMvc.perform(get("/api/v1/live-streams"))
                 .andExpect(jsonPath("$.data.content[0].liveStreamId").value(power))
                 .andExpect(jsonPath("$.data.content[0].powerSeller").value(true));
+    }
+
+    @Test
+    @DisplayName("적립 이벤트 처리가 실패한 구매 확정 주문은 새벽 보정에서 한 번만 적립한다")
+    void backfill() throws Exception {
+        Member buyer = signupAndLogin();
+        Member seller = signupAndLogin();
+        // 이벤트 없이 구매 확정된 주문 (적립 이벤트가 실패한 것과 같다). 보정은 10분 넘게 지난 주문만 본다.
+        Order order = Order.create(ORDER_SEQ.incrementAndGet(), buyer.id(), seller.id(), "보정 상품", null, 50_000L);
+        order.registerDeliveryAddress("홍길동", "01012345678", "서울시 강남구 테헤란로 1", null);
+        order.ship(Courier.CJ, "1234567890");
+        order.confirm();
+        Long orderId = orderRepository.save(order).getId();
+        jdbcTemplate.update("update orders set completed_at = ? where id = ?", LocalDateTime.now().minusHours(1), orderId);
+
+        assertThat(earner.backfill()).isGreaterThanOrEqualTo(1);
+        wallet(buyer).andExpect(jsonPath("$.data.giftableBalance").value(500));
+        earner.backfill();
+        wallet(buyer).andExpect(jsonPath("$.data.giftableBalance").value(500));
     }
 
     private ResultActions gift(Member giver, Long liveStreamId, long amount, String message, String key) throws Exception {
