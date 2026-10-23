@@ -112,6 +112,9 @@ describe('BidDialog', () => {
     expect(await screen.findByText(/지금 최고 입찰자예요/)).toBeInTheDocument();
 
     // 그 뒤 다른 사람이 17,000P로 입찰했다는 실시간 메시지가 온다.
+    // 메시지를 받으면 경매를 다시 불러오므로 서버 값도 함께 올린다. 입찰 직후 다시 불러오기는 이미 끝나(15,000P) 주기 새로 불러오기(10초) 전에는 이 값을 읽지 않으니,
+    // 안내가 바뀌는 것은 실시간 메시지 덕분이다.
+    expect(state.onAuctionMessage).toBeDefined();
     state.currentPrice = 17000;
     act(() => state.onAuctionMessage?.({ auctionId: 1, bidderId: 3, amount: 17000, bidCount: 5, endAt: new Date(Date.now() + 10 * 60_000).toISOString(), extended: false }));
     expect(await screen.findByText('16,000 P 입찰보다 높은 입찰이 들어왔어요. 다시 입찰할 수 있어요.')).toBeInTheDocument();
