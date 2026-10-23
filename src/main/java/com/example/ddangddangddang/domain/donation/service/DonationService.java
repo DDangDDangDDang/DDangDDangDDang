@@ -1,0 +1,223 @@
+package com.example.ddangddangddang.domain.donation.service;
+
+import com.example.ddangddangddang.domain.donation.config.DonationProperties;
+import com.example.ddangddangddang.domain.donation.dto.DonationRequest;
+import com.example.ddangddangddang.domain.donation.dto.DonationResponse;
+import com.example.ddangddangddang.domain.donation.dto.DonationStatusResponse;
+import com.example.ddangddangddang.domain.donation.entity.Donation;
+import com.example.ddangddangddang.domain.donation.entity.DonationLotUsage;
+import com.example.ddangddangddang.domain.donation.entity.DonationPointHistory;
+import com.example.ddangddangddang.domain.donation.entity.DonationPointHistoryType;
+import com.example.ddangddangddang.domain.donation.entity.DonationPointLot;
+import com.example.ddangddangddang.domain.donation.entity.DonationWallet;
+import com.example.ddangddangddang.domain.donation.event.DonationSentEvent;
+import com.example.ddangddangddang.domain.donation.exception.DonationErrorCode;
+import com.example.ddangddangddang.domain.donation.repository.DonationLotUsageRepository;
+import com.example.ddangddangddang.domain.donation.repository.DonationPointHistoryRepository;
+import com.example.ddangddangddang.domain.donation.repository.DonationPointLotRepository;
+import com.example.ddangddangddang.domain.donation.repository.DonationRepository;
+import com.example.ddangddangddang.domain.donation.repository.DonationWalletRepository;
+import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
+import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
+import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
+import com.example.ddangddangddang.global.exception.BusinessException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * 라이브 방송 중인 판매자에게 도네이션 포인트 선물하기.
+ *
+ * 규칙
+ * - 방송 중(LIVE)인 방송의 판매자에게만, 내 방송이 아닐 때만 선물할 수 있다.
+ * - 한 번에 minGift ~ maxGift, giftUnit 단위로 선물한다.
+ * - 한 계정이 판매자 한 명에게 한 달(1일~말일)에 선물할 수 있는 포인트에 한도가 있다. (어뷰징 방지)
+ * - 이 판매자와의 거래(구매 확정)로 받은 포인트는 이 판매자에게 선물할 수 없다. (부계정으로 내 물건을 사서 나에게 선물하는 자전 거래 방지)
+ * - 유효기간이 먼저 끝나는 적립 묶음부터 쓴다.
+ *
+ * 동시성
+ * - 보낸 사람·판매자 지갑을 userId 순으로 잠근 뒤 한도를 센다. 같은 사람의 선물은 한 줄로 처리되어 한도를 넘지 않는다.
+ * - 지갑은 트랜잭션 밖에서 만들어 두고, READ_COMMITTED 트랜잭션에서 잠근다. (DonationWalletLocker, DonationTransactions)
+ * - 같은 요청 키(requestKey)로 다시 보내면 처음 결과를 돌려준다. 동시에 같은 키가 오면 잠금 뒤에 다시 확인하고, 마지막으로 유니크 제약이 막는다.
+ */
+@Service
+public class DonationService {
+
+    private final DonationRepository donationRepository;
+    private final DonationPointLotRepository lotRepository;
+    private final DonationLotUsageRepository usageRepository;
+    private final DonationPointHistoryRepository historyRepository;
+    private final DonationWalletRepository walletRepository;
+    private final DonationWalletLocker walletLocker;
+    private final LiveStreamRepository liveStreamRepository;
+    private final ChatContentFilter contentFilter;
+    private final ApplicationEventPublisher eventPublisher;
+    private final DonationTransactions transactions;
+    private final DonationProperties properties;
+    private final Clock clock;
+
+    @Autowired
+    public DonationService(DonationRepository donationRepository, DonationPointLotRepository lotRepository,
+                           DonationLotUsageRepository usageRepository, DonationPointHistoryRepository historyRepository,
+                           DonationWalletRepository walletRepository, DonationWalletLocker walletLocker,
+                           LiveStreamRepository liveStreamRepository, ChatContentFilter contentFilter,
+                           ApplicationEventPublisher eventPublisher, DonationTransactions transactions, DonationProperties properties) {
+        this(donationRepository, lotRepository, usageRepository, historyRepository, walletRepository, walletLocker,
+                liveStreamRepository, contentFilter, eventPublisher, transactions, properties, Clock.systemDefaultZone());
+    }
+
+    DonationService(DonationRepository donationRepository, DonationPointLotRepository lotRepository,
+                    DonationLotUsageRepository usageRepository, DonationPointHistoryRepository historyRepository,
+                    DonationWalletRepository walletRepository, DonationWalletLocker walletLocker,
+                    LiveStreamRepository liveStreamRepository, ChatContentFilter contentFilter,
+                    ApplicationEventPublisher eventPublisher, DonationTransactions transactions, DonationProperties properties, Clock clock) {
+        this.donationRepository = donationRepository;
+        this.lotRepository = lotRepository;
+        this.usageRepository = usageRepository;
+        this.historyRepository = historyRepository;
+        this.walletRepository = walletRepository;
+        this.walletLocker = walletLocker;
+        this.liveStreamRepository = liveStreamRepository;
+        this.contentFilter = contentFilter;
+        this.eventPublisher = eventPublisher;
+        this.transactions = transactions;
+        this.properties = properties;
+        this.clock = clock;
+    }
+
+    /** 선물 창 정보: 이 방송의 판매자에게 지금 얼마까지 선물할 수 있는지 */
+    @Transactional(readOnly = true)
+    public DonationStatusResponse getStatus(Long liveStreamId, Long giverId) {
+        LiveStream liveStream = findLiveStream(liveStreamId);
+        Long sellerId = liveStream.getSellerId();
+        LocalDateTime now = LocalDateTime.now(clock);
+        long given = givenThisMonth(giverId, sellerId, now);
+        long giftable = walletRepository.findByUserId(giverId).map(DonationWallet::getGiftableBalance).orElse(0L);
+        return new DonationStatusResponse(
+                sellerId,
+                lotRepository.sumUsableFor(giverId, sellerId, now),
+                giftable,
+                properties.monthlyGiftLimitPerSeller(),
+                given,
+                Math.max(0, properties.monthlyGiftLimitPerSeller() - given),
+                properties.minGift(),
+                properties.giftUnit(),
+                properties.maxGift()
+        );
+    }
+
+    /** 선물하기. 커밋 뒤 방송 화면에 "누구님이 몇 P를 선물했어요"를 알린다. (DonationSentEvent) */
+    public DonationResponse gift(Long liveStreamId, Long giverId, String giverNickname, DonationRequest request) {
+        long amount = request.amount();
+        validateAmount(amount);
+        String message = blankToNull(request.message());
+        validateMessage(message);
+        LiveStream liveStream = findLiveStream(liveStreamId);
+        Long sellerId = liveStream.getSellerId();
+        if (sellerId.equals(giverId)) {
+            throw new BusinessException(DonationErrorCode.SELF_GIFT);
+        }
+        if (liveStream.getStatus() != LiveStreamStatus.LIVE) {
+            throw new BusinessException(DonationErrorCode.NOT_LIVE);
+        }
+        walletLocker.prepare(giverId, sellerId);
+        return transactions.execute(() -> giftLocked(liveStreamId, sellerId, giverId, giverNickname, amount, message, request.requestKey()));
+    }
+
+    private DonationResponse giftLocked(Long liveStreamId, Long sellerId, Long giverId, String giverNickname,
+                                        long amount, String message, String requestKey) {
+        Map<Long, DonationWallet> wallets = walletLocker.lockBoth(giverId, sellerId);
+        DonationWallet giverWallet = wallets.get(giverId);
+        DonationWallet sellerWallet = wallets.get(sellerId);
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        // 같은 요청을 다시 보냈다. (지갑을 잠근 뒤에 확인해 동시에 온 같은 요청도 한 번만 처리한다)
+        Optional<Donation> sent = donationRepository.findByGiverIdAndRequestKey(giverId, requestKey);
+        if (sent.isPresent()) {
+            Donation donation = sent.get();
+            return response(donation, giverWallet, givenThisMonth(giverId, donation.getSellerId(), now));
+        }
+        // 방송 상태는 잠근 뒤에 다시 본다. (선물하는 사이 방송이 끝났을 수 있음)
+        if (findLiveStream(liveStreamId).getStatus() != LiveStreamStatus.LIVE) {
+            throw new BusinessException(DonationErrorCode.NOT_LIVE);
+        }
+
+        long given = givenThisMonth(giverId, sellerId, now);
+        long remaining = properties.monthlyGiftLimitPerSeller() - given;
+        if (amount > remaining) {
+            throw new BusinessException(DonationErrorCode.MONTHLY_GIFT_LIMIT_EXCEEDED,
+                    "이 판매자에게 이번 달 선물할 수 있는 포인트는 %,dP 남았습니다.".formatted(Math.max(0, remaining)));
+        }
+
+        List<DonationPointLot> lots = lotRepository.findUsableFor(giverId, sellerId, now);
+        long usable = lots.stream().mapToLong(DonationPointLot::getRemaining).sum();
+        if (usable < amount) {
+            // 포인트는 있는데 이 판매자와의 거래로 받은 것이라 못 쓰는 경우를 따로 알린다.
+            throw new BusinessException(giverWallet.getGiftableBalance() >= amount
+                    ? DonationErrorCode.OWN_SELLER_POINT : DonationErrorCode.INSUFFICIENT_BALANCE);
+        }
+
+        Donation donation = donationRepository.saveAndFlush(
+                Donation.of(giverId, sellerId, liveStreamId, amount, message, requestKey));
+        long left = amount;
+        for (DonationPointLot lot : lots) {
+            if (left == 0) {
+                break;
+            }
+            long used = lot.use(left);
+            if (used > 0) {
+                usageRepository.save(new DonationLotUsage(donation.getId(), lot.getId(), used));
+                left -= used;
+            }
+        }
+        giverWallet.useGiftable(amount);
+        sellerWallet.receive(amount);
+        historyRepository.save(DonationPointHistory.of(giverWallet, DonationPointHistoryType.GIFT, amount, donation.getId()));
+        historyRepository.save(DonationPointHistory.of(sellerWallet, DonationPointHistoryType.RECEIVE, amount, donation.getId()));
+
+        eventPublisher.publishEvent(new DonationSentEvent(donation.getId(), liveStreamId, giverId, giverNickname, amount, message));
+        return response(donation, giverWallet, given + amount);
+    }
+
+    private DonationResponse response(Donation donation, DonationWallet giverWallet, long givenThisMonth) {
+        return new DonationResponse(donation.getId(), donation.getAmount(), giverWallet.getGiftableBalance(),
+                Math.max(0, properties.monthlyGiftLimitPerSeller() - givenThisMonth));
+    }
+
+    private long givenThisMonth(Long giverId, Long sellerId, LocalDateTime now) {
+        MonthRange month = MonthRange.of(now);
+        return donationRepository.sumGivenBetween(giverId, sellerId, month.from(), month.to());
+    }
+
+    private void validateAmount(long amount) {
+        if (amount < properties.minGift() || amount > properties.maxGift() || amount % properties.giftUnit() != 0) {
+            throw new BusinessException(DonationErrorCode.INVALID_GIFT_AMOUNT,
+                    "선물은 %,dP부터 %,dP까지 %,dP 단위로 할 수 있습니다.".formatted(properties.minGift(), properties.maxGift(), properties.giftUnit()));
+        }
+    }
+
+    // 선물 메시지도 방송 화면에 보이므로 채팅과 같은 규칙으로 연락처·외부 링크를 막는다.
+    private void validateMessage(String message) {
+        contentFilter.findViolation(message).ifPresent(violation -> {
+            throw new BusinessException(DonationErrorCode.MESSAGE_NOT_ALLOWED, violation.getMessage());
+        });
+    }
+
+    private LiveStream findLiveStream(Long liveStreamId) {
+        return liveStreamRepository.findById(liveStreamId)
+                .orElseThrow(() -> new BusinessException(LiveStreamErrorCode.NOT_FOUND));
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.strip();
+    }
+}

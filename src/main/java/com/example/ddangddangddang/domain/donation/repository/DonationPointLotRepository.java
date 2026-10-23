@@ -1,0 +1,76 @@
+package com.example.ddangddangddang.domain.donation.repository;
+
+import com.example.ddangddangddang.domain.donation.entity.DonationPointLot;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+public interface DonationPointLotRepository extends JpaRepository<DonationPointLot, Long> {
+
+    boolean existsByOrderId(Long orderId);
+
+    /** from ~ to(제외) 사이에 적립한 합계 (한 달 적립 한도) */
+    @Query("""
+            select coalesce(sum(l.amount), 0) from DonationPointLot l
+            where l.userId = :userId and l.earnedAt >= :from and l.earnedAt < :to
+            """)
+    long sumEarnedBetween(@Param("userId") Long userId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    /**
+     * 이 판매자에게 선물할 때 쓸 수 있는 묶음: 남아 있고, 유효기간이 지나지 않았고, 이 판매자와의 거래로 받은 것이 아닌 것.
+     * 유효기간이 먼저 끝나는 것부터 쓴다.
+     */
+    @Query("""
+            select l from DonationPointLot l
+            where l.userId = :userId and l.remaining > 0 and l.expiresAt > :now and l.sellerId <> :sellerId
+            order by l.expiresAt asc, l.id asc
+            """)
+    List<DonationPointLot> findUsableFor(@Param("userId") Long userId, @Param("sellerId") Long sellerId, @Param("now") LocalDateTime now);
+
+    /** 이 판매자에게 선물할 수 있는 포인트 합계 */
+    @Query("""
+            select coalesce(sum(l.remaining), 0) from DonationPointLot l
+            where l.userId = :userId and l.remaining > 0 and l.expiresAt > :now and l.sellerId <> :sellerId
+            """)
+    long sumUsableFor(@Param("userId") Long userId, @Param("sellerId") Long sellerId, @Param("now") LocalDateTime now);
+
+    /** now ~ until 사이에 유효기간이 끝나는 남은 포인트 합계 (곧 사라질 포인트) */
+    @Query("""
+            select coalesce(sum(l.remaining), 0) from DonationPointLot l
+            where l.userId = :userId and l.remaining > 0 and l.expiresAt > :now and l.expiresAt <= :until
+            """)
+    long sumExpiringBetween(@Param("userId") Long userId, @Param("now") LocalDateTime now, @Param("until") LocalDateTime until);
+
+    /** 가장 먼저 끝나는 남은 묶음의 유효기간 (없으면 null) */
+    @Query("""
+            select min(l.expiresAt) from DonationPointLot l
+            where l.userId = :userId and l.remaining > 0 and l.expiresAt > :now
+            """)
+    LocalDateTime findNextExpiry(@Param("userId") Long userId, @Param("now") LocalDateTime now);
+
+    /** 유효기간이 지났는데 남은 양이 있는 묶음의 회원. afterUserId보다 큰 회원을 userId 순으로 (처음이면 0) */
+    @Query("""
+            select distinct l.userId from DonationPointLot l
+            where l.expiresAt <= :now and l.remaining > 0 and l.userId > :afterUserId
+            order by l.userId asc
+            """)
+    List<Long> findUserIdsWithExpired(@Param("now") LocalDateTime now, @Param("afterUserId") Long afterUserId, Pageable pageable);
+
+    @Query("""
+            select l from DonationPointLot l
+            where l.userId = :userId and l.expiresAt <= :now and l.remaining > 0
+            """)
+    List<DonationPointLot> findExpired(@Param("userId") Long userId, @Param("now") LocalDateTime now);
+
+    /** 곧 사라질 묶음 중 아직 알리지 않은 것 */
+    @Query("""
+            select l from DonationPointLot l
+            where l.remaining > 0 and l.expiresAt > :now and l.expiresAt <= :until and l.expiryNotified = false
+            order by l.userId asc, l.id asc
+            """)
+    List<DonationPointLot> findToNotify(@Param("now") LocalDateTime now, @Param("until") LocalDateTime until, Pageable pageable);
+}

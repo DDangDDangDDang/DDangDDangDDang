@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.livestream.service;
 
+import com.example.ddangddangddang.domain.donation.config.DonationProperties;
+import com.example.ddangddangddang.domain.donation.service.PowerSellers;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCard;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
@@ -15,11 +17,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 import java.util.Locale;
 
 /**
  * 방송 목록과 검색. 상태별로 하나씩 보여 준다.
- * - LIVE(기본): 최근 시작한 순
+ * - LIVE(기본): 최근 시작한 순. 파워 판매자(도네이션 포인트로 산 혜택)의 방송은 첫 페이지 맨 위에 따로 올린다. (최대 promotedLiveSlots개)
+ *   맨 위에 올린 방송은 나머지 목록(모든 페이지)에서 빼서 두 번 나오지 않게 한다.
  * - SCHEDULED: 시작 예정 시간이 가까운 순 (시작 예정 시간을 정하지 않은 방송은 제외)
  * - ENDED: 최근 종료한 순
  *
@@ -35,9 +40,13 @@ public class LiveStreamListService {
     static final int MAX_SIZE = 50;
     static final int MAX_KEYWORD_LENGTH = 50;
     private static final char LIKE_ESCAPE = '!';
+    // JPQL "not in"에 빈 목록을 넘길 수 없어, 뺄 방송이 없을 때 존재하지 않는 ID 하나를 넘긴다.
+    private static final List<Long> NOTHING_EXCLUDED = List.of(-1L);
 
     private final LiveStreamRepository liveStreamRepository;
     private final LiveStreamCardAssembler cardAssembler;
+    private final PowerSellers powerSellers;
+    private final DonationProperties donationProperties;
 
     /**
      * @param status  null이면 LIVE
@@ -50,8 +59,10 @@ public class LiveStreamListService {
         LocalDateTime cursorAt = cursor == null ? null : cursorTime(cursor, target);
         Pageable pageable = PageRequest.of(0, pageSize + 1);
 
+        List<LiveStream> promoted = target == LiveStreamStatus.LIVE ? promoted(sellerId, pattern) : List.of();
+        List<Long> excludedIds = promoted.isEmpty() ? NOTHING_EXCLUDED : promoted.stream().map(LiveStream::getId).toList();
         List<LiveStream> fetched = switch (target) {
-            case LIVE -> liveStreamRepository.findLiveList(sellerId, pattern, cursorAt, cursor, pageable);
+            case LIVE -> liveStreamRepository.findLiveList(sellerId, pattern, excludedIds, cursorAt, cursor, pageable);
             case SCHEDULED -> liveStreamRepository.findScheduledList(sellerId, pattern, cursorAt, cursor, pageable);
             case ENDED -> liveStreamRepository.findEndedList(sellerId, pattern, cursorAt, cursor, pageable);
         };
@@ -59,7 +70,20 @@ public class LiveStreamListService {
         boolean hasNext = fetched.size() > pageSize;
         List<LiveStream> page = hasNext ? fetched.subList(0, pageSize) : fetched;
         Long nextCursor = hasNext ? page.get(page.size() - 1).getId() : null;
-        return new CursorResponse<>(cardAssembler.toCards(page), nextCursor, hasNext);
+        // 맨 위 방송은 첫 페이지에만 붙인다. 다음 페이지 커서는 나머지 목록의 마지막 방송이다.
+        List<LiveStream> shown = cursor == null && !promoted.isEmpty()
+                ? Stream.concat(promoted.stream(), page.stream()).toList()
+                : page;
+        return new CursorResponse<>(cardAssembler.toCards(shown), nextCursor, hasNext);
+    }
+
+    /** 방송 중인 파워 판매자 방송 (맨 위에 올릴 것). 파워 판매자가 없으면 빈 목록 */
+    private List<LiveStream> promoted(Long sellerId, String pattern) {
+        Set<Long> power = powerSellers.all();
+        if (power.isEmpty() || donationProperties.promotedLiveSlots() <= 0) {
+            return List.of();
+        }
+        return liveStreamRepository.findPromotedLive(sellerId, pattern, power, PageRequest.of(0, donationProperties.promotedLiveSlots()));
     }
 
     /**
