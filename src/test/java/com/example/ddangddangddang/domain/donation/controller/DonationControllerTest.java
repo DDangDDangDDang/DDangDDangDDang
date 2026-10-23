@@ -177,7 +177,7 @@ class DonationControllerTest {
 
         mockMvc.perform(get("/api/v1/live-streams/{id}/donations/me", liveStreamId).header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
                 .andExpect(jsonPath("$.data.sellerId").value(seller.id()))
-                .andExpect(jsonPath("$.data.usableBalance").value(1_000))
+                .andExpect(jsonPath("$.data.giftableBalance").value(1_000))
                 .andExpect(jsonPath("$.data.remainingThisMonth").value(5_000))
                 .andExpect(jsonPath("$.data.minGift").value(100));
 
@@ -244,29 +244,28 @@ class DonationControllerTest {
     }
 
     @Test
-    @DisplayName("판매자 한 명에게는 한 달 5,000P까지 선물할 수 있고, 그 판매자와의 거래로 받은 포인트는 그 판매자에게 쓸 수 없다")
+    @DisplayName("단골 판매자에게도 그 판매자와의 거래로 받은 포인트를 선물할 수 있고, 판매자 한 명에게는 한 달 5,000P까지만 선물할 수 있다")
     void limits() throws Exception {
         Member viewer = signupAndLogin();
         Member seller = signupAndLogin();
         Member otherSeller = signupAndLogin();
         Long live = liveStream(seller, true);
-        // 이 판매자와의 거래로 1,000P (이 판매자에게는 못 씀)
+        // 이 판매자(단골)와의 거래로 1,000P → 이 판매자에게 그대로 선물할 수 있다.
         donationPointService.earn(ORDER_SEQ.incrementAndGet(), viewer.id(), seller.id(), 100_000L);
-        gift(viewer, live, 500, null, UUID.randomUUID().toString())
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("DONATION_006"));
+        gift(viewer, live, 500, null, UUID.randomUUID().toString()).andExpect(status().isCreated());
 
-        // 다른 판매자와의 거래로 6,000P
+        // 다른 판매자와의 거래로 6,000P 더
         for (int i = 0; i < 6; i++) {
             donationPointService.earn(ORDER_SEQ.incrementAndGet(), viewer.id(), otherSeller.id(), 100_000L);
         }
-        gift(viewer, live, 5_000, null, UUID.randomUUID().toString()).andExpect(status().isCreated());
+        gift(viewer, live, 4_500, null, UUID.randomUUID().toString()).andExpect(status().isCreated());
         gift(viewer, live, 100, null, UUID.randomUUID().toString())
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("DONATION_003"))
                 .andExpect(jsonPath("$.error.message").value("이 판매자에게 이번 달 선물할 수 있는 포인트는 0P 남았습니다."));
-        // 남은 2,000P(이 판매자 거래분 1,000P 포함)는 다른 판매자에게 선물할 수 있다.
+        // 남은 2,000P는 다른 판매자에게 선물할 수 있다.
         mockMvc.perform(get("/api/v1/live-streams/{id}/donations/me", live).header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
                 .andExpect(jsonPath("$.data.giftableBalance").value(2_000))
-                .andExpect(jsonPath("$.data.usableBalance").value(1_000))
+                .andExpect(jsonPath("$.data.givenThisMonth").value(5_000))
                 .andExpect(jsonPath("$.data.remainingThisMonth").value(0));
     }
 

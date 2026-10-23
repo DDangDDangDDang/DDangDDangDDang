@@ -17,7 +17,6 @@ import com.example.ddangddangddang.domain.donation.repository.DonationLotUsageRe
 import com.example.ddangddangddang.domain.donation.repository.DonationPointHistoryRepository;
 import com.example.ddangddangddang.domain.donation.repository.DonationPointLotRepository;
 import com.example.ddangddangddang.domain.donation.repository.DonationRepository;
-import com.example.ddangddangddang.domain.donation.repository.DonationWalletRepository;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
@@ -42,7 +41,6 @@ import java.util.Optional;
  * - 방송 중(LIVE)인 방송의 판매자에게만, 내 방송이 아닐 때만 선물할 수 있다.
  * - 한 번에 minGift ~ maxGift, giftUnit 단위로 선물한다.
  * - 한 계정이 판매자 한 명에게 한 달(1일~말일)에 선물할 수 있는 포인트에 한도가 있다. (어뷰징 방지)
- * - 이 판매자와의 거래(구매 확정)로 받은 포인트는 이 판매자에게 선물할 수 없다. (부계정으로 내 물건을 사서 나에게 선물하는 자전 거래 방지)
  * - 유효기간이 먼저 끝나는 적립 묶음부터 쓴다.
  *
  * 동시성
@@ -57,7 +55,6 @@ public class DonationService {
     private final DonationPointLotRepository lotRepository;
     private final DonationLotUsageRepository usageRepository;
     private final DonationPointHistoryRepository historyRepository;
-    private final DonationWalletRepository walletRepository;
     private final DonationWalletLocker walletLocker;
     private final LiveStreamRepository liveStreamRepository;
     private final ChatContentFilter contentFilter;
@@ -69,23 +66,22 @@ public class DonationService {
     @Autowired
     public DonationService(DonationRepository donationRepository, DonationPointLotRepository lotRepository,
                            DonationLotUsageRepository usageRepository, DonationPointHistoryRepository historyRepository,
-                           DonationWalletRepository walletRepository, DonationWalletLocker walletLocker,
+                           DonationWalletLocker walletLocker,
                            LiveStreamRepository liveStreamRepository, ChatContentFilter contentFilter,
                            ApplicationEventPublisher eventPublisher, DonationTransactions transactions, DonationPolicies policies) {
-        this(donationRepository, lotRepository, usageRepository, historyRepository, walletRepository, walletLocker,
+        this(donationRepository, lotRepository, usageRepository, historyRepository, walletLocker,
                 liveStreamRepository, contentFilter, eventPublisher, transactions, policies, Clock.systemDefaultZone());
     }
 
     DonationService(DonationRepository donationRepository, DonationPointLotRepository lotRepository,
                     DonationLotUsageRepository usageRepository, DonationPointHistoryRepository historyRepository,
-                    DonationWalletRepository walletRepository, DonationWalletLocker walletLocker,
+                    DonationWalletLocker walletLocker,
                     LiveStreamRepository liveStreamRepository, ChatContentFilter contentFilter,
                     ApplicationEventPublisher eventPublisher, DonationTransactions transactions, DonationPolicies policies, Clock clock) {
         this.donationRepository = donationRepository;
         this.lotRepository = lotRepository;
         this.usageRepository = usageRepository;
         this.historyRepository = historyRepository;
-        this.walletRepository = walletRepository;
         this.walletLocker = walletLocker;
         this.liveStreamRepository = liveStreamRepository;
         this.contentFilter = contentFilter;
@@ -103,11 +99,9 @@ public class DonationService {
         Long sellerId = liveStream.getSellerId();
         LocalDateTime now = LocalDateTime.now(clock);
         long given = givenThisMonth(giverId, sellerId, now);
-        long giftable = walletRepository.findByUserId(giverId).map(DonationWallet::getGiftableBalance).orElse(0L);
         return new DonationStatusResponse(
                 sellerId,
-                lotRepository.sumUsableFor(giverId, sellerId, now),
-                giftable,
+                lotRepository.sumUsable(giverId, now),
                 policy.monthlyGiftLimitPerSeller(),
                 given,
                 Math.max(0, policy.monthlyGiftLimitPerSeller() - given),
@@ -166,12 +160,10 @@ public class DonationService {
                     "이 판매자에게 이번 달 선물할 수 있는 포인트는 %,dP 남았습니다.".formatted(Math.max(0, remaining)));
         }
 
-        List<DonationPointLot> lots = lotRepository.findUsableFor(giverId, sellerId, now);
+        List<DonationPointLot> lots = lotRepository.findUsable(giverId, now);
         long usable = lots.stream().mapToLong(DonationPointLot::getRemaining).sum();
         if (usable < amount) {
-            // 포인트는 있는데 이 판매자와의 거래로 받은 것이라 못 쓰는 경우를 따로 알린다.
-            throw new BusinessException(giverWallet.getGiftableBalance() >= amount
-                    ? DonationErrorCode.OWN_SELLER_POINT : DonationErrorCode.INSUFFICIENT_BALANCE);
+            throw new BusinessException(DonationErrorCode.INSUFFICIENT_BALANCE);
         }
 
         Donation donation = donationRepository.saveAndFlush(

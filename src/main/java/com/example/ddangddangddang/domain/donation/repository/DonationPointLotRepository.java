@@ -38,23 +38,20 @@ public interface DonationPointLotRepository extends JpaRepository<DonationPointL
             """)
     long sumEarnedBetween(@Param("userId") Long userId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
-    /**
-     * 이 판매자에게 선물할 때 쓸 수 있는 묶음: 남아 있고, 유효기간이 지나지 않았고, 이 판매자와의 거래로 받은 것이 아닌 것.
-     * 유효기간이 먼저 끝나는 것부터 쓴다.
-     */
+    /** 선물할 때 쓸 수 있는 묶음: 남아 있고 유효기간이 지나지 않은 것. 유효기간이 먼저 끝나는 것부터 쓴다. */
     @Query("""
             select l from DonationPointLot l
-            where l.userId = :userId and l.remaining > 0 and l.expiresAt > :now and l.sellerId <> :sellerId
+            where l.userId = :userId and l.remaining > 0 and l.expiresAt > :now
             order by l.expiresAt asc, l.id asc
             """)
-    List<DonationPointLot> findUsableFor(@Param("userId") Long userId, @Param("sellerId") Long sellerId, @Param("now") LocalDateTime now);
+    List<DonationPointLot> findUsable(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
-    /** 이 판매자에게 선물할 수 있는 포인트 합계 */
+    /** 지금 선물할 수 있는 포인트 합계 (유효기간이 지난 것은 빼고) */
     @Query("""
             select coalesce(sum(l.remaining), 0) from DonationPointLot l
-            where l.userId = :userId and l.remaining > 0 and l.expiresAt > :now and l.sellerId <> :sellerId
+            where l.userId = :userId and l.remaining > 0 and l.expiresAt > :now
             """)
-    long sumUsableFor(@Param("userId") Long userId, @Param("sellerId") Long sellerId, @Param("now") LocalDateTime now);
+    long sumUsable(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
     /** now ~ until 사이에 유효기간이 끝나는 남은 포인트 합계 (곧 사라질 포인트) */
     @Query("""

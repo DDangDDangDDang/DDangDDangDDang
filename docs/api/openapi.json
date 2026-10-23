@@ -8553,10 +8553,6 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "usableBalance" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "giftableBalance" : {
             "type" : "integer",
             "format" : "int64"
@@ -9342,10 +9338,6 @@
     "code" : "DONATION_005",
     "status" : 400,
     "message" : "내 방송에는 선물할 수 없습니다."
-  }, {
-    "code" : "DONATION_006",
-    "status" : 400,
-    "message" : "이 판매자와의 거래로 받은 포인트는 이 판매자에게 선물할 수 없습니다."
   }, {
     "code" : "DONATION_007",
     "status" : 400,
