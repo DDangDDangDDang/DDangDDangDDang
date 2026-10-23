@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.notification.controller;
 
 import com.example.ddangddangddang.domain.auction.dto.response.AuctionListResponse;
+import com.example.ddangddangddang.domain.notification.dto.AuctionAlertFilter;
 import com.example.ddangddangddang.domain.notification.dto.AuctionAlertResponse;
 import com.example.ddangddangddang.domain.notification.service.AuctionAlertService;
 import com.example.ddangddangddang.global.common.ApiResponse;
@@ -22,13 +23,17 @@ public class AuctionAlertController {
 
     private final AuctionAlertService auctionAlertService;
 
-    /** 내가 알림 받기를 한 경매 (최근에 받기로 한 것부터, 경매 목록 카드와 같은 형식) */
+    /**
+     * 내가 알림 받기를 한 경매 (최근에 받기로 한 것부터, 경매 목록 카드와 같은 형식)
+     * filter: ACTIVE(시작 전·진행 중, 기본) / ENDED(낙찰·유찰·취소. 끝난 지 7일이 지나면 목록에서 정리된다)
+     */
     @GetMapping("/users/me/auction-alerts")
     public ResponseEntity<ApiResponse<CursorResponse<AuctionListResponse>>> getMine(
             @AuthenticationPrincipal AuthUser authUser,
+            @RequestParam(defaultValue = "ACTIVE") AuctionAlertFilter filter,
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(ApiResponse.ok(auctionAlertService.getMine(authUser.id(), cursor, size)));
+        return ResponseEntity.ok(ApiResponse.ok(auctionAlertService.getMine(authUser.id(), filter, cursor, size)));
     }
 
     @GetMapping("/auctions/{auctionId}/alert")

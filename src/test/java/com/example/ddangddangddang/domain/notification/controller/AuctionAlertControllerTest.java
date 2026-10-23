@@ -9,6 +9,7 @@ import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.notification.dto.NotificationResponse;
 import com.example.ddangddangddang.domain.notification.entity.NotificationType;
 import com.example.ddangddangddang.domain.notification.event.AuctionClosingSoonNotifier;
+import com.example.ddangddangddang.domain.notification.event.NotificationCleaner;
 import com.example.ddangddangddang.domain.notification.push.PushSubscription;
 import com.example.ddangddangddang.domain.notification.push.PushSubscriptionRepository;
 import com.example.ddangddangddang.domain.notification.push.WebPushCrypto;
@@ -26,6 +27,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -79,6 +81,12 @@ class AuctionAlertControllerTest {
 
     @Autowired
     private PushSubscriptionRepository pushSubscriptionRepository;
+
+    @Autowired
+    private NotificationCleaner notificationCleaner;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     private RefreshTokenRepository refreshTokenRepository;
@@ -206,6 +214,58 @@ class AuctionAlertControllerTest {
                 .andExpect(jsonPath("$.data.content[0].auctionId").value(first))
                 .andExpect(jsonPath("$.data.hasNext").value(false));
         mockMvc.perform(get("/api/v1/users/me/auction-alerts")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("알림 받는 경매는 진행 중·예정과 끝난 경매로 나눠 보고, 끝난 지 7일이 지난 경매는 매일 정리에서 빠진다")
+    void endedAlerts() throws Exception {
+        Member seller = signupAndLogin();
+        Member viewer = signupAndLogin();
+        Long active = createAuction(seller, LocalDateTime.now().plusHours(1), LocalDateTime.now().plusHours(2));
+        Long recentlyCanceled = createAuction(seller, LocalDateTime.now().plusHours(1), LocalDateTime.now().plusHours(2));
+        Long longCanceled = createAuction(seller, LocalDateTime.now().plusHours(1), LocalDateTime.now().plusHours(2));
+        for (Long id : new Long[]{active, recentlyCanceled, longCanceled}) {
+            alert(viewer, id);
+        }
+        for (Long id : new Long[]{recentlyCanceled, longCanceled}) {
+            mockMvc.perform(post("/api/v1/auctions/{id}/cancel", id).header(HttpHeaders.AUTHORIZATION, seller.bearer()));
+        }
+        jdbcTemplate.update("update auctions set canceled_at = ? where id = ?", LocalDateTime.now().minusDays(8), longCanceled);
+        jdbcTemplate.update("update auctions set canceled_at = ? where id = ?", LocalDateTime.now().minusDays(6), recentlyCanceled);
+
+        // 기본은 진행 중·예정만
+        mockMvc.perform(get("/api/v1/users/me/auction-alerts").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].auctionId").value(active));
+        mockMvc.perform(get("/api/v1/users/me/auction-alerts").param("filter", "ENDED").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data.content.length()").value(2));
+
+        notificationCleaner.clean();
+
+        mockMvc.perform(get("/api/v1/users/me/auction-alerts").param("filter", "ENDED").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].auctionId").value(recentlyCanceled));
+        // 끝난 경매도 목록에서 직접 끌 수 있다
+        mockMvc.perform(delete("/api/v1/auctions/{id}/alert", recentlyCanceled).header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data.subscribed").value(false));
+        mockMvc.perform(get("/api/v1/users/me/auction-alerts").param("filter", "ENDED").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data.content.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("사이트를 보고 있을 때도 브라우저 알림 받기: 기본 꺼짐, 켜고 끌 수 있다")
+    void preference() throws Exception {
+        Member viewer = signupAndLogin();
+        mockMvc.perform(get("/api/v1/notifications/preferences").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data.pushWhenVisible").value(false));
+        for (boolean value : new boolean[]{true, true, false}) {
+            mockMvc.perform(put("/api/v1/notifications/preferences").header(HttpHeaders.AUTHORIZATION, viewer.bearer())
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"pushWhenVisible\": " + value + "}"))
+                    .andExpect(jsonPath("$.data.pushWhenVisible").value(value));
+        }
+        mockMvc.perform(put("/api/v1/notifications/preferences").header(HttpHeaders.AUTHORIZATION, viewer.bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

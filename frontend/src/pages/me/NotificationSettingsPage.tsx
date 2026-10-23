@@ -11,9 +11,10 @@ type Setting = Schema<'NotificationSettingResponse'>;
 type Category = NonNullable<Setting['category']>;
 
 const SETTINGS_KEY = ['notifications', 'settings'] as const;
+const PREFERENCES_KEY = ['notifications', 'preferences'] as const;
 
 /**
- * 알림 설정: 브라우저 알림 켜기·끄기, 알림 종류별 받기·안 받기, 보관 기간 안내.
+ * 알림 설정: 브라우저 알림 켜기·끄기(사이트를 보고 있을 때도 받을지 포함), 알림 종류별 받기·안 받기, 보관 기간 안내.
  * 끈 종류의 알림은 알림함에도 쌓이지 않고, 실시간 팝업·브라우저 알림도 오지 않는다.
  */
 export function NotificationSettingsPage() {
@@ -28,6 +29,15 @@ export function NotificationSettingsPage() {
     mutationFn: ({ category, enabled }: { category: Category; enabled: boolean }) =>
       call(api.PUT('/api/v1/notifications/settings/{category}', { params: { path: { category } }, body: { enabled } })),
     onSuccess: (data) => queryClient.setQueryData(SETTINGS_KEY, data),
+  });
+  // 사이트를 보고 있을 때도 브라우저 알림 받기 (기본 꺼짐: 보고 있으면 화면 안 팝업만)
+  const preferences = useQuery({
+    queryKey: PREFERENCES_KEY,
+    queryFn: () => call(api.GET('/api/v1/notifications/preferences')),
+  });
+  const updatePreference = useMutation({
+    mutationFn: (pushWhenVisible: boolean) => call(api.PUT('/api/v1/notifications/preferences', { body: { pushWhenVisible } })),
+    onSuccess: (data) => queryClient.setQueryData(PREFERENCES_KEY, data),
   });
 
   return (
@@ -50,7 +60,26 @@ export function NotificationSettingsPage() {
             {push.state === 'unsupported' ? (
               <p className="text-label text-neutral-500">이 브라우저는 브라우저 알림을 지원하지 않아요. 사이트를 열어 두면 화면 안 알림으로 알려 드려요.</p>
             ) : (
-              <BrowserPushSetting push={push} />
+              <div className="flex flex-col gap-1">
+                <BrowserPushSetting push={push} />
+                <ul aria-label="브라우저 알림 방식" className="mt-2 border-t border-neutral-100">
+                  <SwitchRow
+                    id="notification-push-when-visible"
+                    label="사이트를 보고 있을 때도 받기"
+                    description={
+                      push.state === 'on'
+                        ? '땅땅땅 탭을 보고 있어도 브라우저 알림을 띄워요. (화면 안 팝업과 함께 떠요)'
+                        : '브라우저 알림을 켜면 적용돼요. 땅땅땅 탭을 보고 있어도 브라우저 알림을 띄워요.'
+                    }
+                    checked={preferences.data?.pushWhenVisible ?? false}
+                    pending={preferences.isPending || updatePreference.isPending}
+                    onChange={(checked) => updatePreference.mutate(checked)}
+                  />
+                </ul>
+                {(preferences.isError || updatePreference.isError) && (
+                  <Notice tone="error">{errorMessage(updatePreference.error ?? preferences.error)}</Notice>
+                )}
+              </div>
             )}
           </CardBody>
         </Card>
@@ -91,15 +120,41 @@ export function NotificationSettingsPage() {
   );
 }
 
-/** 알림 종류 한 줄: 이름·설명과 켜기 스위치 */
+/** 알림 종류 한 줄 */
 function SettingRow({ setting, pending, onChange }: { setting: Setting; pending: boolean; onChange: (enabled: boolean) => void }) {
-  const enabled = setting.enabled ?? true;
-  const id = `notification-setting-${setting.category}`;
+  return (
+    <SwitchRow
+      id={`notification-setting-${setting.category}`}
+      label={setting.label ?? ''}
+      description={setting.description}
+      checked={setting.enabled ?? true}
+      pending={pending}
+      onChange={onChange}
+    />
+  );
+}
+
+/** 이름·설명과 켜기 스위치 한 줄 */
+function SwitchRow({
+  id,
+  label,
+  description,
+  checked: enabled,
+  pending,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  description?: string;
+  checked: boolean;
+  pending: boolean;
+  onChange: (checked: boolean) => void;
+}) {
   return (
     <li className="flex items-center justify-between gap-4 py-3">
       <label htmlFor={id} className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-body font-semibold">{setting.label}</span>
-        <span className="text-label text-neutral-500">{setting.description}</span>
+        <span className="text-body font-semibold">{label}</span>
+        {description && <span className="text-label text-neutral-500">{description}</span>}
       </label>
       <button
         id={id}

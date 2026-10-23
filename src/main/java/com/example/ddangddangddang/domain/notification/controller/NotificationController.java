@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.notification.controller;
 
+import com.example.ddangddangddang.domain.notification.dto.NotificationPreferenceRequest;
+import com.example.ddangddangddang.domain.notification.dto.NotificationPreferenceResponse;
 import com.example.ddangddangddang.domain.notification.dto.NotificationResponse;
 import com.example.ddangddangddang.domain.notification.dto.NotificationSettingRequest;
 import com.example.ddangddangddang.domain.notification.dto.NotificationSettingResponse;
@@ -61,6 +63,19 @@ public class NotificationController {
             @PathVariable NotificationCategory category,
             @Valid @RequestBody NotificationSettingRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(notificationSettingService.update(authUser.id(), category, request.enabled())));
+    }
+
+    /** 알림 받는 방식. pushWhenVisible: 사이트를 보고 있을 때도 브라우저 알림을 띄울지 (기본 false) */
+    @GetMapping("/preferences")
+    public ResponseEntity<ApiResponse<NotificationPreferenceResponse>> getPreference(@AuthenticationPrincipal AuthUser authUser) {
+        return ResponseEntity.ok(ApiResponse.ok(notificationSettingService.getPreference(authUser.id())));
+    }
+
+    @PutMapping("/preferences")
+    public ResponseEntity<ApiResponse<NotificationPreferenceResponse>> updatePreference(
+            @AuthenticationPrincipal AuthUser authUser,
+            @Valid @RequestBody NotificationPreferenceRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(notificationSettingService.updatePreference(authUser.id(), request.pushWhenVisible())));
     }
 
     @PostMapping("/read-all")

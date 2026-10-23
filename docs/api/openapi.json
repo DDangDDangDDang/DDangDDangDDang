@@ -161,6 +161,90 @@
         }
       }
     },
+    "/api/v1/notifications/preferences" : {
+      "get" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "notificationGetPreference",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationPreferenceResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "notificationUpdatePreference",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NotificationPreferenceRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationPreferenceResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live-streams/{liveStreamId}/featured-auction" : {
       "put" : {
         "tags" : [ "live-stream-controller" ],
@@ -3756,6 +3840,15 @@
         "tags" : [ "auction-alert-controller" ],
         "operationId" : "auctionAlertGetMine",
         "parameters" : [ {
+          "name" : "filter",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "ACTIVE",
+            "enum" : [ "ACTIVE", "ENDED" ]
+          }
+        }, {
           "name" : "cursor",
           "in" : "query",
           "required" : false,
@@ -4972,6 +5065,37 @@
             "type" : "string"
           },
           "enabled" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "NotificationPreferenceRequest" : {
+        "type" : "object",
+        "properties" : {
+          "pushWhenVisible" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "pushWhenVisible" ]
+      },
+      "ApiResponseNotificationPreferenceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/NotificationPreferenceResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "NotificationPreferenceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "pushWhenVisible" : {
             "type" : "boolean"
           }
         }
