@@ -392,6 +392,8 @@ test.describe('판매자 송출', () => {
         await test.info().attach('시청 화면 (이 방송의 경매)', { body: await watch.screenshot(), contentType: 'image/png' });
 
         // 판매자가 경매 하나를 영상 위에 띄우면 시청 화면 영상 위에 바로 나오고(먼저 띄운 경매는 내려감), 내리면 사라진다.
+        // 스튜디오 경매 패널은 기본이 [진행 중] 탭이라, 시작 전 경매는 [시작 전] 탭에서 띄운다.
+        await studio.getByRole('tablist', { name: '경매 상태' }).getByRole('tab', { name: /^시작 전/ }).click();
         await studio.getByRole('button', { name: `${scheduled.name} 영상에 띄우기` }).click();
         await expect(studio.getByRole('region', { name: '영상 위 경매' }).getByText(scheduled.name)).toBeVisible();
         const overlay = watch.getByRole('region', { name: '영상 위 경매' });
