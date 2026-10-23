@@ -8,7 +8,7 @@ import { BidDialog } from './BidDialog';
 type Request = { path: string; method?: string; init?: { body?: { amount?: number } } };
 
 // 진행 중인 경매(현재가 15,000P, 단위 1,000P, 입찰 3회)와 내 지갑(잔액 20,000P). walletFails면 지갑 조회가 실패한다.
-const state = vi.hoisted(() => ({ walletFails: false, bidFails: false, buyNowPrice: undefined as number | undefined, posts: [] as { path: string; amount?: number }[] }));
+const state = vi.hoisted(() => ({ walletFails: false, bidFails: false, currentPrice: 15000, buyNowPrice: undefined as number | undefined, posts: [] as { path: string; amount?: number }[] }));
 vi.mock('@/api', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/api')>();
   const endAt = new Date(Date.now() + 10 * 60_000).toISOString();
@@ -31,7 +31,7 @@ vi.mock('@/api', async (importOriginal) => {
         return { auctionId: 1, orderId: 77, price: state.buyNowPrice };
       }
       if (r.path === '/api/v1/auctions/{auctionId}')
-        return { id: 1, productName: '필름 카메라', status: 'ONGOING', startPrice: 10000, currentPrice: 15000, bidUnit: 1000, bidCount: 3, endAt, buyNowPrice: state.buyNowPrice };
+        return { id: 1, productName: '필름 카메라', status: 'ONGOING', startPrice: 10000, currentPrice: state.currentPrice, bidUnit: 1000, bidCount: 3, endAt, buyNowPrice: state.buyNowPrice };
       if (r.path === '/api/v1/points/wallet') {
         if (state.walletFails) throw new original.ApiError('COMMON_500', '서버 오류', 500);
         return { balance: 20000 };
@@ -55,6 +55,7 @@ describe('BidDialog', () => {
   beforeEach(() => {
     state.walletFails = false;
     state.bidFails = false;
+    state.currentPrice = 15000;
     state.buyNowPrice = undefined;
     state.posts = [];
     // jsdom에는 <dialog>의 showModal·close가 없다.
@@ -90,6 +91,21 @@ describe('BidDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: '16,000 P 입찰 확정' }));
     expect(await screen.findByText('그 사이 현재가가 올랐어요. 금액을 다시 정해 주세요.')).toBeInTheDocument();
     expect(screen.queryByRole('group', { name: '입찰 확인' })).not.toBeInTheDocument();
+
+    // 금액을 다시 정하면 지난 입찰의 오류는 지운다.
+    await userEvent.click(screen.getByRole('button', { name: '+1,000' }));
+    expect(screen.queryByText('그 사이 현재가가 올랐어요. 금액을 다시 정해 주세요.')).not.toBeInTheDocument();
+  });
+
+  it('입찰한 뒤 더 높은 입찰이 들어오면 최고 입찰자 안내 대신 밀렸다고 알린다', async () => {
+    renderDialog();
+    await userEvent.click(await screen.findByRole('button', { name: '최소' }));
+    await userEvent.click(screen.getByRole('button', { name: '16,000 P 입찰하기' }));
+    // 내 입찰 직후 다른 사람이 17,000P로 입찰했다.
+    state.currentPrice = 17000;
+    await userEvent.click(screen.getByRole('button', { name: '16,000 P 입찰 확정' }));
+    expect(await screen.findByText('16,000 P 입찰보다 높은 입찰이 들어왔어요. 다시 입찰할 수 있어요.')).toBeInTheDocument();
+    expect(screen.queryByText(/지금 최고 입찰자예요/)).not.toBeInTheDocument();
   });
 
   it('즉시구매가가 있으면 한 번 더 확인한 뒤 즉시 구매하고, 주문 내역으로 안내한다', async () => {

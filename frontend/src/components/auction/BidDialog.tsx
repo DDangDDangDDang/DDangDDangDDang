@@ -187,6 +187,7 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
                     setAmount(String(preset));
                     setError(undefined);
                     setConfirmAmount(undefined);
+                    bid.reset();
                   }}
                   className={cn(
                     'num h-11 rounded-md border text-label font-semibold transition-colors',
@@ -210,6 +211,7 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
               setAmount(e.target.value);
               setError(undefined);
               setConfirmAmount(undefined);
+              bid.reset();
             }}
           />
           {!error && value !== undefined && balance !== undefined && value > balance && (
@@ -224,11 +226,15 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
             </Notice>
           )}
           {bid.isError && <Notice tone="error">{errorMessage(bid.error)}</Notice>}
-          {result?.kind === 'bid' && (
-            <Notice tone="success">
-              {formatPoint(result.amount)}로 입찰했어요. 지금 최고 입찰자예요.{result.extended && ' 마감 직전 입찰이라 마감이 30초 늘어났어요.'}
-            </Notice>
-          )}
+          {result?.kind === 'bid' &&
+            // 그 뒤 실시간으로 더 높은 입찰이 들어오면 최고 입찰자 안내 대신 밀렸다고 알린다.
+            ((auction.currentPrice ?? 0) > result.amount ? (
+              <Notice>{formatPoint(result.amount)} 입찰보다 높은 입찰이 들어왔어요. 다시 입찰할 수 있어요.</Notice>
+            ) : (
+              <Notice tone="success">
+                {formatPoint(result.amount)}로 입찰했어요. 지금 최고 입찰자예요.{result.extended && ' 마감 직전 입찰이라 마감이 30초 늘어났어요.'}
+              </Notice>
+            ))}
           {confirmAmount !== undefined ? (
             <div role="group" aria-label="입찰 확인" className="flex flex-col gap-2 rounded-md border border-brand-200 bg-brand-50 px-4 py-3">
               <p className="text-body">
