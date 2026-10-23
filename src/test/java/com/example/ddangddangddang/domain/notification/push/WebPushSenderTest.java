@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.notification.push;
 
 import com.example.ddangddangddang.domain.notification.entity.Notification;
 import com.example.ddangddangddang.domain.notification.entity.NotificationType;
+import com.example.ddangddangddang.domain.notification.repository.NotificationPreferenceRepository;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.verify;
 class WebPushSenderTest {
 
     private final PushSubscriptionRepository repository = mock(PushSubscriptionRepository.class);
+    private final NotificationPreferenceRepository preferenceRepository = mock(NotificationPreferenceRepository.class);
     private final WebPushProperties properties = new WebPushProperties(true, null, null, "mailto:admin@ddang.test", null, null, null);
     private final VapidKeys vapidKeys = new VapidKeys(properties);
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
@@ -70,7 +72,9 @@ class WebPushSenderTest {
         Notification notification = Notification.auction(5L, NotificationType.AUCTION_OUTBID, 7L, "필름 카메라", 21_000L);
         ReflectionTestUtils.setField(notification, "id", 99L);
 
-        WebPushSender sender = new WebPushSender(repository, vapidKeys, properties, objectMapper, HttpClient.newHttpClient(),
+        // 이 회원은 "사이트를 보고 있을 때도 브라우저 알림 받기"를 켰다
+        given(preferenceRepository.findPushWhenVisibleUserIds(java.util.Set.of(5L))).willReturn(List.of(5L));
+        WebPushSender sender = new WebPushSender(repository, preferenceRepository, vapidKeys, properties, objectMapper, HttpClient.newHttpClient(),
                 Clock.fixed(Instant.parse("2026-10-22T00:00:00Z"), ZoneOffset.UTC));
         sender.send(List.of(notification));
 
@@ -80,24 +84,26 @@ class WebPushSenderTest {
         assertThat(request.get("ttl")).isEqualTo("1800");
         assertThat(request.get("encoding")).isEqualTo("aes128gcm");
         // 헤더(16+4+1+65) + 본문 + 구분 1바이트 + 태그 16바이트
-        byte[] payload = sender.payload(notification);
+        byte[] payload = sender.payload(notification, true);
         assertThat(Integer.parseInt(request.get("length"))).isEqualTo(86 + payload.length + 1 + 16);
         verify(repository, timeout(5000)).deleteExpired(subscription.getEndpointHash());
 
         assertThat(new String(payload, StandardCharsets.UTF_8))
                 .contains("\"title\":\"더 높은 입찰이 들어왔어요\"")
                 .contains("\"link\":\"/auctions/7\"")
-                .contains("\"tag\":\"notification-99\"");
+                .contains("\"tag\":\"notification-99\"")
+                .contains("\"showWhenVisible\":true");
+        assertThat(new String(sender.payload(notification, false), StandardCharsets.UTF_8)).contains("\"showWhenVisible\":false");
     }
 
     @Test
     @DisplayName("본문이 푸시 한도(요청 본문 4096바이트)를 넘으면 내용을 줄여 보낸다")
     void trimsLongBody() {
-        WebPushSender sender = new WebPushSender(repository, vapidKeys, properties, objectMapper);
+        WebPushSender sender = new WebPushSender(repository, preferenceRepository, vapidKeys, properties, objectMapper);
         Notification notification = Notification.liveStarted(5L, 1L, "판매자", 3L, "가".repeat(3000));
         ReflectionTestUtils.setField(notification, "id", 100L);
 
-        byte[] payload = sender.payload(notification);
+        byte[] payload = sender.payload(notification, false);
 
         assertThat(payload.length).isLessThanOrEqualTo(WebPushCrypto.MAX_PLAINTEXT);
         assertThat(new String(payload, StandardCharsets.UTF_8)).contains("\"title\":\"판매자님이 방송을 시작했어요\"").contains("…");

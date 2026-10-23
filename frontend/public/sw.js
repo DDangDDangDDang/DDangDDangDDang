@@ -23,7 +23,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
       // 사이트 탭을 보고 있으면 화면 안 알림(팝업·알림함)으로 충분하므로 브라우저 알림은 띄우지 않는다.
-      if (windows.some((client) => client.focused && client.visibilityState === 'visible')) return undefined;
+      // 회원이 알림 설정에서 "사이트를 보고 있을 때도 브라우저 알림 받기"를 켰으면(showWhenVisible) 그래도 띄운다.
+      if (!data.showWhenVisible && windows.some((client) => client.focused && client.visibilityState === 'visible')) return undefined;
       return self.registration.showNotification(data.title || '땅땅땅 알림', {
         body: data.body || '',
         tag: data.tag,

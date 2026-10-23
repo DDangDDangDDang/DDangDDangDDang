@@ -4,6 +4,7 @@ import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository
 import com.example.ddangddangddang.domain.notification.entity.AuctionClosingNotice;
 import com.example.ddangddangddang.domain.notification.entity.Notification;
 import com.example.ddangddangddang.domain.notification.entity.NotificationType;
+import com.example.ddangddangddang.domain.notification.repository.AuctionAlertRepository;
 import com.example.ddangddangddang.domain.notification.repository.AuctionClosingNoticeRepository;
 import com.example.ddangddangddang.domain.notification.repository.NotificationRepository;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
@@ -36,6 +37,9 @@ class NotificationCleanerTest {
     private AuctionClosingNoticeRepository closingNoticeRepository;
 
     @Autowired
+    private AuctionAlertRepository auctionAlertRepository;
+
+    @Autowired
     private TransactionTemplate transactionTemplate;
 
     @Autowired
@@ -51,7 +55,7 @@ class NotificationCleanerTest {
     @DisplayName("보관 기간(90일)·마감 임박 기록(30일)보다 오래된 것만 지우고, 딱 그 기간인 것은 남긴다")
     void deletesOnlyOlderThanRetention() {
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
-        NotificationCleaner cleaner = new NotificationCleaner(notificationRepository, closingNoticeRepository, transactionTemplate,
+        NotificationCleaner cleaner = new NotificationCleaner(notificationRepository, closingNoticeRepository, auctionAlertRepository, transactionTemplate,
                 true, Duration.ofDays(90), Clock.fixed(now.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault()));
 
         Long older = saveNotificationCreatedAt(now.minusDays(90).minusSeconds(1));
@@ -75,7 +79,7 @@ class NotificationCleanerTest {
     void failureIsSwallowed() {
         NotificationRepository failing = mock(NotificationRepository.class);
         given(failing.findIdsOlderThan(any(), any())).willThrow(new IllegalStateException("DB 연결 끊김"));
-        NotificationCleaner cleaner = new NotificationCleaner(failing, closingNoticeRepository, transactionTemplate,
+        NotificationCleaner cleaner = new NotificationCleaner(failing, closingNoticeRepository, auctionAlertRepository, transactionTemplate,
                 true, Duration.ofDays(90), Clock.systemDefaultZone());
         closingNoticeRepository.save(new AuctionClosingNotice(990_201L, LocalDateTime.now().minusDays(31)));
 
