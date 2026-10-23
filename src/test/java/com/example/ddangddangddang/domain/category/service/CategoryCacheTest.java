@@ -10,6 +10,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.interceptor.SimpleKey;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
 
@@ -19,9 +25,21 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 카테고리 목록 캐시(Redis): 관리자가 카테고리를 만들거나 고치거나 지우면 바로 다음 조회부터 바뀐 목록이 나온다.
  * Spring Data Redis 4는 기본으로 캐시를 비동기로 지워, 바꾸자마자 조회하면 예전 목록이 나왔다. (CacheConfig의 immediateWrites)
  * 그래서 기다리지 않고 바로 조회해 확인한다.
+ * 캐시가 실제로 Redis에 쓰이고 지워지는지 봐야 하므로 Redis를 Testcontainers로 띄운다. (CI의 다른 테스트에는 Redis가 없음)
  */
 @SpringBootTest
+@Testcontainers
 class CategoryCacheTest {
+
+    @Container
+    private static final GenericContainer<?> REDIS =
+            new GenericContainer<>(DockerImageName.parse("redis:7.4")).withExposedPorts(6379);
+
+    @DynamicPropertySource
+    static void redisProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
+    }
 
     @Autowired
     private CategoryService categoryService;

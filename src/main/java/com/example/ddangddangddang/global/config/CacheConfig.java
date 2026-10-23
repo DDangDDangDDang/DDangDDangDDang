@@ -2,10 +2,12 @@ package com.example.ddangddangddang.global.config;
 
 import com.example.ddangddangddang.domain.donation.policy.DonationPolicy;
 import com.example.ddangddangddang.domain.category.dto.response.CategoryResponse;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.cache.interceptor.LoggingCacheErrorHandler;
+import org.springframework.cache.transaction.TransactionAwareCacheManagerProxy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -29,7 +31,7 @@ public class CacheConfig implements CachingConfigurer {
     public static final String DONATION_POLICY = "donationPolicy";
 
     @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory){
+    public CacheManager cacheManager(RedisConnectionFactory connectionFactory){
         //카테고리 목록(List<CategoryResponse>)을 JSON으로 저장 및 복원
         JsonMapper jsonMapper = JsonMapper.builder().build();
         JavaType categoryListType = jsonMapper.getTypeFactory()
@@ -50,11 +52,14 @@ public class CacheConfig implements CachingConfigurer {
         // 캐시 쓰기·삭제를 끝까지 기다린다. (immediateWrites)
         // Spring Data Redis 4는 Lettuce를 쓰면 기본으로 비동기로 지워서, 카테고리·정책을 바꾸자마자 다시 조회하면 지우기 전의 예전 값이 나왔다.
         RedisCacheWriter cacheWriter = RedisCacheWriter.create(connectionFactory, writer -> writer.immediateWrites());
-        return RedisCacheManager.builder(cacheWriter)
+        RedisCacheManager redisCacheManager = RedisCacheManager.builder(cacheWriter)
                 .withCacheConfiguration(CATEGORIES, categoryConfig)
                 .withCacheConfiguration(DONATION_POLICY, donationPolicyConfig)
-                .transactionAware() //DB 커밋이 끝난 뒤에 캐시 삭제
                 .build();
+        // 빈으로 등록하지 않으므로 위에서 정한 캐시 설정을 직접 적용한다.
+        redisCacheManager.afterPropertiesSet();
+        // DB 커밋이 끝난 뒤에 캐시 삭제(트랜잭션 인식). 커밋 뒤 Redis 오류는 요청을 실패시키지 않고 로그만 남긴다. (ResilientCacheManager)
+        return new TransactionAwareCacheManagerProxy(new ResilientCacheManager(redisCacheManager));
 
 
     }
