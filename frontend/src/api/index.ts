@@ -13,6 +13,7 @@ export type Schema<Name extends keyof components['schemas']> = components['schem
 export {
   connectRealtime,
   REALTIME,
+  type AuctionRealtimeMessage,
   type ChatMessage,
   type DmEvent,
   type LiveAuctionChangedMessage,

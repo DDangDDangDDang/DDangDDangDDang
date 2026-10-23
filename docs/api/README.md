@@ -56,7 +56,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 - 주소: `ws://{호스트}/ws` (STOMP over WebSocket, SockJS 없음)
 - 인증: STOMP `CONNECT` 프레임 헤더에 `Authorization: Bearer {accessToken}`
   - 브라우저 WebSocket은 핸드셰이크에 헤더를 붙일 수 없어서, 핸드셰이크는 열려 있고 인증은 CONNECT에서 합니다.
-  - **토큰 없이 CONNECT하면 손님 연결**입니다. 손님은 방송 토픽(`/topic/live-streams/{id}`, `/topic/live-streams/{id}/chat`, `/topic/live-streams/{id}/auctions`)만 구독할 수 있고, 보내기(`/app/...`)와 `/user/queue/...`는 할 수 없습니다. (로그인하지 않은 사람도 방송 채팅을 볼 수 있게)
+  - **토큰 없이 CONNECT하면 손님 연결**입니다. 손님은 방송 토픽(`/topic/live-streams/{id}`, `/topic/live-streams/{id}/chat`, `/topic/live-streams/{id}/auctions`)와 경매 토픽(`/topic/auctions/{id}`)만 구독할 수 있고, 보내기(`/app/...`)와 `/user/queue/...`는 할 수 없습니다. (로그인하지 않은 사람도 방송 채팅을 볼 수 있게)
   - 토큰이 있는데 잘못됐으면(만료·로그아웃) 손님으로 바꾸지 않고 ERROR 프레임으로 거부합니다. 클라이언트는 토큰을 재발급해 다시 연결합니다.
 - 보내기는 `/app/...`, 받기는 `/topic/...`(구독자 전체) 또는 `/user/queue/...`(나에게만)입니다.
 - 아래 표에 없는 경로는 구독할 수 없습니다. (서버가 거부)
@@ -74,6 +74,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `/topic/live-streams/{liveStreamId}/chat` | 방송 시청자 전체 (손님 포함) | `ChatMessageResponse` |
 | `/topic/live-streams/{liveStreamId}` | 방송 시청자 전체 (손님 포함) | `LiveStreamUpdatedMessage` (방송 정보 변경) |
 | `/topic/live-streams/{liveStreamId}/auctions` | 방송 시청자 전체 (손님 포함) | `LiveAuctionChangedMessage` (방송에 올라간 경매가 시작·추가·취소·마감됨) |
+| `/topic/auctions/{auctionId}` | 경매를 보는 사람 전체 (손님 포함) | `AuctionRealtimeMessage` (입찰이 반영됨 / 경매가 끝남) |
 | `/user/queue/errors` | 나 | `ErrorResponse` (채팅 전송 실패 등) |
 | `/user/queue/moderation` | 방송 판매자 | `ModerationAlert` (AI가 확인이 필요하다고 본 채팅) |
 | `/user/queue/live-stream` | 방송 판매자 | `LiveStreamIdleMessage` (송출이 없어 곧 자동 종료됨·취소됨·종료됨) |
@@ -104,6 +105,10 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 - `GET /api/v1/push/public-key`로 받은 키로 `pushManager.subscribe` → `POST /api/v1/push/subscriptions`로 저장, 로그아웃·끄기는 `DELETE /api/v1/push/subscriptions?endpoint=`
 - 서비스 워커(`frontend/public/sw.js`)가 받는 내용: `{ notificationId, type, title, body, link, tag }`
 - 서버 설정: `WEB_PUSH_PUBLIC_KEY`·`WEB_PUSH_PRIVATE_KEY`(VAPID, 비우면 서버를 켤 때마다 새로 만듦 — 로컬 전용), `WEB_PUSH_SUBJECT`
+
+**AuctionRealtimeMessage**: 경매 한 건의 변경. 두 가지 모양이 옵니다.
+- 입찰이 반영됨: `{ "auctionId", "bidderId", "amount", "bidCount", "endAt", "extended" }` — `amount`가 새 현재가, 마감 30초 전 안쪽 입찰이면 `extended: true`이고 `endAt`이 늘어납니다.
+- 경매가 끝남: `{ "auctionId", "result": "ENDED" | "FAILED", "sellerId", "winnerId", "finalPrice", "productName" }` — 낙찰(즉시 구매 포함)·유찰. 받으면 경매를 다시 불러옵니다.
 
 **LiveAuctionChangedMessage**: `{ "type": "CHANGED", "auctionId": number }`
 - 바뀐 경매 번호만 옵니다. 받으면 방송의 경매 목록(`GET /api/v1/lives/{liveId}/auctions`)을 다시 불러옵니다.

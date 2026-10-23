@@ -1,6 +1,6 @@
 import { parseAmount } from './auction';
 
-type BidAuction = { startPrice?: number; currentPrice?: number; bidUnit?: number; bidCount?: number };
+type BidAuction = { startPrice?: number; currentPrice?: number; bidUnit?: number; bidCount?: number; buyNowPrice?: number };
 
 /** 지금 입찰할 수 있는 최소 금액. 첫 입찰은 시작가부터, 그다음은 현재가 + 최소 입찰 단위부터 */
 export function minimumBid(auction: BidAuction): number {
@@ -15,6 +15,7 @@ export function validateBid(value: string, auction: BidAuction): string | undefi
   if (!amount) return '입찰할 금액을 입력해 주세요.';
   const min = minimumBid(auction);
   if (amount < min) return `${min.toLocaleString('ko-KR')} P부터 입찰할 수 있어요.`;
+  if (auction.buyNowPrice && amount >= auction.buyNowPrice) return '즉시구매가 이상으로는 입찰할 수 없어요. [즉시 구매]를 이용해 주세요.';
   return undefined;
 }
 

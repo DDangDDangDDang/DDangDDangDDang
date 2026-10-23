@@ -6,6 +6,7 @@ import { api, call, errorMessage, isErrorCode, useSession } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
 import { AuctionAlertButton } from '@/components/auction/AuctionAlertButton';
 import { BidDialog } from '@/components/auction/BidDialog';
+import { auctionKey, useAuctionRealtime } from '@/lib/use-auction-realtime';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { ProductImage } from '@/components/order/OrderBits';
 import { SellerIdentity } from '@/components/seller/SellerIdentity';
@@ -14,8 +15,8 @@ import { auctionPhase } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 
-/** 시작 전·진행 중인 경매는 상태·현재가·입찰 수를 이 간격으로 다시 불러온다. (경매 실시간 메시지가 아직 없음) */
-const REFRESH_MS = 5000;
+/** 시작 전·진행 중인 경매도 이 간격으로 다시 불러온다. (실시간 메시지가 끊겼을 때의 보조) */
+const REFRESH_MS = 10_000;
 
 /** 경매 상세: 상품 정보 + 현재가·입찰 수·남은 시간. 내 경매면 취소할 수 있다. [입찰하기]는 입찰 창(BidDialog)을 연다. */
 export function AuctionDetailPage() {
@@ -35,7 +36,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
   const [bidOpen, setBidOpen] = useState(false);
 
   const query = useQuery({
-    queryKey: ['auction', auctionId],
+    queryKey: auctionKey(auctionId),
     queryFn: () => call(api.GET('/api/v1/auctions/{auctionId}', { params: { path: { auctionId } } })),
     // 시작 전 경매도 다시 불러온다. 방송에 올라간 경매는 방송이 끝나면 "방송 중 경매"(live) 표시를 내려야 하므로,
     // 경매가 먼저 끝났어도 연결된 방송이 아직 방송 중(live)이면 계속 다시 불러온다.
@@ -44,6 +45,8 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
       return data?.status === 'ONGOING' || data?.status === 'READY' || data?.live ? REFRESH_MS : false;
     },
   });
+  // 현재가·입찰 수·마감 시각은 실시간으로 받는다. (주기적 새로 불러오기는 실시간이 끊겼을 때의 보조)
+  useAuctionRealtime(auctionId);
   const auction = query.data;
   const productId = auction?.productId;
   const product = useQuery({
@@ -186,7 +189,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
       </aside>
 
       {loginDialog}
-      <BidDialog auctionId={bidOpen ? auctionId : undefined} onClose={() => setBidOpen(false)} showDetailLink={false} />
+      <BidDialog auctionId={bidOpen ? auctionId : undefined} onClose={() => setBidOpen(false)} showDetailLink={false} realtime={false} />
       <ConfirmDialog
         open={confirmCancel}
         title="경매를 취소할까요?"
