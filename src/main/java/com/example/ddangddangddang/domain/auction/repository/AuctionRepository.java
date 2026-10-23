@@ -93,4 +93,10 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
 
     //판매자 프로필 신뢰 지표 : 판매자의 경매 중 그 상태인 것의 수(낙찰·유찰·취소)
     long countByProductSellerIdAndStatus(Long sellerId, AuctionStatus status);
+
+    //상점 경매 기록(탭별) : 판매자의 경매 중 탭에 해당하는 상태만 최신순 정렬,cursor는 이전 페이지 마지막 경매 ID
+    @EntityGraph(attributePaths = {"product","liveStream"})
+    @Query("select a from Auction  a where  a.product.seller.id = :sellerId and a.status in :statuses and (:cursor is null or a.id <:cursor) order by a.id desc")
+    List<Auction> findSellerHistoryByStatuses(@Param("sellerId") Long sellerId, @Param("statuses") List<AuctionStatus> statuses,@Param("cursor") Long cursor, Pageable pageable);
+
 }
