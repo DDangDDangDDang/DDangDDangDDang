@@ -134,21 +134,27 @@ public class DonationPointExpirer {
         LocalDateTime until = now.plus(properties.expiringNoticeBefore());
         int notified = 0;
         try {
+            // 회원 단위로 넘긴다. 한 회원의 묶음이 여러 페이지로 나뉘어 알림이 두 번 가지 않게, 회원을 고른 뒤 그 회원의 묶음을 모두 합친다.
+            Long afterUserId = 0L;
             while (true) {
-                List<DonationPointLot> lots = lotRepository.findToNotify(now, until, PageRequest.of(0, BATCH_SIZE));
-                if (lots.isEmpty()) {
+                List<Long> userIds = lotRepository.findUserIdsToNotify(now, until, afterUserId, PageRequest.of(0, BATCH_SIZE));
+                if (userIds.isEmpty()) {
                     break;
                 }
+                List<DonationPointLot> lots = lotRepository.findToNotify(userIds, now, until);
                 Map<Long, Long> pointsByUser = new LinkedHashMap<>();
                 lots.forEach(lot -> pointsByUser.merge(lot.getUserId(), lot.getRemaining(), Long::sum));
                 // 알림을 저장한 뒤에 알린 묶음으로 표시한다. 저장이 실패하면(예외) 표시하지 않고 멈춰 다음 날 다시 알린다.
-                // 표시한 묶음은 다음 조회에서 빠진다.
                 notificationDispatcher.dispatch(pointsByUser.entrySet().stream()
                         .map(e -> Notification.donationPoint(e.getKey(), NotificationType.DONATION_POINT_EXPIRING, e.getValue()))
                         .toList());
                 List<Long> lotIds = lots.stream().map(DonationPointLot::getId).toList();
                 transactionTemplate.executeWithoutResult(status -> lotRepository.markExpiryNotified(lotIds));
                 notified += pointsByUser.size();
+                if (userIds.size() < BATCH_SIZE) {
+                    break;
+                }
+                afterUserId = userIds.get(userIds.size() - 1);
             }
         } catch (RuntimeException e) {
             log.warn("곧 사라질 도네이션 포인트를 알리지 못했습니다. 다음 날 다시 합니다.", e);

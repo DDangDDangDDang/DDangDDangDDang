@@ -89,11 +89,21 @@ public interface DonationPointLotRepository extends JpaRepository<DonationPointL
     @Query("update DonationPointLot l set l.expiryNotified = true where l.id in :ids")
     int markExpiryNotified(@Param("ids") Collection<Long> ids);
 
-    /** 곧 사라질 묶음 중 아직 알리지 않은 것 */
+    /** 곧 사라질 묶음 중 아직 알리지 않은 것이 있는 회원. afterUserId보다 큰 회원을 userId 순으로 */
+    @Query("""
+            select distinct l.userId from DonationPointLot l
+            where l.remaining > 0 and l.expiresAt > :now and l.expiresAt <= :until and l.expiryNotified = false
+              and l.userId > :afterUserId
+            order by l.userId asc
+            """)
+    List<Long> findUserIdsToNotify(@Param("now") LocalDateTime now, @Param("until") LocalDateTime until,
+                                   @Param("afterUserId") Long afterUserId, Pageable pageable);
+
+    /** 이 회원들의 곧 사라질 묶음 중 아직 알리지 않은 것 전부 (회원별로 한 번에 합쳐 알린다) */
     @Query("""
             select l from DonationPointLot l
-            where l.remaining > 0 and l.expiresAt > :now and l.expiresAt <= :until and l.expiryNotified = false
-            order by l.userId asc, l.id asc
+            where l.userId in :userIds and l.remaining > 0 and l.expiresAt > :now and l.expiresAt <= :until and l.expiryNotified = false
             """)
-    List<DonationPointLot> findToNotify(@Param("now") LocalDateTime now, @Param("until") LocalDateTime until, Pageable pageable);
+    List<DonationPointLot> findToNotify(@Param("userIds") Collection<Long> userIds, @Param("now") LocalDateTime now,
+                                        @Param("until") LocalDateTime until);
 }
