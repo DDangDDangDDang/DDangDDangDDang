@@ -93,4 +93,9 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
 
     //판매자 프로필 신뢰 지표 : 판매자의 경매 중 그 상태인 것의 수(낙찰·유찰·취소)
     long countByProductSellerIdAndStatus(Long sellerId, AuctionStatus status);
+
+    /*상품의 경매 이력(최신순 50) : 현 상품으로 지금까지 열었던 경매 전부(유찰,취소 포함),
+    추후 같은 상품 올리시 시작가 정하는데 참고용*/
+    @EntityGraph(attributePaths ={"product","product.seller","liveStream"})
+    List<Auction> findTop50ByProductIdOrderByIdDesc(Long productId);
 }
