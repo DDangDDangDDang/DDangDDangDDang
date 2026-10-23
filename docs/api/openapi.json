@@ -2207,6 +2207,104 @@
         "security" : [ ]
       }
     },
+    "/api/v1/auth/oauth/kakao" : {
+      "post" : {
+        "tags" : [ "o-auth-controller" ],
+        "operationId" : "oAuthLogin",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/KakaoLoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseKakaoLoginResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/v1/auth/oauth/kakao/signup" : {
+      "post" : {
+        "tags" : [ "o-auth-controller" ],
+        "operationId" : "oAuthSignup",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/KakaoSignupRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseKakaoSignupResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
     "/api/v1/auth/logout" : {
       "post" : {
         "tags" : [ "auth-controller" ],
@@ -6096,6 +6194,120 @@
         },
         "required" : [ "email" ]
       },
+      "KakaoLoginRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "code" ]
+      },
+      "ApiResponseKakaoLoginResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/KakaoLoginResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "KakaoLoginResponse" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "LOGIN", "SIGNUP_REQUIRED" ]
+          },
+          "accessToken" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "user" : {
+            "$ref" : "#/components/schemas/UserInfo"
+          },
+          "signupToken" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          }
+        }
+      },
+      "KakaoSignupRequest" : {
+        "type" : "object",
+        "properties" : {
+          "signupToken" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "nickname" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 2
+          },
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "phoneNumber" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^01[016789]\\d{7,8}$"
+          },
+          "phoneVerificationToken" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "email", "nickname", "phoneNumber", "phoneVerificationToken", "signupToken" ]
+      },
+      "ApiResponseKakaoSignupResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/KakaoSignupResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "KakaoSignupResponse" : {
+        "type" : "object",
+        "properties" : {
+          "linkedExistingAccount" : {
+            "type" : "boolean"
+          },
+          "accessToken" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "user" : {
+            "$ref" : "#/components/schemas/UserInfo"
+          }
+        }
+      },
       "LoginRequest" : {
         "type" : "object",
         "properties" : {
@@ -7986,6 +8198,26 @@
     "code" : "NOTIFICATION_004",
     "status" : 400,
     "message" : "브라우저 알림 구독 정보가 올바르지 않습니다."
+  }, {
+    "code" : "OAUTH_001",
+    "status" : 400,
+    "message" : "카카오 로그인에 실패했습니다. 다시 시도해 주세요."
+  }, {
+    "code" : "OAUTH_002",
+    "status" : 502,
+    "message" : "카카오와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+  }, {
+    "code" : "OAUTH_003",
+    "status" : 400,
+    "message" : "가입 시간이 지났습니다. 카카오 로그인부터 다시 진행해 주세요."
+  }, {
+    "code" : "OAUTH_004",
+    "status" : 409,
+    "message" : "이 휴대폰 번호의 계정에는 이미 다른 카카오 계정이 연결되어 있습니다."
+  }, {
+    "code" : "OAUTH_005",
+    "status" : 503,
+    "message" : "카카오 로그인이 설정되지 않았습니다."
   }, {
     "code" : "ORDER_001",
     "status" : 404,

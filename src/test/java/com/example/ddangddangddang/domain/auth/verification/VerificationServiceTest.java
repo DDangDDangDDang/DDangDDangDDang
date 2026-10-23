@@ -252,6 +252,38 @@ class VerificationServiceTest {
                     .isEqualTo(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
         }
 
+        @Test
+        @DisplayName("기대한 대상의 토큰이면 쓰고, 다시 쓸 수 없다")
+        void matchingTarget() {
+            String token = verifiedToken(VerificationPurpose.SIGNUP_PHONE, PHONE);
+
+            verificationService.consumeMatchingToken(VerificationPurpose.SIGNUP_PHONE, token, PHONE);
+
+            assertThatThrownBy(() -> verificationService.consumeMatchingToken(VerificationPurpose.SIGNUP_PHONE, token, PHONE))
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+        }
+
+        @Test
+        @DisplayName("다른 대상의 토큰이면 예외가 발생하고, 토큰은 지워지지 않아 맞는 대상으로 다시 쓸 수 있다")
+        void otherTargetKeepsToken() {
+            String token = verifiedToken(VerificationPurpose.SIGNUP_PHONE, PHONE);
+
+            assertThatThrownBy(() -> verificationService.consumeMatchingToken(VerificationPurpose.SIGNUP_PHONE, token, "01099999999"))
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+
+            verificationService.consumeMatchingToken(VerificationPurpose.SIGNUP_PHONE, token, PHONE);
+        }
+
+        @Test
+        @DisplayName("없는 토큰이면 예외가 발생한다")
+        void unknownToken() {
+            assertThatThrownBy(() -> verificationService.consumeMatchingToken(VerificationPurpose.SIGNUP_PHONE, "unknown", PHONE))
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+        }
+
         private String verifiedToken(VerificationPurpose purpose, String target) {
             String code = verificationService.issueCode(purpose, target);
             return verificationService.verifyCode(purpose, target, code);

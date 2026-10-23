@@ -208,6 +208,19 @@ class AuthServiceTest {
                     .isEqualTo(AuthErrorCode.LOGIN_FAILED);
             verify(refreshTokenRepository, never()).save(anyLong(), anyString(), any());
         }
+
+        @Test
+        @DisplayName("소셜 로그인으로만 가입해 비밀번호가 없으면 비밀번호를 비교하지 않고 LOGIN_FAILED 예외가 발생한다")
+        void socialOnlyUser() {
+            User user = User.createSocial("user@test.com", "경매왕", "01012345678");
+            given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
+
+            assertThatThrownBy(() -> authService.login(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(AuthErrorCode.LOGIN_FAILED);
+            verify(passwordEncoder, never()).matches(anyString(), any());
+        }
     }
 
     @Nested

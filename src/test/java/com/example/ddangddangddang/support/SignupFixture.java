@@ -1,11 +1,14 @@
 package com.example.ddangddangddang.support;
 
+import com.example.ddangddangddang.domain.auth.verification.VerificationErrorCode;
 import com.example.ddangddangddang.domain.auth.verification.VerificationPurpose;
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
+import com.example.ddangddangddang.global.exception.BusinessException;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willAnswer;
 
 /**
  * 컨트롤러 통합 테스트에서 회원가입을 간단히 하기 위한 도우미.
@@ -43,5 +46,14 @@ public final class SignupFixture {
                     String token = invocation.getArgument(1);
                     return token.startsWith(TOKEN_PREFIX) ? token.substring(TOKEN_PREFIX.length()) : "";
                 });
+        // "verified:{번호}" 토큰이 요청한 번호와 같을 때만 통과한다
+        willAnswer(invocation -> {
+            String token = invocation.getArgument(1);
+            String expected = invocation.getArgument(2);
+            if (!token.equals(TOKEN_PREFIX + expected)) {
+                throw new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+            }
+            return null;
+        }).given(verificationService).consumeMatchingToken(eq(VerificationPurpose.SIGNUP_PHONE), anyString(), anyString());
     }
 }
