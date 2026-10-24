@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamHomeResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayLayoutRequest;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamHomeService;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamListService;
@@ -95,6 +96,17 @@ public class LiveStreamController {
             @Valid @RequestBody FeaturedAuctionRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(
                 liveStreamService.featureAuction(liveStreamId, authUser.id(), request.auctionId())));
+    }
+
+    /**
+     * 판매자가 방송 화면 배치(경매 카드·선물·입찰·낙찰 안내 위치)를 정한다. 방송 시작 전에도 정할 수 있고, 시청자 화면에 바로 반영된다.
+     */
+    @PutMapping("/{liveStreamId}/overlay-layout")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> changeOverlayLayout(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @Valid @RequestBody OverlayLayoutRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.changeOverlayLayout(liveStreamId, authUser.id(), request)));
     }
 
     /**

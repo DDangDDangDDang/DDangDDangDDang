@@ -3,8 +3,10 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import type { ChatMessage } from '@/api';
 import { bidIncreasePercent, useAuctionEffects, type AuctionEffect, type BidTier } from '@/lib/auction-effects';
 import { playBidCoins, playGavel } from '@/lib/auction-sound';
+import { OverlayItem } from '@/components/live/OverlayItem';
 import { cn } from '@/lib/cn';
 import { formatPoint } from '@/lib/format';
+import { DEFAULT_OVERLAY_LAYOUT, type OverlayPosition } from '@/lib/overlay-layout';
 
 /**
  * 방송 화면 위 입찰·낙찰 이펙트. 시청 화면·판매자 스튜디오·작은 방송 창에서 그 화면의 채팅 메시지를 넘겨 쓴다.
@@ -12,18 +14,23 @@ import { formatPoint } from '@/lib/format';
  *   직전 현재가보다 10%·30%·50% 이상 올린 입찰은 동전이 많아지고, 더 빨리 흔들고, 금색으로 빛나며 소리도 화려하다.
  * - 낙찰: 영상 가운데에 "‘상품’ 상품이 누구님에게 얼마에 낙찰되었습니다" + 경매 망치가 땅땅땅 내리치는 애니메이션과 소리.
  * 여러 개면 차례로 보여 준다. 움직임을 줄이도록 설정한 사용자에게는 흔들기·떨어지는 동전을 보여 주지 않는다.
- * 영상 크기를 덮는 자리(absolute inset-0)에 두면 안에서 입찰은 위쪽, 낙찰은 가운데에 놓는다. compact면 둘 다 아래쪽에 작게.
+ * 방송 화면 배치 영역(OVERLAY_AREA_CLASS)을 덮는 자리(absolute inset-0)에 두면 판매자가 정한 위치(bidPosition·soldPosition)에 놓는다.
+ * 정하지 않으면 입찰은 위쪽 가운데, 낙찰은 가운데. compact면(작은 방송 창) 둘 다 아래쪽에 작게.
  */
 export function AuctionEffects({
   messages,
   compact = false,
   sound = false,
+  bidPosition = DEFAULT_OVERLAY_LAYOUT.bid,
+  soldPosition = DEFAULT_OVERLAY_LAYOUT.sold,
   className,
 }: {
   messages: ChatMessage[];
   compact?: boolean;
   /** 이펙트가 뜰 때 효과음을 낼지 (시청자는 방송 소리를 켰을 때만, 판매자는 스튜디오 설정) */
   sound?: boolean;
+  bidPosition?: OverlayPosition;
+  soldPosition?: OverlayPosition;
   className?: string;
 }) {
   const effect = useAuctionEffects(messages);
@@ -42,20 +49,16 @@ export function AuctionEffects({
 
   return (
     <div aria-live="polite" className={cn('pointer-events-none', className)}>
-      {effect && (
-        <div
-          className={cn(
-            'absolute inset-x-0 flex justify-center px-4',
-            compact ? 'bottom-2 px-2' : effect.kind === 'SOLD' ? 'top-1/2 -translate-y-1/2' : 'top-16',
-          )}
-        >
-          {effect.kind === 'SOLD' ? (
-            <SoldNotice key={effect.id} effect={effect} compact={compact} />
-          ) : (
-            <BidNotice key={effect.id} effect={effect} compact={compact} />
-          )}
-        </div>
-      )}
+      {effect &&
+        (compact ? (
+          <div className="absolute inset-x-0 bottom-2 flex justify-center px-2">
+            {effect.kind === 'SOLD' ? <SoldNotice key={effect.id} effect={effect} compact /> : <BidNotice key={effect.id} effect={effect} compact />}
+          </div>
+        ) : (
+          <OverlayItem position={effect.kind === 'SOLD' ? soldPosition : bidPosition}>
+            {effect.kind === 'SOLD' ? <SoldNotice key={effect.id} effect={effect} compact={false} /> : <BidNotice key={effect.id} effect={effect} compact={false} />}
+          </OverlayItem>
+        ))}
     </div>
   );
 }
@@ -68,7 +71,7 @@ const BID_LOOK: Record<BidTier, { wave: number; coins: number; card: string }> =
   up50: { wave: 260, coins: 16, card: 'animate-donation-glow bg-brand-500 ring-2 ring-gold-300' },
 };
 
-function BidNotice({ effect, compact }: { effect: Extract<AuctionEffect, { kind: 'BID' }>; compact: boolean }) {
+export function BidNotice({ effect, compact }: { effect: Extract<AuctionEffect, { kind: 'BID' }>; compact: boolean }) {
   const look = BID_LOOK[effect.tier];
   const percent = bidIncreasePercent(effect.amount, effect.previousAmount);
   const strong = effect.tier === 'up30' || effect.tier === 'up50';
@@ -119,7 +122,7 @@ function BidText({
   );
 }
 
-function SoldNotice({ effect, compact }: { effect: Extract<AuctionEffect, { kind: 'SOLD' }>; compact: boolean }) {
+export function SoldNotice({ effect, compact }: { effect: Extract<AuctionEffect, { kind: 'SOLD' }>; compact: boolean }) {
   return (
     <div className="animate-donation-pop">
       <div

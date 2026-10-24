@@ -8,6 +8,8 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayLayoutRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayPosition;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamUpdatedEvent;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
@@ -535,6 +537,65 @@ class LiveStreamServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(errorCode);
             then(liveStreamRepository).should(never()).saveAndFlush(any());
+            then(eventPublisher).should(never()).publishEvent(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("화면 배치")
+    class OverlayLayoutChange {
+
+        private final OverlayLayoutRequest request = new OverlayLayoutRequest(
+                new OverlayPosition(100, 0), new OverlayPosition(0, 0), new OverlayPosition(50, 100), new OverlayPosition(50, 50));
+
+        @Test
+        @DisplayName("배치를 바꾸면 저장하고 변경 이벤트로 시청자 화면에 알린다. 방송 시작 전에도 정할 수 있다")
+        void change() {
+            LiveStream liveStream = liveStream(false);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            LiveStreamResponse response = liveStreamService.changeOverlayLayout(LIVE_STREAM_ID, SELLER_ID, request);
+
+            assertThat(response.overlayLayout().featured()).isEqualTo(new OverlayPosition(100, 0));
+            assertThat(response.overlayLayout().bid()).isEqualTo(new OverlayPosition(50, 100));
+            then(liveStreamRepository).should().saveAndFlush(liveStream);
+            ArgumentCaptor<LiveStreamUpdatedEvent> captor = ArgumentCaptor.forClass(LiveStreamUpdatedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            assertThat(captor.getValue().liveStream().overlayLayout()).isEqualTo(response.overlayLayout());
+        }
+
+        @Test
+        @DisplayName("같은 배치를 다시 보내면 저장하지 않고 알리지도 않는다")
+        void sameLayout() {
+            LiveStream liveStream = liveStream(true);
+            ReflectionTestUtils.setField(liveStream, "overlayLayout", request.toEntity());
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            liveStreamService.changeOverlayLayout(LIVE_STREAM_ID, SELLER_ID, request);
+
+            then(liveStreamRepository).should(never()).saveAndFlush(any());
+            then(eventPublisher).should(never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("정하지 않은 방송은 배치가 null이다 (화면은 기본 배치)")
+        void defaultLayout() {
+            assertThat(LiveStreamResponse.from(liveStream(true)).overlayLayout()).isNull();
+        }
+
+        @Test
+        @DisplayName("다른 사람의 방송은 바꿀 수 없고(LIVESTREAM_002), 끝난 방송도 바꿀 수 없다(LIVESTREAM_008)")
+        void notAllowed() {
+            LiveStream liveStream = liveStream(true);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+            assertThatThrownBy(() -> liveStreamService.changeOverlayLayout(LIVE_STREAM_ID, 2L, request))
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(LiveStreamErrorCode.NOT_OWNER);
+
+            liveStream.end(SELLER_ID);
+            assertThatThrownBy(() -> liveStreamService.changeOverlayLayout(LIVE_STREAM_ID, SELLER_ID, request))
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(LiveStreamErrorCode.ALREADY_ENDED);
             then(eventPublisher).should(never()).publishEvent(any());
         }
     }

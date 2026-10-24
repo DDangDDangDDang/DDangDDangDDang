@@ -8,6 +8,7 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayLayoutRequest;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamHashtags;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
@@ -172,7 +173,7 @@ public class LiveStreamService {
             throw new BusinessException(LiveStreamErrorCode.FEATURED_AUCTION_NOT_AVAILABLE);
         }
         boolean changed = liveStream.featureAuction(sellerId, auctionId, id -> isShowable(liveStreamId, id));
-        return publishFeaturedChange(liveStream, changed);
+        return publishChange(liveStream, changed);
     }
 
     /**
@@ -181,7 +182,16 @@ public class LiveStreamService {
     @Transactional
     public LiveStreamResponse unfeatureAuction(Long liveStreamId, Long sellerId, Long auctionId) {
         LiveStream liveStream = findById(liveStreamId);
-        return publishFeaturedChange(liveStream, liveStream.unfeatureAuction(sellerId, auctionId));
+        return publishChange(liveStream, liveStream.unfeatureAuction(sellerId, auctionId));
+    }
+
+    /**
+     * 방송 화면 배치를 바꾼다. 바뀌면 커밋 뒤 시청자 화면에 방송 정보 변경으로 알려 바로 같은 배치로 그리게 한다.
+     */
+    @Transactional
+    public LiveStreamResponse changeOverlayLayout(Long liveStreamId, Long sellerId, OverlayLayoutRequest request) {
+        LiveStream liveStream = findById(liveStreamId);
+        return publishChange(liveStream, liveStream.changeOverlayLayout(sellerId, request.toEntity()));
     }
 
     private boolean isShowable(Long liveStreamId, Long auctionId) {
@@ -189,7 +199,7 @@ public class LiveStreamService {
                 auctionId, liveStreamId, List.of(AuctionStatus.READY, AuctionStatus.ONGOING));
     }
 
-    private LiveStreamResponse publishFeaturedChange(LiveStream liveStream, boolean changed) {
+    private LiveStreamResponse publishChange(LiveStream liveStream, boolean changed) {
         if (!changed) {
             return LiveStreamResponse.from(liveStream);
         }
