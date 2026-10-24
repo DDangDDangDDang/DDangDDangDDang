@@ -1,12 +1,12 @@
-# EC2 한 대 구성: 퍼블릭 서브넷의 EC2 한 대에서 앱·MySQL·Redis를 Docker Compose로 실행한다.
+# EC2 구성: 퍼블릭 서브넷의 EC2 한 대에서 앱만 Docker Compose로 실행하고, DB·Redis는 RDS·ElastiCache를 쓴다. (data_stores.tf)
 # - 80 포트만 열고 SSH는 열지 않는다. 서버 접속과 배포는 SSM(Session Manager, Run Command)으로 한다.
-# - MySQL·Redis 데이터는 서버 디스크에 있고, 디스크 스냅샷을 매일 찍어 7일 보관한다.
+# - 서버 디스크에는 데이터가 없어 서버를 다시 만들어도 잃는 것이 없다. DB 백업은 RDS 자동 백업이 맡는다.
 # - 배포 중 앱이 다시 뜨는 동안(약 30초) 접속이 끊긴다.
 
 locals {
   ec2_param_prefix = "/${var.project}/ec2"
 
-  # 앱 환경변수 중 비밀이 아닌 것 (DB·Redis 주소는 docker-compose.yml에 있다)
+  # 앱 환경변수 중 비밀이 아닌 것 (DB·Redis 주소 포함)
   ec2_app_environment = merge(local.common_app_environment, {
     # EC2 구성은 HTTP로만 서비스하므로 쿠키에 Secure를 붙이지 않는다.
     JWT_COOKIE_SECURE = "false"
@@ -20,7 +20,7 @@ data "aws_ssm_parameter" "al2023_ami" {
 resource "aws_security_group" "ec2" {
   count       = var.ec2_enabled ? 1 : 0
   name        = "${var.project}-ec2"
-  description = "Single EC2: allow HTTP from the internet"
+  description = "EC2 app server: allow HTTP from the internet"
   vpc_id      = aws_vpc.main.id
 }
 
@@ -157,16 +157,13 @@ resource "aws_instance" "app" {
     volume_type = "gp3"
     volume_size = var.ec2_volume_size
     encrypted   = true
-    tags = {
-      Name   = "${var.project}-ec2-root"
-      Backup = "${var.project}-daily"
-    }
+    tags        = { Name = "${var.project}-ec2-root" }
   }
 
   tags = { Name = "${var.project}-app" }
 
-  # 서버를 다시 만들면 디스크의 MySQL 데이터가 사라진다.
-  # 새 AMI가 나오거나 user_data를 고쳐도 서버를 교체하지 않게 한다.
+  # 새 AMI가 나오거나 user_data를 고쳐도 apply 때마다 서버가 바뀌어 접속이 끊기지 않게 한다.
+  # 서버를 새로 만들고 싶으면 terraform apply -replace=aws_instance.app[0] 후 다시 배포한다.
   lifecycle {
     ignore_changes = [ami, user_data]
   }
@@ -178,56 +175,4 @@ resource "aws_eip" "ec2" {
   domain   = "vpc"
   instance = aws_instance.app[0].id
   tags     = { Name = "${var.project}-app" }
-}
-
-# ---------- 디스크 스냅샷 (매일 03:00 KST, 7일 보관) ----------
-
-data "aws_iam_policy_document" "dlm_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["dlm.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "dlm" {
-  count              = var.ec2_enabled ? 1 : 0
-  name               = "${var.project}-dlm"
-  assume_role_policy = data.aws_iam_policy_document.dlm_assume.json
-}
-
-resource "aws_iam_role_policy_attachment" "dlm" {
-  count      = var.ec2_enabled ? 1 : 0
-  role       = aws_iam_role.dlm[0].name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole"
-}
-
-resource "aws_dlm_lifecycle_policy" "ec2_daily" {
-  count              = var.ec2_enabled ? 1 : 0
-  description        = "${var.project} EC2 disk daily snapshot"
-  execution_role_arn = aws_iam_role.dlm[0].arn
-  state              = "ENABLED"
-
-  policy_details {
-    resource_types = ["VOLUME"]
-    target_tags    = { Backup = "${var.project}-daily" }
-
-    schedule {
-      name = "daily"
-
-      create_rule {
-        interval      = 24
-        interval_unit = "HOURS"
-        times         = ["18:00"] # UTC 18:00 = KST 03:00
-      }
-
-      retain_rule {
-        count = 7
-      }
-
-      copy_tags = true
-    }
-  }
 }

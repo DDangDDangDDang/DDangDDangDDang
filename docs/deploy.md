@@ -3,23 +3,30 @@
 main 브랜치에 머지되면 GitHub Actions가 테스트 → 이미지 빌드 → 배포까지 자동으로 합니다.
 배포 구성은 두 가지이고, 같은 Terraform 코드(`infra/`)에서 스위치로 고릅니다.
 
-| | EC2 한 대 (개발 중, 지금) | ECS (운영) |
+| | EC2 (개발 중, 지금) | ECS (운영) |
 |---|---|---|
 | 스위치 | `ec2_enabled = true`, `ecs_enabled = false` | `ec2_enabled = false`, `ecs_enabled = true` |
-| 구성 | EC2 1대에 앱·MySQL·Redis를 Docker Compose로 실행 | ALB + ECS Fargate 2대 + RDS + ElastiCache + NAT |
-| 월 비용(대략) | **약 $27** | 약 $160 |
+| 앱 | EC2 1대에서 Docker Compose로 실행 | ALB + ECS Fargate 2대 + NAT |
+| DB · Redis | RDS MySQL + ElastiCache Redis (두 구성 공통) | 같음 |
+| 월 비용(대략) | **약 $65** | 약 $160 |
 | 배포 중 | 약 30초 끊김 | 끊김 없음 (롤링 배포) |
 | 실패한 배포 | 서버 스크립트가 이전 이미지로 되돌림 | ECS가 이전 버전으로 되돌림 |
-| DB 백업 | 디스크 스냅샷 매일 1회, 7일 보관 | RDS 자동 백업 7일 |
-| 서버 장애 | 앱·DB가 함께 멈춤 | 다른 서버가 계속 처리 |
+| DB 백업 | RDS 자동 백업 7일 | 같음 |
+| 서버 장애 | 앱이 멈춤 (데이터는 RDS에 그대로) | 다른 서버가 계속 처리 |
 
-두 구성은 **같은 Docker 이미지, 같은 비밀값(Secrets Manager), 같은 DB 계정, 같은 배포 역할**을 씁니다.
-그래서 ECS로 바꿀 때 앱 코드나 설정은 고치지 않고, 인프라 스위치와 배포 대상 변수만 바꾸면 됩니다. (아래 "ECS로 전환")
+두 구성은 **같은 Docker 이미지, 같은 비밀값(Secrets Manager), 같은 RDS·ElastiCache, 같은 배포 역할**을 씁니다.
+그래서 ECS로 바꿀 때 앱 코드·설정은 고치지 않고 DB도 옮기지 않습니다. 인프라 스위치와 배포 대상 변수만 바꾸면 됩니다. (아래 "ECS로 전환")
+
+NAT 게이트웨이(월 약 $43)와 ALB(월 약 $20)는 ECS 구성에서만 만듭니다.
+EC2 구성에서는 앱 서버가 퍼블릭 서브넷에 있어 NAT 없이 외부 API를 호출하고, RDS·Redis는 프라이빗 서브넷에서 밖으로 나갈 일이 없습니다.
 
 ```
 [EC2 구성]
-브라우저 ──HTTP:80──▶ EC2 (Elastic IP)
-                       └ Docker Compose: app(8080) · mysql · redis
+브라우저 ──HTTP:80──▶ EC2 (Elastic IP, 퍼블릭 서브넷)
+                       └ Docker Compose: app(8080)
+                            ├─▶ RDS MySQL 8.4        (프라이빗 서브넷)
+                            ├─▶ ElastiCache Redis 7  (프라이빗 서브넷)
+                            └─▶ 외부 API (인터넷 게이트웨이)
 GitHub Actions ──OIDC──▶ ECR에 이미지 푸시 ──SSM Run Command──▶ EC2에서 deploy.sh 실행
 
 [ECS 구성]
@@ -34,8 +41,8 @@ GitHub Actions ──OIDC──▶ ECR에 이미지 푸시 ──▶ ECS 새 작
 |---|---|
 | `Dockerfile` | jar 빌드 후 JRE 이미지로 실행 (두 구성 공통) |
 | `src/main/resources/application-prod.yml` | 운영 설정 (비밀값 기본값 없음, 프록시 헤더, SQL 로그 끔) |
-| `infra/*.tf` | AWS 리소스 전체. `ec2.tf`는 EC2 구성, `ecs.tf`·`alb.tf`·`data_stores.tf`는 ECS 구성 |
-| `infra/ec2/` | EC2 서버의 `docker-compose.yml`, `deploy.sh`, 첫 부팅 스크립트 |
+| `infra/*.tf` | AWS 리소스 전체. `ec2.tf`는 EC2 구성, `ecs.tf`·`alb.tf`는 ECS 구성, `data_stores.tf`(RDS·ElastiCache)는 공통 |
+| `infra/ec2/` | EC2 서버의 `docker-compose.yml`(앱만), `deploy.sh`, 첫 부팅 스크립트 |
 | `infra/tests/` | 세 가지 구성이 plan까지 되는지 확인하는 테스트 (`terraform test`) |
 | `.github/workflows/deploy.yml` | main 푸시 시 테스트 → 이미지 빌드 → `DEPLOY_TARGET`에 따라 EC2 또는 ECS 배포 |
 
@@ -46,11 +53,14 @@ GitHub Actions ──OIDC──▶ ECR에 이미지 푸시 ──▶ ECS 새 작
 | 항목 | 월 비용 |
 |---|---|
 | EC2 t3.small (2 vCPU, 2GB) | 약 $19 |
-| 디스크 30GB (gp3) + 스냅샷 | 약 $3~4 |
+| EC2 디스크 20GB (gp3) | 약 $2 |
 | 공인 IPv4 (Elastic IP) | 약 $3.6 |
+| RDS MySQL db.t4g.micro + 20GB + 백업 | 약 $22 |
+| ElastiCache Redis cache.t4g.micro | 약 $18 |
 | Secrets Manager, ECR | 1~2달러 |
 
-합계 약 **$27 / 월**. NAT·ALB·RDS·ElastiCache가 없어 사용량이 적을 때 고정비가 작습니다.
+합계 약 **$65 / 월**. NAT·ALB가 없어 ECS 구성보다 고정비가 작습니다.
+(AWS 프리 티어 대상 계정이면 처음 12개월은 EC2·RDS·ElastiCache 일부가 무료일 수 있습니다. 인스턴스 크기가 프리 티어 대상인지 확인하세요.)
 
 **ECS 구성 (운영)**: NAT 약 $43, Fargate 2대 약 $41, RDS 약 $22, ALB 약 $20, ElastiCache 약 $18, 공인 IPv4 약 $11 등 합계 약 **$160 / 월**.
 
@@ -77,10 +87,11 @@ cd infra
 cp terraform.tfvars.example terraform.tfvars   # livekit_url 채우기. ec2_enabled = true, ecs_enabled = false
 terraform init
 terraform plan     # 만들 리소스 확인
-terraform apply    # 약 3~5분
+terraform apply    # 약 10~15분 (RDS·ElastiCache 생성이 가장 오래 걸린다)
 ```
 
 EC2는 켜진 뒤 1~2분 동안 Docker를 설치합니다. 앱은 4단계의 첫 배포 때 뜹니다.
+DB 테이블은 첫 배포 때 앱이 만듭니다(`ddl-auto=update`).
 
 > **상태 파일 주의**: `infra/terraform.tfstate`에 DB 비밀번호가 들어 있습니다. 커밋하지 마세요. (`.gitignore`에 있음)
 > 이 파일을 잃어버리면 Terraform으로 리소스를 고치거나 지울 수 없습니다. 팀원과 같이 관리하려면 S3에 두세요. (`infra/versions.tf`의 `backend "s3"` 주석 참고)
@@ -187,15 +198,17 @@ docker compose logs -f app
 | 비밀값 변경 | Secrets Manager 수정 → Actions → Deploy → Run workflow |
 | 환경변수 변경 | `infra/` 수정 → `terraform apply` → Actions → Deploy → Run workflow |
 | `docker-compose.yml`·`deploy.sh` 변경 | `infra/ec2/` 수정 → `terraform apply` → Actions → Deploy → Run workflow |
-| DB 백업에서 복구 | EC2 콘솔 → 스냅샷(`ddang-ec2-root`)에서 볼륨 생성 → 인스턴스에 연결해 데이터 복사 |
+| DB 직접 접속 | 서버 접속 후 `docker run --rm -it mysql:8.4 mysql -h <terraform output -raw rds_address 값> -u ddang -p` (비밀번호는 Secrets Manager `ddang/db`) |
+| DB 백업에서 복구 | RDS 콘솔 → `ddang-mysql` → 작업 → 특정 시점으로 복원 (새 인스턴스로 만들어진다) |
 | 메모리 부족(앱이 자꾸 재시작) | `ec2_instance_type = "t3.medium"`(4GB, 약 $38) → `terraform apply` |
+| 서버를 새로 만들기 | `terraform apply -replace='aws_instance.app[0]'` → Actions → Deploy → Run workflow (데이터는 RDS에 있어 잃지 않음) |
 
 서버 파일(`/opt/ddang`)은 배포 때마다 Terraform이 올린 값으로 덮어씁니다. 서버에서 직접 고치지 마세요.
 
 ## ECS로 전환 (개발 완료 후)
 
-데이터를 잃지 않도록 **두 구성을 잠시 함께 띄우고**, 데이터를 옮긴 뒤 배포 대상을 바꾸고, 마지막에 EC2를 끕니다.
-앱 이미지·비밀값·DB 계정은 그대로 씁니다. 옮기는 동안(약 10~20분) 쓰기 작업을 멈추는 점검 시간을 잡으세요.
+두 구성이 같은 RDS·ElastiCache를 쓰므로 **데이터를 옮기지 않습니다.**
+ECS를 잠시 함께 띄우고, 배포 대상을 바꾼 뒤, 마지막에 EC2를 끕니다. 점검 시간도 따로 필요 없습니다.
 
 **1) ECS 구성 켜기** (EC2는 계속 서비스 중)
 
@@ -206,31 +219,16 @@ ecs_enabled = true
 ```
 
 ```bash
-terraform apply   # 약 10~15분 (RDS 생성)
+terraform apply   # 약 5~10분 (ALB·NAT·ECS 생성)
 ```
 
 **2) GitHub에 ECS 변수 추가**: `terraform output github_variables`의 `ECS_*` 4개를 production Environment에 추가합니다. `DEPLOY_TARGET`은 아직 `ec2`로 둡니다.
 
-**3) 데이터 옮기기** (EC2 MySQL → RDS). 이 시점부터 사용자의 쓰기를 멈춥니다.
-
-```bash
-aws ssm start-session --target "$(terraform output -raw ec2_instance_id)"
-sudo -i
-cd /opt/ddang
-docker compose stop app                       # 앱을 멈춰 쓰기를 막는다
-source <(grep -E '^DB_(USERNAME|PASSWORD)=' .env | sed "s/^/export /")
-RDS=<terraform output -raw rds_address 값>
-docker compose exec -T mysql mysqldump -u"$DB_USERNAME" -p"$DB_PASSWORD" \
-  --single-transaction --routines --triggers --set-gtid-purged=OFF ddang \
-  | docker run --rm -i mysql:8.4 mysql -h "$RDS" -u"$DB_USERNAME" -p"$DB_PASSWORD" ddang
-```
-
-Redis 데이터(로그인 유지용 리프레시 토큰, 인증번호 등)는 옮기지 않습니다. 전환 후 사용자는 한 번 다시 로그인하면 됩니다.
-
-**4) 배포 대상 바꾸기**: 저장소 변수 `DEPLOY_TARGET`을 `ecs`로 바꾸고 Actions → Deploy → Run workflow.
+**3) 배포 대상 바꾸기**: 저장소 변수 `DEPLOY_TARGET`을 `ecs`로 바꾸고 Actions → Deploy → Run workflow.
 배포가 끝나면 `terraform output app_url`(ALB 주소)로 접속해 확인합니다.
+같은 DB·Redis를 쓰므로 회원 데이터와 로그인 상태가 그대로 이어집니다.
 
-**5) EC2 끄기**
+**4) EC2 끄기**
 
 ```hcl
 ec2_enabled = false
@@ -238,7 +236,7 @@ ecs_enabled = true
 ```
 
 ```bash
-terraform apply   # EC2, Elastic IP, 스냅샷 정책 삭제. 지난 스냅샷은 남는다
+terraform apply   # EC2, Elastic IP 삭제. RDS·ElastiCache는 그대로
 ```
 
 GitHub의 `EC2_INSTANCE_ID` 변수는 지워도 됩니다. 도메인을 쓰고 있었다면 DNS를 ALB 주소로 바꿉니다.
@@ -266,13 +264,14 @@ GitHub의 `EC2_INSTANCE_ID` 변수는 지워도 됩니다. 도메인을 쓰고 �
 - **ECS에서 서버가 2대**: `@Scheduled` 작업(포인트 환전 처리)이 두 서버에서 모두 돕니다. 같은 건을 두 서버가 동시에 처리하지 않는지 전환 전에 확인이 필요합니다. (EC2 구성은 한 대라 해당 없음)
 - **배포 중 WebSocket**: 서버가 교체될 때 기존 연결이 끊깁니다. 클라이언트는 자동으로 다시 연결해야 합니다.
 - **WebSocket 허용 출처**: 지금은 모든 출처를 허용합니다(`WebSocketConfig`). 프론트 도메인이 정해지면 좁히세요.
-- **EC2 서버 교체 주의**: EC2를 지우거나 다시 만들면 디스크의 MySQL 데이터도 사라집니다. Terraform은 AMI·부팅 스크립트가 바뀌어도 서버를 교체하지 않도록 설정돼 있습니다. `ec2_enabled = false`는 ECS로 데이터를 옮긴 뒤에만 하세요.
+- **EC2 서버 교체**: 서버 디스크에는 데이터가 없어 EC2를 다시 만들어도 잃는 것이 없습니다. 다만 Terraform은 apply할 때마다 서버가 바뀌어 접속이 끊기지 않도록, AMI·부팅 스크립트가 바뀌어도 서버를 교체하지 않습니다. 새로 만들려면 위 "서버를 새로 만들기"를 따르세요.
+- **RDS 삭제 방지**: RDS는 `db_deletion_protection = true`(기본값)라 실수로 `terraform destroy`해도 지워지지 않습니다.
 
 ## 정리 (전부 지우기)
 
 ```bash
 cd infra
-# ECS 구성을 쓰고 있었다면 먼저 terraform.tfvars에 db_deletion_protection = false 추가 후 apply
+# RDS 삭제 방지를 먼저 풀어야 한다: terraform.tfvars에 db_deletion_protection = false 추가 후 apply
 terraform destroy
 ```
 

@@ -26,7 +26,7 @@ resource "aws_ecr_lifecycle_policy" "app" {
   })
 }
 
-# 두 구성이 공통으로 쓰는 앱 환경변수 (DB·Redis 주소는 구성마다 다르다)
+# 두 구성이 공통으로 쓰는 앱 환경변수 (DB·Redis도 같은 RDS·ElastiCache를 쓴다)
 locals {
   # LiveKit Cloud: 서버 API는 https://, 브라우저 접속은 wss:// 같은 호스트를 쓴다.
   livekit_api_url = replace(var.livekit_url, "wss://", "https://")
@@ -36,5 +36,8 @@ locals {
     DDL_AUTO               = var.ddl_auto
     LIVEKIT_API_URL        = local.livekit_api_url
     LIVEKIT_WS_URL         = var.livekit_url
+    DB_URL                 = "jdbc:mysql://${aws_db_instance.main.address}:${aws_db_instance.main.port}/${local.db_name}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
+    REDIS_HOST             = aws_elasticache_cluster.redis.cache_nodes[0].address
+    REDIS_PORT             = tostring(aws_elasticache_cluster.redis.port)
   })
 }
