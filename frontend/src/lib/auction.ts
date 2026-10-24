@@ -37,20 +37,25 @@ export function auctionStatusTab(phase: AuctionPhase | undefined): AuctionStatus
   return phase === 'ONGOING' || phase === 'READY' ? phase : 'ENDED';
 }
 
+/** 영상 위에 한 번에 띄울 수 있는 경매 수 (서버도 넘으면 LIVESTREAM_017로 막는다) */
+export const MAX_FEATURED_AUCTIONS = 2;
+
 /**
- * 판매자가 영상 위에 띄운 경매. (방송 정보의 featuredAuctionId를 방송 경매 목록에서 찾는다)
+ * 판매자가 영상 위에 띄운 경매들, 띄운 순서대로. (방송 정보의 featuredAuctionIds를 방송 경매 목록에서 찾는다)
  * 시작 전·진행 중(마감 집계 중 포함)일 때만 띄우고, 끝나거나 취소되면 판매자가 내리지 않아도 보이지 않는다.
+ * 서버도 끝난 경매는 자리를 차지하지 않는 것으로 보므로, 이 목록의 개수로 더 띄울 수 있는지 판단한다.
  */
-export function featuredAuction<T extends { id?: number; status?: AuctionStatus; endAt?: string }>(
-  featuredAuctionId: number | undefined,
+export function featuredAuctions<T extends { id?: number; status?: AuctionStatus; endAt?: string }>(
+  featuredAuctionIds: number[] | undefined,
   auctions: T[],
   now: Date,
-): T | undefined {
-  if (featuredAuctionId === undefined) return undefined;
-  const auction = auctions.find((a) => a.id === featuredAuctionId);
-  if (!auction) return undefined;
-  const phase = auctionPhase(auction, now);
-  return phase === 'READY' || phase === 'ONGOING' || phase === 'CLOSING' ? auction : undefined;
+): T[] {
+  return (featuredAuctionIds ?? []).flatMap((id) => {
+    const auction = auctions.find((a) => a.id === id);
+    if (!auction) return [];
+    const phase = auctionPhase(auction, now);
+    return phase === 'READY' || phase === 'ONGOING' || phase === 'CLOSING' ? [auction] : [];
+  });
 }
 
 /** 서버 시각까지 남은 초 (지났으면 0) */

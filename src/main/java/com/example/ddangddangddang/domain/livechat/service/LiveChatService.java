@@ -54,6 +54,16 @@ public class LiveChatService {
         broadcast(liveStreamId, ChatMessageResponse.donation(liveStreamId, senderId, nickname, amount, message));
     }
 
+    /** 방송에 올라간 경매의 입찰 안내. 방송 화면은 이 메시지로 입찰 이펙트를 띄우고 채팅에도 남긴다. */
+    public void sendBidMessage(Long liveStreamId, Long bidderId, String nickname, Long auctionId, String productName, long amount, long previousAmount) {
+        broadcast(liveStreamId, ChatMessageResponse.bid(liveStreamId, bidderId, nickname, auctionId, productName, amount, previousAmount));
+    }
+
+    /** 방송에 올라간 경매의 낙찰 안내. 방송 화면은 이 메시지로 낙찰 이펙트를 띄우고 채팅에도 남긴다. */
+    public void sendAuctionSoldMessage(Long liveStreamId, Long winnerId, String nickname, Long auctionId, String productName, long price) {
+        broadcast(liveStreamId, ChatMessageResponse.auctionSold(liveStreamId, winnerId, nickname, auctionId, productName, price));
+    }
+
     /**
      * 금지 중이면 횟수를 세지 않고 바로 거부한다. 금지 중에 계속 보내도 금지 시간은 늘어나지 않는다.
      */

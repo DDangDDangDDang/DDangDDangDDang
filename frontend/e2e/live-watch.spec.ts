@@ -96,7 +96,7 @@ test.describe('방송 시청', () => {
     await page.getByRole('region', { name: '지금 인기 라이브' }).getByRole('link', { name: '전체 보기' }).click();
     await expect(page).toHaveURL(/\/lives/);
     await page.getByRole('searchbox', { name: '방송 검색' }).fill(stream.title);
-    await page.getByRole('button', { name: '검색' }).click();
+    await page.getByRole('main').getByRole('button', { name: '검색' }).click();
     // 왼쪽 "구독 중인 판매자"의 LIVE 링크 이름(aria-label)에도 방송 제목이 들어가므로, 제목 글자가 화면에 보이는 방송 카드만 고른다.
     await page.getByRole('link').filter({ hasText: stream.title }).click();
 
@@ -408,14 +408,15 @@ test.describe('판매자 송출', () => {
         await expect(watch.getByRole('list', { name: '채팅 메시지' }).getByText(`‘${scheduled.name}’ 경매가 방송에 올라왔습니다`, { exact: false })).toBeVisible();
         await test.info().attach('시청 화면 (이 방송의 경매)', { body: await watch.screenshot(), contentType: 'image/png' });
 
-        // 판매자가 경매 하나를 영상 위에 띄우면 시청 화면 영상 위에 바로 나오고(먼저 띄운 경매는 내려감), 내리면 사라진다.
+        // 판매자가 경매를 영상 위에 띄우면 시청 화면 영상 위에 바로 나오고(먼저 띄운 경매와 함께 2개까지), 내리면 사라진다.
         // 스튜디오 경매 패널은 기본이 [진행 중] 탭이라, 시작 전 경매는 [시작 전] 탭에서 띄운다.
         await studio.getByRole('tablist', { name: '경매 상태' }).getByRole('tab', { name: /^시작 전/ }).click();
         await studio.getByRole('button', { name: `${scheduled.name} 영상에 띄우기` }).click();
         await expect(studio.getByRole('region', { name: '영상 위 경매' }).getByText(scheduled.name)).toBeVisible();
-        const overlay = watch.getByRole('region', { name: '영상 위 경매' });
-        await expect(overlay.getByText(scheduled.name)).toBeVisible();
-        await expect(overlay).toHaveCount(1);
+        const overlays = watch.getByRole('region', { name: '영상 위 경매' });
+        const overlay = overlays.filter({ hasText: scheduled.name });
+        await expect(overlay).toBeVisible();
+        await expect(overlays).toHaveCount(liveProductName ? 2 : 1);
         await expect(overlay.getByText('시작가')).toBeVisible();
         await test.info().attach('시청 화면 (영상 위 경매)', { body: await watch.screenshot(), contentType: 'image/png' });
         await test.info().attach('스튜디오 (영상 위 경매)', { body: await studio.screenshot(), contentType: 'image/png' });
@@ -429,9 +430,9 @@ test.describe('판매자 송출', () => {
         auctionPage = await viewerContext.newPage();
         await auctionPage.goto('/auctions');
         await auctionPage.getByRole('searchbox', { name: '상품명' }).fill(liveProductName);
-        await auctionPage.getByRole('button', { name: '검색' }).click();
+        await auctionPage.getByRole('main').getByRole('button', { name: '검색' }).click();
         await auctionPage.getByRole('link', { name: new RegExp(escapeRegExp(liveProductName)) }).click();
-        await expect(auctionPage.getByRole('link', { name: /LIVE\s*방송 보러 가기/ })).toBeVisible();
+        await expect(auctionPage.getByRole('main').getByRole('link', { name: /LIVE\s*방송 보러 가기/ })).toBeVisible();
       }
 
       if (endAfter) {
@@ -446,7 +447,7 @@ test.describe('판매자 송출', () => {
           // 방송에서 연 경매는 방송이 끝나도 이어지지만, 경매 목록에서 "방송 중 경매"로 나오지 않는다.
           await watch.goto('/auctions');
           await watch.getByRole('searchbox', { name: '상품명' }).fill(liveProductName);
-          await watch.getByRole('button', { name: '검색' }).click();
+          await watch.getByRole('main').getByRole('button', { name: '검색' }).click();
           const card = watch.getByRole('link', { name: new RegExp(escapeRegExp(liveProductName)) });
           await expect(card).toBeVisible();
           await expect(card.getByText('방송 중 경매')).toBeHidden();
@@ -454,7 +455,7 @@ test.describe('판매자 송출', () => {
         if (auctionPage) {
           // 열어 둔 경매 상세는 다시 불러오면서 방송 링크 대신 "방송이 끝났어요" 안내로 바뀐다.
           await expect(auctionPage.getByText('이 경매가 소개된 방송은 끝났어요.')).toBeVisible({ timeout: 15_000 });
-          await expect(auctionPage.getByRole('link', { name: /방송 보러 가기/ })).toBeHidden();
+          await expect(auctionPage.getByRole('main').getByRole('link', { name: /방송 보러 가기/ })).toBeHidden();
           await test.info().attach('경매 상세 (방송 종료)', { body: await auctionPage.screenshot(), contentType: 'image/png' });
           await auctionPage.close();
         }

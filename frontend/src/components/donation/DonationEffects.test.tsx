@@ -69,14 +69,14 @@ describe('DonationEffects 효과음', () => {
 
   it('스튜디오 효과음 켜기/끄기는 기본 켜짐이고, 끄면 기억하며, 켤 때 한 번 들려준다', async () => {
     const { unmount } = render(<DonationSoundToggle />);
-    await userEvent.click(screen.getByRole('button', { name: '선물 효과음 켜짐' }));
-    expect(screen.getByRole('button', { name: '선물 효과음 꺼짐' })).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(screen.getByRole('button', { name: '효과음 켜짐' }));
+    expect(screen.getByRole('button', { name: '효과음 꺼짐' })).toHaveAttribute('aria-pressed', 'false');
     expect(chime).not.toHaveBeenCalled();
     unmount();
 
     render(<DonationSoundToggle />);
-    await userEvent.click(screen.getByRole('button', { name: '선물 효과음 꺼짐' }));
-    expect(screen.getByRole('button', { name: '선물 효과음 켜짐' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '효과음 꺼짐' }));
+    expect(screen.getByRole('button', { name: '효과음 켜짐' })).toBeInTheDocument();
     expect(chime).toHaveBeenCalledTimes(1);
   });
 });

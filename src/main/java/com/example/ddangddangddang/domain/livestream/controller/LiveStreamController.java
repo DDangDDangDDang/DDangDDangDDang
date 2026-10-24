@@ -86,7 +86,7 @@ public class LiveStreamController {
     }
 
     /**
-     * 판매자가 영상 위에 띄울 경매를 정한다. 한 번에 하나만 띄우고, 시청자 화면에 바로 반영된다.
+     * 판매자가 경매를 영상 위에 띄운다. 최대 2개까지 띄우고(넘으면 409 LIVESTREAM_017), 시청자 화면에 바로 반영된다.
      */
     @PutMapping("/{liveStreamId}/featured-auction")
     public ResponseEntity<ApiResponse<LiveStreamResponse>> featureAuction(
@@ -94,17 +94,28 @@ public class LiveStreamController {
             @PathVariable Long liveStreamId,
             @Valid @RequestBody FeaturedAuctionRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(
-                liveStreamService.changeFeaturedAuction(liveStreamId, authUser.id(), request.auctionId())));
+                liveStreamService.featureAuction(liveStreamId, authUser.id(), request.auctionId())));
     }
 
     /**
-     * 영상 위에 띄운 경매를 내린다.
+     * 영상 위에 띄운 경매를 모두 내린다.
      */
     @DeleteMapping("/{liveStreamId}/featured-auction")
-    public ResponseEntity<ApiResponse<LiveStreamResponse>> unfeatureAuction(
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> unfeatureAllAuctions(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long liveStreamId) {
-        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.changeFeaturedAuction(liveStreamId, authUser.id(), null)));
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.unfeatureAuction(liveStreamId, authUser.id(), null)));
+    }
+
+    /**
+     * 영상 위에 띄운 경매 하나를 내린다. 띄우지 않은 경매면 아무것도 바뀌지 않는다.
+     */
+    @DeleteMapping("/{liveStreamId}/featured-auction/{auctionId}")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> unfeatureAuction(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @PathVariable Long auctionId) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.unfeatureAuction(liveStreamId, authUser.id(), auctionId)));
     }
 
     /**

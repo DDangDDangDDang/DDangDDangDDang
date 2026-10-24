@@ -1,12 +1,22 @@
 import { Gavel, MonitorPlay, Plus } from 'lucide-react';
 import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link } from 'react-router';
-import { errorMessage, type Schema } from '@/api';
+import { errorMessage, isErrorCode, type Schema } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
 import { AuctionConditionFields } from '@/components/auction/AuctionConditionFields';
-import { Badge, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { Badge, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Dialog, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
-import { auctionPhase, auctionStatusTab, type AuctionStatusTab, EMPTY_AUCTION_CONDITION, featuredAuction, validateAuctionCondition, type AuctionConditionErrors, type AuctionConditionValues } from '@/lib/auction';
+import {
+  auctionPhase,
+  auctionStatusTab,
+  type AuctionStatusTab,
+  EMPTY_AUCTION_CONDITION,
+  featuredAuctions,
+  MAX_FEATURED_AUCTIONS,
+  validateAuctionCondition,
+  type AuctionConditionErrors,
+  type AuctionConditionValues,
+} from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 import { ProductCreateDialog } from './ProductCreateDialog';
@@ -181,23 +191,97 @@ function ActiveAuction({ auction, live, auctions }: { auction: Schema<'AuctionRe
   );
 }
 
-/** 영상 위에 띄우기·내리기. 한 번에 하나만 띄우므로 다른 경매를 띄우면 지금 띄운 경매는 내려간다. */
-function FeatureButton({ auction, auctions }: { auction: Schema<'AuctionResponse'>; auctions: LiveAuctions }) {
+/**
+ * 영상 위에 띄우기·내리기. 최대 MAX_FEATURED_AUCTIONS(2)개까지 띄운다.
+ * 이미 2개가 떠 있으면 [영상에 띄우기]는 꺼진 모양으로 보이고, 누르면(onBlocked) 하나를 내리라는 창을 연다.
+ * (진짜 disabled면 눌러도 아무 일이 없어 이유를 알 수 없으므로 aria-disabled로 두고 눌림은 받는다)
+ */
+function FeatureButton({
+  auction,
+  auctions,
+  featuredNow,
+  full,
+  onBlocked,
+}: {
+  auction: Schema<'AuctionResponse'>;
+  auctions: LiveAuctions;
+  featuredNow: boolean;
+  full: boolean;
+  onBlocked: () => void;
+}) {
   const feature = auctions.feature;
-  const featuredNow = auction.id === auctions.featuredAuctionId;
-  const pendingThis = feature.isPending && feature.variables === (featuredNow ? null : auction.id);
+  const pendingThis = feature.isPending && feature.variables?.auctionId === auction.id;
+  const blocked = !featuredNow && full;
   const name = auction.productName || '상품';
   return (
     <Button
       size="sm"
       variant={featuredNow ? 'outline' : 'secondary'}
       aria-label={`${name} ${featuredNow ? '영상에서 내리기' : '영상에 띄우기'}`}
+      aria-disabled={blocked || undefined}
+      className={cn(blocked && 'cursor-not-allowed opacity-50')}
       loading={pendingThis}
       disabled={feature.isPending && !pendingThis}
-      onClick={() => auction.id && feature.mutate(featuredNow ? null : auction.id)}
+      onClick={() => {
+        if (blocked) {
+          onBlocked();
+          return;
+        }
+        if (auction.id) feature.mutate({ auctionId: auction.id, on: !featuredNow });
+      }}
     >
       {featuredNow ? '영상에서 내리기' : '영상에 띄우기'}
     </Button>
+  );
+}
+
+/** 이미 2개가 떠 있을 때 띄우려고 하면 여는 안내 창. 지금 띄운 경매를 여기서 바로 내릴 수 있다. */
+function FeatureLimitDialog({
+  open,
+  featured,
+  auctions,
+  onClose,
+}: {
+  open: boolean;
+  featured: Schema<'AuctionResponse'>[];
+  auctions: LiveAuctions;
+  onClose: () => void;
+}) {
+  const feature = auctions.feature;
+  return (
+    <Dialog
+      open={open}
+      title={`영상 위에는 경매를 ${MAX_FEATURED_AUCTIONS}개까지 띄울 수 있어요`}
+      description="이미 2개가 떠 있어요. 띄운 경매 하나를 내린 뒤 다시 띄워 주세요."
+      onClose={onClose}
+      className="w-[480px]"
+    >
+      <ul aria-label="영상에 띄운 경매" className="flex flex-col gap-2">
+        {featured.map((auction) => (
+          <li key={auction.id} className="flex items-center justify-between gap-3 rounded-md bg-neutral-25 px-3 py-2.5">
+            <span className="flex min-w-0 items-center gap-1.5">
+              <MonitorPlay className="size-4 shrink-0 text-info-700" aria-hidden="true" />
+              <strong className="truncate text-body font-semibold">{auction.productName || '상품'}</strong>
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label={`${auction.productName || '상품'} 영상에서 내리기`}
+              loading={feature.isPending && feature.variables?.auctionId === auction.id}
+              disabled={feature.isPending && feature.variables?.auctionId !== auction.id}
+              onClick={() => auction.id && feature.mutate({ auctionId: auction.id, on: false }, { onSuccess: onClose })}
+            >
+              영상에서 내리기
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-5 flex justify-end">
+        <Button variant="secondary" onClick={onClose}>
+          확인
+        </Button>
+      </div>
+    </Dialog>
   );
 }
 
@@ -229,8 +313,18 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
   };
   const cancel = auctions.cancel;
   const [cancelTarget, setCancelTarget] = useState<Schema<'AuctionResponse'>>();
-  const featured = featuredAuction(auctions.featuredAuctionId, list, now);
+  const featured = featuredAuctions(auctions.featuredAuctionIds, list, now);
+  const featuredIds = new Set(featured.map((a) => a.id));
+  const full = featured.length >= MAX_FEATURED_AUCTIONS;
   const feature = auctions.feature;
+  // 2개가 떠 있는데 더 띄우려고 함: 버튼을 눌렀거나, 그새 다른 탭에서 띄워 서버가 막았을 때(LIVESTREAM_017)
+  const [limitOpen, setLimitOpen] = useState(false);
+  const limitError = feature.isError && isErrorCode(feature.error, 'LIVESTREAM_017');
+  const [prevLimitError, setPrevLimitError] = useState(limitError);
+  if (prevLimitError !== limitError) {
+    setPrevLimitError(limitError);
+    if (limitError) setLimitOpen(true);
+  }
 
   return (
     <Card aria-labelledby="running-auctions-title">
@@ -240,8 +334,15 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
         </CardTitle>
       </CardHeader>
       <CardBody className="flex flex-col gap-3">
-        {list.length > 0 && !featured && <p className="text-caption text-neutral-500">[영상에 띄우기]를 누르면 시청자 영상 위에 그 경매의 현재가와 남은 시간이 보여요.</p>}
-        {feature.isError && <Notice tone="error">{errorMessage(feature.error)}</Notice>}
+        {list.length > 0 && featured.length === 0 && (
+          <p className="text-caption text-neutral-500">[영상에 띄우기]를 누르면 시청자 영상 위에 그 경매의 현재가와 남은 시간이 보여요. 2개까지 함께 띄울 수 있어요.</p>
+        )}
+        {featured.length > 0 && (
+          <p className="text-caption text-neutral-500">
+            영상에 띄운 경매 <span className="num font-semibold text-neutral-900">{featured.length}</span>/{MAX_FEATURED_AUCTIONS}
+          </p>
+        )}
+        {feature.isError && !limitError && <Notice tone="error">{errorMessage(feature.error)}</Notice>}
         <div role="tablist" aria-label="경매 상태" className="flex gap-1 rounded-md bg-neutral-50 p-1">
           {STATUS_TABS.map((item) => (
             <button
@@ -304,7 +405,7 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
                     </dl>
                     {(phase === 'READY' || phase === 'ONGOING') && (
                       <div className="flex items-center justify-between gap-2">
-                        {auction.id === featured?.id ? (
+                        {featuredIds.has(auction.id) ? (
                           <Badge variant="info">
                             <MonitorPlay className="size-3.5" aria-hidden="true" />
                             영상에 띄움
@@ -318,7 +419,13 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
                               경매 취소
                             </Button>
                           )}
-                          <FeatureButton auction={auction} auctions={auctions} />
+                          <FeatureButton
+                            auction={auction}
+                            auctions={auctions}
+                            featuredNow={featuredIds.has(auction.id)}
+                            full={full}
+                            onBlocked={() => setLimitOpen(true)}
+                          />
                         </div>
                       </div>
                     )}
@@ -329,6 +436,15 @@ export function LiveAuctionStatus({ auctions }: { auctions: LiveAuctions }) {
           </ul>
         </div>
       </CardBody>
+      <FeatureLimitDialog
+        open={limitOpen}
+        featured={featured}
+        auctions={auctions}
+        onClose={() => {
+          setLimitOpen(false);
+          if (limitError) feature.reset();
+        }}
+      />
       <ConfirmDialog
         open={cancelTarget !== undefined}
         title="경매를 취소할까요?"

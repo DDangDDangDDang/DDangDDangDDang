@@ -14,6 +14,7 @@ import {
 } from '@/components/ui';
 import { formatPoint, formatRemaining } from '@/lib/format';
 import type { ChatMessage } from '@/api';
+import { AuctionEffects } from '@/components/auction/AuctionEffects';
 import { DonationEffects } from '@/components/donation/DonationEffects';
 
 /** 공통 컴포넌트와 디자인 토큰을 한눈에 확인하는 개발용 화면 (/dev/components) */
@@ -25,6 +26,7 @@ export function DevComponentsPage() {
       <h1 className="text-title-lg font-bold">공통 컴포넌트</h1>
 
       <DonationEffectPreview />
+      <AuctionEffectPreview />
 
       <Card>
         <CardHeader>
@@ -103,6 +105,54 @@ export function DevComponentsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+/** 입찰·낙찰 이펙트 미리 보기: 직전 현재가 대비 단계별(10% 미만·10%·30%·50%) 입찰과 낙찰의 애니메이션·효과음 확인 */
+function AuctionEffectPreview() {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const previous = 10_000;
+  const send = (type: 'BID' | 'AUCTION_SOLD', amount: number) =>
+    setMessages((list) => [
+      ...list,
+      {
+        messageId: 'auction-preview-' + list.length,
+        type,
+        liveStreamId: 0,
+        senderId: 0,
+        nickname: '미리보기',
+        content: null,
+        sentAt: new Date().toISOString(),
+        amount,
+        previousAmount: type === 'BID' ? previous : null,
+        auctionId: 0,
+        productName: '라이카 M6',
+      },
+    ]);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>입찰·낙찰 이펙트</CardTitle>
+      </CardHeader>
+      <CardBody className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: '5% 올려 입찰', amount: 10_500 },
+            { label: '10% 올려 입찰', amount: 11_000 },
+            { label: '30% 올려 입찰', amount: 13_000 },
+            { label: '50% 올려 입찰', amount: 15_000 },
+          ].map(({ label, amount }) => (
+            <Button key={label} variant="outline" onClick={() => send('BID', amount)}>
+              {label}
+            </Button>
+          ))}
+          <Button onClick={() => send('AUCTION_SOLD', 15_000)}>낙찰</Button>
+        </div>
+        <div className="relative aspect-video rounded-lg bg-stage">
+          <AuctionEffects messages={messages} sound className="absolute inset-0" />
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 

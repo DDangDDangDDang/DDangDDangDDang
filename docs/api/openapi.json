@@ -303,7 +303,7 @@
       },
       "delete" : {
         "tags" : [ "live-stream-controller" ],
-        "operationId" : "liveStreamUnfeatureAuction",
+        "operationId" : "liveStreamUnfeatureAllAuctions",
         "parameters" : [ {
           "name" : "liveStreamId",
           "in" : "path",
@@ -5493,6 +5493,61 @@
         }
       }
     },
+    "/api/v1/live-streams/{liveStreamId}/featured-auction/{auctionId}" : {
+      "delete" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamUnfeatureAuction",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "auctionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveStreamResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/dm/blocks/{userId}" : {
       "delete" : {
         "tags" : [ "dm-block-controller" ],
@@ -5708,9 +5763,12 @@
           "notice" : {
             "type" : "string"
           },
-          "featuredAuctionId" : {
-            "type" : "integer",
-            "format" : "int64"
+          "featuredAuctionIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
           },
           "recorded" : {
             "type" : "boolean"
@@ -9481,6 +9539,10 @@
     "code" : "LIVESTREAM_016",
     "status" : 403,
     "message" : "판매자 인증을 받은 회원만 방송을 만들고 시작할 수 있습니다."
+  }, {
+    "code" : "LIVESTREAM_017",
+    "status" : 409,
+    "message" : "영상 위에는 경매를 2개까지 띄울 수 있습니다. 띄운 경매 하나를 내린 뒤 다시 시도해 주세요."
   }, {
     "code" : "NOTIFICATION_001",
     "status" : 404,

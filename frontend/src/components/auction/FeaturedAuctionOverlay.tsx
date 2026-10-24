@@ -1,6 +1,6 @@
 import type { Schema } from '@/api';
 import { Button } from '@/components/ui';
-import { auctionPhase, featuredAuction } from '@/lib/auction';
+import { auctionPhase, featuredAuctions } from '@/lib/auction';
 import { cn } from '@/lib/cn';
 import { formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
@@ -14,17 +14,26 @@ type Props = {
 };
 
 /**
- * 방송 정보의 featuredAuctionId를 방송 경매 목록에서 찾아 띄운다. 끝났거나 취소된 경매면 아무것도 그리지 않는다.
+ * 방송 정보의 featuredAuctionIds(최대 2개)를 방송 경매 목록에서 찾아 띄운 순서대로 위에서부터 쌓는다.
+ * 끝났거나 취소된 경매는 그리지 않는다. 위치는 className으로 정한다.
  * 매초 상태를 다시 판단하므로 화면 전체가 아니라 이 부품만 다시 그려지게 따로 둔다.
  */
 export function FeaturedAuctionSlot({
-  featuredAuctionId,
+  featuredAuctionIds,
   auctions,
+  className,
   ...props
-}: Omit<Props, 'auction'> & { featuredAuctionId?: number; auctions: Schema<'AuctionResponse'>[] }) {
-  const now = useNow(featuredAuctionId === undefined ? null : 1000);
-  const auction = featuredAuction(featuredAuctionId, auctions, now);
-  return auction ? <FeaturedAuctionOverlay auction={auction} {...props} /> : null;
+}: Omit<Props, 'auction'> & { featuredAuctionIds?: number[]; auctions: Schema<'AuctionResponse'>[] }) {
+  const now = useNow((featuredAuctionIds ?? []).length === 0 ? null : 1000);
+  const shown = featuredAuctions(featuredAuctionIds, auctions, now);
+  if (shown.length === 0) return null;
+  return (
+    <div className={cn('flex flex-col gap-2', className)}>
+      {shown.map((auction) => (
+        <FeaturedAuctionOverlay key={auction.id} auction={auction} {...props} />
+      ))}
+    </div>
+  );
 }
 
 /**

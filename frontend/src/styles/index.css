@@ -121,6 +121,92 @@
       transform: translate(calc(-50% + var(--star-x)), calc(-50% + var(--star-y))) scale(1) rotate(200deg);
     }
   }
+  /* 입찰 이펙트: 사람이 입찰표를 흔든다 (AuctionEffects). 단계가 높을수록 animationDuration을 줄여 빨리 흔든다 */
+  --animate-bid-wave: bid-wave 520ms ease-in-out infinite;
+  @keyframes bid-wave {
+    0%,
+    100% {
+      transform: rotate(-28deg);
+    }
+    50% {
+      transform: rotate(18deg);
+    }
+  }
+  /* 30% 이상 올린 입찰: 사람이 제자리에서 들썩인다 */
+  --animate-bid-hop: bid-hop 520ms ease-in-out infinite;
+  @keyframes bid-hop {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+  /* 입찰·낙찰 안내 위로 동전이 --coin-x 자리에서 --coin-fall만큼 돌며 떨어진다 */
+  --animate-coin-drop: coin-drop 1300ms ease-in both;
+  @keyframes coin-drop {
+    0% {
+      opacity: 0;
+      transform: translate(var(--coin-x), -28px) rotateY(0deg);
+    }
+    12% {
+      opacity: 1;
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(var(--coin-x), var(--coin-fall)) rotateY(900deg);
+    }
+  }
+  /* 낙찰 이펙트: 경매 망치가 세 번(땅땅땅) 내리친다. 60% 지점에서 받침에 닿는다 (효과음 GAVEL_HITS와 맞춤) */
+  --animate-gavel-strike: gavel-strike 380ms ease-in 3 both;
+  @keyframes gavel-strike {
+    0%,
+    100% {
+      transform: rotate(-38deg);
+    }
+    60% {
+      transform: rotate(15deg);
+    }
+    72% {
+      transform: rotate(9deg);
+    }
+  }
+  /* 망치가 닿을 때 받침 위로 퍼지는 충격선 */
+  --animate-gavel-impact: gavel-impact 380ms ease-out 3 both;
+  @keyframes gavel-impact {
+    0%,
+    55% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    62% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.35);
+    }
+  }
+  /* 망치가 닿을 때마다 낙찰 안내가 살짝 흔들린다 */
+  --animate-sold-shake: sold-shake 380ms ease-out 3;
+  @keyframes sold-shake {
+    0%,
+    58%,
+    100% {
+      transform: translateY(0);
+    }
+    63% {
+      transform: translateY(4px);
+    }
+    72% {
+      transform: translateY(-2px);
+    }
+  }
   @keyframes donation-pop {
     0% {
       opacity: 0;
