@@ -20,8 +20,10 @@ type Props = {
   publisher: PublisherState & { retry: () => void };
   onToggle: (kind: MediaKind) => void;
   onSelectDevice: (kind: MediaKind, deviceId: string) => void;
-  /** 영상 위에 띄운 경매. 시청자에게 보이는 모습 그대로 미리보기 위에 그린다. */
+  /** 영상 위 UI(경매 카드·선물·입찰·낙찰 안내). 시청자에게 보이는 모습 그대로 미리보기 위에 그린다. */
   overlay?: ReactNode;
+  /** overlay를 그릴지 (기본: 방송 중일 때만. 화면 배치 편집 중이면 방송 전에도 그린다) */
+  showOverlay?: boolean;
 };
 
 /**
@@ -37,6 +39,7 @@ export function StudioStage({
   onToggle,
   onSelectDevice,
   overlay,
+  showOverlay = live,
 }: Props) {
   const recordedMode = source.kind === "recorded";
   const showVideo = camera.track && camera.enabled;
@@ -79,7 +82,7 @@ export function StudioStage({
               </OverlayLine>
             </div>
           )}
-        {live && overlay}
+        {showOverlay && overlay}
 
         <div className="absolute bottom-4 left-4 flex gap-2">
           <StageToggle

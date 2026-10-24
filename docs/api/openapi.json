@@ -245,6 +245,63 @@
         }
       }
     },
+    "/api/v1/live-streams/{liveStreamId}/overlay-layout" : {
+      "put" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamChangeOverlayLayout",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OverlayLayoutRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveStreamResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live-streams/{liveStreamId}/featured-auction" : {
       "put" : {
         "tags" : [ "live-stream-controller" ],
@@ -5713,15 +5770,41 @@
           }
         }
       },
-      "FeaturedAuctionRequest" : {
+      "OverlayLayoutRequest" : {
         "type" : "object",
         "properties" : {
-          "auctionId" : {
-            "type" : "integer",
-            "format" : "int64"
+          "featured" : {
+            "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "donation" : {
+            "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "bid" : {
+            "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "sold" : {
+            "$ref" : "#/components/schemas/OverlayPosition"
           }
         },
-        "required" : [ "auctionId" ]
+        "required" : [ "bid", "donation", "featured", "sold" ]
+      },
+      "OverlayPosition" : {
+        "type" : "object",
+        "properties" : {
+          "x" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 0
+          },
+          "y" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 0
+          }
+        },
+        "required" : [ "x", "y" ]
       },
       "ApiResponseLiveStreamResponse" : {
         "type" : "object",
@@ -5770,6 +5853,9 @@
               "format" : "int64"
             }
           },
+          "overlayLayout" : {
+            "$ref" : "#/components/schemas/OverlayLayoutResponse"
+          },
           "recorded" : {
             "type" : "boolean"
           },
@@ -5794,6 +5880,33 @@
             "format" : "date-time"
           }
         }
+      },
+      "OverlayLayoutResponse" : {
+        "type" : "object",
+        "properties" : {
+          "featured" : {
+            "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "donation" : {
+            "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "bid" : {
+            "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "sold" : {
+            "$ref" : "#/components/schemas/OverlayPosition"
+          }
+        }
+      },
+      "FeaturedAuctionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "auctionId" ]
       },
       "ApiResponseAuctionAlertResponse" : {
         "type" : "object",

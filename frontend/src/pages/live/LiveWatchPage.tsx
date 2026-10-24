@@ -4,17 +4,16 @@ import { useCallback, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ApiError, api, call, errorMessage, isErrorCode, useSession, type ChatMessage, type Schema } from '@/api';
 import { BidDialog } from '@/components/auction/BidDialog';
-import { AuctionEffects } from '@/components/auction/AuctionEffects';
-import { FeaturedAuctionSlot } from '@/components/auction/FeaturedAuctionOverlay';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { DonationDialog } from '@/components/donation/DonationDialog';
-import { DonationEffects } from '@/components/donation/DonationEffects';
+import { StageOverlays } from '@/components/live/StageOverlays';
 import { PowerSellerBadge } from '@/components/donation/PowerSellerBadge';
 import { SellerIdentity } from '@/components/seller/SellerIdentity';
 import { SubscribeButton } from '@/components/seller/SubscribeButton';
 import { useSellerProfile } from '@/lib/use-seller';
 import { Button, buttonVariants, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { formatDateTime, formatNumber } from '@/lib/format';
+import { resolveOverlayLayout } from '@/lib/overlay-layout';
 import { useLiveStreamAuctions, WATCH_AUCTION_REFRESH_MS } from '@/lib/use-live-stream-auctions';
 import { AuctionPanel } from './AuctionPanel';
 import { Hashtags } from '@/components/live/Hashtags';
@@ -116,18 +115,15 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
             muted={muted}
             onToggleSound={toggleSound}
             overlay={
-              <>
-                <FeaturedAuctionSlot
-                  featuredAuctionIds={liveStream.featuredAuctionIds}
-                  auctions={auctions.data ?? []}
-                  onOpen={openAuction}
-                  className="absolute bottom-4 left-4"
-                />
-                {/* 입찰(위쪽 가운데)·낙찰(가운데) 이펙트 */}
-                <AuctionEffects messages={messages} sound={soundOn} className="absolute inset-0" />
-                {/* 도네이션 선물 이펙트: 영상 오른쪽 위 (소리·전체 화면 버튼과 겹치지 않게) */}
-                <DonationEffects messages={messages} sound={soundOn} className="absolute top-4 right-4" />
-              </>
+              // 경매 카드·선물·입찰·낙찰 안내를 판매자가 스튜디오에서 정한 배치대로 그린다. (바꾸면 방송 정보 변경으로 바로 반영)
+              <StageOverlays
+                layout={resolveOverlayLayout(liveStream.overlayLayout)}
+                featuredAuctionIds={liveStream.featuredAuctionIds}
+                auctions={auctions.data ?? []}
+                onOpenAuction={openAuction}
+                messages={messages}
+                sound={soundOn}
+              />
             }
           />
           <StreamInfo liveStream={liveStream} sellerNickname={sellerNickname} guard={guard} onGift={() => guard(() => setGiftOpen(true))} />

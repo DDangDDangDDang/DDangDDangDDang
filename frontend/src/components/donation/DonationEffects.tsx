@@ -4,7 +4,7 @@ import type { ChatMessage } from '@/api';
 import { cn } from '@/lib/cn';
 import { donationTier, playDonationChime, type DonationTier } from '@/lib/donation-sound';
 import { formatPoint } from '@/lib/format';
-import { useDonationEffects } from '@/lib/use-donation-effects';
+import { useDonationEffects, type DonationEffect } from '@/lib/use-donation-effects';
 
 /**
  * 방송 화면 위 선물 이펙트: "누구님이 몇 P를 선물했어요" (+ 함께 보낸 한마디)
@@ -36,34 +36,38 @@ export function DonationEffects({
   useEffect(() => {
     if (effectId && soundRef.current) playDonationChime(effectAmount);
   }, [effectId, effectAmount]);
-  const tier = effect ? donationTier(effect.amount) : 'small';
   return (
     <div aria-live="polite" className={cn('pointer-events-none', className)}>
-      {effect && (
-        <div
-          key={effect.id}
-          role="status"
-          className={cn(
-            'animate-donation-pop relative flex items-center gap-3 rounded-lg bg-brand-500 text-white shadow-md',
-            compact ? 'px-3 py-2' : 'max-w-[420px] px-4 py-3',
-            // 1,000P 이상은 테두리, 3,000P 이상은 금색 테두리가 두 번 반짝인다.
-            tier === 'medium' && 'ring-1 ring-brand-300',
-            tier === 'large' && 'animate-donation-glow ring-2 ring-gold-300',
-          )}
-        >
-          <StarBurst tier={tier} compact={compact} />
-          <span className={cn('relative z-10 flex shrink-0 items-center justify-center rounded-full bg-neutral-0/20', compact ? 'size-7' : 'size-10')}>
-            <Gift className={compact ? 'size-4' : 'size-5'} aria-hidden="true" />
-          </span>
-          <span className="relative z-10 flex min-w-0 flex-col">
-            <span className={cn('font-bold', compact ? 'text-label' : 'text-body-lg')}>
-              {effect.nickname}님이 <span className="num">{formatPoint(effect.amount)}</span>를 선물했어요
-              {tier === 'large' && <Sparkles className="ml-1 inline size-4 align-[-2px] text-gold-300" aria-hidden="true" />}
-            </span>
-            {effect.message && !compact && <span className="truncate text-body text-white/90">{effect.message}</span>}
-          </span>
-        </div>
+      {effect && <DonationNotice key={effect.id} effect={effect} compact={compact} />}
+    </div>
+  );
+}
+
+/** 선물 안내 하나. (스튜디오 화면 배치 편집에서 견본으로도 쓴다) */
+export function DonationNotice({ effect, compact = false }: { effect: DonationEffect; compact?: boolean }) {
+  const tier = donationTier(effect.amount);
+  return (
+    <div
+      role="status"
+      className={cn(
+        'animate-donation-pop relative flex items-center gap-3 rounded-lg bg-brand-500 text-white shadow-md',
+        compact ? 'px-3 py-2' : 'max-w-[420px] px-4 py-3',
+        // 1,000P 이상은 테두리, 3,000P 이상은 금색 테두리가 두 번 반짝인다.
+        tier === 'medium' && 'ring-1 ring-brand-300',
+        tier === 'large' && 'animate-donation-glow ring-2 ring-gold-300',
       )}
+    >
+      <StarBurst tier={tier} compact={compact} />
+      <span className={cn('relative z-10 flex shrink-0 items-center justify-center rounded-full bg-neutral-0/20', compact ? 'size-7' : 'size-10')}>
+        <Gift className={compact ? 'size-4' : 'size-5'} aria-hidden="true" />
+      </span>
+      <span className="relative z-10 flex min-w-0 flex-col">
+        <span className={cn('font-bold', compact ? 'text-label' : 'text-body-lg')}>
+          {effect.nickname}님이 <span className="num">{formatPoint(effect.amount)}</span>를 선물했어요
+          {tier === 'large' && <Sparkles className="ml-1 inline size-4 align-[-2px] text-gold-300" aria-hidden="true" />}
+        </span>
+        {effect.message && !compact && <span className="truncate text-body text-white/90">{effect.message}</span>}
+      </span>
     </div>
   );
 }

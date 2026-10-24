@@ -46,6 +46,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -100,6 +101,33 @@ class LiveStreamControllerTest {
                 .andExpect(jsonPath("$.error.code").value("LIVESTREAM_016"));
         mockMvc.perform(get("/api/v1/live-streams/me/active").header(HttpHeaders.AUTHORIZATION, member.bearer()))
                 .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("판매자는 방송 시작 전에도 화면 배치를 정하고 방송 정보로 받는다. 0~100을 벗어나면 400, 정하지 않은 방송은 null")
+    void overlayLayout() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = longValue(create(seller, "배치 방송"), "$.data.id");
+        mockMvc.perform(get("/api/v1/live-streams/" + liveStreamId))
+                .andExpect(jsonPath("$.data.overlayLayout").doesNotExist());
+
+        String layout = """
+                {"featured": {"x": 100, "y": 0}, "donation": {"x": 0, "y": 0}, "bid": {"x": 50, "y": 100}, "sold": {"x": 50, "y": 50}}""";
+        mockMvc.perform(put("/api/v1/live-streams/" + liveStreamId + "/overlay-layout").header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content(layout))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.overlayLayout.featured.x").value(100))
+                .andExpect(jsonPath("$.data.overlayLayout.bid.y").value(100));
+        mockMvc.perform(get("/api/v1/live-streams/" + liveStreamId))
+                .andExpect(jsonPath("$.data.overlayLayout.featured.x").value(100))
+                .andExpect(jsonPath("$.data.overlayLayout.donation.x").value(0));
+
+        mockMvc.perform(put("/api/v1/live-streams/" + liveStreamId + "/overlay-layout").header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content(layout.replace("\"x\": 100", "\"x\": 101")))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/v1/live-streams/" + liveStreamId + "/overlay-layout").header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"featured\": {\"x\": 0, \"y\": 0}}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

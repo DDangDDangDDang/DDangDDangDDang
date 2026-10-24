@@ -70,6 +70,10 @@ public class LiveStream extends BaseTimeEntity {
     @Column(name = "second_featured_auction_id")
     private Long secondFeaturedAuctionId;
 
+    // 판매자가 정한 방송 화면 배치 (경매 카드·선물·입찰·낙찰 안내 위치). 정하지 않았으면 null이고 화면은 기본 배치로 그린다.
+    @Embedded
+    private OverlayLayout overlayLayout;
+
     // 카메라 대신 미리 녹화한 영상을 내보내는 방송인지. 판매자가 스튜디오에서 영상 소스를 바꾸면 함께 바뀐다.
     // 시청 화면·방송 목록·구독 목록·방송 시작 알림에 "녹화 영상" 표시를 한다.
     // 이미 있는 방송과 SQL로 직접 넣는 행은 카메라 방송(false)으로 본다.
@@ -259,6 +263,23 @@ public class LiveStream extends BaseTimeEntity {
             return false;
         }
         setFeaturedAuctions(after);
+        return true;
+    }
+
+    /**
+     * 방송 화면 배치를 바꾼다. 종료 전이면 방송 시작 전에도 미리 정할 수 있다. 방송 주인만 바꿀 수 있다.
+     *
+     * @return 실제로 바뀌었으면 true
+     */
+    public boolean changeOverlayLayout(Long requesterId, OverlayLayout layout) {
+        validateOwner(requesterId);
+        if (status == LiveStreamStatus.ENDED) {
+            throw new BusinessException(LiveStreamErrorCode.ALREADY_ENDED);
+        }
+        if (Objects.equals(layout, this.overlayLayout)) {
+            return false;
+        }
+        this.overlayLayout = layout;
         return true;
     }
 

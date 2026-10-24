@@ -9,8 +9,8 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Hashtags } from '@/components/live/Hashtags';
 import { LiveChat } from '@/components/live/LiveChat';
 import { Badge, Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
-import { AuctionEffects } from '@/components/auction/AuctionEffects';
-import { FeaturedAuctionSlot } from '@/components/auction/FeaturedAuctionOverlay';
+import { StageOverlays } from '@/components/live/StageOverlays';
+import { featuredAuctions } from '@/lib/auction';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { useSellerProfile } from '@/lib/use-seller';
 import { LiveAuctionProducts, LiveAuctionStatus } from './LiveAuctionPanel';
@@ -18,7 +18,9 @@ import { ChatNoticeEditor } from './ChatNoticeEditor';
 import { ModerationPanel } from './ModerationPanel';
 import { StreamForm } from './StreamForm';
 import { StudioStage } from './StudioStage';
-import { DonationEffects } from '@/components/donation/DonationEffects';
+import { OverlayLayoutBar } from './OverlayLayoutBar';
+import { useOverlayLayoutEditing } from './use-overlay-layout-editing';
+import { OverlayLayoutEditor } from './OverlayLayoutEditor';
 import { DonationSoundToggle } from '@/components/donation/DonationSoundToggle';
 import { useStudioDonationSound } from '@/lib/donation-sound';
 import { useLiveAuctions } from './use-live-auctions';
@@ -141,6 +143,8 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
   const flaggedIds = useMemo(() => new Set(alerts.map((a) => a.messageId)), [alerts]);
   // 방송 중 경매
   const liveAuctions = useLiveAuctions(liveStreamId, liveStream.featuredAuctionIds);
+  // 화면 배치 편집 (방송 시작 전에도 미리 정할 수 있다)
+  const layoutEditing = useOverlayLayoutEditing(liveStream, onChange);
   // 방송 시작은 판매자 인증을 받은 회원만 (서버도 LIVESTREAM_016으로 막는다). 프로필을 불러오기 전에는 막지 않는다.
   const session = useSession();
   const myProfile = useSellerProfile(session?.user.userId);
@@ -212,8 +216,11 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             </Card>
           )}
 
+          <OverlayLayoutBar editing={layoutEditing} />
+
           <StudioStage
             live={isLive}
+            showOverlay={isLive || layoutEditing.draft !== undefined}
             camera={media.camera}
             microphone={media.microphone}
             source={source}
@@ -221,14 +228,23 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             onToggle={(kind) => void media.toggle(kind)}
             onSelectDevice={(kind, deviceId) => void media.selectDevice(kind, deviceId)}
             overlay={
-              <>
-                {/* 시청 화면은 왼쪽 아래. 여기는 마이크·카메라 버튼 바로 위에 둔다. */}
-                <FeaturedAuctionSlot featuredAuctionIds={liveStream.featuredAuctionIds} auctions={liveAuctions.auctions} className="absolute bottom-20 left-4" />
-                {/* 입찰·낙찰 이펙트도 시청 화면과 같은 자리(위쪽 가운데·가운데)에서 본다. */}
-                <AuctionEffects messages={chat.messages} sound={donationSound} className="absolute inset-0" />
-                {/* 시청자가 보낸 도네이션 선물을 판매자도 같은 자리(오른쪽 위)에서 본다. */}
-                <DonationEffects messages={chat.messages} sound={donationSound} className="absolute top-4 right-4" />
-              </>
+              layoutEditing.draft ? (
+                // 화면 배치 편집: 견본을 옮겨 자리를 정한다. (저장 전까지 시청 화면은 그대로)
+                <OverlayLayoutEditor
+                  layout={layoutEditing.draft}
+                  onChange={layoutEditing.setDraft}
+                  featured={featuredAuctions(liveStream.featuredAuctionIds, liveAuctions.auctions, new Date())}
+                />
+              ) : (
+                // 시청자 화면과 같은 배치로 경매 카드·선물·입찰·낙찰 안내를 본다.
+                <StageOverlays
+                  layout={layoutEditing.saved}
+                  featuredAuctionIds={liveStream.featuredAuctionIds}
+                  auctions={liveAuctions.auctions}
+                  messages={chat.messages}
+                  sound={donationSound}
+                />
+              )
             }
           />
 
