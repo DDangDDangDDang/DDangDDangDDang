@@ -336,7 +336,7 @@ function PublishBadge({
 }) {
   if (!live) {
     return (
-      <Badge className="h-7 bg-stage/70 px-2.5 font-semibold text-neutral-0">
+      <Badge className="h-7 bg-stage/70 px-2.5 font-semibold text-white">
         방송 전 미리보기
       </Badge>
     );
@@ -353,7 +353,7 @@ function PublishBadge({
     );
   }
   return (
-    <Badge className="h-7 bg-stage/70 px-2.5 font-semibold text-neutral-0">
+    <Badge className="h-7 bg-stage/70 px-2.5 font-semibold text-white">
       송출 준비 중
     </Badge>
   );
@@ -429,7 +429,7 @@ function OverlayLine({
   return (
     <div
       role="status"
-      className="flex items-center gap-3 rounded-md bg-stage/80 px-4 py-2.5 text-label text-neutral-0"
+      className="flex items-center gap-3 rounded-md bg-stage/80 px-4 py-2.5 text-label text-white"
     >
       {icon}
       <span>{children}</span>
@@ -459,7 +459,7 @@ function StageToggle({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex size-11 items-center justify-center rounded-md text-neutral-0 transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        "flex size-11 items-center justify-center rounded-md text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60",
         on ? "bg-stage/70 hover:bg-stage" : "bg-brand-500 hover:bg-brand-600",
       )}
     >
@@ -517,7 +517,7 @@ function Centered({
       className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center"
     >
       {icon}
-      <p className="text-body-lg font-semibold text-neutral-0">{title}</p>
+      <p className="text-body-lg font-semibold text-white">{title}</p>
       {children && <div className="text-body text-neutral-400">{children}</div>}
     </div>
   );

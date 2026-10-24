@@ -169,7 +169,7 @@ function SwitchRow({
         )}
       >
         <span className="sr-only">{enabled ? '받는 중' : '받지 않음'}</span>
-        <span aria-hidden="true" className={cn('inline-block size-5 rounded-full bg-neutral-0 shadow-sm transition-transform', enabled ? 'translate-x-5' : 'translate-x-0.5')} />
+        <span aria-hidden="true" className={cn('inline-block size-5 rounded-full bg-white shadow-sm transition-transform', enabled ? 'translate-x-5' : 'translate-x-0.5')} />
       </button>
     </li>
   );

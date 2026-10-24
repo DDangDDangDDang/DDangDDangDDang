@@ -3,6 +3,7 @@ import { errorMessage } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
 import { Button, Card, CardBody, CardHeader, CardTitle, ErrorState, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
+import { cn } from '@/lib/cn';
 import { formatNumber, formatPoint } from '@/lib/format';
 import { useLiveStreamAuctions, WATCH_AUCTION_REFRESH_MS } from '@/lib/use-live-stream-auctions';
 import { useNow } from '@/lib/use-now';
@@ -49,7 +50,10 @@ export function AuctionPanel({ liveStreamId, onOpen }: { liveStreamId: number; o
             {sorted.map((auction) => {
               const phase = auctionPhase(auction, now);
               return (
-                <li key={auction.id} className="flex flex-col gap-2 rounded-md bg-neutral-25 px-3 py-3">
+                <li
+                  key={auction.id}
+                  className={cn('flex flex-col gap-2 rounded-md px-3 py-3', phase === 'ONGOING' ? 'border border-brand-200 bg-brand-50' : 'bg-neutral-25')}
+                >
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex min-w-0 items-center gap-1.5">
                       <AuctionPhaseBadge phase={phase} />

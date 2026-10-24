@@ -256,7 +256,7 @@ function RoomView({ room, myId }: { room: Schema<'DmRoomResponse'> & { roomId: n
               ))}
               {pending.map((item) => (
                 <li key={item.clientMessageId} className="flex flex-col items-end gap-1">
-                  <p className={cn('max-w-[70%] rounded-lg px-3.5 py-2 text-body break-words whitespace-pre-wrap text-neutral-0', item.failed ? 'bg-neutral-400' : 'bg-neutral-700')}>
+                  <p className={cn('max-w-[70%] rounded-lg px-3.5 py-2 text-body break-words whitespace-pre-wrap', item.failed ? 'bg-neutral-400 text-neutral-0' : 'bg-brand-600 text-white opacity-70')}>
                     {item.content}
                   </p>
                   {item.failed ? (
@@ -347,7 +347,7 @@ function MessageItem({ message, mine, unread, newDay, onReport }: { message: Mes
         </li>
       )}
       <li className={cn('group flex items-end gap-1.5', mine ? 'flex-row-reverse' : 'flex-row')}>
-        <p className={cn('max-w-[70%] rounded-lg px-3.5 py-2 text-body break-words whitespace-pre-wrap', mine ? 'bg-neutral-900 text-neutral-0' : 'bg-neutral-50 text-neutral-900')}>
+        <p className={cn('max-w-[70%] rounded-lg px-3.5 py-2 text-body break-words whitespace-pre-wrap', mine ? 'bg-brand-500 text-white' : 'bg-neutral-50 text-neutral-900')}>
           {message.content}
         </p>
         <span className={cn('flex flex-col gap-0.5 text-caption', mine ? 'items-end' : 'items-start')}>

@@ -10,12 +10,16 @@ const SIZE = {
 /**
  * 프로필 썸네일 (닉네임 첫 글자). 판매자 인증 회원이면 오른쪽 아래에 인증 마크를 붙인다.
  * 마크는 색만으로 구분하지 않도록 이름("판매자 인증")을 함께 둔다.
+ * 방송 중이면(live) 주황 테두리를 두른다. 테두리는 꾸밈이라 "LIVE" 글자는 쓰는 곳에서 함께 보여 준다.
  */
-export function SellerAvatar({ name, verified = false, size = 'md' }: { name?: string; verified?: boolean; size?: keyof typeof SIZE }) {
+export function SellerAvatar({ name, verified = false, size = 'md', live = false }: { name?: string; verified?: boolean; size?: keyof typeof SIZE; live?: boolean }) {
   const s = SIZE[size];
   return (
     <span className="relative inline-flex shrink-0">
-      <span aria-hidden="true" className={cn('flex items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700', s.box)}>
+      <span
+        aria-hidden="true"
+        className={cn('flex items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700', live && 'ring-2 ring-brand-500 ring-offset-2 ring-offset-neutral-25', s.box)}
+      >
         {(name || '판').slice(0, 1)}
       </span>
       {verified && (

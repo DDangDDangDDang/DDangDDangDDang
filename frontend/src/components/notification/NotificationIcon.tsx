@@ -26,7 +26,7 @@ export function NotificationIcon({ type }: { type?: NotificationType }) {
     <span
       className={cn(
         'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full',
-        urgent ? 'bg-brand-500 text-neutral-0' : 'bg-neutral-50 text-neutral-700',
+        urgent ? 'bg-brand-500 text-white' : 'bg-neutral-50 text-neutral-700',
       )}
     >
       <Icon className="size-4" aria-hidden="true" />

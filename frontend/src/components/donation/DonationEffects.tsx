@@ -44,7 +44,7 @@ export function DonationEffects({
           key={effect.id}
           role="status"
           className={cn(
-            'animate-donation-pop relative flex items-center gap-3 rounded-lg bg-brand-500 text-neutral-0 shadow-md',
+            'animate-donation-pop relative flex items-center gap-3 rounded-lg bg-brand-500 text-white shadow-md',
             compact ? 'px-3 py-2' : 'max-w-[420px] px-4 py-3',
             // 1,000P 이상은 테두리, 3,000P 이상은 금색 테두리가 두 번 반짝인다.
             tier === 'medium' && 'ring-1 ring-brand-300',
@@ -60,7 +60,7 @@ export function DonationEffects({
               {effect.nickname}님이 <span className="num">{formatPoint(effect.amount)}</span>를 선물했어요
               {tier === 'large' && <Sparkles className="ml-1 inline size-4 align-[-2px] text-gold-300" aria-hidden="true" />}
             </span>
-            {effect.message && !compact && <span className="truncate text-body text-neutral-0/90">{effect.message}</span>}
+            {effect.message && !compact && <span className="truncate text-body text-white/90">{effect.message}</span>}
           </span>
         </div>
       )}
@@ -69,7 +69,7 @@ export function DonationEffects({
 }
 
 type Particle = { shape: 'star' | 'sparkle'; size: string; color: string };
-const FALLBACK_PARTICLE: Particle = { shape: 'star', size: 'size-3', color: 'text-neutral-0' };
+const FALLBACK_PARTICLE: Particle = { shape: 'star', size: 'size-3', color: 'text-white' };
 
 /**
  * 단계별 별 이펙트. 선물이 클수록 많고·크고·멀리·오래 퍼지고, 3,000P 이상은 금색 별이 두 번 터진다.
@@ -84,7 +84,7 @@ const BURST: Record<DonationTier, { waves: number; count: number; distance: numb
     distance: 80,
     duration: 900,
     particles: [
-      { shape: 'star', size: 'size-3', color: 'text-neutral-0' },
+      { shape: 'star', size: 'size-3', color: 'text-white' },
       { shape: 'star', size: 'size-3', color: 'text-brand-100' },
     ],
   },
@@ -95,7 +95,7 @@ const BURST: Record<DonationTier, { waves: number; count: number; distance: numb
     duration: 1100,
     particles: [
       { shape: 'star', size: 'size-5', color: 'text-brand-100' },
-      { shape: 'sparkle', size: 'size-4', color: 'text-neutral-0' },
+      { shape: 'sparkle', size: 'size-4', color: 'text-white' },
       { shape: 'star', size: 'size-4', color: 'text-brand-300' },
     ],
   },
@@ -106,7 +106,7 @@ const BURST: Record<DonationTier, { waves: number; count: number; distance: numb
     duration: 1400,
     particles: [
       { shape: 'star', size: 'size-6', color: 'text-gold-300' },
-      { shape: 'sparkle', size: 'size-5', color: 'text-neutral-0' },
+      { shape: 'sparkle', size: 'size-5', color: 'text-white' },
       { shape: 'star', size: 'size-5', color: 'text-brand-300' },
       { shape: 'sparkle', size: 'size-4', color: 'text-gold-300' },
     ],

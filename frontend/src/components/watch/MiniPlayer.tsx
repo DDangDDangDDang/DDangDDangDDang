@@ -65,7 +65,7 @@ export function MiniPlayer() {
         {!ended && video.audioTracks.map((track) => <TrackAudio key={track.sid} track={track} muted={muted} />)}
         {!playing && <Status ended={ended} phase={video.phase} />}
         {!ended && video.phase === 'connected' && video.viewerCount !== undefined && (
-          <Badge className="absolute top-2 left-2 bg-stage/70 font-normal text-neutral-0">
+          <Badge className="absolute top-2 left-2 bg-stage/70 font-normal text-white">
             <Eye className="size-3.5" aria-hidden="true" />
             <span className="num">{formatNumber(video.viewerCount)}</span>명 시청
           </Badge>
