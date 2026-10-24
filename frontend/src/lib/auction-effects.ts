@@ -56,12 +56,21 @@ export function toAuctionEffect(message: ChatMessage): AuctionEffect | undefined
 
 /**
  * 새 안내를 기다리는 줄에 넣는다.
- * - 낙찰이 오면 같은 경매의 기다리던 입찰 안내는 뺀다. (이미 끝난 경매의 입찰을 뒤늦게 보여 주지 않게)
+ * - 낙찰이 오면 같은 경매의 기다리던 입찰 안내는 빼고, 다른 경매의 기다리던 입찰보다 앞(먼저 온 낙찰 뒤)에 넣는다.
+ *   (이미 끝난 경매의 입찰을 뒤늦게 보여 주지 않고, 낙찰 안내가 입찰 안내에 밀려 늦게 뜨지 않게)
  * - 기다리는 입찰 안내가 MAX_PENDING_BIDS개를 넘으면 오래된 것부터 뺀다. 낙찰 안내는 빼지 않는다.
  */
 export function enqueueAuctionEffect(queue: AuctionEffect[], effect: AuctionEffect): AuctionEffect[] {
-  const kept = effect.kind === 'SOLD' ? queue.filter((item) => !(item.kind === 'BID' && item.auctionId === effect.auctionId)) : queue;
-  const next = [...kept, effect];
+  let next: AuctionEffect[];
+  if (effect.kind === 'SOLD') {
+    const kept = queue.filter((item) => !(item.kind === 'BID' && item.auctionId === effect.auctionId));
+    // 낙찰은 항상 입찰보다 앞에 있으므로 첫 입찰 자리가 마지막 낙찰 바로 뒤다.
+    const firstBid = kept.findIndex((item) => item.kind === 'BID');
+    const at = firstBid === -1 ? kept.length : firstBid;
+    next = [...kept.slice(0, at), effect, ...kept.slice(at)];
+  } else {
+    next = [...queue, effect];
+  }
   let extraBids = next.filter((item) => item.kind === 'BID').length - MAX_PENDING_BIDS;
   if (extraBids <= 0) return next;
   return next.filter((item) => {

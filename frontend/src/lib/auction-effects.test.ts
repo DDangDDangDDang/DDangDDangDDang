@@ -61,9 +61,14 @@ describe('enqueueAuctionEffect', () => {
     expect(queue.map((item) => item.id)).toEqual(['3', '4', '5']);
   });
 
-  it('낙찰이 오면 같은 경매의 기다리던 입찰은 빼고 다른 경매의 입찰은 남긴다', () => {
+  it('낙찰이 오면 같은 경매의 기다리던 입찰은 빼고, 다른 경매의 입찰보다 먼저 보여 준다', () => {
     const queue = [effect(bid('a', 11_000, 10_000, 1)), effect(bid('b', 5_500, 5_000, 2))];
-    expect(enqueueAuctionEffect(queue, effect(sold('c', 11_000, 1))).map((item) => item.id)).toEqual(['b', 'c']);
+    expect(enqueueAuctionEffect(queue, effect(sold('c', 11_000, 1))).map((item) => item.id)).toEqual(['c', 'b']);
+  });
+
+  it('낙찰이 여러 개면 온 순서대로, 기다리던 입찰은 그 뒤에', () => {
+    const queue = [effect(sold('s1', 11_000, 1)), effect(bid('b', 5_500, 5_000, 2))];
+    expect(enqueueAuctionEffect(queue, effect(sold('s2', 9_000, 3))).map((item) => item.id)).toEqual(['s1', 's2', 'b']);
   });
 });
 
