@@ -199,11 +199,41 @@ docker compose logs -f app
 | 환경변수 변경 | `infra/` 수정 → `terraform apply` → Actions → Deploy → Run workflow |
 | `docker-compose.yml`·`deploy.sh` 변경 | `infra/ec2/` 수정 → `terraform apply` → Actions → Deploy → Run workflow |
 | DB 직접 접속 | 서버 접속 후 `docker run --rm -it mysql:8.4 mysql -h <terraform output -raw rds_address 값> -u ddang -p` (비밀번호는 Secrets Manager `ddang/db`) |
-| DB 백업에서 복구 | RDS 콘솔 → `ddang-mysql` → 작업 → 특정 시점으로 복원 (새 인스턴스로 만들어진다) |
+| DB 백업에서 복구 | 아래 "DB 백업에서 복구" 참고 |
 | 메모리 부족(앱이 자꾸 재시작) | `ec2_instance_type = "t3.medium"`(4GB, 약 $38) → `terraform apply` |
 | 서버를 새로 만들기 | `terraform apply -replace='aws_instance.app[0]'` → Actions → Deploy → Run workflow (데이터는 RDS에 있어 잃지 않음) |
 
 서버 파일(`/opt/ddang`)은 배포 때마다 Terraform이 올린 값으로 덮어씁니다. 서버에서 직접 고치지 마세요.
+
+### DB 백업에서 복구
+
+RDS의 특정 시점 복원은 **새 인스턴스**를 만듭니다. 앱의 `DB_URL`은 Terraform이 관리하는 `ddang-mysql` 주소로 정해지므로,
+복원한 인스턴스를 앱에 바로 붙이지 않고 **임시 인스턴스로 복원 → 데이터를 `ddang-mysql`로 복사 → 임시 인스턴스 삭제** 순서로 합니다.
+Terraform 상태와 앱 설정은 바꾸지 않습니다. 복사하는 동안 앱을 멈추므로 점검 시간을 잡으세요.
+
+1. RDS 콘솔 → `ddang-mysql` → 작업 → **특정 시점으로 복원**
+   - DB 인스턴스 식별자: `ddang-mysql-restore`
+   - 서브넷 그룹 `ddang-db`, VPC 보안 그룹 `ddang-db`(기본 그룹은 빼기), 퍼블릭 액세스 **아니요**
+   - 상태가 "사용 가능"이 될 때까지 기다립니다. (10~20분)
+2. 서버에 접속해 앱을 멈추고, 복원본에서 `ddang-mysql`로 데이터를 덮어씁니다.
+
+```bash
+aws ssm start-session --target "$(terraform output -raw ec2_instance_id)"
+sudo -i
+cd /opt/ddang
+docker compose stop app                       # 앱을 멈춰 쓰기를 막는다
+source <(grep -E '^DB_(URL|USERNAME|PASSWORD)=' app.env | sed "s/^/export /")
+MAIN="$(sed -E 's|jdbc:mysql://([^:/]+).*|\1|' <<<"$DB_URL")"
+RESTORE=<RDS 콘솔의 ddang-mysql-restore 엔드포인트>
+docker run --rm -e MYSQL_PWD="$DB_PASSWORD" mysql:8.4 mysqldump -h "$RESTORE" -u"$DB_USERNAME" \
+  --single-transaction --routines --triggers --set-gtid-purged=OFF --add-drop-table ddang \
+  | docker run --rm -i -e MYSQL_PWD="$DB_PASSWORD" mysql:8.4 mysql -h "$MAIN" -u"$DB_USERNAME" ddang
+docker compose start app
+```
+
+3. 앱이 정상인지 확인한 뒤 RDS 콘솔에서 `ddang-mysql-restore`를 삭제합니다. (최종 스냅샷 없이 삭제해도 됩니다. 남겨 두면 계속 비용이 듭니다)
+
+덮어쓰기 전에 RDS 콘솔에서 `ddang-mysql`의 수동 스냅샷을 찍어 두면, 잘못된 시점으로 복원했을 때 되돌릴 수 있습니다.
 
 ## ECS로 전환 (개발 완료 후)
 
