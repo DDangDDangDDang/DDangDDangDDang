@@ -6,6 +6,7 @@ import { Badge, buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
 import { useBroadcast } from './broadcast-context';
+import { AuctionEffects } from '@/components/auction/AuctionEffects';
 import { DonationEffects } from '@/components/donation/DonationEffects';
 import { useStudioDonationSound } from '@/lib/donation-sound';
 import { IdleWarning } from './IdleWarning';
@@ -78,6 +79,8 @@ export function MiniBroadcast() {
             )}
             {/* 다른 화면에 가 있어도 도네이션 선물이 오면 작게 알려 준다. */}
             <DonationEffects messages={chat.messages} compact sound={donationSound} className="absolute inset-x-2 bottom-2 flex justify-center" />
+            {/* 입찰·낙찰도 작게 알려 준다. */}
+            <AuctionEffects messages={chat.messages} compact sound={donationSound} className="absolute inset-0" />
           </div>
           {phaseText && (
             <p role="status" className="bg-brand-50 px-3 py-1.5 text-caption text-brand-700">

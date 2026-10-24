@@ -58,7 +58,7 @@ test.describe('경매 등록', () => {
     // 경매 목록에서 상품명으로 찾는다.
     await page.goto('/auctions');
     await page.getByRole('searchbox', { name: '상품명' }).fill(name);
-    await page.getByRole('button', { name: '검색' }).click();
+    await page.getByRole('main').getByRole('button', { name: '검색' }).click();
     await page.getByRole('link', { name: new RegExp(name) }).click();
     await expect(page).toHaveURL(detailUrl);
 

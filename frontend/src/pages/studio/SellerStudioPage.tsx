@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Hashtags } from '@/components/live/Hashtags';
 import { LiveChat } from '@/components/live/LiveChat';
 import { Badge, Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { AuctionEffects } from '@/components/auction/AuctionEffects';
 import { FeaturedAuctionSlot } from '@/components/auction/FeaturedAuctionOverlay';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { useSellerProfile } from '@/lib/use-seller';
@@ -139,7 +140,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
   const [donationSound] = useStudioDonationSound();
   const flaggedIds = useMemo(() => new Set(alerts.map((a) => a.messageId)), [alerts]);
   // 방송 중 경매
-  const liveAuctions = useLiveAuctions(liveStreamId, liveStream.featuredAuctionId);
+  const liveAuctions = useLiveAuctions(liveStreamId, liveStream.featuredAuctionIds);
   // 방송 시작은 판매자 인증을 받은 회원만 (서버도 LIVESTREAM_016으로 막는다). 프로필을 불러오기 전에는 막지 않는다.
   const session = useSession();
   const myProfile = useSellerProfile(session?.user.userId);
@@ -222,7 +223,9 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             overlay={
               <>
                 {/* 시청 화면은 왼쪽 아래. 여기는 마이크·카메라 버튼 바로 위에 둔다. */}
-                <FeaturedAuctionSlot featuredAuctionId={liveStream.featuredAuctionId} auctions={liveAuctions.auctions} className="absolute bottom-20 left-4" />
+                <FeaturedAuctionSlot featuredAuctionIds={liveStream.featuredAuctionIds} auctions={liveAuctions.auctions} className="absolute bottom-20 left-4" />
+                {/* 입찰·낙찰 이펙트도 시청 화면과 같은 자리(위쪽 가운데·가운데)에서 본다. */}
+                <AuctionEffects messages={chat.messages} sound={donationSound} className="absolute inset-0" />
                 {/* 시청자가 보낸 도네이션 선물을 판매자도 같은 자리(오른쪽 위)에서 본다. */}
                 <DonationEffects messages={chat.messages} sound={donationSound} className="absolute top-4 right-4" />
               </>

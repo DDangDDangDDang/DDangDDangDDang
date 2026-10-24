@@ -59,7 +59,8 @@ const TIER_NOTES: Record<DonationTier, Note[]> = {
 
 let context: AudioContext | undefined;
 
-function audioContext(): AudioContext | undefined {
+/** 효과음을 낼 Web Audio 문맥. 한 탭에서 하나를 같이 쓴다. (입찰·낙찰 효과음도 이것을 쓴다) 지원하지 않으면 undefined */
+export function audioContext(): AudioContext | undefined {
   if (typeof window === 'undefined' || typeof window.AudioContext === 'undefined') return undefined;
   context ??= new window.AudioContext();
   return context;

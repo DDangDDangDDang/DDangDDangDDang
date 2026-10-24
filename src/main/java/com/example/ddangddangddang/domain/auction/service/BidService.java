@@ -91,10 +91,9 @@ public class BidService {
         if (prevBidderId != null && !prevBidderId.equals(bidderId)) {
             eventPublisher.publishEvent(new BidOutbidEvent(auctionId, prevBidderId, amount));
         }
-        // 방송에 올라간 경매면 시청 화면의 경매 목록도 갱신한다 (현재가가 바뀌었으므로)
+        // 방송에 올라간 경매면 시청 화면의 경매 목록을 갱신하고 입찰 안내를 띄운다 (현재가가 바뀌었으므로)
         if (liveStreamId != null) {
-            eventPublisher.publishEvent(new LiveAuctionEvent(liveStreamId, auctionId, LiveAuctionEvent.Type.CHANGED,
-                    productName, amount, startAt));
+            eventPublisher.publishEvent(LiveAuctionEvent.bid(liveStreamId, auctionId, productName, amount, startAt, bidderId, prevAmount));
         }
 
         return Optional.of(new BidResponse(bid.getId(), auctionId, amount, nextBidCount, newEndAt, extended));

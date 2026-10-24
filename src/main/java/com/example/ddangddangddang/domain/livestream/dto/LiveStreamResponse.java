@@ -18,8 +18,8 @@ public record LiveStreamResponse(
         List<String> hashtags,
         // 채팅창 고정 공지 (없으면 null)
         String notice,
-        // 영상 위에 띄운 경매 ID (없으면 null). 경매 정보는 이 방송의 경매 목록(GET /lives/{id}/auctions)에서 찾는다.
-        Long featuredAuctionId,
+        // 영상 위에 띄운 경매 ID, 띄운 순서로 최대 2개 (없으면 빈 목록). 경매 정보는 이 방송의 경매 목록(GET /lives/{id}/auctions)에서 찾는다.
+        List<Long> featuredAuctionIds,
         // 카메라 대신 미리 녹화한 영상을 내보내는 방송인지 (시청 화면에 "녹화 영상" 표시)
         boolean recorded,
         LiveStreamStatus status,
@@ -36,7 +36,7 @@ public record LiveStreamResponse(
                 liveStream.getDescription(),
                 liveStream.getHashtagList(),
                 liveStream.getNotice(),
-                liveStream.getFeaturedAuctionId(),
+                liveStream.getFeaturedAuctionIds(),
                 liveStream.isRecorded(),
                 liveStream.getStatus(),
                 liveStream.getCreatedAt(),

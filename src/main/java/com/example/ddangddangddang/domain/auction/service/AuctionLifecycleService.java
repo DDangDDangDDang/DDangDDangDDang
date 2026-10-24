@@ -58,7 +58,7 @@ public class AuctionLifecycleService {
         auction.close();
         eventPublisher.publishEvent(AuctionEndedEvent.from(auction));
         if (auction.getLiveStream() != null) {
-            eventPublisher.publishEvent(LiveAuctionEvent.of(auction, LiveAuctionEvent.Type.CHANGED));
+            eventPublisher.publishEvent(LiveAuctionEvent.closed(auction));
         }
     }
 }

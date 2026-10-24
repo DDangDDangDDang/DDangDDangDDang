@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ApiError, api, call, errorMessage, isErrorCode, useSession, type ChatMessage, type Schema } from '@/api';
 import { BidDialog } from '@/components/auction/BidDialog';
+import { AuctionEffects } from '@/components/auction/AuctionEffects';
 import { FeaturedAuctionSlot } from '@/components/auction/FeaturedAuctionOverlay';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { DonationDialog } from '@/components/donation/DonationDialog';
@@ -79,7 +80,7 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
   const isLive = liveStream?.status === 'LIVE';
   // 방송 영상·소리는 앱 전체에서 이어 본다. 이 화면을 떠나도 방송 중이면 오른쪽 아래 작은 플레이어에서 이어지고, 돌아오면 다시 접속하지 않는다.
   const { video, muted, toggleSound } = useWatchStream({ liveStreamId, title: liveStream?.title, live: isLive }, refetchLiveStream);
-  // 선물 효과음은 방송 소리를 켠 시청자에게만 낸다. (소리를 꺼 둔 사람에게 갑자기 소리가 나지 않게)
+  // 선물·입찰·낙찰 효과음은 방송 소리를 켠 시청자에게만 낸다. (소리를 꺼 둔 사람에게 갑자기 소리가 나지 않게)
   const soundOn = !muted;
 
   // 판매자가 영상 위에 띄운 경매. 경매 목록은 옆 경매 카드와 같은 쿼리라 한 번만 불러온다.
@@ -117,11 +118,13 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
             overlay={
               <>
                 <FeaturedAuctionSlot
-                  featuredAuctionId={liveStream.featuredAuctionId}
+                  featuredAuctionIds={liveStream.featuredAuctionIds}
                   auctions={auctions.data ?? []}
                   onOpen={openAuction}
                   className="absolute bottom-4 left-4"
                 />
+                {/* 입찰(위쪽 가운데)·낙찰(가운데) 이펙트 */}
+                <AuctionEffects messages={messages} sound={soundOn} className="absolute inset-0" />
                 {/* 도네이션 선물 이펙트: 영상 오른쪽 위 (소리·전체 화면 버튼과 겹치지 않게) */}
                 <DonationEffects messages={messages} sound={soundOn} className="absolute top-4 right-4" />
               </>

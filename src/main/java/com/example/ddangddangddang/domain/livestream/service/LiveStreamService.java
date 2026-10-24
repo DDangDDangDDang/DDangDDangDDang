@@ -158,21 +158,39 @@ public class LiveStreamService {
     }
 
     /**
-     * 영상 위에 띄울 경매를 정한다. auctionId가 null이면 내린다. 한 번에 하나만 띄우고, 새로 띄우면 이전 경매는 내려간다.
-     * 이 방송에 올라간 시작 전·진행 중 경매만 띄울 수 있다. 바뀌면 커밋 뒤 시청자 화면에 방송 정보 변경으로 알린다.
+     * 경매를 영상 위에 띄운다. 최대 2개까지 띄우고, 이 방송에 올라간 시작 전·진행 중 경매만 띄울 수 있다.
+     * 이미 띄운 경매 중 끝난 것은 자리를 차지하지 않는다. 바뀌면 커밋 뒤 시청자 화면에 방송 정보 변경으로 알린다.
      */
     @Transactional
-    public LiveStreamResponse changeFeaturedAuction(Long liveStreamId, Long sellerId, Long auctionId) {
+    public LiveStreamResponse featureAuction(Long liveStreamId, Long sellerId, Long auctionId) {
         LiveStream liveStream = findById(liveStreamId);
         // 주인이 아닌 사람에게는 경매가 있는지 알려 주지 않고 권한 오류를 먼저 낸다. (엔티티에서도 다시 확인)
         if (!liveStream.isOwner(sellerId)) {
             throw new BusinessException(LiveStreamErrorCode.NOT_OWNER);
         }
-        if (auctionId != null && !auctionRepository.existsByIdAndLiveStreamIdAndStatusIn(
-                auctionId, liveStreamId, List.of(AuctionStatus.READY, AuctionStatus.ONGOING))) {
+        if (!isShowable(liveStreamId, auctionId)) {
             throw new BusinessException(LiveStreamErrorCode.FEATURED_AUCTION_NOT_AVAILABLE);
         }
-        if (!liveStream.changeFeaturedAuction(sellerId, auctionId)) {
+        boolean changed = liveStream.featureAuction(sellerId, auctionId, id -> isShowable(liveStreamId, id));
+        return publishFeaturedChange(liveStream, changed);
+    }
+
+    /**
+     * 영상 위에 띄운 경매를 내린다. auctionId가 null이면 모두 내린다.
+     */
+    @Transactional
+    public LiveStreamResponse unfeatureAuction(Long liveStreamId, Long sellerId, Long auctionId) {
+        LiveStream liveStream = findById(liveStreamId);
+        return publishFeaturedChange(liveStream, liveStream.unfeatureAuction(sellerId, auctionId));
+    }
+
+    private boolean isShowable(Long liveStreamId, Long auctionId) {
+        return auctionRepository.existsByIdAndLiveStreamIdAndStatusIn(
+                auctionId, liveStreamId, List.of(AuctionStatus.READY, AuctionStatus.ONGOING));
+    }
+
+    private LiveStreamResponse publishFeaturedChange(LiveStream liveStream, boolean changed) {
+        if (!changed) {
             return LiveStreamResponse.from(liveStream);
         }
         flushWithVersionCheck(liveStream);
