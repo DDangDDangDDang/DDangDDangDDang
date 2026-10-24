@@ -4,6 +4,7 @@ import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.donation.service.DonationTrust;
 import com.example.ddangddangddang.domain.donation.service.PowerSellers;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
+import com.example.ddangddangddang.domain.auction.entity.SellerAuctionTab;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.livestream.dto.SellerBroadcastSummary;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
@@ -94,13 +95,13 @@ public class SellerProfileService {
         );
     }
 
-    /** 경매 기록. 최근 경매부터 size개씩 (취소한 경매도 포함) */
-    public CursorResponse<SellerAuctionResponse> getAuctions(Long sellerId, Long cursor, int size) {
+    /** 경매 기록. 최근 경매부터 size개씩, 지난 경매 탭의 기본 낙찰만, includeFailedAndCanceled면 유찰,취소 포함 */
+    public CursorResponse<SellerAuctionResponse> getAuctions(Long sellerId, SellerAuctionTab tab,boolean includeFailedAndCanceled, Long cursor, int size) {
         if (!userRepository.existsById(sellerId)) {
             throw new BusinessException(UserErrorCode.USER_NOT_FOUND);
         }
         int pageSize = Math.max(1, Math.min(size, MAX_AUCTION_PAGE_SIZE));
-        List<Auction> fetched = auctionRepository.findSellerHistory(sellerId, cursor, PageRequest.of(0, pageSize + 1));
+        List<Auction> fetched = auctionRepository.findSellerHistoryByStatuses(sellerId,tab.statuses(includeFailedAndCanceled), cursor, PageRequest.of(0, pageSize + 1));
         return CursorResponse.of(fetched, pageSize, SellerAuctionResponse::from, Auction::getId);
     }
 
