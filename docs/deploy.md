@@ -227,15 +227,16 @@ MAIN="$(sed -E 's|jdbc:mysql://([^:/]+).*|\1|' <<<"$DB_URL")"
 RESTORE=<RDS 콘솔의 ddang-mysql-restore 엔드포인트>
 set -o pipefail                               # mysqldump가 실패해도 성공으로 보이지 않게 한다
 if docker run --rm -e MYSQL_PWD="$DB_PASSWORD" mysql:8.4 mysqldump -h "$RESTORE" -u"$DB_USERNAME" \
-     --single-transaction --routines --triggers --set-gtid-purged=OFF --add-drop-table ddang \
-   | docker run --rm -i -e MYSQL_PWD="$DB_PASSWORD" mysql:8.4 mysql -h "$MAIN" -u"$DB_USERNAME" ddang; then
+     --single-transaction --routines --triggers --set-gtid-purged=OFF --databases ddang --add-drop-database \
+   | docker run --rm -i -e MYSQL_PWD="$DB_PASSWORD" mysql:8.4 mysql -h "$MAIN" -u"$DB_USERNAME"; then
   docker compose start app
 else
   echo "복구 실패: 앱은 멈춘 상태로 둡니다."
 fi
 ```
 
-복사가 실패하면 앱을 켜지 않습니다. 중간까지 덮어쓴 상태일 수 있으니, 다시 복사하거나 미리 찍어 둔 수동 스냅샷으로 되돌린 뒤 앱을 켜세요.
+`--databases ddang --add-drop-database`라 `ddang-mysql`의 `ddang` 스키마를 **통째로 지우고** 복원본으로 다시 만듭니다. 복원 시점 이후에 생긴 테이블도 남지 않습니다.
+복사가 실패하면 앱을 켜지 않습니다. 스키마가 비었거나 중간까지만 채워졌을 수 있으니, 다시 복사하거나 미리 찍어 둔 수동 스냅샷으로 되돌린 뒤 앱을 켜세요.
 
 3. 앱이 정상인지 확인한 뒤 RDS 콘솔에서 `ddang-mysql-restore`를 삭제합니다. (최종 스냅샷 없이 삭제해도 됩니다. 남겨 두면 계속 비용이 듭니다)
 
