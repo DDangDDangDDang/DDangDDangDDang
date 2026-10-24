@@ -70,7 +70,7 @@ export function LiveVideo({ liveStream, video, overlay }: Props) {
           {/* 판매자가 카메라 대신 미리 녹화한 영상을 내보내는 중 */}
           {liveStream.recorded && <RecordedBadge className="h-7 px-2.5" />}
           {video.viewerCount !== undefined && (
-            <Badge className="h-7 bg-stage/70 px-2.5 font-normal text-neutral-0">
+            <Badge className="h-7 bg-stage/70 px-2.5 font-normal text-white">
               <Eye className="size-3.5" aria-hidden="true" />
               <span className="num">{formatNumber(video.viewerCount)}</span>명
               시청
@@ -117,7 +117,7 @@ function StageButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="flex size-11 items-center justify-center rounded-md bg-stage/70 text-neutral-0 transition-colors hover:bg-stage"
+      className="flex size-11 items-center justify-center rounded-md bg-stage/70 text-white transition-colors hover:bg-stage"
     >
       {children}
     </button>
@@ -226,7 +226,7 @@ function Centered({
       className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center"
     >
       {icon}
-      <p className="text-body-lg font-semibold text-neutral-0">{title}</p>
+      <p className="text-body-lg font-semibold text-white">{title}</p>
       {children && <div className="text-body text-neutral-400">{children}</div>}
     </div>
   );

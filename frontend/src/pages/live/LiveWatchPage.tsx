@@ -165,6 +165,7 @@ function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStr
         <SellerIdentity
           sellerId={liveStream.sellerId}
           fallbackName={name}
+          live={liveStream.status === 'LIVE'}
           detail={
             <>
               구독자 <span className="num font-semibold text-neutral-900">{formatNumber(profile.data?.subscriberCount ?? 0)}</span>명

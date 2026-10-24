@@ -46,7 +46,7 @@ export function ConfirmDialog({
         event.preventDefault();
         if (!loading) onCancel();
       }}
-      className="m-auto w-[420px] rounded-lg bg-neutral-0 p-6 text-neutral-900 shadow-md backdrop:bg-neutral-900/40"
+      className="m-auto w-[420px] rounded-lg bg-neutral-0 p-6 text-neutral-900 shadow-md backdrop:bg-black/60"
     >
       <h2 id={titleId} className="text-title-md font-bold">
         {title}

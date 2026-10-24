@@ -67,7 +67,7 @@ export function MiniBroadcast() {
               </span>
             )}
             {publisher.viewerCount !== undefined && (
-              <Badge className="absolute top-2 left-2 bg-stage/70 font-normal text-neutral-0">
+              <Badge className="absolute top-2 left-2 bg-stage/70 font-normal text-white">
                 <Eye className="size-3.5" aria-hidden="true" />
                 <span className="num">{formatNumber(publisher.viewerCount)}</span>명 시청
               </Badge>
@@ -134,7 +134,7 @@ function MiniToggle({ on, label, disabled, onClick, children }: { on: boolean; l
       onClick={onClick}
       className={cn(
         'flex size-9 shrink-0 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-        on ? 'bg-neutral-50 text-neutral-900 hover:bg-neutral-100' : 'bg-brand-500 text-neutral-0 hover:bg-brand-600',
+        on ? 'bg-neutral-50 text-neutral-900 hover:bg-neutral-100' : 'bg-brand-500 text-white hover:bg-brand-600',
       )}
     >
       {children}

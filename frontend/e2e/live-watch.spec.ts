@@ -134,9 +134,10 @@ test.describe('방송 시청', () => {
     const member = await memberContext.newPage();
 
     try {
-      // 손님: 홈에 소개와 방송 섹션이 함께 보인다.
+      // 손님: 홈에 대표 라이브와 방송 섹션이 보이고, 로그인은 헤더 오른쪽 위에서 한다.
       await guest.goto('/');
-      await expect(guest.getByRole('heading', { name: '라이브로 보고, 실시간으로 입찰하세요' })).toBeVisible();
+      await expect(guest.getByRole('region', { name: '대표 라이브' })).toBeVisible();
+      await expect(guest.getByRole('banner').getByRole('link', { name: '로그인' })).toBeVisible();
       await expect(guest.getByRole('heading', { name: '지금 인기 라이브' })).toBeVisible();
 
       // 손님: 방송 시청 화면에 들어가 영상에 입장하고(손님 토큰) 채팅을 본다.
@@ -435,10 +436,8 @@ test.describe('판매자 송출', () => {
           await expect(card.getByText('방송 중 경매')).toBeHidden();
         }
         if (auctionPage) {
-          // 열어 둔 경매 상세는 다시 불러오면서 "방송 종료"(누를 수 없음)로 바뀐다.
-          const ended = auctionPage.getByRole('button', { name: '방송 종료' });
-          await expect(ended).toBeVisible({ timeout: 15_000 });
-          await expect(ended).toBeDisabled();
+          // 열어 둔 경매 상세는 다시 불러오면서 방송 링크 대신 "방송이 끝났어요" 안내로 바뀐다.
+          await expect(auctionPage.getByText('방송에서 연 경매예요. 방송은 끝났어요.')).toBeVisible({ timeout: 15_000 });
           await expect(auctionPage.getByRole('link', { name: /방송 보러 가기/ })).toBeHidden();
           await test.info().attach('경매 상세 (방송 종료)', { body: await auctionPage.screenshot(), contentType: 'image/png' });
           await auctionPage.close();
