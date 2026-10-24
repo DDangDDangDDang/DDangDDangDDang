@@ -437,7 +437,7 @@ test.describe('판매자 송출', () => {
         }
         if (auctionPage) {
           // 열어 둔 경매 상세는 다시 불러오면서 방송 링크 대신 "방송이 끝났어요" 안내로 바뀐다.
-          await expect(auctionPage.getByText('방송에서 연 경매예요. 방송은 끝났어요.')).toBeVisible({ timeout: 15_000 });
+          await expect(auctionPage.getByText('이 경매가 소개된 방송은 끝났어요.')).toBeVisible({ timeout: 15_000 });
           await expect(auctionPage.getByRole('link', { name: /방송 보러 가기/ })).toBeHidden();
           await test.info().attach('경매 상세 (방송 종료)', { body: await auctionPage.screenshot(), contentType: 'image/png' });
           await auctionPage.close();

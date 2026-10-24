@@ -7,6 +7,7 @@ import { Badge, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatDateTime, formatNumber, formatRemaining } from '@/lib/format';
 import { LIVE_STREAM_STATUS_LABEL } from '@/lib/labels';
+import { useNow } from '@/lib/use-now';
 import { Hashtags } from './Hashtags';
 import { RecordedBadge } from './RecordedBadge';
 import { PowerSellerBadge } from '@/components/donation/PowerSellerBadge';
@@ -48,12 +49,7 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
             <span>명</span>
           </Badge>
         )}
-        {isLive && card.startedAt && (
-          <Badge className="absolute right-2.5 bottom-2.5 bg-stage/70 font-semibold text-white">
-            <span className="sr-only">방송 시간</span>
-            <span className="num">{formatRemaining((Date.now() - new Date(card.startedAt).getTime()) / 1000)}</span>
-          </Badge>
-        )}
+        {isLive && card.startedAt && <Elapsed startedAt={card.startedAt} />}
       </LiveThumbnail>
       <div className="flex min-w-0 gap-2.5">
         <SellerAvatar name={seller} size="md" />
@@ -86,6 +82,17 @@ export function LiveThumbnail({ name, className, children }: { name: string; cla
 
 /** 썸네일 바탕: 카드 색보다 조금 밝은 어두운 색들 (브랜드·정보·중립 계열) */
 const THUMB_TONES = ['bg-brand-50', 'bg-info-50', 'bg-neutral-50', 'bg-brand-100'];
+
+/** 썸네일 오른쪽 아래 방송 시간 (시작부터 지금까지, 매초 갱신) */
+function Elapsed({ startedAt }: { startedAt: string }) {
+  const now = useNow(1000);
+  return (
+    <Badge className="absolute right-2.5 bottom-2.5 bg-stage/70 font-semibold text-white">
+      <span className="sr-only">방송 시간</span>
+      <span className="num">{formatRemaining((now.getTime() - new Date(startedAt).getTime()) / 1000)}</span>
+    </Badge>
+  );
+}
 
 function ScheduledTime({ card }: { card: Card }) {
   if (card.status !== 'SCHEDULED') return null;

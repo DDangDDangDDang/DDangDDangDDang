@@ -130,7 +130,10 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
             <div className="flex items-end justify-between gap-4">
               <div className="flex flex-col">
                 <span className="text-label text-neutral-500">{priceLabel}</span>
-                <span className="num text-display leading-tight font-bold">{formatPoint(auction.currentPrice ?? auction.startPrice ?? 0)}</span>
+                <span className="num text-display leading-tight font-bold">
+                  {/* 낙찰가를 모르면 시작가로 대신하지 않는다. */}
+                  {phase === 'ENDED' && auction.currentPrice == null ? '-' : formatPoint(auction.currentPrice ?? auction.startPrice ?? 0)}
+                </span>
               </div>
               {phase === 'ONGOING' ? (
                 <div className="flex flex-col items-end">
@@ -167,7 +170,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
               <ChevronRight className="size-4 text-brand-700" aria-hidden="true" />
             </Link>
           ) : (
-            <p className="px-1 text-label text-neutral-500">방송에서 연 경매예요. 방송은 끝났어요.</p>
+            <p className="px-1 text-label text-neutral-500">이 경매가 소개된 방송은 끝났어요.</p>
           )
         ) : null}
 
@@ -254,7 +257,9 @@ function TimeProgress({ startAt, endAt, now }: { startAt?: string; endAt?: strin
   if (!startAt || !endAt) return null;
   const start = new Date(startAt).getTime();
   const total = new Date(endAt).getTime() - start;
-  const passed = total > 0 ? Math.min(100, Math.max(0, Math.round(((now.getTime() - start) / total) * 100))) : 100;
+  const elapsed = now.getTime() - start;
+  // 마감 시각 전에는 99%를 넘기지 않는다. (반올림으로 마감 몇 분 전부터 "100% 지남"이 되지 않게)
+  const passed = total <= 0 || elapsed >= total ? 100 : Math.min(99, Math.max(0, Math.floor((elapsed / total) * 100)));
   return (
     <div role="img" aria-label={`경매 시간 ${passed}% 지남`} className="h-1.5 overflow-hidden rounded-full bg-neutral-100">
       <div className="h-full rounded-full bg-brand-500" style={{ width: `${passed}%` }} />

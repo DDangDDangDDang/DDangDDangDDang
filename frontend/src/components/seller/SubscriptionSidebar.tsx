@@ -71,11 +71,17 @@ function SubscribedRow({ seller, collapsed }: { seller: Subscribed; collapsed: b
   const openProfile = useOpenSellerProfile();
   const name = seller.nickname || '판매자';
   const live = Boolean(seller.liveStreamId);
-  const row = cn('flex items-center gap-2.5 rounded-md text-left hover:bg-neutral-50', collapsed ? 'size-12 justify-center' : 'min-h-11 w-full px-3 py-1.5');
+  const row = cn('flex items-center gap-2.5 rounded-md text-left hover:bg-neutral-50', collapsed ? 'relative size-12 justify-center' : 'min-h-11 w-full px-3 py-1.5');
 
   const body = (
     <>
       <SellerAvatar name={name} verified={seller.verifiedSeller} size="sm" live={live} />
+      {/* 접힌 메뉴에서도 방송 중임을 색만이 아니라 글자로 보여 준다. */}
+      {collapsed && live && (
+        <span aria-hidden="true" className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-sm bg-brand-500 px-1 text-caption leading-none font-bold text-white">
+          LIVE
+        </span>
+      )}
       {!collapsed && (
         <>
           <span className={cn('flex min-w-0 flex-1 flex-col', !live && 'opacity-70')}>
@@ -104,7 +110,7 @@ function SubscribedRow({ seller, collapsed }: { seller: Subscribed; collapsed: b
     return (
       <Link
         to={`/lives/${seller.liveStreamId}`}
-        aria-label={`${name} ${seller.liveRecorded ? '녹화 영상 ' : ''}방송 보러 가기${seller.liveTitle ? `: ${seller.liveTitle}` : ''}`}
+        aria-label={`LIVE ${name} ${seller.liveRecorded ? '녹화 영상 ' : ''}방송 보러 가기${seller.liveTitle ? `: ${seller.liveTitle}` : ''}`}
         title={seller.liveTitle}
         className={row}
       >

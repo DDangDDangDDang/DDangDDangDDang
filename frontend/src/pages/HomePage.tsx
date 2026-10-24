@@ -201,7 +201,7 @@ function FeaturedLive({ card, others }: { card: Card; others: Card[] }) {
               className: "mt-auto w-full",
             })}
           >
-            방송 보고 입찰하기
+            방송 보기
           </Link>
         </div>
       </div>
