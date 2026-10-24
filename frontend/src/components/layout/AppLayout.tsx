@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Gavel, Menu, MessageCircle, Search, Wallet } from "lucide-react";
+import { Gavel, Gift, Menu, MessageCircle, Search, Wallet } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import {
   Link,
@@ -18,6 +18,7 @@ import { LiveStartToasts } from "@/components/notification/LiveStartToasts";
 import { NotificationBell } from "@/components/notification/NotificationBell";
 import { SellerProfileProvider } from "@/components/seller/SellerProfileProvider";
 import { Button, buttonVariants } from "@/components/ui";
+import { DONATION_WALLET_KEY } from "@/lib/donation";
 import { formatNumber } from "@/lib/format";
 import { WatchNavigationGuard } from "@/lib/watch-navigation";
 
@@ -136,6 +137,7 @@ function AppHeader({
             <NotificationBell />
             <DmLink />
             <PointBalanceLink />
+            <DonationPointLink />
             {/* 내 정보는 탭 대신 닉네임을 눌러 창으로 연다. */}
             <button
               type="button"
@@ -247,6 +249,32 @@ function DmLink() {
           {count > 99 ? "99+" : count}
         </span>
       )}
+    </Link>
+  );
+}
+
+/** 헤더의 도네이션 포인트 (선물할 수 있는 포인트). 누르면 도네이션 포인트 화면으로 간다. */
+function DonationPointLink() {
+  const wallet = useQuery({
+    queryKey: DONATION_WALLET_KEY,
+    queryFn: () => call(api.GET("/api/v1/donation-points/wallet")),
+  });
+  const balance = wallet.data?.giftableBalance ?? 0;
+
+  return (
+    <Link
+      to="/me/donation-points"
+      className="flex h-10 items-center gap-2 rounded-full border border-neutral-100 px-3.5 font-semibold hover:bg-neutral-50"
+      aria-label={
+        wallet.data
+          ? `도네이션 포인트 ${formatNumber(balance)} P`
+          : "도네이션 포인트"
+      }
+      title="도네이션 포인트 (판매자에게 선물할 수 있는 포인트)"
+    >
+      <Gift className="size-[18px] text-brand-500" aria-hidden="true" />
+      <span className="num">{wallet.data ? formatNumber(balance) : "-"}</span>
+      <span className="text-neutral-500">P</span>
     </Link>
   );
 }

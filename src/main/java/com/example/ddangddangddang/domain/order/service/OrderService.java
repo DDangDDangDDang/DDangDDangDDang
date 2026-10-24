@@ -4,12 +4,14 @@ import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
+import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import org.hibernate.exception.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +32,7 @@ public class OrderService {
     private static final int MAX_PAGE_SIZE = 100;
     private final OrderRepository orderRepository;
     private final PointService pointService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 낙찰 주문을 만든다. API가 아니라 경매 도메인이 호출하는 내부 메서드다.
@@ -140,6 +143,8 @@ public class OrderService {
         }
         order.confirm();
         pointService.settle(order.getSellerId(), order.getFinalPrice(), order.getId());
+        // 커밋 뒤 구매자에게 도네이션 포인트를 적립한다. (도네이션 도메인이 듣는다)
+        eventPublisher.publishEvent(new OrderConfirmedEvent(order.getId(), order.getBuyerId(), order.getSellerId(), order.getFinalPrice()));
         return OrderResponse.from(order);
     }
 

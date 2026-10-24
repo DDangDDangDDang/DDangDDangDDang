@@ -1,11 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw } from 'lucide-react';
+import { Gift, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ApiError, api, call, errorMessage, isErrorCode, useSession, type ChatMessage, type Schema } from '@/api';
 import { BidDialog } from '@/components/auction/BidDialog';
 import { FeaturedAuctionSlot } from '@/components/auction/FeaturedAuctionOverlay';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
+import { DonationDialog } from '@/components/donation/DonationDialog';
+import { DonationEffects } from '@/components/donation/DonationEffects';
+import { PowerSellerBadge } from '@/components/donation/PowerSellerBadge';
 import { SellerIdentity } from '@/components/seller/SellerIdentity';
 import { SubscribeButton } from '@/components/seller/SubscribeButton';
 import { useSellerProfile } from '@/lib/use-seller';
@@ -56,6 +59,10 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
 
   // 입찰 창에 연 경매. 방송을 떠나지 않고 입찰한다. (입찰은 로그인해야 함)
   const [bidAuctionId, setBidAuctionId] = useState<number>();
+  // 도네이션 선물 창 (로그인해야 함)
+  const [giftOpen, setGiftOpen] = useState(false);
+  // 방송 소리를 켰는지. 선물 효과음은 소리를 켠 시청자에게만 낸다. (소리를 꺼 둔 사람에게 갑자기 소리가 나지 않게)
+  const [soundOn, setSoundOn] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatError, setChatError] = useState<string>();
@@ -104,16 +111,21 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
           <LiveVideo
             liveStream={liveStream}
             video={video}
+            onSoundChange={setSoundOn}
             overlay={
-              <FeaturedAuctionSlot
-                featuredAuctionId={liveStream.featuredAuctionId}
-                auctions={auctions.data ?? []}
-                onOpen={openAuction}
-                className="absolute bottom-4 left-4"
-              />
+              <>
+                <FeaturedAuctionSlot
+                  featuredAuctionId={liveStream.featuredAuctionId}
+                  auctions={auctions.data ?? []}
+                  onOpen={openAuction}
+                  className="absolute bottom-4 left-4"
+                />
+                {/* 도네이션 선물 이펙트: 영상 오른쪽 위 (소리·전체 화면 버튼과 겹치지 않게) */}
+                <DonationEffects messages={messages} sound={soundOn} className="absolute top-4 right-4" />
+              </>
             }
           />
-          <StreamInfo liveStream={liveStream} sellerNickname={sellerNickname} guard={guard} />
+          <StreamInfo liveStream={liveStream} sellerNickname={sellerNickname} guard={guard} onGift={() => guard(() => setGiftOpen(true))} />
         </section>
 
         <aside aria-label="경매와 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
@@ -135,11 +147,23 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
       </div>
       {loginDialog}
       <BidDialog auctionId={bidAuctionId} onClose={() => setBidAuctionId(undefined)} />
+      <DonationDialog liveStreamId={liveStreamId} sellerName={sellerNickname || '판매자'} open={giftOpen} onClose={() => setGiftOpen(false)} />
     </div>
   );
 }
 
-function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStream; sellerNickname?: string; guard: (action: () => void) => void }) {
+function StreamInfo({
+  liveStream,
+  sellerNickname,
+  guard,
+  onGift,
+}: {
+  liveStream: LiveStream;
+  sellerNickname?: string;
+  guard: (action: () => void) => void;
+  /** 도네이션 선물 창 열기 (방송 중이고 내 방송이 아닐 때만 버튼이 보인다) */
+  onGift: () => void;
+}) {
   const session = useSession();
   const name = sellerNickname || '판매자';
   // 구독자 수·내 구독 여부 (판매자 이름 옆 SellerIdentity와 같은 캐시)
@@ -173,7 +197,15 @@ function StreamInfo({ liveStream, sellerNickname, guard }: { liveStream: LiveStr
             </>
           }
         />
+        {profile.data?.powerSeller && <PowerSellerBadge />}
         {liveStream.sellerId !== undefined && <SubscribeButton sellerId={liveStream.sellerId} subscribed={profile.data?.subscribed ?? false} />}
+        {/* 도네이션 선물은 방송 중인 판매자에게만, 내 방송에는 할 수 없다. */}
+        {liveStream.status === 'LIVE' && canAsk && (
+          <Button size="sm" className="ml-2" onClick={onGift}>
+            <Gift className="size-4" aria-hidden="true" />
+            선물하기
+          </Button>
+        )}
         {/* 로그인했으면 링크(시청 중이라 새 탭으로 열림, WatchNavigationGuard).
             로그인하지 않았으면 로그인 창만 여는 버튼이고, 로그인 뒤 다시 누르면 문의가 열린다. (로그인 뒤에 새 탭을 열면 팝업으로 막힐 수 있어서) */}
         {canAsk &&

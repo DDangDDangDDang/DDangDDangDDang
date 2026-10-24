@@ -49,6 +49,11 @@ public class LiveChatService {
         broadcast(liveStreamId, ChatMessageResponse.system(liveStreamId, content));
     }
 
+    /** 도네이션 선물 안내. 방송 화면은 이 메시지로 선물 이펙트를 띄우고 채팅에도 남긴다. */
+    public void sendDonationMessage(Long liveStreamId, Long senderId, String nickname, long amount, String message) {
+        broadcast(liveStreamId, ChatMessageResponse.donation(liveStreamId, senderId, nickname, amount, message));
+    }
+
     /**
      * 금지 중이면 횟수를 세지 않고 바로 거부한다. 금지 중에 계속 보내도 금지 시간은 늘어나지 않는다.
      */

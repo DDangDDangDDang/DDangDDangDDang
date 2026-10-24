@@ -62,3 +62,10 @@ notification:
   # 오래된 알림 정리 스케줄러도 끈다. (NotificationCleanerTest에서 직접 호출해 확인)
   cleanup:
     enabled: false
+
+# 도네이션 포인트 유효기간 정리·적립 보정 스케줄러도 끈다. (DonationControllerTest에서 직접 호출해 확인)
+donation:
+  expiry:
+    enabled: false
+  backfill:
+    enabled: false

@@ -13,6 +13,8 @@ import {
   Textarea,
 } from '@/components/ui';
 import { formatPoint, formatRemaining } from '@/lib/format';
+import type { ChatMessage } from '@/api';
+import { DonationEffects } from '@/components/donation/DonationEffects';
 
 /** 공통 컴포넌트와 디자인 토큰을 한눈에 확인하는 개발용 화면 (/dev/components) */
 export function DevComponentsPage() {
@@ -21,6 +23,8 @@ export function DevComponentsPage() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-title-lg font-bold">공통 컴포넌트</h1>
+
+      <DonationEffectPreview />
 
       <Card>
         <CardHeader>
@@ -99,5 +103,43 @@ export function DevComponentsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+/** 도네이션 선물 이펙트 미리 보기: 금액 단계별(1,000P 미만·이상·3,000P 이상) 별·효과음 확인 */
+function DonationEffectPreview() {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const send = (amount: number) =>
+    setMessages((list) => [
+      ...list,
+      {
+        messageId: 'preview-' + list.length,
+        type: 'DONATION',
+        liveStreamId: 0,
+        senderId: 0,
+        nickname: '미리보기',
+        content: amount >= 3_000 ? '오늘 방송 최고예요!' : null,
+        sentAt: new Date().toISOString(),
+        amount,
+      },
+    ]);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>도네이션 선물 이펙트</CardTitle>
+      </CardHeader>
+      <CardBody className="flex flex-col gap-3">
+        <div className="flex gap-2">
+          {[300, 1_000, 3_000].map((amount) => (
+            <Button key={amount} variant="outline" onClick={() => send(amount)}>
+              <span className="num">{formatPoint(amount)}</span> 선물
+            </Button>
+          ))}
+        </div>
+        <div className="relative flex aspect-video items-center justify-center rounded-lg bg-stage">
+          <DonationEffects messages={messages} sound className="absolute top-4 right-4" />
+        </div>
+      </CardBody>
+    </Card>
   );
 }

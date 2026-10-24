@@ -1,4 +1,4 @@
-import { FolderTree, Flag, Gavel, House, Package, ReceiptText, Tv, UserCheck, Video, type LucideIcon } from 'lucide-react';
+import { FolderTree, Flag, Gavel, Gift, House, Package, ReceiptText, Tv, UserCheck, Video, type LucideIcon } from 'lucide-react';
 import { NavLink } from 'react-router';
 import { useSession } from '@/api';
 import { AdBanner } from '@/components/ad/AdBanner';
@@ -39,6 +39,7 @@ export function SideNav({ collapsed }: { collapsed: boolean }) {
                 <Item to="/admin/categories" icon={FolderTree} label="카테고리 관리" collapsed={collapsed} />
                 <Item to="/admin/dm-reports" icon={Flag} label="채팅 신고" collapsed={collapsed} />
                 <Item to="/admin/seller-applications" icon={UserCheck} label="판매자 심사" collapsed={collapsed} />
+                <Item to="/admin/donation-policy" icon={Gift} label="도네이션 정책" collapsed={collapsed} />
               </>
             )}
           </>

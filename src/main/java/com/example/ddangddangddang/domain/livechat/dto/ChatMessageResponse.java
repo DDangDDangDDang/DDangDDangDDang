@@ -6,6 +6,8 @@ import java.util.UUID;
 /**
  * /topic/live-streams/{liveStreamId}/chat 구독자에게 전송되는 메시지.
  * SYSTEM 메시지는 senderId, nickname이 null이다.
+ * DONATION 메시지는 선물한 사람(senderId·nickname)과 선물한 포인트(amount), 함께 보낸 한마디(content, 없으면 null)를 담는다.
+ * amount는 DONATION 메시지에만 있다. (나머지는 null)
  * messageId는 메시지를 가리킬 때 쓴다. (판매자 검토 알림 → 해당 메시지 찾기)
  */
 public record ChatMessageResponse(
@@ -15,14 +17,19 @@ public record ChatMessageResponse(
         Long senderId,
         String nickname,
         String content,
-        LocalDateTime sentAt
+        LocalDateTime sentAt,
+        Long amount
 ) {
     public static ChatMessageResponse chat(Long liveStreamId, Long senderId, String nickname, String content) {
-        return new ChatMessageResponse(newId(), ChatMessageType.CHAT, liveStreamId, senderId, nickname, content, LocalDateTime.now());
+        return new ChatMessageResponse(newId(), ChatMessageType.CHAT, liveStreamId, senderId, nickname, content, LocalDateTime.now(), null);
     }
 
     public static ChatMessageResponse system(Long liveStreamId, String content) {
-        return new ChatMessageResponse(newId(), ChatMessageType.SYSTEM, liveStreamId, null, null, content, LocalDateTime.now());
+        return new ChatMessageResponse(newId(), ChatMessageType.SYSTEM, liveStreamId, null, null, content, LocalDateTime.now(), null);
+    }
+
+    public static ChatMessageResponse donation(Long liveStreamId, Long senderId, String nickname, long amount, String message) {
+        return new ChatMessageResponse(newId(), ChatMessageType.DONATION, liveStreamId, senderId, nickname, message, LocalDateTime.now(), amount);
     }
 
     private static String newId() {

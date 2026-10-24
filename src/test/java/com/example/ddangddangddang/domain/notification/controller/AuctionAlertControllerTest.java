@@ -274,9 +274,10 @@ class AuctionAlertControllerTest {
         Member seller = signupAndLogin();
         Member viewer = signupAndLogin();
         mockMvc.perform(get("/api/v1/notifications/settings").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
-                .andExpect(jsonPath("$.data.length()").value(6))
+                .andExpect(jsonPath("$.data.length()").value(7))
                 .andExpect(jsonPath("$.data[?(@.enabled == false)]").isEmpty())
-                .andExpect(jsonPath("$.data[?(@.category == 'AUCTION_RESULT')].label").value("경매 결과"));
+                .andExpect(jsonPath("$.data[?(@.category == 'AUCTION_RESULT')].label").value("경매 결과"))
+                .andExpect(jsonPath("$.data[?(@.category == 'DONATION_POINT')].label").value("도네이션 포인트"));
 
         // 경매 취소 알림을 끈다. (두 번 꺼도 그대로)
         updateSetting(viewer, "AUCTION_CANCELED", false);
