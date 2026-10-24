@@ -215,20 +215,32 @@ Terraform 상태와 앱 설정은 바꾸지 않습니다. 복사하는 동안 �
    - DB 인스턴스 식별자: `ddang-mysql-restore`
    - 서브넷 그룹 `ddang-db`, VPC 보안 그룹 `ddang-db`(기본 그룹은 빼기), 퍼블릭 액세스 **아니요**
    - 상태가 "사용 가능"이 될 때까지 기다립니다. (10~20분)
-2. 서버에 접속해 앱을 멈추고, 복원본에서 `ddang-mysql`로 데이터를 덮어씁니다.
+2. **ECS 구성도 켜져 있으면(전환 중)** 같은 RDS에 쓰는 ECS 앱을 먼저 멈춥니다. EC2 구성만 쓰고 있으면 건너뜁니다.
+
+```bash
+aws ecs update-service --cluster ddang --service ddang-app --desired-count 0
+aws ecs wait services-stable --cluster ddang --services ddang-app
+```
+
+3. 서버에 접속해 앱을 멈추고, 복원본에서 `ddang-mysql`로 데이터를 덮어씁니다.
+   복사가 성공하면 Redis의 앱 캐시(카테고리 목록, 도네이션 포인트 정책)만 지운 뒤 앱을 켭니다. 복원 전 값이 최대 10분간 남지 않게 하기 위해서이고, 로그인 정보 등 다른 Redis 데이터는 그대로 둡니다.
 
 ```bash
 aws ssm start-session --target "$(terraform output -raw ec2_instance_id)"
 sudo -i
 cd /opt/ddang
-docker compose stop app                       # 앱을 멈춰 쓰기를 막는다
-source <(grep -E '^DB_(URL|USERNAME|PASSWORD)=' app.env | sed "s/^/export /")
+source <(grep -E '^(DB_(URL|USERNAME|PASSWORD)|REDIS_HOST)=' app.env | sed "s/^/export /")
 MAIN="$(sed -E 's|jdbc:mysql://([^:/]+).*|\1|' <<<"$DB_URL")"
 RESTORE=<RDS 콘솔의 ddang-mysql-restore 엔드포인트>
 set -o pipefail                               # mysqldump가 실패해도 성공으로 보이지 않게 한다
-if docker run --rm -e MYSQL_PWD="$DB_PASSWORD" mysql:8.4 mysqldump --ssl-mode=REQUIRED -h "$RESTORE" -u"$DB_USERNAME" \
-     --single-transaction --routines --triggers --set-gtid-purged=OFF --databases ddang --add-drop-database \
-   | docker run --rm -i -e MYSQL_PWD="$DB_PASSWORD" mysql:8.4 mysql --ssl-mode=REQUIRED -h "$MAIN" -u"$DB_USERNAME"; then
+if ! docker compose stop app; then            # 앱을 멈춰 쓰기를 막는다
+  echo "앱을 멈추지 못했습니다. 복구를 중단합니다."
+elif docker run --rm -e MYSQL_PWD="$DB_PASSWORD" mysql:8.4 mysqldump --ssl-mode=REQUIRED -h "$RESTORE" -u"$DB_USERNAME" \
+       --single-transaction --routines --triggers --set-gtid-purged=OFF --databases ddang --add-drop-database \
+     | docker run --rm -i -e MYSQL_PWD="$DB_PASSWORD" mysql:8.4 mysql --ssl-mode=REQUIRED -h "$MAIN" -u"$DB_USERNAME"; then
+  # 앱 캐시만 지운다 (Spring 캐시 키: <캐시 이름>::<키>)
+  docker run --rm redis:7.4 sh -c 'for p in "categories::*" "donationPolicy::*"; do
+    redis-cli -h "$0" --scan --pattern "$p" | while IFS= read -r k; do redis-cli -h "$0" del "$k" >/dev/null; done; done' "$REDIS_HOST"
   docker compose start app
 else
   echo "복구 실패: 앱은 멈춘 상태로 둡니다."
@@ -241,7 +253,9 @@ fi
 그 스냅샷을 `ddang-mysql-restore`로 복원한 뒤(1번과 같은 설정) 같은 명령으로 복사하면, 복사가 성공했을 때만 앱이 켜집니다.
 두 명령 모두 `--ssl-mode=REQUIRED`로 TLS 연결만 씁니다.
 
-3. 앱이 정상인지 확인한 뒤 RDS 콘솔에서 `ddang-mysql-restore`를 삭제합니다. (최종 스냅샷 없이 삭제해도 됩니다. 남겨 두면 계속 비용이 듭니다)
+4. 2번에서 ECS를 멈췄다면 다시 켭니다: `aws ecs update-service --cluster ddang --service ddang-app --desired-count 2` (`app_desired_count` 값)
+
+5. 앱이 정상인지 확인한 뒤 RDS 콘솔에서 `ddang-mysql-restore`를 삭제합니다. (최종 스냅샷 없이 삭제해도 됩니다. 남겨 두면 계속 비용이 듭니다)
 
 덮어쓰기 전에 RDS 콘솔에서 `ddang-mysql`의 수동 스냅샷을 찍어 두면, 잘못된 시점으로 복원했을 때 되돌릴 수 있습니다.
 
