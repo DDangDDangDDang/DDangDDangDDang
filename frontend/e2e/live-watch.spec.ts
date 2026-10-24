@@ -114,15 +114,22 @@ test.describe('방송 시청', () => {
     await expect(page.getByRole('list', { name: '채팅 메시지' }).getByText(content)).toBeVisible();
     await expect(chatInput).toHaveValue('');
 
-    // 시청 중에 다른 화면으로 가는 링크(헤더 [경매])는 새 탭으로 열리고, 이 탭은 방송을 계속 본다.
-    const [newTab] = await Promise.all([
-      page.context().waitForEvent('page'),
-      page.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '경매', exact: true }).click(),
-    ]);
-    await expect(newTab).toHaveURL(/\/auctions$/);
+    // 시청 중에 다른 화면(헤더 [경매])으로 가면 이 탭에서 옮겨 가고, 방송은 오른쪽 아래 작은 플레이어에서 이어진다.
+    await page.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '경매', exact: true }).click();
+    await expect(page).toHaveURL(/\/auctions$/);
+    const mini = page.getByRole('complementary', { name: '보던 방송' });
+    await expect(mini).toBeVisible();
+    await expect(mini).toContainText(stream.title);
+    // [방송으로 돌아가기]로 시청 화면에 돌아오면 작은 플레이어는 사라진다.
+    await mini.getByRole('link', { name: '방송으로 돌아가기' }).click();
     await expect(page).toHaveURL(new RegExp(`/lives/${stream.id}$`));
     await expect(page.getByRole('heading', { level: 1, name: stream.title })).toBeVisible();
-    await newTab.close();
+    await expect(mini).toBeHidden();
+    // 다시 떠난 뒤 [닫기]를 누르면 작은 플레이어가 닫힌다.
+    await page.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '홈' }).click();
+    await expect(mini).toBeVisible();
+    await mini.getByRole('button', { name: '작은 플레이어 닫기' }).click();
+    await expect(mini).toBeHidden();
   });
 
   test('로그인하지 않아도 방송과 채팅을 보고, 채팅을 보내려 하면 로그인 창에서 로그인한 뒤 이어서 보낸다', async ({ browser }) => {
@@ -273,6 +280,15 @@ test.describe('판매자 송출', () => {
       await expect.poll(() => videoWidth(video), { timeout: 30_000 }).toBeGreaterThan(0);
       await expect(watch.getByText('판매자 화면을 기다리고 있어요')).toBeHidden();
       expect(watch.url(), '방송이 시작돼도 시청 화면 주소는 그대로다').toContain(watchHref ?? '');
+
+      // 시청자가 다른 화면으로 가도 작은 플레이어에서 판매자 영상이 이어지고, 돌아오면 시청 화면에서 다시 본다.
+      await watch.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '경매', exact: true }).click();
+      const viewerMini = watch.getByRole('complementary', { name: '보던 방송' });
+      await expect.poll(() => videoWidth(viewerMini.locator('video')), { timeout: 15_000 }).toBeGreaterThan(0);
+      await test.info().attach('시청자 작은 플레이어', { body: await watch.screenshot(), contentType: 'image/png' });
+      await viewerMini.getByRole('link', { name: '방송으로 돌아가기' }).click();
+      await expect(viewerMini).toBeHidden();
+      await expect.poll(() => videoWidth(video), { timeout: 15_000 }).toBeGreaterThan(0);
 
       if (tagged) {
         // 해시태그는 시청 화면 제목 아래와 방송 목록 카드에 나온다.
