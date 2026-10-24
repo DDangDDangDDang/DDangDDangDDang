@@ -1,5 +1,5 @@
 #!/bin/bash
-# EC2 한 대 구성의 배포 스크립트. GitHub Actions가 SSM Run Command로 서버에서 실행한다.
+# EC2 구성의 배포 스크립트. GitHub Actions가 SSM Run Command로 서버에서 실행한다.
 #   사용법: deploy.sh <이미지 URI>
 # 1) 최신 docker-compose.yml과 앱 환경변수를 SSM 파라미터에서 받는다.
 # 2) 비밀값을 Secrets Manager에서 읽어 .env / app.env를 만든다. (서버 디스크에만 남고 권한은 root 전용)
@@ -30,7 +30,7 @@ db_secret_json="$(get_secret "$DB_SECRET_ID")"
 db_json="$(jq '{DB_USERNAME: .username, DB_PASSWORD: .password}' <<<"$db_secret_json")"
 
 { to_env <<<"$app_env_json"; to_env <<<"$app_secret_json"; to_env <<<"$db_json"; } > app.env.new
-{ echo "APP_IMAGE='$IMAGE'"; to_env <<<"$db_json"; } > .env.new
+echo "APP_IMAGE='$IMAGE'" > .env.new
 
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY" >/dev/null
 

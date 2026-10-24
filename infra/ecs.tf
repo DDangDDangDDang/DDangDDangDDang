@@ -54,9 +54,6 @@ resource "aws_ecs_task_definition" "app" {
     portMappings = [{ containerPort = 8080, protocol = "tcp" }]
 
     environment = [for k, v in merge(local.common_app_environment, {
-      DB_URL     = "jdbc:mysql://${aws_db_instance.main[0].address}:${aws_db_instance.main[0].port}/${local.db_name}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
-      REDIS_HOST = aws_elasticache_cluster.redis[0].cache_nodes[0].address
-      REDIS_PORT = tostring(aws_elasticache_cluster.redis[0].port)
       # HTTPS일 때만 쿠키에 Secure를 붙인다. (HTTP에서 Secure 쿠키는 브라우저가 보내지 않음)
       JWT_COOKIE_SECURE = tostring(local.https_enabled)
     }) : { name = k, value = v }]

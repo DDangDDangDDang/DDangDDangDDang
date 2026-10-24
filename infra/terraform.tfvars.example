@@ -3,7 +3,7 @@
 # LiveKit Cloud 프로젝트 주소 (LiveKit Cloud 콘솔 → Settings → Project URL)
 livekit_url = "wss://<프로젝트>.livekit.cloud"
 
-# 배포 구성. 개발 중에는 EC2 한 대, 운영 전환 때 ECS (docs/deploy.md "ECS로 전환")
+# 배포 구성. 개발 중에는 EC2 앱 서버, 운영 전환 때 ECS. RDS·ElastiCache는 두 구성이 함께 쓴다. (docs/deploy.md "ECS로 전환")
 ec2_enabled = true
 ecs_enabled = false
 
