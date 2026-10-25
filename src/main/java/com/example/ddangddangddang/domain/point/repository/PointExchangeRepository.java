@@ -49,4 +49,15 @@ public interface PointExchangeRepository extends JpaRepository<PointExchange, Lo
     List<Long> findIdsByStatusAndProcessingStartedAtBefore(@Param("status") PointExchangeType status,
                                                            @Param("before") LocalDateTime before,
                                                            Pageable pageable);
+
+    /** 관리자 목록. status가 null이면 전체. 먼저 신청한 건부터 (cursor보다 id가 큰 것) */
+    @Query("""
+            select e from PointExchange e
+            where (:status is null or e.status = :status)
+              and (:cursor is null or e.id > :cursor)
+            order by e.id asc
+            """)
+    List<PointExchange> findForAdmin(@Param("status") PointExchangeType status,
+                                     @Param("cursor") Long cursor,
+                                     Pageable pageable);
 }

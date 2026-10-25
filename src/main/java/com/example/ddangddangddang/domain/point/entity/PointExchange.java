@@ -70,6 +70,9 @@ public class PointExchange extends BaseTimeEntity {
     /** 송금 시작 시각. PROCESSING에 오래 머문 건을 복구 스케줄러가 찾을 때 쓴다 */
     private LocalDateTime processingStartedAt;
 
+    /** 관리자 수동 지급에서 송금 시작·완료·반려를 처리한 관리자 id. 자동 송금이면 null */
+    private Long handledBy;
+
     private PointExchange(Long userId, Long amount, String payoutId,
                           String bankCode, String accountNumber, String accountHolder) {
         this.userId = userId;
@@ -146,6 +149,36 @@ public class PointExchange extends BaseTimeEntity {
         validateStatus(PointExchangeType.PROCESSING);
         this.status = PointExchangeType.FAILED;
         this.failReason = reason;
+    }
+
+    // ===== 관리자 수동 지급 =====
+
+    /** 송금 시작. 관리자가 은행 이체를 하기 전에 먼저 호출한다. 이후로 사용자는 취소할 수 없다 */
+    public void startManualPayout(Long adminId, LocalDateTime now) {
+        startProcessing(now);
+        this.handledBy = adminId;
+    }
+
+    /** 이체 완료 확인. 포인트는 신청 때 이미 차감됐다 */
+    public void completeManualPayout(Long adminId) {
+        complete();
+        this.handledBy = adminId;
+    }
+
+    /**
+     * 관리자 반려. 송금 시작 전(PENDING)과 송금 중(PROCESSING) 모두 가능하다.
+     * 호출한 쪽에서 포인트를 환불해야 한다.
+     */
+    public void reject(Long adminId, String reason) {
+        if (isBlank(reason)) {
+            throw new BusinessException(CommonErrorCode.INVALID_INPUT);
+        }
+        if (this.status != PointExchangeType.PENDING && this.status != PointExchangeType.PROCESSING) {
+            throw new BusinessException(PointErrorCode.INVALID_EXCHANGE_STATUS);
+        }
+        this.status = PointExchangeType.FAILED;
+        this.failReason = reason.strip();
+        this.handledBy = adminId;
     }
 
     private void validateStatus(PointExchangeType expected) {
