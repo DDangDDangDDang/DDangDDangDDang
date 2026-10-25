@@ -10,11 +10,11 @@ import java.util.UUID;
 
 /**
  * 인증번호 발급과 검증.
- *
+ * <p>
  * 1. issueCode: 6자리 인증번호를 만들어 저장한다. (발송은 호출하는 쪽에서)
  * 2. verifyCode: 인증번호가 맞으면 "인증 완료 토큰"을 돌려준다.
  * 3. consumeToken: 다음 단계(가입, 비밀번호 재설정)에서 토큰을 한 번만 쓸 수 있게 꺼낸다.
- *
+ * <p>
  * 인증번호를 다음 단계까지 계속 들고 다니지 않고 토큰으로 바꾸는 이유:
  * 인증번호는 6자리라 추측하기 쉬워 짧게 쓰고 버려야 하고, 토큰은 추측할 수 없는 UUID라 안전하다.
  */
@@ -67,9 +67,21 @@ public class VerificationService {
         return token;
     }
 
-    /** 인증 완료 토큰을 꺼내 인증된 대상(휴대폰 번호, 이메일)을 돌려준다. 한 번 쓰면 사라진다. */
+    /**
+     * 인증 완료 토큰을 꺼내 인증된 대상(휴대폰 번호, 이메일)을 돌려준다. 한 번 쓰면 사라진다.
+     */
     public String consumeToken(VerificationPurpose purpose, String token) {
         return verificationCodeRepository.consumeToken(purpose, token)
                 .orElseThrow(() -> new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN));
+    }
+
+    /**
+     * 토큰이 expectedTarget(예: 가입 요청의 휴대폰 번호)을 인증한 것일 때만 쓴다.
+     * 다른 번호의 토큰이면 예외를 던지고 토큰은 남겨 둔다. (다른 번호로 인증하고 남의 번호를 보내는 것 방지)
+     */
+    public void consumeMatchingToken(VerificationPurpose purpose, String token, String expectedTarget) {
+        if (!verificationCodeRepository.consumeTokenIfMatches(purpose, token, expectedTarget)) {
+            throw new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+        }
     }
 }

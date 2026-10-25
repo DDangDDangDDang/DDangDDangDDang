@@ -56,7 +56,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 - 주소: `ws://{호스트}/ws` (STOMP over WebSocket, SockJS 없음)
 - 인증: STOMP `CONNECT` 프레임 헤더에 `Authorization: Bearer {accessToken}`
   - 브라우저 WebSocket은 핸드셰이크에 헤더를 붙일 수 없어서, 핸드셰이크는 열려 있고 인증은 CONNECT에서 합니다.
-  - **토큰 없이 CONNECT하면 손님 연결**입니다. 손님은 방송 토픽(`/topic/live-streams/{id}`, `/topic/live-streams/{id}/chat`, `/topic/live-streams/{id}/auctions`)만 구독할 수 있고, 보내기(`/app/...`)와 `/user/queue/...`는 할 수 없습니다. (로그인하지 않은 사람도 방송 채팅을 볼 수 있게)
+  - **토큰 없이 CONNECT하면 손님 연결**입니다. 손님은 방송 토픽(`/topic/live-streams/{id}`, `/topic/live-streams/{id}/chat`, `/topic/live-streams/{id}/auctions`)와 경매 토픽(`/topic/auctions/{id}`)만 구독할 수 있고, 보내기(`/app/...`)와 `/user/queue/...`는 할 수 없습니다. (로그인하지 않은 사람도 방송 채팅을 볼 수 있게)
   - 토큰이 있는데 잘못됐으면(만료·로그아웃) 손님으로 바꾸지 않고 ERROR 프레임으로 거부합니다. 클라이언트는 토큰을 재발급해 다시 연결합니다.
 - 보내기는 `/app/...`, 받기는 `/topic/...`(구독자 전체) 또는 `/user/queue/...`(나에게만)입니다.
 - 아래 표에 없는 경로는 구독할 수 없습니다. (서버가 거부)
@@ -74,11 +74,12 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `/topic/live-streams/{liveStreamId}/chat` | 방송 시청자 전체 (손님 포함) | `ChatMessageResponse` |
 | `/topic/live-streams/{liveStreamId}` | 방송 시청자 전체 (손님 포함) | `LiveStreamUpdatedMessage` (방송 정보 변경) |
 | `/topic/live-streams/{liveStreamId}/auctions` | 방송 시청자 전체 (손님 포함) | `LiveAuctionChangedMessage` (방송에 올라간 경매가 시작·추가·취소·마감됨) |
+| `/topic/auctions/{auctionId}` | 경매를 보는 사람 전체 (손님 포함) | `AuctionRealtimeMessage` (입찰이 반영됨 / 경매가 끝남) |
 | `/user/queue/errors` | 나 | `ErrorResponse` (채팅 전송 실패 등) |
 | `/user/queue/moderation` | 방송 판매자 | `ModerationAlert` (AI가 확인이 필요하다고 본 채팅) |
 | `/user/queue/live-stream` | 방송 판매자 | `LiveStreamIdleMessage` (송출이 없어 곧 자동 종료됨·취소됨·종료됨) |
 | `/user/queue/dm` | 나 | `DmEvent` (1:1 채팅 새 메시지, 읽음) |
-| `/user/queue/notifications` | 나 | `NotificationResponse` (구독한 판매자가 방송을 시작함) |
+| `/user/queue/notifications` | 나 | `NotificationResponse` (구독한 판매자의 방송 시작, 경매 시작·상위 입찰·마감 10분 전·취소·낙찰·유찰) |
 
 ### 메시지 형식
 
@@ -89,15 +90,32 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | `messageId` | string | 메시지 ID (UUID). 검토 알림이 가리키는 메시지를 찾을 때 씀 |
-| `type` | `"CHAT"` \| `"SYSTEM"` | `SYSTEM`은 서버 안내(방송 종료 등). 이때 `senderId`, `nickname`은 null |
+| `type` | `"CHAT"` \| `"SYSTEM"` \| `"DONATION"` \| `"BID"` \| `"AUCTION_SOLD"` | `SYSTEM`은 서버 안내(방송 시작·종료 등). 이때 `senderId`, `nickname`은 null. `DONATION`은 도네이션 포인트 선물, `BID`는 방송에 올라간 경매의 입찰, `AUCTION_SOLD`는 낙찰 |
 | `liveStreamId` | number | |
-| `senderId` | number \| null | |
-| `nickname` | string \| null | |
-| `content` | string | |
+| `senderId` | number \| null | `DONATION`이면 선물한 사람, `BID`면 입찰한 사람, `AUCTION_SOLD`면 낙찰받은 사람 |
+| `nickname` | string \| null | `senderId`의 닉네임 |
+| `content` | string \| null | `DONATION`이면 선물과 함께 보낸 한마디 (없으면 null). `BID`·`AUCTION_SOLD`면 채팅에 그대로 보여 줄 안내 문장 |
 | `sentAt` | string | |
+| `amount` | number \| null | `DONATION`이면 선물한 포인트, `BID`면 입찰 금액, `AUCTION_SOLD`면 낙찰가 |
+| `previousAmount` | number \| null | `BID`에만 있음. 이 입찰 직전의 현재가 (첫 입찰이면 시작가). 오른 비율로 이펙트 크기를 정함 |
+| `auctionId` | number \| null | `BID`·`AUCTION_SOLD`에만 있음 |
+| `productName` | string \| null | `BID`·`AUCTION_SOLD`에만 있음 |
+
+- `DONATION`은 `POST /api/v1/live-streams/{id}/donations`가 커밋된 뒤에 옵니다. 방송 화면 한쪽에 "`nickname`님이 `amount` P를 선물했어요" 이펙트를 띄우고, 채팅에도 한 줄 남깁니다.
+- `BID`는 방송에 올라간 경매에 입찰이 커밋된 뒤, `AUCTION_SOLD`는 그 경매가 마감 때 낙찰되거나 즉시 구매로 팔린 뒤에 옵니다. 방송 화면에 이펙트를 띄우고 채팅에도 한 줄 남깁니다. (유찰·취소는 오지 않음)
 
 **LiveStreamUpdatedMessage**: `{ "type": "UPDATED", "liveStream": LiveStreamResponse }`
 - `liveStream`은 REST의 `LiveStreamResponse`와 같은 형식입니다. 바뀐 값만이 아니라 전체 정보이므로 받은 값으로 화면을 덮어쓰면 됩니다.
+- 방송 정보 수정뿐 아니라 방송을 시작할 때도 옵니다. (`status`가 `LIVE`) 방송 예정 화면에서 기다리던 시청자는 새로고침 없이 영상에 접속하고, 채팅에 `SYSTEM` "방송이 시작되었습니다." 안내도 옵니다.
+
+**브라우저 알림(웹 푸시)**: 탭을 닫아도 브라우저가 켜져 있으면 같은 알림이 브라우저 알림으로 옵니다.
+- `GET /api/v1/push/public-key`로 받은 키로 `pushManager.subscribe` → `POST /api/v1/push/subscriptions`로 저장, 로그아웃·끄기는 `DELETE /api/v1/push/subscriptions?endpoint=`
+- 서비스 워커(`frontend/public/sw.js`)가 받는 내용: `{ notificationId, type, title, body, link, tag }`
+- 서버 설정: `WEB_PUSH_PUBLIC_KEY`·`WEB_PUSH_PRIVATE_KEY`(VAPID, 비우면 서버를 켤 때마다 새로 만듦 — 로컬 전용), `WEB_PUSH_SUBJECT`
+
+**AuctionRealtimeMessage**: 경매 한 건의 변경. 두 가지 모양이 옵니다.
+- 입찰이 반영됨: `{ "auctionId", "bidderId", "amount", "bidCount", "endAt", "extended" }` — `amount`가 새 현재가, 마감 30초 전 안쪽 입찰이면 `extended: true`이고 `endAt`이 늘어납니다.
+- 경매가 끝남: `{ "auctionId", "result": "ENDED" | "FAILED", "sellerId", "winnerId", "finalPrice", "productName" }` — 낙찰(즉시 구매 포함)·유찰. 받으면 경매를 다시 불러옵니다.
 
 **LiveAuctionChangedMessage**: `{ "type": "CHANGED", "auctionId": number }`
 - 바뀐 경매 번호만 옵니다. 받으면 방송의 경매 목록(`GET /api/v1/lives/{liveId}/auctions`)을 다시 불러옵니다.
@@ -144,13 +162,30 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | `id` | number | 알림 ID (읽음 처리 `POST /api/v1/notifications/{id}/read`) |
-| `type` | `"LIVE_STARTED"` | 구독한 판매자가 방송을 시작함 |
-| `sellerId` | number | |
-| `sellerNickname` | string \| null | 알림을 만든 때의 닉네임 |
-| `liveStreamId` | number | 시작한 방송 (`/lives/{liveStreamId}`) |
-| `liveTitle` | string | 알림을 만든 때의 방송 제목 |
+| `type` | string | 아래 표 |
+| `title` | string | 화면에 그대로 보여 줄 제목. 브라우저 알림(웹 푸시)과 같은 문구 |
+| `body` | string \| null | 설명 (방송 제목, 상품명·금액) |
+| `link` | string | 누르면 갈 화면 경로 (`/lives/{id}`, `/auctions/{id}`) |
+| `sellerId` | number \| null | `LIVE_STARTED`일 때 |
+| `sellerNickname` | string \| null | `LIVE_STARTED`일 때. 알림을 만든 때의 닉네임 |
+| `liveStreamId` | number \| null | `LIVE_STARTED`일 때. 시작한 방송 |
+| `liveTitle` | string \| null | `LIVE_STARTED`일 때. 알림을 만든 때의 방송 제목 |
+| `auctionId` | number \| null | `AUCTION_*`일 때 |
+| `productName` | string \| null | `AUCTION_*`일 때. 알림을 만든 때의 상품명 |
+| `price` | number \| null | `AUCTION_OUTBID`면 새 현재가, `AUCTION_WON`·`AUCTION_SOLD`면 낙찰가 |
 | `read` | boolean | 실시간으로 올 때는 항상 false |
 | `createdAt` | string | |
+
+| `type` | 받는 사람 |
+|---|---|
+| `LIVE_STARTED` | 방송을 시작한 판매자의 구독자 |
+| `AUCTION_STARTED` | 알림 받기(`PUT /api/v1/auctions/{id}/alert`)를 한 회원 |
+| `AUCTION_OUTBID` | 최고 입찰자에서 밀려난 회원 |
+| `AUCTION_CLOSING_SOON` | 알림 받기 + 입찰한 회원 (마감 10분 전, 경매마다 한 번) |
+| `AUCTION_CANCELED` | 알림 받기 + 입찰한 회원 |
+| `AUCTION_WON` | 낙찰자 (즉시 구매 포함) |
+| `AUCTION_SOLD` / `AUCTION_FAILED` | 판매자 (낙찰됨 / 유찰) |
+| `AUCTION_ENDED` | 그 밖의 알림 받기 + 입찰한 회원 |
 
 ### 실시간 메시지를 바꿀 때
 

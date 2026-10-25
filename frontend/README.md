@@ -31,6 +31,13 @@ npm run dev
   VITE_PORTONE_STORE_ID=store-...
   VITE_PORTONE_CHANNEL_KEY=channel-key-...
   ```
+- 카카오 로그인(로그인·회원가입 화면의 [카카오로 시작하기])을 쓰려면 `frontend/.env.local`에 카카오 REST API 키를 적습니다. 값이 없으면 버튼을 눌렀을 때 "카카오 로그인 설정이 필요합니다"라고 안내합니다.
+  - 카카오가 돌려보내는 주소는 기본으로 `지금 주소/oauth/kakao/callback`입니다. **카카오 콘솔의 Redirect URI, 백엔드 `KAKAO_REDIRECT_URI`와 같아야** 합니다. (포트가 다르면 `VITE_KAKAO_REDIRECT_URI`로 맞춤)
+  - 백엔드에 `KAKAO_CLIENT_ID`(같은 REST API 키), `KAKAO_CLIENT_SECRET`이 필요합니다. 없으면 `OAUTH_005` 오류가 납니다.
+  ```
+  VITE_KAKAO_REST_API_KEY=...
+  # VITE_KAKAO_REDIRECT_URI=http://localhost:5173/oauth/kakao/callback
+  ```
 
 ## 자주 쓰는 명령
 

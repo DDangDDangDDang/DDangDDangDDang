@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.livestream.service;
 
+import com.example.ddangddangddang.domain.donation.service.PowerSellers;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCard;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamHomeResponse;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
@@ -50,11 +51,15 @@ class LiveStreamHomeServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    // 파워 판매자 없음 (목은 빈 Set을 돌려준다)
+    @Mock
+    private PowerSellers powerSellers;
+
     // 카드 만들기(닉네임·시청자 수 붙이기)는 실제 객체로 두고, 그 안의 저장소만 가짜로 둔다.
     @BeforeEach
     void setUp() {
         homeService = new LiveStreamHomeService(liveStreamRepository, statsRepository,
-                new LiveStreamCardAssembler(statsRepository, userRepository));
+                new LiveStreamCardAssembler(statsRepository, userRepository, powerSellers));
     }
 
     @Test

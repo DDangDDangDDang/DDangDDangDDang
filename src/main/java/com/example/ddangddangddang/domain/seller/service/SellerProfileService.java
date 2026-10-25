@@ -1,6 +1,8 @@
 package com.example.ddangddangddang.domain.seller.service;
 
 import com.example.ddangddangddang.domain.auction.entity.Auction;
+import com.example.ddangddangddang.domain.donation.service.DonationTrust;
+import com.example.ddangddangddang.domain.donation.service.PowerSellers;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.livestream.dto.SellerBroadcastSummary;
@@ -45,6 +47,9 @@ public class SellerProfileService {
     private final LiveStreamRepository liveStreamRepository;
     private final AuctionRepository auctionRepository;
     private final OrderRepository orderRepository;
+    // 도네이션 도메인의 값을 읽기만 한다. (파워 판매자 여부, 응원 지표)
+    private final PowerSellers powerSellers;
+    private final DonationTrust donationTrust;
 
     /** @param viewerId 보는 사람 (로그인하지 않았으면 null) */
     public SellerProfileResponse getProfile(Long sellerId, Long viewerId) {
@@ -58,11 +63,14 @@ public class SellerProfileService {
         LiveStream live = liveStreamRepository.findByActiveSellerId(sellerId)
                 .filter(s -> s.getStatus() == LiveStreamStatus.LIVE).orElse(null);
         Long endedSeconds = liveStreamRepository.sumEndedBroadcastSeconds(sellerId);
+        DonationTrust.Summary donation = donationTrust.of(sellerId);
 
         return new SellerProfileResponse(
                 sellerId,
                 seller.getNickname(),
                 approved != null,
+                approved != null && approved.isApprovedBusiness(),
+                powerSellers.is(sellerId),
                 approved == null ? null : approved.getStoreName(),
                 approved == null ? null : approved.getIntroduction(),
                 approved == null ? null : approved.getReviewedAt(),
@@ -74,12 +82,14 @@ public class SellerProfileService {
                 summary == null || summary.broadcastCount() == null ? 0 : summary.broadcastCount(),
                 totalBroadcastSeconds(endedSeconds, live, LocalDateTime.now()),
                 new SellerProfileResponse.Trust(
-                        seller.getPhoneNumber() != null,
                         auctionRepository.countByProductSellerIdAndStatus(sellerId, AuctionStatus.ENDED),
                         auctionRepository.countByProductSellerIdAndStatus(sellerId, AuctionStatus.FAILED),
                         auctionRepository.countByProductSellerIdAndStatus(sellerId, AuctionStatus.CANCELED),
                         orderRepository.countBySellerIdAndStatus(sellerId, OrderStatus.COMPLETED),
-                        averageShippingHours(orderRepository.findTop100BySellerIdAndShippedAtIsNotNullOrderByIdDesc(sellerId))
+                        averageShippingHours(orderRepository.findTop100BySellerIdAndShippedAtIsNotNullOrderByIdDesc(sellerId)),
+                        donation.donorCount(),
+                        donation.receivedPoints(),
+                        donation.windowDays()
                 )
         );
     }

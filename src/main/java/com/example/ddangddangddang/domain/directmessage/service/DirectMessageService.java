@@ -15,6 +15,7 @@ import com.example.ddangddangddang.domain.directmessage.repository.DmMessageRepo
 import com.example.ddangddangddang.domain.directmessage.repository.DmRateLimitRepository;
 import com.example.ddangddangddang.domain.directmessage.repository.DmRoomRepository;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
+import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.common.CursorResponse;
@@ -64,6 +65,7 @@ public class DirectMessageService {
     private final ChatContentFilter contentFilter;
     private final StompBroadcaster stompBroadcaster;
     private final TransactionTemplate transactionTemplate;
+    private final SellerVerification sellerVerification;
 
     /**
      * 상대와의 대화방을 가져온다. 없으면 만든다. 차단한 상대여도 방은 열 수 있다. (이전 대화 보기, 차단 해제)
@@ -82,7 +84,7 @@ public class DirectMessageService {
         DmRoom candidate = DmRoom.create(userId, targetUserId);
         DmRoom room = dmRoomRepository.findByUser1IdAndUser2Id(candidate.getUser1Id(), candidate.getUser2Id())
                 .orElseGet(() -> createRoom(candidate));
-        return DmRoomResponse.of(room, userId, target.getNickname(), unreadCount(userId, room.getId()),
+        return DmRoomResponse.of(room, userId, target.getNickname(), sellerVerification.isVerified(targetUserId), unreadCount(userId, room.getId()),
                 dmBlockRepository.existsByBlockerIdAndBlockedId(userId, targetUserId));
     }
 
@@ -113,11 +115,12 @@ public class DirectMessageService {
                 .countUnreadByRoom(userId, rooms.stream().map(DmRoom::getId).toList()).stream()
                 .collect(Collectors.toMap(RoomUnreadCount::getRoomId, RoomUnreadCount::getCount));
         Set<Long> blocked = new HashSet<>(dmBlockRepository.findBlockedIds(userId, otherUserIds));
+        Set<Long> verifiedSellers = sellerVerification.verifiedAmong(otherUserIds);
 
         return CursorResponse.of(rooms, pageSize,
                 room -> {
                     Long otherUserId = room.otherUserId(userId);
-                    return DmRoomResponse.of(room, userId, nicknames.get(otherUserId),
+                    return DmRoomResponse.of(room, userId, nicknames.get(otherUserId), verifiedSellers.contains(otherUserId),
                             unreadCounts.getOrDefault(room.getId(), 0L), blocked.contains(otherUserId));
                 },
                 DmRoom::getLastMessageId);

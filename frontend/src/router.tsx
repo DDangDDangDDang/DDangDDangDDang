@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { RequireVerifiedSeller } from '@/components/seller/RequireVerifiedSeller';
 import { FindEmailPage } from '@/pages/auth/FindEmailPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
@@ -17,6 +18,11 @@ import { LiveWatchPage } from '@/pages/live/LiveWatchPage';
 import { MyInfoPage } from '@/pages/me/MyInfoPage';
 import { MessagesPage } from '@/pages/messages/MessagesPage';
 import { PointsPage } from '@/pages/me/PointsPage';
+import { DonationPointsPage } from '@/pages/me/DonationPointsPage';
+import { SellerShopPage } from '@/pages/me/SellerShopPage';
+import { DonationPolicyPage } from '@/pages/admin/DonationPolicyPage';
+import { AlertedAuctionsPage } from '@/pages/me/AlertedAuctionsPage';
+import { NotificationSettingsPage } from '@/pages/me/NotificationSettingsPage';
 import { SellerApplicationPage } from '@/pages/me/SellerApplicationPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { OrderDetailPage } from '@/pages/orders/OrderDetailPage';
@@ -26,6 +32,8 @@ import { ProductAuctionPage } from '@/pages/products/ProductAuctionPage';
 import { ProductCreatePage } from '@/pages/products/ProductCreatePage';
 import { ProductEditPage } from '@/pages/products/ProductEditPage';
 import { SellerStudioPage } from '@/pages/studio/SellerStudioPage';
+import { KakaoCallbackPage } from '@/pages/auth/KakaoCallbackPage';
+import { KakaoSignupPage } from '@/pages/auth/KakaoSignupPage';
 
 /**
  * 화면 목록. 새 화면은 src/pages에 만들고 여기에 경로를 추가한다.
@@ -42,6 +50,9 @@ export const router = createBrowserRouter([
       { path: '/login', element: <LoginPage /> },
       { path: '/signup', element: <SignupPage /> },
       { path: '/find-email', element: <FindEmailPage /> },
+      // 카카오 로그인: 카카오가 돌려보내는 콜백, 처음 온 사용자의 추가 정보
+      { path: '/oauth/kakao/callback', element: <KakaoCallbackPage /> },
+      { path: '/signup/kakao', element: <KakaoSignupPage /> },
       // 로그인 전 재설정 + 내 정보의 [비밀번호 변경]이 같은 화면을 쓴다.
       { path: '/password-reset', element: <PasswordResetPage /> },
 
@@ -57,20 +68,31 @@ export const router = createBrowserRouter([
         children: [
           { path: '/me', element: <MyInfoPage /> },
           { path: '/points', element: <PointsPage /> },
+          { path: '/me/donation-points', element: <DonationPointsPage /> },
           { path: '/me/seller', element: <SellerApplicationPage /> },
+          { path: '/me/notifications', element: <NotificationSettingsPage /> },
+          { path: '/me/auction-alerts', element: <AlertedAuctionsPage /> },
           { path: '/orders', element: <OrdersPage /> },
           { path: '/orders/:orderId', element: <OrderDetailPage /> },
           { path: '/studio', element: <SellerStudioPage /> },
           { path: '/messages', element: <MessagesPage /> },
           { path: '/messages/:userId', element: <MessagesPage /> },
-          { path: '/me/products', element: <MyProductsPage /> },
-          { path: '/products/new', element: <ProductCreatePage /> },
-          { path: '/products/:productId/edit', element: <ProductEditPage /> },
-          { path: '/products/:productId/auction', element: <ProductAuctionPage /> },
+          // 판매자 인증을 받은 회원만 (인증 전이면 인증 안내)
+          {
+            element: <RequireVerifiedSeller />,
+            children: [
+              { path: '/me/products', element: <MyProductsPage /> },
+              { path: '/me/donation-shop', element: <SellerShopPage /> },
+              { path: '/products/new', element: <ProductCreatePage /> },
+              { path: '/products/:productId/edit', element: <ProductEditPage /> },
+              { path: '/products/:productId/auction', element: <ProductAuctionPage /> },
+            ],
+          },
           // 관리자 (역할은 화면 안에서 확인하고, 서버도 ADMIN만 허용한다)
           { path: '/admin/categories', element: <CategoryAdminPage /> },
           { path: '/admin/dm-reports', element: <DmReportsPage /> },
           { path: '/admin/seller-applications', element: <SellerApplicationsPage /> },
+          { path: '/admin/donation-policy', element: <DonationPolicyPage /> },
         ],
       },
 

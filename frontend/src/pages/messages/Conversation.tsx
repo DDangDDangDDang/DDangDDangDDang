@@ -3,6 +3,8 @@ import { Flag, SendHorizontal } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { api, call, errorMessage, isErrorCode, useSession, type Schema } from '@/api';
 import { Button, ConfirmDialog, EmptyState, ErrorState, Notice, Select, Skeleton, Textarea } from '@/components/ui';
+import { SellerAvatar } from '@/components/seller/SellerAvatar';
+import { useOpenSellerProfile } from '@/components/seller/seller-profile-context';
 import { cn } from '@/lib/cn';
 import { DM_MAX_LENGTH, DM_REPORT_DETAIL_MAX_LENGTH, flattenMessages, isSendableDm, isUnreadByOther, lastMessageId, newClientMessageId, prependMessage, startsNewDay } from '@/lib/dm';
 import { useDmEvent } from '@/lib/dm-events';
@@ -56,6 +58,7 @@ export function Conversation({ otherUserId }: { otherUserId: number }) {
 function RoomView({ room, myId }: { room: Schema<'DmRoomResponse'> & { roomId: number }; myId?: number }) {
   const roomId = room.roomId;
   const other = room.otherUser;
+  const openSellerProfile = useOpenSellerProfile();
   const otherName = other?.nickname || '알 수 없음';
   const queryClient = useQueryClient();
   const messagesKey = ['dm', 'messages', roomId];
@@ -191,10 +194,17 @@ function RoomView({ room, myId }: { room: Schema<'DmRoomResponse'> & { roomId: n
     <>
       <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-5 py-3">
         <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="flex size-9 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700">
-            {otherName.slice(0, 1)}
-          </span>
-          <h2 className="text-body-lg font-bold">{otherName}</h2>
+          {/* 판매자 인증 회원이면 썸네일에 인증 마크를 붙이고, 이름을 누르면 판매자 프로필이 열린다. */}
+          <SellerAvatar name={otherName} verified={other?.verifiedSeller ?? false} size="sm" />
+          <h2 className="text-body-lg font-bold">
+            {other?.verifiedSeller && other.userId !== undefined ? (
+              <button type="button" aria-label={`${otherName} 판매자 프로필 보기`} onClick={() => openSellerProfile(other.userId ?? 0)} className="hover:underline">
+                {otherName}
+              </button>
+            ) : (
+              otherName
+            )}
+          </h2>
         </div>
         <div className="flex gap-1">
           <Button variant="ghost" size="sm" onClick={() => setReporting({})}>
@@ -246,7 +256,7 @@ function RoomView({ room, myId }: { room: Schema<'DmRoomResponse'> & { roomId: n
               ))}
               {pending.map((item) => (
                 <li key={item.clientMessageId} className="flex flex-col items-end gap-1">
-                  <p className={cn('max-w-[70%] rounded-lg px-3.5 py-2 text-body break-words whitespace-pre-wrap text-neutral-0', item.failed ? 'bg-neutral-400' : 'bg-neutral-700')}>
+                  <p className={cn('max-w-[70%] rounded-lg px-3.5 py-2 text-body break-words whitespace-pre-wrap', item.failed ? 'bg-neutral-400 text-neutral-0' : 'bg-brand-600 text-white opacity-70')}>
                     {item.content}
                   </p>
                   {item.failed ? (
@@ -337,7 +347,7 @@ function MessageItem({ message, mine, unread, newDay, onReport }: { message: Mes
         </li>
       )}
       <li className={cn('group flex items-end gap-1.5', mine ? 'flex-row-reverse' : 'flex-row')}>
-        <p className={cn('max-w-[70%] rounded-lg px-3.5 py-2 text-body break-words whitespace-pre-wrap', mine ? 'bg-neutral-900 text-neutral-0' : 'bg-neutral-50 text-neutral-900')}>
+        <p className={cn('max-w-[70%] rounded-lg px-3.5 py-2 text-body break-words whitespace-pre-wrap', mine ? 'bg-brand-500 text-white' : 'bg-neutral-50 text-neutral-900')}>
           {message.content}
         </p>
         <span className={cn('flex flex-col gap-0.5 text-caption', mine ? 'items-end' : 'items-start')}>

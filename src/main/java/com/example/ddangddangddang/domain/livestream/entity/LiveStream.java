@@ -7,10 +7,14 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 @Entity
 @Table(
@@ -31,6 +35,9 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LiveStream extends BaseTimeEntity {
 
+    /** 영상 위에 한 번에 띄울 수 있는 경매 수 */
+    public static final int MAX_FEATURED_AUCTIONS = 2;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -49,6 +56,30 @@ public class LiveStream extends BaseTimeEntity {
     // 채팅창 위에 고정하는 판매자 공지. 없으면 null
     @Column(length = 200)
     private String notice;
+
+    // 방송 목록 카드에 보여 주는 해시태그. "#나이키 #운동화"처럼 공백으로 이어 저장한다. 없으면 null (LiveStreamHashtags)
+    @Column(length = LiveStreamHashtags.COLUMN_LENGTH)
+    private String hashtags;
+
+    // 판매자가 영상 위에 띄운 경매. 최대 MAX_FEATURED_AUCTIONS(2)개라 두 칸에 둔다. 비어 있으면 null
+    // 먼저 띄운 경매가 첫 칸이고, 첫 칸을 내리면 둘째 칸이 앞으로 온다. (시청 화면은 이 순서로 위에서부터 보여 준다)
+    // 방송과 경매는 별개 도메인이라 연관관계 없이 ID만 둔다. 이 방송에 올라간 경매인지는 띄울 때 서비스에서 확인한다.
+    @Column(name = "featured_auction_id")
+    private Long featuredAuctionId;
+
+    @Column(name = "second_featured_auction_id")
+    private Long secondFeaturedAuctionId;
+
+    // 판매자가 정한 방송 화면 배치 (경매 카드·선물·입찰·낙찰 안내 위치). 정하지 않았으면 null이고 화면은 기본 배치로 그린다.
+    @Embedded
+    private OverlayLayout overlayLayout;
+
+    // 카메라 대신 미리 녹화한 영상을 내보내는 방송인지. 판매자가 스튜디오에서 영상 소스를 바꾸면 함께 바뀐다.
+    // 시청 화면·방송 목록·구독 목록·방송 시작 알림에 "녹화 영상" 표시를 한다.
+    // 이미 있는 방송과 SQL로 직접 넣는 행은 카메라 방송(false)으로 본다.
+    @ColumnDefault("false")
+    @Column(nullable = false)
+    private boolean recorded;
 
     // LiveKit 방 이름. 외부에 노출되므로 순번 ID 대신 UUID 사용
     @Column(name = "room_name", nullable = false, unique = true, length = 64)
@@ -152,6 +183,111 @@ public class LiveStream extends BaseTimeEntity {
         return true;
     }
 
+    /** 해시태그 목록(# 없이). 없으면 빈 목록 */
+    public List<String> getHashtagList() {
+        return LiveStreamHashtags.fromColumn(hashtags);
+    }
+
+    /**
+     * 해시태그를 바꾼다. 빈 목록이면 지운다. LiveStreamHashtags.normalize를 거친 값을 넘긴다.
+     * 만들 때는 바로, 수정할 때는 방송 정보 수정(update)으로 주인·종료 여부를 확인한 뒤 호출한다.
+     *
+     * @return 실제로 바뀌었으면 true
+     */
+    public boolean changeHashtags(List<String> tags) {
+        String column = LiveStreamHashtags.toColumn(tags);
+        if (Objects.equals(column, this.hashtags)) {
+            return false;
+        }
+        this.hashtags = column;
+        return true;
+    }
+
+    /**
+     * 녹화 영상 방송인지 바꾼다. 방송 정보 수정(update)으로 주인·종료 여부를 확인한 뒤 호출한다.
+     *
+     * @return 실제로 바뀌었으면 true
+     */
+    public boolean changeRecorded(boolean recorded) {
+        if (this.recorded == recorded) {
+            return false;
+        }
+        this.recorded = recorded;
+        return true;
+    }
+
+    /** 영상 위에 띄운 경매 ID (띄운 순서, 없으면 빈 목록) */
+    public List<Long> getFeaturedAuctionIds() {
+        return Stream.of(featuredAuctionId, secondFeaturedAuctionId).filter(Objects::nonNull).toList();
+    }
+
+    /**
+     * 경매를 영상 위에 띄운다. 방송 중일 때만, 방송 주인만 띄울 수 있다.
+     * 이미 띄운 경매 중 끝났거나 취소된 것(stillShowable이 false)은 먼저 내려 자리를 비운다. (시청 화면에서도 이미 보이지 않음)
+     * 그래도 MAX_FEATURED_AUCTIONS개가 차 있으면 하나를 내린 뒤에 띄울 수 있다.
+     *
+     * @return 실제로 바뀌었으면 true (이미 띄운 경매면 false)
+     */
+    public boolean featureAuction(Long requesterId, Long auctionId, Predicate<Long> stillShowable) {
+        validateOwner(requesterId);
+        if (status == LiveStreamStatus.ENDED) {
+            throw new BusinessException(LiveStreamErrorCode.ALREADY_ENDED);
+        }
+        if (status != LiveStreamStatus.LIVE) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_LIVE);
+        }
+        if (getFeaturedAuctionIds().contains(auctionId)) {
+            return false;
+        }
+        List<Long> kept = getFeaturedAuctionIds().stream().filter(stillShowable).toList();
+        if (kept.size() >= MAX_FEATURED_AUCTIONS) {
+            throw new BusinessException(LiveStreamErrorCode.FEATURED_AUCTION_LIMIT);
+        }
+        setFeaturedAuctions(Stream.concat(kept.stream(), Stream.of(auctionId)).toList());
+        return true;
+    }
+
+    /**
+     * 영상 위에 띄운 경매를 내린다. auctionId가 null이면 모두 내린다. 종료 전이면 할 수 있고, 방송 주인만 내릴 수 있다.
+     *
+     * @return 실제로 바뀌었으면 true
+     */
+    public boolean unfeatureAuction(Long requesterId, Long auctionId) {
+        validateOwner(requesterId);
+        if (status == LiveStreamStatus.ENDED) {
+            throw new BusinessException(LiveStreamErrorCode.ALREADY_ENDED);
+        }
+        List<Long> before = getFeaturedAuctionIds();
+        List<Long> after = auctionId == null ? List.of() : before.stream().filter(id -> !id.equals(auctionId)).toList();
+        if (after.equals(before)) {
+            return false;
+        }
+        setFeaturedAuctions(after);
+        return true;
+    }
+
+    /**
+     * 방송 화면 배치를 바꾼다. 종료 전이면 방송 시작 전에도 미리 정할 수 있다. 방송 주인만 바꿀 수 있다.
+     *
+     * @return 실제로 바뀌었으면 true
+     */
+    public boolean changeOverlayLayout(Long requesterId, OverlayLayout layout) {
+        validateOwner(requesterId);
+        if (status == LiveStreamStatus.ENDED) {
+            throw new BusinessException(LiveStreamErrorCode.ALREADY_ENDED);
+        }
+        if (Objects.equals(layout, this.overlayLayout)) {
+            return false;
+        }
+        this.overlayLayout = layout;
+        return true;
+    }
+
+    private void setFeaturedAuctions(List<Long> ids) {
+        this.featuredAuctionId = ids.isEmpty() ? null : ids.get(0);
+        this.secondFeaturedAuctionId = ids.size() < 2 ? null : ids.get(1);
+    }
+
     public void start(Long requesterId) {
         validateOwner(requesterId);
         if (status != LiveStreamStatus.SCHEDULED) {
@@ -167,6 +303,7 @@ public class LiveStream extends BaseTimeEntity {
         this.endedAt = LocalDateTime.now();
         // 종료되면 판매자가 새 방송을 만들 수 있게 비운다.
         this.activeSellerId = null;
+        setFeaturedAuctions(List.of());
     }
 
     public void validateJoinable() {

@@ -50,7 +50,7 @@ public class BuyNowService {
         Long orderId = auctionSettlementService.completeSale(auction);
         eventPublisher.publishEvent(AuctionEndedEvent.from(auction));
         if (auction.getLiveStream() != null) {
-            eventPublisher.publishEvent(LiveAuctionEvent.of(auction, LiveAuctionEvent.Type.CHANGED));
+            eventPublisher.publishEvent(LiveAuctionEvent.closed(auction));
         }
 
         return new BuyNowResponse(auctionId, orderId, price);

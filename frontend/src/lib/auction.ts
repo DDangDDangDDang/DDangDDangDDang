@@ -29,6 +29,35 @@ export function auctionPhase(auction: { status?: AuctionStatus; endAt?: string }
   return auction.status;
 }
 
+/** 판매자 스튜디오 경매 목록의 상태 탭 */
+export type AuctionStatusTab = 'ONGOING' | 'READY' | 'ENDED';
+
+/** 진행 중·시작 전이 아니면(마감 집계 중·낙찰·유찰·취소) 모두 종료 탭에 모은다. */
+export function auctionStatusTab(phase: AuctionPhase | undefined): AuctionStatusTab {
+  return phase === 'ONGOING' || phase === 'READY' ? phase : 'ENDED';
+}
+
+/** 영상 위에 한 번에 띄울 수 있는 경매 수 (서버도 넘으면 LIVESTREAM_017로 막는다) */
+export const MAX_FEATURED_AUCTIONS = 2;
+
+/**
+ * 판매자가 영상 위에 띄운 경매들, 띄운 순서대로. (방송 정보의 featuredAuctionIds를 방송 경매 목록에서 찾는다)
+ * 시작 전·진행 중(마감 집계 중 포함)일 때만 띄우고, 끝나거나 취소되면 판매자가 내리지 않아도 보이지 않는다.
+ * 서버도 끝난 경매는 자리를 차지하지 않는 것으로 보므로, 이 목록의 개수로 더 띄울 수 있는지 판단한다.
+ */
+export function featuredAuctions<T extends { id?: number; status?: AuctionStatus; endAt?: string }>(
+  featuredAuctionIds: number[] | undefined,
+  auctions: T[],
+  now: Date,
+): T[] {
+  return (featuredAuctionIds ?? []).flatMap((id) => {
+    const auction = auctions.find((a) => a.id === id);
+    if (!auction) return [];
+    const phase = auctionPhase(auction, now);
+    return phase === 'READY' || phase === 'ONGOING' || phase === 'CLOSING' ? [auction] : [];
+  });
+}
+
 /** 서버 시각까지 남은 초 (지났으면 0) */
 export function secondsUntil(serverTime: string | undefined, now: Date): number {
   if (!serverTime) return 0;
@@ -56,11 +85,37 @@ export function parseAmount(value: string): number | undefined {
   return digits ? Number(digits) : undefined;
 }
 
-/** 방송 중 경매 진행 시간 (서버: 30~600초) */
-export const LIVE_AUCTION_DURATIONS = [30, 60, 120, 180, 300, 600] as const;
+const MINUTE = 60;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 
+/**
+ * 방송 중 경매 진행 시간 (서버: 30초 ~ 3일, LiveAuctionCreateRequest.durationSec)
+ * 방송이 끝나도 경매는 정한 시간까지 이어진다.
+ */
+export const LIVE_AUCTION_DURATIONS = [
+  30,
+  MINUTE,
+  2 * MINUTE,
+  3 * MINUTE,
+  5 * MINUTE,
+  10 * MINUTE,
+  30 * MINUTE,
+  HOUR,
+  3 * HOUR,
+  6 * HOUR,
+  12 * HOUR,
+  DAY,
+  2 * DAY,
+  3 * DAY,
+] as const;
+
+/** 진행 시간을 "30초", "5분", "3시간", "2일"처럼 */
 export function durationLabel(seconds: number): string {
-  return seconds < 60 ? `${seconds}초` : `${seconds / 60}분`;
+  if (seconds < MINUTE) return `${seconds}초`;
+  if (seconds < HOUR) return `${seconds / MINUTE}분`;
+  if (seconds < DAY) return `${seconds / HOUR}시간`;
+  return `${seconds / DAY}일`;
 }
 
 /** 경매 조건 입력. 금액은 입력 문자열, 시각은 datetime-local 값 */

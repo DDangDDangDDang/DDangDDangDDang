@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect } from 'react';
 import type { ChatMessage, ModerationAlert, RealtimeStatus, Schema } from '@/api';
 import type { useLocalMedia } from './use-local-media';
+import type { useRecordedVideo } from './use-recorded-video';
 import type { usePublisher } from './use-publisher';
 
 /** 내 종료되지 않은 방송 (GET /live-streams/me/active). 판매자당 하나만 둘 수 있다. (LIVESTREAM_010) */
@@ -10,6 +11,9 @@ export const ACTIVE_STREAM_KEY = ['studio', 'active'] as const;
 export const START_STREAM_KEY = ['studio', 'start'] as const;
 
 export type ActiveLiveStream = Schema<'LiveStreamResponse'> & { id: number };
+
+/** 송출할 영상: 카메라·마이크, 또는 미리 녹화한 영상 파일(반복 재생) */
+export type VideoSource = 'camera' | 'recorded';
 
 /**
  * 판매자 송출 상태. 앱 전체에 하나만 두어(BroadcastProvider) 방송 중에 다른 화면으로 가도 송출·채팅이 이어진다.
@@ -22,7 +26,14 @@ export type Broadcast = {
   live: boolean;
   /** 이 탭이 송출을 맡고 있는지. 스튜디오를 연 탭만 송출한다. (새 탭으로 연 화면은 송출하지 않음) */
   publishing: boolean;
-  media: ReturnType<typeof useLocalMedia>;
+  /** 지금 송출하는(미리보기하는) 화면·소리. 녹화 영상을 고르면 그 영상의 화면·소리가 카메라·마이크 자리에 온다. */
+  media: Pick<ReturnType<typeof useLocalMedia>, 'camera' | 'microphone' | 'toggle' | 'selectDevice'>;
+  /** 영상 소스 고르기. 녹화 영상이면 시청자·구독자에게 "녹화 영상"으로 보인다. (방송 정보 recorded) */
+  source: {
+    kind: VideoSource;
+    setKind: (kind: VideoSource) => void;
+    recorded: Pick<ReturnType<typeof useRecordedVideo>, 'fileName' | 'loading' | 'error' | 'select'>;
+  };
   publisher: ReturnType<typeof usePublisher>;
   chat: {
     messages: ChatMessage[];

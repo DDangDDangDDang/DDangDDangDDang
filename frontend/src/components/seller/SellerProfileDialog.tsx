@@ -1,13 +1,14 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { CalendarDays, Clock, Gavel, PackageCheck, Phone, Radio, ShieldCheck, Truck, Users } from 'lucide-react';
+import { Building2, CalendarDays, Clock, Gavel, Gift, PackageCheck, Radio, ShieldCheck, Truck, Users } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, type Schema } from '@/api';
 import { AuctionPhaseBadge } from '@/components/auction/AuctionBits';
+import { PowerSellerBadge } from '@/components/donation/PowerSellerBadge';
 import { Badge, buttonVariants, Dialog, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { cn } from '@/lib/cn';
-import { formatDate, formatDateTime, formatNumber, formatPoint } from '@/lib/format';
+import { formatDate, formatDateTime, formatDotDate, formatNumber, formatPoint } from '@/lib/format';
 import { formatBroadcastDuration, formatShippingTime, soldRate } from '@/lib/seller';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 import { useNow } from '@/lib/use-now';
@@ -72,6 +73,15 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
               판매자 인증
             </Badge>
           )}
+          {/* 사업자등록번호로 인증받은 판매자는 판매자 인증 배지 옆에 따로 표시한다. */}
+          {profile.businessSeller && (
+            <Badge variant="outline">
+              <Building2 className="size-3.5" aria-hidden="true" />
+              사업자
+            </Badge>
+          )}
+          {/* 받은 도네이션 포인트로 파워 판매자를 산 판매자 */}
+          {profile.powerSeller && <PowerSellerBadge />}
           {profile.liveStreamId ? (
             <Badge variant="live">
               <span aria-hidden="true" className="size-1.5 rounded-full bg-neutral-0" />
@@ -148,12 +158,18 @@ function InfoTab({ profile }: { profile: Profile }) {
             hint={`낙찰 ${formatNumber(trust?.soldAuctionCount ?? 0)} · 유찰 ${formatNumber(trust?.failedAuctionCount ?? 0)} · 취소 ${formatNumber(trust?.canceledAuctionCount ?? 0)}`}
           />
           <Stat icon={<Truck className="size-4" aria-hidden="true" />} label="평균 발송" value={shipping ?? '-'} hint="낙찰 뒤 발송까지" />
-          <Stat icon={<Phone className="size-4" aria-hidden="true" />} label="본인 인증" value={trust?.phoneVerified ? '휴대폰 인증' : '안 함'} />
           <Stat
             icon={<ShieldCheck className="size-4" aria-hidden="true" />}
             label="판매자 인증"
-            value={profile.verifiedSeller ? (profile.verifiedAt ? `${formatDate(profile.verifiedAt)} 인증` : '인증') : '안 함'}
+            value={profile.verifiedSeller ? (profile.verifiedAt ? `${formatDotDate(profile.verifiedAt)} 인증` : '인증') : '인증 전'}
             hint={profile.joinedAt ? `${formatDate(profile.joinedAt)} 가입` : undefined}
+          />
+          {/* 시청자가 방송에서 도네이션 포인트로 응원한 기록. 구매 확정한 회원만 포인트가 있어, 실제로 거래한 사람들의 응원이다. */}
+          <Stat
+            icon={<Gift className="size-4" aria-hidden="true" />}
+            label="응원"
+            value={`${formatNumber(trust?.donorCount ?? 0)}명`}
+            hint={`최근 ${formatNumber(trust?.donationWindowDays ?? 0)}일 · ${formatPoint(trust?.receivedDonationPoints ?? 0)} 받음`}
           />
         </dl>
       </section>

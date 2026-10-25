@@ -10,6 +10,8 @@ import com.example.ddangddangddang.domain.livestream.repository.LiveViewerStatsR
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
+import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
+import com.example.ddangddangddang.support.SellerFixture;
 import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +46,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -59,6 +62,9 @@ class LiveStreamControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private SellerApplicationRepository sellerApplicationRepository;
 
     @Autowired
     private LiveStreamService liveStreamService;
@@ -82,6 +88,47 @@ class LiveStreamControllerTest {
     // 시청자 수 순위(Redis)는 정해 둔 값을 돌려준다. 실제 Redis 동작은 LiveViewerStatsRepositoryTest에서 확인한다.
     @MockitoBean
     private LiveViewerStatsRepository statsRepository;
+
+    @Test
+    @DisplayName("판매자 인증을 받지 않은 회원은 방송을 만들 수 없다 (403 LIVESTREAM_016)")
+    void notVerifiedSellerCannotCreate() throws Exception {
+        Member member = signupAndLogin();
+        sellerApplicationRepository.findByUserId(member.id()).ifPresent(sellerApplicationRepository::delete);
+
+        mockMvc.perform(post("/api/v1/live-streams").header(HttpHeaders.AUTHORIZATION, member.bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"title\": \"인증 없는 방송\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("LIVESTREAM_016"));
+        mockMvc.perform(get("/api/v1/live-streams/me/active").header(HttpHeaders.AUTHORIZATION, member.bearer()))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("판매자는 방송 시작 전에도 화면 배치를 정하고 방송 정보로 받는다. 0~100을 벗어나면 400, 정하지 않은 방송은 null")
+    void overlayLayout() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = longValue(create(seller, "배치 방송"), "$.data.id");
+        mockMvc.perform(get("/api/v1/live-streams/" + liveStreamId))
+                .andExpect(jsonPath("$.data.overlayLayout").doesNotExist());
+
+        String layout = """
+                {"featured": {"x": 100, "y": 0}, "donation": {"x": 0, "y": 0}, "bid": {"x": 50, "y": 100}, "sold": {"x": 50, "y": 50}}""";
+        mockMvc.perform(put("/api/v1/live-streams/" + liveStreamId + "/overlay-layout").header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content(layout))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.overlayLayout.featured.x").value(100))
+                .andExpect(jsonPath("$.data.overlayLayout.bid.y").value(100));
+        mockMvc.perform(get("/api/v1/live-streams/" + liveStreamId))
+                .andExpect(jsonPath("$.data.overlayLayout.featured.x").value(100))
+                .andExpect(jsonPath("$.data.overlayLayout.donation.x").value(0));
+
+        mockMvc.perform(put("/api/v1/live-streams/" + liveStreamId + "/overlay-layout").header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content(layout.replace("\"x\": 100", "\"x\": 101")))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/v1/live-streams/" + liveStreamId + "/overlay-layout").header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"featured\": {\"x\": 0, \"y\": 0}}"))
+                .andExpect(status().isBadRequest());
+    }
 
     @Test
     @DisplayName("종료되지 않은 방송이 있으면 새 방송을 만들 수 없고(409 LIVESTREAM_010), 종료하면 다시 만들 수 있다")
@@ -147,6 +194,8 @@ class LiveStreamControllerTest {
         Long liveStreamId = longValue(create(seller, "홈 방송"), "$.data.id");
         given(mediaServerClient.createPublisherToken(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString())).willReturn("token");
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
+
         liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
         given(statsRepository.topViewers(anyInt())).willReturn(List.of(new Ranked(liveStreamId, 42)));
         given(statsRepository.topSurging(anyInt())).willReturn(List.of(new Ranked(liveStreamId, 12)));
@@ -202,6 +251,8 @@ class LiveStreamControllerTest {
         Long liveStreamId = longValue(create(seller, "손님 방송"), "$.data.id");
         given(mediaServerClient.createPublisherToken(anyString(), anyString(), anyString())).willReturn("token");
         given(mediaServerClient.createViewerToken(anyString(), anyString(), anyString())).willReturn("viewer-token");
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
+
         liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
 
         // 둘러보기: 토큰 없이 조회
@@ -249,6 +300,8 @@ class LiveStreamControllerTest {
         Member seller = signupAndLogin();
         Long liveStreamId = longValue(create(seller, "자동 종료 방송"), "$.data.id");
         given(mediaServerClient.createPublisherToken(anyString(), anyString(), anyString())).willReturn("token");
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
+
         liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
 
         liveStreamService.endForIdle(liveStreamId, seller.id());
@@ -286,6 +339,8 @@ class LiveStreamControllerTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         Long id = ((Number) JsonPath.read(signup, "$.data.userId")).longValue();
+        // 이 테스트의 회원은 모두 방송을 만드는 판매자라 인증해 둔다. (인증 전 막힘은 notVerifiedSellerCannotCreate에서 따로 본다)
+        SellerFixture.verify(sellerApplicationRepository, id);
         String login = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\": \"" + email + "\", \"password\": \"Abcd1234!\"}"))
                 .andReturn().getResponse().getContentAsString();

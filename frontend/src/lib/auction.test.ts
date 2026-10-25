@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   auctionPhase,
+  auctionStatusTab,
   categoryFilterOptions,
   durationLabel,
   EMPTY_AUCTION_CONDITION,
+  LIVE_AUCTION_DURATIONS,
+  featuredAuctions,
   formatAmountInput,
   leafCategoryOptions,
   parseAmount,
@@ -19,6 +22,28 @@ const categories = [
   { id: 1, name: '카메라', children: [{ id: 11, name: '필름 카메라' }, { id: 12, name: '렌즈' }] },
   { id: 2, name: '시계', children: [] },
 ];
+
+describe('featuredAuctions', () => {
+  const auctions = [
+    { id: 1, status: 'ONGOING' as const, endAt: '2026-10-21T12:05:00' },
+    { id: 2, status: 'READY' as const, endAt: '2026-10-21T13:00:00' },
+    { id: 3, status: 'ONGOING' as const, endAt: '2026-10-21T11:59:00' },
+    { id: 4, status: 'ENDED' as const, endAt: '2026-10-21T11:00:00' },
+    { id: 5, status: 'CANCELED' as const, endAt: '2026-10-21T13:00:00' },
+  ];
+  const ids = (list: { id: number }[]) => list.map((a) => a.id);
+
+  it('띄운 경매가 시작 전·진행 중·마감 집계 중이면 띄운 순서대로', () => {
+    expect(ids(featuredAuctions([2, 1], auctions, NOW))).toEqual([2, 1]);
+    expect(ids(featuredAuctions([3], auctions, NOW))).toEqual([3]);
+  });
+
+  it('끝났거나 취소됐거나 목록에 없는 경매는 빼고, 띄운 경매가 없으면 빈 목록', () => {
+    expect(ids(featuredAuctions([4, 1], auctions, NOW))).toEqual([1]);
+    expect(featuredAuctions([5, 99], auctions, NOW)).toEqual([]);
+    expect(featuredAuctions(undefined, auctions, NOW)).toEqual([]);
+  });
+});
 
 describe('auctionPhase', () => {
   it('진행 중인데 마감 시각이 지났으면 마감으로 본다', () => {
@@ -107,8 +132,25 @@ describe('요청 본문', () => {
 });
 
 describe('durationLabel', () => {
-  it('초·분으로 보여준다', () => {
+  it('초·분·시간·일로 보여준다', () => {
     expect(durationLabel(30)).toBe('30초');
     expect(durationLabel(300)).toBe('5분');
+    expect(durationLabel(3 * 3600)).toBe('3시간');
+    expect(durationLabel(3 * 86400)).toBe('3일');
+  });
+
+  it('진행 시간은 30초부터 3일까지 고를 수 있다 (서버 한도와 같음)', () => {
+    expect(LIVE_AUCTION_DURATIONS[0]).toBe(30);
+    expect(LIVE_AUCTION_DURATIONS.at(-1)).toBe(3 * 86400);
+  });
+});
+
+describe('auctionStatusTab', () => {
+  it('진행 중·시작 전은 그 탭, 마감·낙찰·유찰·취소는 종료 탭', () => {
+    expect(auctionStatusTab('ONGOING')).toBe('ONGOING');
+    expect(auctionStatusTab('READY')).toBe('READY');
+    for (const phase of ['CLOSING', 'ENDED', 'FAILED', 'CANCELED', undefined] as const) {
+      expect(auctionStatusTab(phase)).toBe('ENDED');
+    }
   });
 });

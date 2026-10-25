@@ -1,11 +1,13 @@
 package com.example.ddangddangddang.domain.livestream.controller;
 
+import com.example.ddangddangddang.domain.livestream.dto.FeaturedAuctionRequest;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCard;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamHomeResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayLayoutRequest;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamHomeService;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamListService;
@@ -82,6 +84,50 @@ public class LiveStreamController {
             @PathVariable Long liveStreamId,
             @Valid @RequestBody LiveStreamUpdateRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(liveStreamService.update(liveStreamId, authUser.id(), request)));
+    }
+
+    /**
+     * 판매자가 경매를 영상 위에 띄운다. 최대 2개까지 띄우고(넘으면 409 LIVESTREAM_017), 시청자 화면에 바로 반영된다.
+     */
+    @PutMapping("/{liveStreamId}/featured-auction")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> featureAuction(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @Valid @RequestBody FeaturedAuctionRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                liveStreamService.featureAuction(liveStreamId, authUser.id(), request.auctionId())));
+    }
+
+    /**
+     * 판매자가 방송 화면 배치(경매 카드·선물·입찰·낙찰 안내 위치)를 정한다. 방송 시작 전에도 정할 수 있고, 시청자 화면에 바로 반영된다.
+     */
+    @PutMapping("/{liveStreamId}/overlay-layout")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> changeOverlayLayout(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @Valid @RequestBody OverlayLayoutRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.changeOverlayLayout(liveStreamId, authUser.id(), request)));
+    }
+
+    /**
+     * 영상 위에 띄운 경매를 모두 내린다.
+     */
+    @DeleteMapping("/{liveStreamId}/featured-auction")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> unfeatureAllAuctions(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.unfeatureAuction(liveStreamId, authUser.id(), null)));
+    }
+
+    /**
+     * 영상 위에 띄운 경매 하나를 내린다. 띄우지 않은 경매면 아무것도 바뀌지 않는다.
+     */
+    @DeleteMapping("/{liveStreamId}/featured-auction/{auctionId}")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> unfeatureAuction(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @PathVariable Long auctionId) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.unfeatureAuction(liveStreamId, authUser.id(), auctionId)));
     }
 
     /**

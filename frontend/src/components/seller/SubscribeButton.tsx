@@ -19,7 +19,7 @@ export function SubscribeButton({ sellerId, subscribed, size = 'sm' }: { sellerI
     <div className="flex flex-col items-start gap-1.5">
       <Button
         size={size}
-        variant={subscribed ? 'outline' : 'primary'}
+        variant={subscribed ? 'outline' : 'secondary'}
         loading={subscription.isPending}
         onClick={() => guard(() => subscription.mutate(!subscribed))}
       >

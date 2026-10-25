@@ -75,14 +75,16 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.LOGIN_FAILED));
 
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+        // 소셜 로그인으로만 가입해 비밀번호가 없는 회원도 같은 에러로 응답
+        if (!user.hasPassword() || !passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new BusinessException(AuthErrorCode.LOGIN_FAILED);
         }
 
         return issueTokens(user);
     }
 
-    private LoginResult issueTokens(User user) {
+    // 로그인 처리(토큰 발급, Refresh Token 저장). 소셜 로그인(OAuthService)도 같은 방식으로 로그인시킨다.
+    LoginResult issueTokens(User user) {
         String accessToken = jwtProvider.createAccessToken(user);
         String refreshToken = jwtProvider.createRefreshToken(user.getId());
         refreshTokenRepository.save(user.getId(), refreshToken, jwtProvider.getRefreshTokenValidity());

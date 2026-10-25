@@ -5,6 +5,8 @@ import com.example.ddangddangddang.domain.directmessage.dto.DmRoomResponse;
 import com.example.ddangddangddang.domain.directmessage.repository.DmMessageRepository;
 import com.example.ddangddangddang.domain.directmessage.repository.DmRoomRepository;
 import com.example.ddangddangddang.domain.directmessage.service.DirectMessageService;
+import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
+import com.example.ddangddangddang.support.SellerFixture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -58,6 +60,9 @@ class DirectMessageControllerTest extends DmApiTestSupport {
     @Autowired
     private TransactionTemplate transactionTemplate;
 
+    @Autowired
+    private SellerApplicationRepository sellerApplicationRepository;
+
     @Nested
     @DisplayName("POST /api/v1/dm/rooms")
     class GetOrCreateRoom {
@@ -69,6 +74,7 @@ class DirectMessageControllerTest extends DmApiTestSupport {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.otherUser.userId").value(bob.id()))
                     .andExpect(jsonPath("$.data.otherUser.nickname").value(bob.nickname()))
+                    .andExpect(jsonPath("$.data.otherUser.verifiedSeller").value(false))
                     .andExpect(jsonPath("$.data.lastMessageId").doesNotExist())
                     .andExpect(jsonPath("$.data.unreadCount").value(0))
                     .andExpect(jsonPath("$.data.blockedByMe").value(false));
@@ -365,6 +371,8 @@ class DirectMessageControllerTest extends DmApiTestSupport {
         void myRooms() throws Exception {
             Member carol = signupAndLogin("캐롤");
             Member dave = signupAndLogin("데이브");
+            // 판매자 인증을 받은 상대는 이름 옆에 인증 마크를 붙이도록 verifiedSeller가 true
+            SellerFixture.verify(sellerApplicationRepository, carol.id());
             Long withBob = roomId(alice, bob.id());
             Long withCarol = roomId(alice, carol.id());
             roomId(alice, dave.id()); // 메시지가 없는 방은 목록에 나오지 않는다.
@@ -379,6 +387,8 @@ class DirectMessageControllerTest extends DmApiTestSupport {
                     .andExpect(jsonPath("$.data.content.length()").value(2))
                     .andExpect(jsonPath("$.data.content[0].roomId").value(withCarol))
                     .andExpect(jsonPath("$.data.content[0].otherUser.nickname").value(carol.nickname()))
+                    .andExpect(jsonPath("$.data.content[0].otherUser.verifiedSeller").value(true))
+                    .andExpect(jsonPath("$.data.content[1].otherUser.verifiedSeller").value(false))
                     .andExpect(jsonPath("$.data.content[0].lastMessagePreview").value("캐롤이 보낸 두 줄 메시지"))
                     .andExpect(jsonPath("$.data.content[1].roomId").value(withBob))
                     .andExpect(jsonPath("$.data.content[1].otherUser.userId").value(bob.id()))

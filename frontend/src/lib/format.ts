@@ -8,19 +8,29 @@ export function formatNumber(value: number): string {
   return value.toLocaleString('ko-KR');
 }
 
-/** 남은 초를 "mm:ss"로 (1시간 이상이면 "h:mm:ss"): 48 → "00:48" */
+/** 남은 초를 "mm:ss"로 (1시간 이상이면 "h:mm:ss", 하루 이상이면 "N일 hh:mm:ss"): 48 → "00:48" */
 export function formatRemaining(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
-  const h = Math.floor(s / 3600);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
   const mmss = `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  // 진행 시간이 3일까지라 "71:59:59"처럼 읽기 어려운 시간 대신 일을 따로 보여준다.
+  if (d > 0) return `${d}일 ${String(h).padStart(2, '0')}:${mmss}`;
   return h > 0 ? `${h}:${mmss}` : mmss;
 }
 
 /** 서버 날짜(시각)를 "2026. 10. 20." 형식으로 */
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR');
+}
+
+/** 점으로 나눈 날짜: "2026.10.21" (판매자 인증일 등) */
+export function formatDotDate(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
 }
 
 /** 휴대폰 번호에 하이픈: 01012345678 → "010-1234-5678" */

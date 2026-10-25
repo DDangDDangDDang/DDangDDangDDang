@@ -1,11 +1,16 @@
 package com.example.ddangddangddang.domain.livestream.service;
 
+import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
+import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
+import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayLayoutRequest;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamHashtags;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamEndedEvent;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
@@ -25,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -51,6 +57,10 @@ public class LiveStreamService {
     private final MediaServerClient mediaServerClient;
     private final ApplicationEventPublisher eventPublisher;
     private final ChatContentFilter contentFilter;
+    // 방송 만들기·시작은 판매자 인증(관리자 승인)을 받은 회원만 할 수 있다.
+    private final SellerVerification sellerVerification;
+    // 영상 위에 띄울 경매가 이 방송에 올라간 경매인지 확인할 때만 쓴다. (경매 정보는 바꾸지 않음)
+    private final AuctionRepository auctionRepository;
 
     /**
      * 방송을 만든다. 판매자는 종료되지 않은(대기 중·방송 중) 방송을 하나만 가질 수 있다.
@@ -59,17 +69,24 @@ public class LiveStreamService {
     // TODO: 판매자 권한(ROLE_SELLER) 확인은 인증 담당과 방식 확정 후 추가
     @Transactional
     public LiveStreamResponse create(Long sellerId, LiveStreamCreateRequest request) {
+        // 방송은 판매자 인증(관리자 승인)을 받은 회원만 만들 수 있다. (시작할 때도 다시 확인)
+        if (!sellerVerification.isVerified(sellerId)) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_VERIFIED_SELLER);
+        }
         String title = requireTitle(request.title());
         String description = blankToNull(request.description());
+        List<String> hashtags = LiveStreamHashtags.normalize(request.hashtags());
         validateContent(title);
         validateContent(description);
+        validateHashtags(hashtags);
         validateScheduledStartAt(request.scheduledStartAt(), LocalDateTime.now());
         if (liveStreamRepository.existsByActiveSellerId(sellerId)) {
             throw new BusinessException(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS);
         }
         try {
-            LiveStream liveStream = liveStreamRepository.saveAndFlush(
-                    LiveStream.create(sellerId, title, description, request.scheduledStartAt()));
+            LiveStream created = LiveStream.create(sellerId, title, description, request.scheduledStartAt());
+            created.changeHashtags(hashtags);
+            LiveStream liveStream = liveStreamRepository.saveAndFlush(created);
             return LiveStreamResponse.from(liveStream);
         } catch (DataIntegrityViolationException e) {
             // 판매자당 하나 규칙의 유니크 제약에 걸린 경우만 안내로 바꾼다. 다른 제약 위반(버그)은 그대로 드러나게 다시 던진다.
@@ -112,16 +129,77 @@ public class LiveStreamService {
         // null은 그대로 두기, 빈 문자열(공백만 포함)은 설명 지우기
         String description = request.description() == null ? null : request.description().strip();
         String notice = request.notice() == null ? null : request.notice().strip();
+        // null은 그대로 두기, 빈 목록은 해시태그 지우기
+        List<String> hashtags = request.hashtags() == null ? null : LiveStreamHashtags.normalize(request.hashtags());
         validateContent(title);
         validateContent(description);
         validateContent(notice);
+        validateHashtags(hashtags);
         validateScheduledStartAt(request.scheduledStartAt(), LocalDateTime.now());
 
         boolean changed = liveStream.update(sellerId, title, description, request.scheduledStartAt());
-        // update가 주인·종료 여부를 확인한 뒤에 공지를 바꾼다.
+        // update가 주인·종료 여부를 확인한 뒤에 공지·해시태그를 바꾼다.
         if (notice != null) {
             changed = liveStream.changeNotice(notice) || changed;
         }
+        if (hashtags != null) {
+            changed = liveStream.changeHashtags(hashtags) || changed;
+        }
+        if (request.recorded() != null) {
+            changed = liveStream.changeRecorded(request.recorded()) || changed;
+        }
+        if (!changed) {
+            return LiveStreamResponse.from(liveStream);
+        }
+        flushWithVersionCheck(liveStream);
+
+        LiveStreamResponse response = LiveStreamResponse.from(liveStream);
+        eventPublisher.publishEvent(new LiveStreamUpdatedEvent(response));
+        return response;
+    }
+
+    /**
+     * 경매를 영상 위에 띄운다. 최대 2개까지 띄우고, 이 방송에 올라간 시작 전·진행 중 경매만 띄울 수 있다.
+     * 이미 띄운 경매 중 끝난 것은 자리를 차지하지 않는다. 바뀌면 커밋 뒤 시청자 화면에 방송 정보 변경으로 알린다.
+     */
+    @Transactional
+    public LiveStreamResponse featureAuction(Long liveStreamId, Long sellerId, Long auctionId) {
+        LiveStream liveStream = findById(liveStreamId);
+        // 주인이 아닌 사람에게는 경매가 있는지 알려 주지 않고 권한 오류를 먼저 낸다. (엔티티에서도 다시 확인)
+        if (!liveStream.isOwner(sellerId)) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_OWNER);
+        }
+        if (!isShowable(liveStreamId, auctionId)) {
+            throw new BusinessException(LiveStreamErrorCode.FEATURED_AUCTION_NOT_AVAILABLE);
+        }
+        boolean changed = liveStream.featureAuction(sellerId, auctionId, id -> isShowable(liveStreamId, id));
+        return publishChange(liveStream, changed);
+    }
+
+    /**
+     * 영상 위에 띄운 경매를 내린다. auctionId가 null이면 모두 내린다.
+     */
+    @Transactional
+    public LiveStreamResponse unfeatureAuction(Long liveStreamId, Long sellerId, Long auctionId) {
+        LiveStream liveStream = findById(liveStreamId);
+        return publishChange(liveStream, liveStream.unfeatureAuction(sellerId, auctionId));
+    }
+
+    /**
+     * 방송 화면 배치를 바꾼다. 바뀌면 커밋 뒤 시청자 화면에 방송 정보 변경으로 알려 바로 같은 배치로 그리게 한다.
+     */
+    @Transactional
+    public LiveStreamResponse changeOverlayLayout(Long liveStreamId, Long sellerId, OverlayLayoutRequest request) {
+        LiveStream liveStream = findById(liveStreamId);
+        return publishChange(liveStream, liveStream.changeOverlayLayout(sellerId, request.toEntity()));
+    }
+
+    private boolean isShowable(Long liveStreamId, Long auctionId) {
+        return auctionRepository.existsByIdAndLiveStreamIdAndStatusIn(
+                auctionId, liveStreamId, List.of(AuctionStatus.READY, AuctionStatus.ONGOING));
+    }
+
+    private LiveStreamResponse publishChange(LiveStream liveStream, boolean changed) {
         if (!changed) {
             return LiveStreamResponse.from(liveStream);
         }
@@ -155,6 +233,13 @@ public class LiveStreamService {
         });
     }
 
+    // 해시태그도 제목·설명처럼 막힌 내용(연락처 등)을 넣을 수 없다. 태그를 이어 붙여 한 번에 검사한다.
+    private void validateHashtags(List<String> hashtags) {
+        if (hashtags != null && !hashtags.isEmpty()) {
+            validateContent(String.join(" ", hashtags));
+        }
+    }
+
     /**
      * 저장할 값과 같은 기준(strip)으로 비었는지 본다.
      * 요청 검증(@NotBlank의 trim, 정규식 \S)은 전각 공백(U+2003) 같은 유니코드 공백만으로 된 제목을 통과시킬 수 있어
@@ -179,6 +264,10 @@ public class LiveStreamService {
     @Transactional
     public LiveStreamTokenResponse start(Long liveStreamId, Long sellerId, String nickname) {
         LiveStream liveStream = findById(liveStreamId);
+        // 남의 방송이면 인증 여부보다 권한 오류를 먼저 알린다. (엔티티의 start에서도 다시 확인)
+        if (liveStream.isOwner(sellerId) && !sellerVerification.isVerified(sellerId)) {
+            throw new BusinessException(LiveStreamErrorCode.NOT_VERIFIED_SELLER);
+        }
 
         if (liveStreamRepository.existsBySellerIdAndStatus(sellerId, LiveStreamStatus.LIVE)) {
             throw new BusinessException(LiveStreamErrorCode.ALREADY_LIVE);

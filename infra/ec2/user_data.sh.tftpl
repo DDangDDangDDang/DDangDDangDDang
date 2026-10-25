@@ -3,7 +3,7 @@
 # 앱 실행과 이후 설정 변경은 배포(deploy.sh)가 맡는다.
 set -euxo pipefail
 
-# 메모리 2GB 서버에서 앱·MySQL·Redis를 함께 돌리므로 스왑 2GB를 둔다.
+# 메모리 2GB 서버라 앱이 잠깐 메모리를 많이 써도 죽지 않도록 스왑 2GB를 둔다.
 if [ ! -f /swapfile ]; then
   dd if=/dev/zero of=/swapfile bs=1M count=2048
   chmod 600 /swapfile

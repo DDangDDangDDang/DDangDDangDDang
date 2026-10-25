@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -190,6 +191,25 @@ class LiveStreamListTest {
                     .andExpect(jsonPath("$.data.content[0].liveStreamId").value(byTitle))
                     .andExpect(jsonPath("$.data.content[1].liveStreamId").value(byDescription))
                     .andExpect(jsonPath("$.data.content[2].liveStreamId").value(byNickname));
+        }
+
+        @Test
+        @DisplayName("해시태그로도 찾고(# 붙여도 됨), 카드에 해시태그가 # 없이 나온다")
+        void hashtag() throws Exception {
+            String tag = "태그" + token.substring(0, 8);
+            Long tagged = live("아무 제목", BASE);
+            LiveStream stream = liveStreamRepository.findById(tagged).orElseThrow();
+            stream.changeHashtags(List.of(tag, "운동화"));
+            liveStreamRepository.save(stream);
+            live("관계없는 방송", BASE.minusMinutes(1));
+
+            list(Map.of("keyword", tag))
+                    .andExpect(jsonPath("$.data.content.length()").value(1))
+                    .andExpect(jsonPath("$.data.content[0].liveStreamId").value(tagged))
+                    .andExpect(jsonPath("$.data.content[0].hashtags[0]").value(tag))
+                    .andExpect(jsonPath("$.data.content[0].hashtags[1]").value("운동화"));
+            list(Map.of("keyword", "#" + tag))
+                    .andExpect(jsonPath("$.data.content.length()").value(1));
         }
 
         @Test

@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.product.dto.response;
 
+import com.example.ddangddangddang.domain.auction.entity.Auction;
+import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.product.entity.Product;
 import com.example.ddangddangddang.domain.product.entity.Status;
 
@@ -14,9 +16,16 @@ public record ProductResponse(
         String name,
         String description,
         Status status,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        Long auctionId,
+        AuctionStatus auctionStatus
 ) {
+    //경매 정보 필요없는 상품 기능 (상세,등록,수정 사용)
     public static ProductResponse from(Product product){
+        return from(product, null);
+    }
+
+    public static ProductResponse from(Product product, Auction auction){
         return new ProductResponse(
                 product.getId(),
                 product.getSeller().getId(),
@@ -26,7 +35,9 @@ public record ProductResponse(
                 product.getName(),
                 product.getDescription(),
                 product.getStatus(),
-                product.getCreatedAt()
+                product.getCreatedAt(),
+                auction == null ? null : auction.getId(),
+                auction == null ? null : auction.getStatus()
         );
     }
 

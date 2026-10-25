@@ -34,6 +34,9 @@ public class SecurityConfig {
             "/api/v1/auth/password-reset",
             "/api/v1/auth/login",
             "/api/v1/auth/reissue",
+            "/api/v1/auth/oauth/kakao",
+            "/api/v1/auth/oauth/kakao/signup",
+            "/api/v1/auth/oauth/kakao/phone/code",
             // 포트원 결제 웹훅. 토큰 대신 웹훅 서명으로 검증한다.
             "/api/v1/points/charges/webhook",
             // 방송 시청 입장. 로그인하지 않으면 손님으로 입장한다. (LiveStreamService.joinAsGuest)

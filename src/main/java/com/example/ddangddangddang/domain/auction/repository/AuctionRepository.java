@@ -21,6 +21,9 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
     //해당 상품에 상태(대기,진행 중)의 경매가 있는 조회
     boolean existsByProductIdAndStatusIn(Long productId, List<AuctionStatus> statuses);
 
+    //상품별 최신 경매 id(상품 마다 가장 큰 id 조회) : 내 상품 목록에서 상품별 경매 상태 표시용
+    @Query("select max(a.id) from Auction a where a.product.id in :productIds group by a.product.id")
+    List<Long> findLatestIdsByProductIds(@Param("productIds")List<Long> productIds);
 
     //시작 시간이 지난 READY 경매(READY -> ONGOING 대상)
     List<Auction> findByStatusAndStartAtLessThanEqual(AuctionStatus status,LocalDateTime now);
@@ -28,9 +31,16 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
     //종료 시간이 지난 ONGOING 경매(ONGOING -> ENDED/FAILED 대상)
     List<Auction> findByStatusAndEndAtLessThanEqual(AuctionStatus status, LocalDateTime now);
 
+    //마감 임박 알림: 종료 시각이 [from, to] 사이인 진행 중 경매. 알림 문구에 쓰는 상품을 같이 읽는다.
+    @EntityGraph(attributePaths = {"product"})
+    List<Auction> findByStatusAndEndAtBetween(AuctionStatus status, LocalDateTime from, LocalDateTime to);
+
     //이 방송에 올라간 경매(최신순 50개). 응답에 쓰는 상품·판매자를 같이 읽는다.
     @EntityGraph(attributePaths = {"product", "product.seller", "liveStream"})
     List<Auction> findTop50ByLiveStreamIdOrderByIdDesc(Long liveStreamId);
+
+    //이 방송에 올라간 경매 중 주어진 상태인지(방송 영상 위에 띄울 경매 확인)
+    boolean existsByIdAndLiveStreamIdAndStatusIn(Long id, Long liveStreamId, List<AuctionStatus> statuses);
 
     //판매자의 경매 중 주어진 상태인 것(최신순 50개)
     @EntityGraph(attributePaths = {"product", "product.seller", "liveStream"})
@@ -83,4 +93,9 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
 
     //판매자 프로필 신뢰 지표 : 판매자의 경매 중 그 상태인 것의 수(낙찰·유찰·취소)
     long countByProductSellerIdAndStatus(Long sellerId, AuctionStatus status);
+
+    /*상품의 경매 이력(최신순 50) : 현 상품으로 지금까지 열었던 경매 전부(유찰,취소 포함),
+    추후 같은 상품 올리시 시작가 정하는데 참고용*/
+    @EntityGraph(attributePaths ={"product","product.seller","liveStream"})
+    List<Auction> findTop50ByProductIdOrderByIdDesc(Long productId);
 }

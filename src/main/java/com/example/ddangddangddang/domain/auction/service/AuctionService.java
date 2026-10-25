@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.auction.dto.response.AuctionListRespon
 import com.example.ddangddangddang.domain.auction.dto.response.AuctionResponse;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
+import com.example.ddangddangddang.domain.auction.event.AuctionCanceledEvent;
 import com.example.ddangddangddang.domain.auction.event.LiveAuctionEvent;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
@@ -99,6 +100,7 @@ public class AuctionService {
 
         auction.cancel();
         flushWithVersionCheck(auction);
+        eventPublisher.publishEvent(new AuctionCanceledEvent(auction.getId()));
         //방송에 올라간 경매면 시청 화면의 경매 목록을 갱신
         if (auction.getLiveStream() != null) {
             eventPublisher.publishEvent(LiveAuctionEvent.of(auction, LiveAuctionEvent.Type.CHANGED));
@@ -198,6 +200,24 @@ public class AuctionService {
     public List<AuctionListResponse> popularAuctions(int size){
        int limit= Math.min(Math.max(size,1),50);
         return auctionRepository.findPopular(limit);
+    }
+
+    //상품의 경매 이력(판매자 본인만). 이상품으로 열었던 경매 전부(유찰,취소 포함)
+    @Transactional(readOnly = true)
+    public List<AuctionResponse> productAuctionHistory(Long sellerId, Long productId) {
+        //상품 조회(삭제된 상품인지)
+        Product product = productRepository.findById(productId).filter(
+                        found -> found.getStatus() != Status.DELETED)
+                .orElseThrow(() -> new BusinessException(ProductErrorCode.NOT_FOUND)
+                );
+
+        //본인 상품인지
+        if (!product.getSeller().getId().equals(sellerId)){
+            throw new BusinessException(ProductErrorCode.NOT_OWNER_AUCTION_HISTORY);
+        }
+
+        return auctionRepository.findTop50ByProductIdOrderByIdDesc(productId)
+                .stream().map(AuctionResponse::from).toList();
     }
 
     // 동시 같은 경매 수정시 먼저 반영 요청을 성공후 나머지는 409 CONCURRENT_UPDATE 응답

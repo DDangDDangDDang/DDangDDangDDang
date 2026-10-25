@@ -47,12 +47,13 @@ class StompAuthChannelInterceptorTest {
     private final Map<String, Object> session = new HashMap<>();
 
     @Test
-    @DisplayName("토큰 없이 연결하면 손님 연결이 되고, 방송 채팅·방송 정보 변경을 구독할 수 있다")
+    @DisplayName("토큰 없이 연결하면 손님 연결이 되고, 방송 채팅·방송 정보 변경·경매 입찰을 구독할 수 있다")
     void guestCanSubscribeLiveTopics() {
         assertThatCode(() -> send(StompCommand.CONNECT, null, null)).doesNotThrowAnyException();
 
         assertThatCode(() -> send(StompCommand.SUBSCRIBE, "/topic/live-streams/7/chat", null)).doesNotThrowAnyException();
         assertThatCode(() -> send(StompCommand.SUBSCRIBE, "/topic/live-streams/7", null)).doesNotThrowAnyException();
+        assertThatCode(() -> send(StompCommand.SUBSCRIBE, "/topic/auctions/3", null)).doesNotThrowAnyException();
         verify(accessTokenAuthenticator, never()).authenticateForSession(anyString());
     }
 

@@ -5,6 +5,7 @@ import com.example.ddangddangddang.domain.auction.dto.response.BidResponse;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.entity.Bid;
+import com.example.ddangddangddang.domain.auction.event.BidOutbidEvent;
 import com.example.ddangddangddang.domain.auction.event.BidPlacedEvent;
 import com.example.ddangddangddang.domain.auction.event.LiveAuctionEvent;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
@@ -86,10 +87,13 @@ public class BidService {
 
         Bid bid = bidRepository.save(Bid.create(auctionId, bidderId, amount));
         eventPublisher.publishEvent(new BidPlacedEvent(auctionId, bidderId, amount, nextBidCount, newEndAt, extended));
-        // 방송에 올라간 경매면 시청 화면의 경매 목록도 갱신한다 (현재가가 바뀌었으므로)
+        // 최고 입찰자에서 밀려난 회원에게 알린다
+        if (prevBidderId != null && !prevBidderId.equals(bidderId)) {
+            eventPublisher.publishEvent(new BidOutbidEvent(auctionId, prevBidderId, amount));
+        }
+        // 방송에 올라간 경매면 시청 화면의 경매 목록을 갱신하고 입찰 안내를 띄운다 (현재가가 바뀌었으므로)
         if (liveStreamId != null) {
-            eventPublisher.publishEvent(new LiveAuctionEvent(liveStreamId, auctionId, LiveAuctionEvent.Type.CHANGED,
-                    productName, amount, startAt));
+            eventPublisher.publishEvent(LiveAuctionEvent.bid(liveStreamId, auctionId, productName, amount, startAt, bidderId, prevAmount));
         }
 
         return Optional.of(new BidResponse(bid.getId(), auctionId, amount, nextBidCount, newEndAt, extended));

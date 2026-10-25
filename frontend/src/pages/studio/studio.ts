@@ -1,5 +1,6 @@
 import type { Schema } from '@/api';
 import { fromDateTimeInput, toDateTimeInput } from '@/lib/datetime-input';
+import { sameHashtags } from '@/lib/hashtags';
 
 /*
  * 판매자 스튜디오 화면의 계산 로직. (화면과 분리해 단위 테스트한다)
@@ -14,8 +15,11 @@ export const DESCRIPTION_MAX_LENGTH = 1000;
 /** 시작 예정 시간은 지금부터 30일 이내 (백엔드 LiveStreamService.SCHEDULE_LIMIT) */
 export const SCHEDULE_LIMIT_DAYS = 30;
 
-/** 방송 만들기·수정 입력값. scheduledStartAt은 <input type="datetime-local">의 값("2026-10-20T20:00") 또는 빈 문자열 */
-export type StreamFormValues = { title: string; description: string; scheduledStartAt: string };
+/**
+ * 방송 만들기·수정 입력값. scheduledStartAt은 <input type="datetime-local">의 값("2026-10-20T20:00") 또는 빈 문자열
+ * hashtags는 # 없는 태그 목록 (입력할 때 @/lib/hashtags의 addHashtag로 검사한다)
+ */
+export type StreamFormValues = { title: string; description: string; scheduledStartAt: string; hashtags: string[] };
 export type StreamFormErrors = Partial<Record<keyof StreamFormValues, string>>;
 
 export function formValuesOf(liveStream?: LiveStream): StreamFormValues {
@@ -23,6 +27,7 @@ export function formValuesOf(liveStream?: LiveStream): StreamFormValues {
     title: liveStream?.title ?? '',
     description: liveStream?.description ?? '',
     scheduledStartAt: toDateTimeInput(liveStream?.scheduledStartAt),
+    hashtags: liveStream?.hashtags ?? [],
   };
 }
 
@@ -47,12 +52,13 @@ export function validateStreamForm(values: StreamFormValues, now: Date): StreamF
   return errors;
 }
 
-/** 방송 만들기 요청 본문. 비운 설명·예정 시간은 보내지 않는다. */
+/** 방송 만들기 요청 본문. 비운 설명·예정 시간·해시태그는 보내지 않는다. */
 export function toCreateRequest(values: StreamFormValues): Schema<'LiveStreamCreateRequest'> {
   return {
     title: values.title.trim(),
     description: values.description.trim() || undefined,
     scheduledStartAt: fromDateTimeInput(values.scheduledStartAt),
+    hashtags: values.hashtags.length > 0 ? values.hashtags : undefined,
   };
 }
 
@@ -60,6 +66,7 @@ export function toCreateRequest(values: StreamFormValues): Schema<'LiveStreamCre
  * 방송 수정 요청 본문: 바뀐 값만 담는다. (서버는 null인 필드를 그대로 둔다)
  * - 설명을 모두 지우면 빈 문자열을 보내 설명을 지운다.
  * - 시작 예정 시간은 방송 시작 전에만 바꿀 수 있고, 지울 수는 없다. (비우면 그대로 둔다)
+ * - 해시태그는 바뀌었으면 목록 전체를 보낸다.
  * 바뀐 것이 없으면 null
  */
 export function toUpdateRequest(original: LiveStream, values: StreamFormValues): UpdateRequest | null {
@@ -73,6 +80,8 @@ export function toUpdateRequest(original: LiveStream, values: StreamFormValues):
   if (original.status === 'SCHEDULED' && values.scheduledStartAt && values.scheduledStartAt !== toDateTimeInput(original.scheduledStartAt)) {
     request.scheduledStartAt = fromDateTimeInput(values.scheduledStartAt);
   }
+  // 해시태그는 목록 전체를 보낸다. 모두 지웠으면 빈 목록을 보내 지운다.
+  if (!sameHashtags(values.hashtags, original.hashtags ?? [])) request.hashtags = values.hashtags;
   return Object.keys(request).length > 0 ? request : null;
 }
 

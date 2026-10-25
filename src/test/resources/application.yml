@@ -10,6 +10,12 @@ spring:
       ddl-auto: create-drop
     open-in-view: false
 
+  # 테스트는 로컬 개발용(0번)과 다른 Redis DB를 쓴다.
+  # 테스트용 빈 DB의 값(카테고리 캐시 [] 등)이 로컬 서버의 Redis에 남아 화면에 보이지 않게 한다.
+  data:
+    redis:
+      database: 15
+
 jwt:
   secret: dGVzdC1qd3Qtc2VjcmV0LWtleS1mb3ItZGRhbmctZGRhbmctZGRhbmctdGVzdA==
   access-token-validity: 30m
@@ -45,4 +51,21 @@ live-stream:
     enabled: false
   # 송출 없는 방송 자동 종료도 끈다. 동작은 LiveStreamIdleWatcherTest에서 직접 호출해 확인한다.
   idle:
+    enabled: false
+
+# 테스트 중 푸시 서비스로 요청을 보내지 않고, 마감 임박 알림 스케줄러도 끈다. (AuctionAlertControllerTest에서 직접 호출해 확인)
+web-push:
+  enabled: false
+notification:
+  closing-soon:
+    enabled: false
+  # 오래된 알림 정리 스케줄러도 끈다. (NotificationCleanerTest에서 직접 호출해 확인)
+  cleanup:
+    enabled: false
+
+# 도네이션 포인트 유효기간 정리·적립 보정 스케줄러도 끈다. (DonationControllerTest에서 직접 호출해 확인)
+donation:
+  expiry:
+    enabled: false
+  backfill:
     enabled: false

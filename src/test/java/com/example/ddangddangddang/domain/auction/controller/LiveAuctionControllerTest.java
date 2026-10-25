@@ -7,6 +7,8 @@ import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageResponse;
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageType;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdatedMessage;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.domain.product.entity.Product;
@@ -14,6 +16,8 @@ import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
+import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
+import com.example.ddangddangddang.support.SellerFixture;
 import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +36,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -57,6 +62,9 @@ class LiveAuctionControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private SellerApplicationRepository sellerApplicationRepository;
 
     @Autowired
     private LiveStreamService liveStreamService;
@@ -152,6 +160,78 @@ class LiveAuctionControllerTest {
     }
 
     @Test
+    @DisplayName("방송 중 경매는 진행 시간을 3일까지 정할 수 있고, 3일을 넘거나 30초보다 짧으면 400이다")
+    void liveAuctionDurationLimit() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = startLive(seller);
+
+        liveAuction(seller, liveStreamId, createProduct(seller), 3 * 24 * 60 * 60 + 1)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("진행 시간은 3일 이내로 정해 주세요."));
+        liveAuction(seller, liveStreamId, createProduct(seller), 29)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("진행 시간은 30초 이상으로 정해 주세요."));
+
+        // 서비스가 요청을 처리하는 순간을 기준으로 마감을 정하므로, 요청 전후 시각 사이 + 3일이어야 한다.
+        // (응답 시각은 초 단위로 잘릴 수 있어 요청 전 시각도 초 단위로 맞춘다)
+        LocalDateTime before = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        String created = liveAuction(seller, liveStreamId, createProduct(seller), 3 * 24 * 60 * 60)
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        LocalDateTime after = LocalDateTime.now();
+        LocalDateTime endAt = LocalDateTime.parse(JsonPath.read(created, "$.data.endAt"));
+        assertThat(endAt).isBetween(before.plusDays(3), after.plusDays(3));
+
+        liveStreamService.end(liveStreamId, seller.id());
+    }
+
+    private ResultActions liveAuction(Member seller, Long liveStreamId, Long productId, int durationSec) throws Exception {
+        return mockMvc.perform(post("/api/v1/lives/{liveId}/auctions", liveStreamId).header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"productId\": %d, \"startPrice\": 10000, \"bidUnit\": 1000, \"durationSec\": %d}".formatted(productId, durationSec)));
+    }
+
+    @Test
+    @DisplayName("방송을 시작하면 방송 예정 화면의 시청자에게 LIVE가 된 방송 정보와 채팅 시작 안내가 간다")
+    void startNotifiesViewers() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = startLive(seller);
+
+        verify(stompBroadcaster).broadcast(eq("/topic/live-streams/%d".formatted(liveStreamId)), argThat(message ->
+                message instanceof LiveStreamUpdatedMessage updated && updated.liveStream().status() == LiveStreamStatus.LIVE));
+        verify(stompBroadcaster).broadcast(eq("/topic/live-streams/%d/chat".formatted(liveStreamId)), argThat(message ->
+                message instanceof ChatMessageResponse chat && chat.type() == ChatMessageType.SYSTEM && chat.content().equals("방송이 시작되었습니다.")));
+
+        liveStreamService.end(liveStreamId, seller.id());
+    }
+
+    @Test
+    @DisplayName("방송에서 연 경매는 방송 중에만 방송 중 경매로 나오고, 방송이 끝나면 경매가 이어져도 방송 중 경매가 아니다")
+    void liveFlagFollowsLiveStream() throws Exception {
+        Member seller = signupAndLogin();
+        Long productId = createProduct(seller);
+        Long liveStreamId = startLive(seller);
+        Long auctionId = longValue(mockMvc.perform(post("/api/v1/lives/{liveId}/auctions", liveStreamId).header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"productId\": %d, \"startPrice\": 10000, \"bidUnit\": 1000, \"durationSec\": 600}".formatted(productId)))
+                .andExpect(status().isCreated()), "$.data.id");
+        String inList = "$.data.content[?(@.auctionId == %d)].live".formatted(auctionId);
+
+        mockMvc.perform(get("/api/v1/auctions/{auctionId}", auctionId)).andExpect(jsonPath("$.data.live").value(true));
+        mockMvc.perform(get("/api/v1/auctions").param("productName", "E2E 카메라").param("size", "50"))
+                .andExpect(jsonPath(inList).value(hasItem(true)));
+
+        liveStreamService.end(liveStreamId, seller.id());
+
+        mockMvc.perform(get("/api/v1/auctions/{auctionId}", auctionId))
+                .andExpect(jsonPath("$.data.status").value("ONGOING"))
+                .andExpect(jsonPath("$.data.liveStreamId").value(liveStreamId))
+                .andExpect(jsonPath("$.data.live").value(false));
+        mockMvc.perform(get("/api/v1/auctions").param("productName", "E2E 카메라").param("size", "50"))
+                .andExpect(jsonPath(inList).value(hasItem(false)));
+    }
+
+    @Test
     @DisplayName("다른 사람의 경매는 내 방송에 올릴 수 없고(AUCTION_006), 내 경매를 남의 방송에 올릴 수 없고(LIVESTREAM_002), 방송 중이 아니면 올릴 수 없다")
     void cannotShowOthersAuction() throws Exception {
         Member owner = signupAndLogin();
@@ -216,6 +296,8 @@ class LiveAuctionControllerTest {
     }
 
     private Long startLive(Member seller) throws Exception {
+        // 방송을 만들고 시작하려면 판매자 인증이 있어야 한다.
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
         Long liveStreamId = longValue(mockMvc.perform(post("/api/v1/live-streams").header(HttpHeaders.AUTHORIZATION, seller.bearer())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"title\": \"경매 방송\"}"))
                 .andExpect(status().isCreated()), "$.data.id");
