@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type Schema } from '@/api';
 import { TrackingCard } from './TrackingCard';
@@ -44,13 +44,34 @@ describe('TrackingCard', () => {
     renderCard();
 
     expect(await screen.findByText('배달 출발')).toBeInTheDocument();
-    const items = screen.getAllByRole('listitem');
+    const items = within(screen.getByRole('list', { name: '배송 이력' })).getAllByRole('listitem');
     expect(items[0]).toHaveTextContent('배송출발');
     expect(items[1]).toHaveTextContent('집화처리');
     expect(screen.getByRole('link', { name: /CJ대한통운에서 보기/ })).toHaveAttribute(
       'href',
       'https://trace.cjlogistics.com/next/tracking.html?wblNo=1234567890',
     );
+  });
+
+  it('단계 그림: 지금 단계를 표시하고 단계 아래에 택배사 상태 이름을 적는다', async () => {
+    server.tracking = () => ({
+      courier: 'CJ',
+      trackingNo: '1234567890',
+      lastEvent: { time: '2026-10-26T09:00:00+09:00', statusCode: 'IN_TRANSIT', statusName: '간선상차', location: '곤지암Hub' },
+      events: [
+        { time: '2026-10-25T10:00:00+09:00', statusCode: 'INFORMATION_RECEIVED', statusName: '접수' },
+        { time: '2026-10-25T20:00:00+09:00', statusCode: 'AT_PICKUP', statusName: '집화처리' },
+        { time: '2026-10-26T03:00:00+09:00', statusCode: 'IN_TRANSIT', statusName: '간선하차' },
+        { time: '2026-10-26T09:00:00+09:00', statusCode: 'IN_TRANSIT', statusName: '간선상차' },
+      ],
+    });
+    renderCard();
+
+    const steps = within(await screen.findByRole('list', { name: '배송 단계' })).getAllByRole('listitem');
+    expect(steps.map((step) => step.getAttribute('aria-current'))).toEqual([null, null, 'step', null]);
+    expect(steps[2]).toHaveTextContent('배송 중');
+    expect(steps[2]).toHaveTextContent('간선하차 · 간선상차');
+    expect(steps[3]).toHaveTextContent('도착');
   });
 
   it('아직 택배사에 등록 전이면(ORDER_014) 안내하고 택배사 사이트를 권한다', async () => {
