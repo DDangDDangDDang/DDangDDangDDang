@@ -1,16 +1,25 @@
-# EC2 구성: 퍼블릭 서브넷의 EC2 한 대에서 앱만 Docker Compose로 실행하고, DB·Redis는 RDS·ElastiCache를 쓴다. (data_stores.tf)
-# - 80 포트만 열고 SSH는 열지 않는다. 서버 접속과 배포는 SSM(Session Manager, Run Command)으로 한다.
+# EC2 구성: 퍼블릭 서브넷의 EC2 한 대에서 웹(Caddy + 프론트엔드)과 앱을 Docker Compose로 실행하고,
+# DB·Redis는 RDS·ElastiCache를 쓴다. (data_stores.tf)
+# - 80·443 포트만 열고 SSH는 열지 않는다. 서버 접속과 배포는 SSM(Session Manager, Run Command)으로 한다.
+# - domain_name을 넣으면 Caddy가 인증서를 자동으로 받아 HTTPS로 서비스한다. (infra/ec2/Caddyfile)
 # - 서버 디스크에는 데이터가 없어 서버를 다시 만들어도 잃는 것이 없다. DB 백업은 RDS 자동 백업이 맡는다.
+#   (인증서는 서버 디스크에 있지만 새 서버에서 다시 발급받는다)
 # - 배포 중 앱이 다시 뜨는 동안(약 30초) 접속이 끊긴다.
 
 locals {
   ec2_param_prefix = "/${var.project}/ec2"
+  ec2_https        = var.domain_name != ""
 
   # 앱 환경변수 중 비밀이 아닌 것 (DB·Redis 주소 포함)
   ec2_app_environment = merge(local.common_app_environment, {
-    # EC2 구성은 HTTP로만 서비스하므로 쿠키에 Secure를 붙이지 않는다.
-    JWT_COOKIE_SECURE = "false"
+    # HTTPS로 서비스할 때만 쿠키에 Secure를 붙인다. (HTTP에서 붙이면 브라우저가 쿠키를 저장하지 않는다)
+    JWT_COOKIE_SECURE = tostring(local.ec2_https)
   })
+
+  # 웹(Caddy) 환경변수. 도메인이 없으면 :80(모든 주소, HTTP)으로 서비스한다.
+  ec2_web_environment = {
+    SITE_ADDRESS = local.ec2_https ? var.domain_name : ":80"
+  }
 }
 
 data "aws_ssm_parameter" "al2023_ami" {
@@ -20,10 +29,11 @@ data "aws_ssm_parameter" "al2023_ami" {
 resource "aws_security_group" "ec2" {
   count       = var.ec2_enabled ? 1 : 0
   name        = "${var.project}-ec2"
-  description = "EC2 app server: allow HTTP from the internet"
+  description = "EC2 app server: allow HTTP/HTTPS from the internet"
   vpc_id      = aws_vpc.main.id
 }
 
+# 80: HTTP → HTTPS 이동, Let's Encrypt 도메인 확인 / 443 TCP: HTTPS / 443 UDP: HTTP/3
 resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
   count             = var.ec2_enabled ? 1 : 0
   security_group_id = aws_security_group.ec2[0].id
@@ -31,6 +41,15 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
   ip_protocol       = "tcp"
   from_port         = 80
   to_port           = 80
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ec2_https" {
+  for_each          = var.ec2_enabled ? toset(["tcp", "udp"]) : toset([])
+  security_group_id = aws_security_group.ec2[0].id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = each.key
+  from_port         = 443
+  to_port           = 443
 }
 
 resource "aws_vpc_security_group_egress_rule" "ec2_all" {
@@ -65,6 +84,14 @@ resource "aws_ssm_parameter" "ec2_app_env" {
   type  = "String"
   tier  = "Intelligent-Tiering"
   value = jsonencode(local.ec2_app_environment)
+}
+
+resource "aws_ssm_parameter" "ec2_web_env" {
+  count = var.ec2_enabled ? 1 : 0
+  name  = "${local.ec2_param_prefix}/web-env"
+  type  = "String"
+  tier  = "Intelligent-Tiering"
+  value = jsonencode(local.ec2_web_environment)
 }
 
 # ---------- 서버 역할 ----------
@@ -175,4 +202,26 @@ resource "aws_eip" "ec2" {
   domain   = "vpc"
   instance = aws_instance.app[0].id
   tags     = { Name = "${var.project}-app" }
+}
+
+# 도메인 → 고정 IP. Route 53에서 산 도메인일 때만 만든다. (구입하면 호스팅 영역이 자동으로 생긴다)
+data "aws_route53_zone" "main" {
+  count = var.manage_dns_record ? 1 : 0
+  name  = var.domain_name
+
+  lifecycle {
+    precondition {
+      condition     = var.domain_name != ""
+      error_message = "manage_dns_record = true이면 domain_name도 넣어야 합니다."
+    }
+  }
+}
+
+resource "aws_route53_record" "ec2" {
+  count   = var.ec2_enabled && var.manage_dns_record ? 1 : 0
+  zone_id = data.aws_route53_zone.main[0].zone_id
+  name    = var.domain_name
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.ec2[0].public_ip]
 }

@@ -12,14 +12,17 @@ terraform {
     }
   }
 
-  # 상태 파일(tfstate)은 기본으로 이 폴더에 저장된다. 비밀번호가 들어 있으니 커밋하지 않는다. (.gitignore)
-  # 팀원과 함께 관리하려면 S3 버킷을 만든 뒤 아래 주석을 풀고 `terraform init -migrate-state` 를 실행한다.
-  # backend "s3" {
-  #   bucket       = "<상태 파일용 S3 버킷 이름>"
-  #   key          = "ddang/prod/terraform.tfstate"
-  #   region       = "ap-northeast-2"
-  #   use_lockfile = true
-  # }
+  # 상태 파일(tfstate)은 S3에 둔다. DB 비밀번호가 들어 있어 커밋하지 않고, PC를 바꾸거나 팀원이 apply해도 같은 상태를 쓴다.
+  # 버킷은 Terraform이 만들지 않으므로 처음 한 번 직접 만든다. (docs/deploy.md "1. 인프라 만들기")
+  # use_lockfile: 두 사람이 동시에 apply하지 못하게 S3에 잠금 파일을 둔다. (DynamoDB 불필요)
+  # AWS 없이 테스트할 때는 `terraform init -backend=false` 후 `terraform test`
+  backend "s3" {
+    bucket       = "ddang-terraform-state-853900964851"
+    key          = "ddang/prod/terraform.tfstate"
+    region       = "ap-northeast-2"
+    encrypt      = true
+    use_lockfile = true
+  }
 }
 
 provider "aws" {

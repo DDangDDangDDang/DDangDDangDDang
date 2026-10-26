@@ -98,7 +98,34 @@ variable "app_secret_keys" {
     "ANTHROPIC_API_KEY",
     "WEB_PUSH_PUBLIC_KEY",
     "WEB_PUSH_PRIVATE_KEY",
+    "KAKAO_CLIENT_ID",
+    "KAKAO_CLIENT_SECRET",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
   ]
+}
+
+# ---------- 도메인 ----------
+
+variable "domain_name" {
+  description = <<-EOT
+    서비스 도메인 (예: ddangddangddang.com). 넣으면 EC2의 Caddy가 이 도메인으로 Let's Encrypt 인증서를 받아 HTTPS로 서비스하고,
+    리프레시 토큰 쿠키에 Secure를 붙이고, 소셜 로그인 redirect URI를 https://<도메인>/oauth/{provider}/callback 으로 정한다.
+    비워 두면 EC2는 HTTP(Elastic IP)로만 서비스한다.
+  EOT
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.domain_name == "" || can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", var.domain_name))
+    error_message = "domain_name은 https:// 나 경로 없이 도메인만 소문자로 적습니다. (예: ddangddangddang.com)"
+  }
+}
+
+variable "manage_dns_record" {
+  description = "Route 53 호스팅 영역(domain_name)에 EC2 고정 IP를 가리키는 A 레코드를 Terraform이 만들지. 도메인을 Route 53에서 샀으면 true, 다른 곳(가비아 등)이면 false로 두고 직접 등록한다."
+  type        = bool
+  default     = false
 }
 
 # ---------- LiveKit Cloud ----------

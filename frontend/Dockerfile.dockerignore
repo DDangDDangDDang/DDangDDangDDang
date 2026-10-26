@@ -1,0 +1,14 @@
+# frontend/Dockerfile 전용 (빌드 컨텍스트는 저장소 루트). 필요한 파일만 넣는다.
+*
+!frontend
+!docs/api/openapi.json
+!infra/ec2/Caddyfile
+
+# 로컬 설정(.env.local, .env.e2e.local의 테스트 계정 등)과 빌드·테스트 산출물은 넣지 않는다.
+frontend/.env*
+frontend/node_modules
+frontend/dist
+frontend/src/api/generated
+frontend/e2e
+frontend/playwright-report
+frontend/test-results

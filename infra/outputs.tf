@@ -2,13 +2,22 @@ output "app_url" {
   description = "서비스 주소. 둘 다 켜져 있으면 ECS(ALB) 주소"
   value = (
     var.ecs_enabled ? "${local.https_enabled ? "https" : "http"}://${aws_lb.main[0].dns_name}" :
-    var.ec2_enabled ? "http://${aws_eip.ec2[0].public_ip}" : null
+    var.ec2_enabled ? local.ec2_url : null
   )
 }
 
+locals {
+  ec2_url = var.ec2_enabled ? (local.ec2_https ? "https://${var.domain_name}" : "http://${aws_eip.ec2[0].public_ip}") : null
+}
+
 output "ec2_url" {
-  description = "EC2 구성 주소"
-  value       = var.ec2_enabled ? "http://${aws_eip.ec2[0].public_ip}" : null
+  description = "EC2 구성 주소. domain_name이 있으면 https://<도메인>"
+  value       = local.ec2_url
+}
+
+output "ec2_public_ip" {
+  description = "EC2 고정 IP. 도메인 DNS의 A 레코드가 가리킬 주소 (manage_dns_record = true면 Terraform이 등록한다)"
+  value       = var.ec2_enabled ? aws_eip.ec2[0].public_ip : null
 }
 
 output "ec2_instance_id" {
@@ -47,7 +56,8 @@ output "github_variables" {
       ECR_REPOSITORY      = aws_ecr_repository.app.name
     },
     var.ec2_enabled ? {
-      EC2_INSTANCE_ID = aws_instance.app[0].id
+      EC2_INSTANCE_ID    = aws_instance.app[0].id
+      ECR_WEB_REPOSITORY = aws_ecr_repository.web.name
     } : {},
     var.ecs_enabled ? {
       ECS_CLUSTER        = aws_ecs_cluster.main[0].name

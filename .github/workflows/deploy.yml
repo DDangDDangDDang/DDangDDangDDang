@@ -87,8 +87,27 @@ jobs:
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
+
+      # EC2 구성의 웹 이미지: 프론트엔드 빌드 + Caddy(HTTPS, /api·/ws 프록시). ECS 구성은 아직 쓰지 않는다.
+      # VITE_* 는 브라우저에 그대로 노출되는 공개 값이라 GitHub 변수(vars)로 넣는다.
+      - name: 웹 이미지 빌드 · 푸시
+        if: needs.check.outputs.target == 'ec2'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          build-args: |
+            VITE_KAKAO_REST_API_KEY=${{ vars.VITE_KAKAO_REST_API_KEY }}
+            VITE_GOOGLE_CLIENT_ID=${{ vars.VITE_GOOGLE_CLIENT_ID }}
+            VITE_PORTONE_STORE_ID=${{ vars.VITE_PORTONE_STORE_ID }}
+            VITE_PORTONE_CHANNEL_KEY=${{ vars.VITE_PORTONE_CHANNEL_KEY }}
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_WEB_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
 
   deploy-ec2:
     name: EC2 배포
@@ -118,14 +137,15 @@ jobs:
         env:
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
           IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+          WEB_IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_WEB_REPOSITORY }}:${{ github.sha }}
         run: |
           set -euo pipefail
-          commands=$(jq -nc --arg image "$IMAGE" '{commands: [
+          commands=$(jq -nc --arg image "$IMAGE" --arg web "$WEB_IMAGE" '{commands: [
             "set -e",
             "cd /opt/ddang",
             "source ./config.sh",
             "aws ssm get-parameter --region \"$REGION\" --name \"$PARAM_PREFIX/deploy-script\" --query Parameter.Value --output text > deploy.sh",
-            ("bash deploy.sh " + ($image | @sh))
+            ("bash deploy.sh " + ($image | @sh) + " " + ($web | @sh))
           ]}')
 
           command_id=$(aws ssm send-command \
