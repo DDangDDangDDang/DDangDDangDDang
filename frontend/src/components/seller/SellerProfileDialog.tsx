@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Building2, CalendarDays, Clock, Gavel, Gift, PackageCheck, Radio, ShieldCheck, Truck, Users } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, type Schema } from '@/api';
 import { AuctionPhaseBadge } from '@/components/auction/AuctionBits';
@@ -9,7 +9,16 @@ import { Badge, buttonVariants, Dialog, EmptyState, ErrorState, Skeleton } from 
 import { auctionPhase } from '@/lib/auction';
 import { cn } from '@/lib/cn';
 import { formatDate, formatDateTime, formatDotDate, formatNumber, formatPoint } from '@/lib/format';
-import { formatBroadcastDuration, formatShippingTime, soldRate } from '@/lib/seller';
+import {
+  formatBroadcastDuration,
+  formatShippingTime,
+  SELLER_AUCTION_TABS,
+  sellerAuctionEmpty,
+  sellerAuctionPriceLabel,
+  sellerAuctionQuery,
+  soldRate,
+  type SellerAuctionTab,
+} from '@/lib/seller';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 import { useNow } from '@/lib/use-now';
 import { useSellerProfile } from '@/lib/use-seller';
@@ -190,13 +199,96 @@ function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; va
   );
 }
 
-/** 경매 기록: 최근 경매부터 10개씩. 끝까지 내리면 다음 10개를 불러온다. */
+/**
+ * 경매 기록: 진행 중(기본) / 시작 전 / 지난 경매 탭. 지난 경매는 낙찰만 보이고, "유찰·취소 포함"을 켜면 유찰·취소도 보인다.
+ * 탭이나 체크를 바꾸면 목록을 처음부터 다시 불러온다. (조건마다 따로 불러오고, 스크롤도 맨 위로)
+ */
 function AuctionsTab({ sellerId, onNavigate }: { sellerId: number; onNavigate: () => void }) {
+  const [tab, setTab] = useState<SellerAuctionTab>('ONGOING');
+  const [includeFailedAndCanceled, setIncludeFailedAndCanceled] = useState(false);
+  const tabRefs = useRef<Partial<Record<SellerAuctionTab, HTMLButtonElement | null>>>({});
+  // 탭 패턴: 좌우 화살표·Home·End로 탭을 옮기고, 옮긴 탭에 포커스를 준다.
+  const moveTab = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const index = SELLER_AUCTION_TABS.findIndex((item) => item.key === tab);
+    const last = SELLER_AUCTION_TABS.length - 1;
+    const next = { ArrowRight: index === last ? 0 : index + 1, ArrowLeft: index === 0 ? last : index - 1, Home: 0, End: last }[event.key];
+    const target = next === undefined ? undefined : SELLER_AUCTION_TABS[next];
+    if (!target) return;
+    event.preventDefault();
+    setTab(target.key);
+    tabRefs.current[target.key]?.focus();
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div role="tablist" aria-label="경매 상태" className="flex gap-1 rounded-md bg-neutral-50 p-1">
+          {SELLER_AUCTION_TABS.map((item) => (
+            <button
+              key={item.key}
+              ref={(el) => {
+                tabRefs.current[item.key] = el;
+              }}
+              id={`seller-auction-tab-${item.key}`}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.key}
+              aria-controls="seller-auction-tabpanel"
+              tabIndex={tab === item.key ? 0 : -1}
+              onClick={() => setTab(item.key)}
+              onKeyDown={moveTab}
+              className={cn(
+                'h-8 rounded-sm px-3 text-label font-semibold transition-colors',
+                tab === item.key ? 'bg-neutral-0 text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-900',
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {tab === 'PAST' && (
+          <label className="flex items-center gap-2 text-label text-neutral-700">
+            <input
+              type="checkbox"
+              checked={includeFailedAndCanceled}
+              onChange={(e) => setIncludeFailedAndCanceled(e.target.checked)}
+              className="size-4 accent-brand-500"
+            />
+            유찰·취소 포함
+          </label>
+        )}
+      </div>
+      <div id="seller-auction-tabpanel" role="tabpanel" aria-labelledby={`seller-auction-tab-${tab}`}>
+        <AuctionList
+          key={`${tab}-${includeFailedAndCanceled}`}
+          sellerId={sellerId}
+          tab={tab}
+          includeFailedAndCanceled={includeFailedAndCanceled}
+          onNavigate={onNavigate}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** 탭 하나의 경매 목록: 최근 경매부터 10개씩. 끝까지 내리면 다음 10개를 불러온다. */
+function AuctionList({
+  sellerId,
+  tab,
+  includeFailedAndCanceled,
+  onNavigate,
+}: {
+  sellerId: number;
+  tab: SellerAuctionTab;
+  includeFailedAndCanceled: boolean;
+  onNavigate: () => void;
+}) {
   const now = useNow(null);
+  const filter = sellerAuctionQuery(tab, includeFailedAndCanceled);
   const query = useInfiniteQuery({
-    queryKey: ['seller-auctions', sellerId],
+    queryKey: ['seller-auctions', sellerId, filter],
     queryFn: ({ pageParam }) =>
-      call(api.GET('/api/v1/sellers/{sellerId}/auctions', { params: { path: { sellerId }, query: { cursor: pageParam, size: AUCTION_PAGE_SIZE } } })),
+      call(api.GET('/api/v1/sellers/{sellerId}/auctions', { params: { path: { sellerId }, query: { ...filter, cursor: pageParam, size: AUCTION_PAGE_SIZE } } })),
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (last) => (last?.hasNext ? last.nextCursor : undefined),
   });
@@ -214,13 +306,14 @@ function AuctionsTab({ sellerId, onNavigate }: { sellerId: number; onNavigate: (
     );
   }
   if (query.isError && auctions.length === 0) return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
-  if (auctions.length === 0) return <EmptyState title="아직 진행한 경매가 없어요" description="판매자가 경매를 열면 여기에 기록이 쌓여요." />;
+  if (auctions.length === 0) return <EmptyState {...sellerAuctionEmpty(tab, includeFailedAndCanceled)} />;
 
   return (
     <div className="flex max-h-[420px] flex-col overflow-y-auto">
       <ul aria-label="경매 기록" className="divide-y divide-neutral-100">
         {auctions.map((auction) => {
           const phase = auctionPhase(auction, now);
+          const priceLabel = sellerAuctionPriceLabel(auction.status);
           return (
             <li key={auction.auctionId}>
               <Link to={`/auctions/${auction.auctionId}`} onClick={onNavigate} className="flex items-center justify-between gap-3 px-1 py-3 hover:bg-neutral-25">
@@ -235,8 +328,10 @@ function AuctionsTab({ sellerId, onNavigate }: { sellerId: number; onNavigate: (
                   </span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end">
-                  <span className="text-caption text-neutral-500">{phase === 'ENDED' ? '낙찰가' : phase === 'READY' ? '시작가' : '현재가'}</span>
-                  <span className="num text-body font-bold">{formatPoint(auction.currentPrice ?? auction.startPrice ?? 0)}</span>
+                  <span className="text-caption text-neutral-500">{priceLabel}</span>
+                  <span className="num text-body font-bold">
+                    {formatPoint((priceLabel === '시작가' ? auction.startPrice : auction.currentPrice) ?? 0)}
+                  </span>
                   <span className="text-caption text-neutral-500">
                     입찰 <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
                   </span>
