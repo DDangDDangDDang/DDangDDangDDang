@@ -3095,8 +3095,8 @@
           }
         } ],
         "responses" : {
-          "200" : {
-            "description" : "OK",
+          "201" : {
+            "description" : "Created",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -3189,7 +3189,8 @@
               }
             }
           }
-        }
+        },
+        "security" : [ ]
       },
       "post" : {
         "tags" : [ "bid-controller" ],
@@ -3214,8 +3215,8 @@
           "required" : true
         },
         "responses" : {
-          "200" : {
-            "description" : "OK",
+          "201" : {
+            "description" : "Created",
             "content" : {
               "application/json" : {
                 "schema" : {
@@ -5362,6 +5363,53 @@
           }
         },
         "security" : [ ]
+      }
+    },
+    "/api/v1/auctions/{auctionId}/bids/me" : {
+      "get" : {
+        "tags" : [ "bid-controller" ],
+        "operationId" : "bidGetMyBid",
+        "parameters" : [ {
+          "name" : "auctionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyBidResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auctions/{auctionId}" : {
@@ -7782,6 +7830,37 @@
           }
         }
       },
+      "ApiResponseMyBidResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/MyBidResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "MyBidResponse" : {
+        "type" : "object",
+        "properties" : {
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "NONE", "LEADING", "OUTBID", "WON", "LOST" ]
+          },
+          "myHighestAmount" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "BidRequest" : {
         "type" : "object",
         "properties" : {
@@ -9443,13 +9522,19 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "bidderId" : {
-            "type" : "integer",
-            "format" : "int64"
+          "bidderNickname" : {
+            "type" : "string"
           },
           "amount" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "OUTBID", "WON" ]
+          },
+          "mine" : {
+            "type" : "boolean"
           },
           "createdAt" : {
             "type" : "string",
@@ -9723,6 +9808,10 @@
     "code" : "AUCTION_019",
     "status" : 400,
     "message" : "즉시구매가 없는 경매입니다."
+  }, {
+    "code" : "AUCTION_020",
+    "status" : 400,
+    "message" : "입찰 금액은 입찰 단위만큼씩 올려야 합니다."
   }, {
     "code" : "AUTH_001",
     "status" : 401,

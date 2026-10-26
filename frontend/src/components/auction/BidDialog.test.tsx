@@ -8,7 +8,7 @@ import { BidDialog } from './BidDialog';
 type Request = { path: string; method?: string; init?: { body?: { amount?: number } } };
 
 // 진행 중인 경매(현재가 15,000P, 단위 1,000P, 입찰 3회)와 내 지갑(잔액 20,000P). walletFails면 지갑 조회가 실패한다.
-const state = vi.hoisted(() => ({ walletFails: false, bidFails: false, currentPrice: 15000, onAuctionMessage: undefined as ((message: unknown) => void) | undefined, buyNowPrice: undefined as number | undefined, posts: [] as { path: string; amount?: number }[] }));
+const state = vi.hoisted(() => ({ myBidState: 'NONE', walletFails: false, bidFails: false, currentPrice: 15000, onAuctionMessage: undefined as ((message: unknown) => void) | undefined, buyNowPrice: undefined as number | undefined, posts: [] as { path: string; amount?: number }[] }));
 vi.mock('@/api', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/api')>();
   const endAt = new Date(Date.now() + 10 * 60_000).toISOString();
@@ -38,6 +38,7 @@ vi.mock('@/api', async (importOriginal) => {
       }
       if (r.path === '/api/v1/auctions/{auctionId}')
         return { id: 1, productName: '필름 카메라', status: 'ONGOING', startPrice: 10000, currentPrice: state.currentPrice, bidUnit: 1000, bidCount: 3, endAt, buyNowPrice: state.buyNowPrice };
+      if (r.path === '/api/v1/auctions/{auctionId}/bids/me') return { auctionId: 1, state: state.myBidState, myHighestAmount: state.myBidState === 'NONE' ? null : 15000 };
       if (r.path === '/api/v1/points/wallet') {
         if (state.walletFails) throw new original.ApiError('COMMON_500', '서버 오류', 500);
         return { balance: 20000 };
@@ -59,6 +60,7 @@ function renderDialog(showDetailLink?: boolean) {
 
 describe('BidDialog', () => {
   beforeEach(() => {
+    state.myBidState = 'NONE';
     state.walletFails = false;
     state.bidFails = false;
     state.currentPrice = 15000;
@@ -86,7 +88,7 @@ describe('BidDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '16,000 P 입찰 확정' }));
     expect(await screen.findByText(/16,000 P로 입찰했어요\. 지금 최고 입찰자예요\./)).toBeInTheDocument();
-    expect(screen.getByText(/마감이 30초 늘어났어요/)).toBeInTheDocument();
+    expect(screen.getByText(/남은 시간이 30초로 늘어났어요/)).toBeInTheDocument();
     expect(state.posts).toEqual([{ path: '/api/v1/auctions/{auctionId}/bids', amount: 16000 }]);
   });
 
@@ -100,7 +102,7 @@ describe('BidDialog', () => {
     expect(screen.queryByRole('group', { name: '입찰 확인' })).not.toBeInTheDocument();
 
     // 금액을 다시 정하면 지난 입찰의 오류는 지운다.
-    await userEvent.click(screen.getByRole('button', { name: '+1,000' }));
+    await userEvent.click(screen.getByRole('button', { name: '+10,000' }));
     expect(screen.queryByText('그 사이 현재가가 올랐어요. 금액을 다시 정해 주세요.')).not.toBeInTheDocument();
   });
 
@@ -116,7 +118,7 @@ describe('BidDialog', () => {
     // 안내가 바뀌는 것은 실시간 메시지 덕분이다.
     expect(state.onAuctionMessage).toBeDefined();
     state.currentPrice = 17000;
-    act(() => state.onAuctionMessage?.({ auctionId: 1, bidderId: 3, amount: 17000, bidCount: 5, endAt: new Date(Date.now() + 10 * 60_000).toISOString(), extended: false }));
+    act(() => state.onAuctionMessage?.({ auctionId: 1, bidderNickname: '경*왕', amount: 17000, bidCount: 5, endAt: new Date(Date.now() + 10 * 60_000).toISOString(), extended: false }));
     expect(await screen.findByText('16,000 P 입찰보다 높은 입찰이 들어왔어요. 다시 입찰할 수 있어요.')).toBeInTheDocument();
     expect(screen.queryByText(/지금 최고 입찰자예요/)).not.toBeInTheDocument();
   });
@@ -176,6 +178,25 @@ describe('BidDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: '다시 불러오기' }));
     expect(await screen.findByText('20,000 P')).toBeInTheDocument();
     expect(screen.queryByText(/내 포인트를 불러오지 못했어요/)).not.toBeInTheDocument();
+  });
+
+  it('창을 열 때 이미 최고 입찰 중이면 알려주고, 밀렸으면 다시 입찰할 수 있다고 알려준다', async () => {
+    state.myBidState = 'LEADING';
+    renderDialog();
+    expect(await screen.findByText(/지금 최고 입찰자예요\. 내 입찰 15,000 P/)).toBeInTheDocument();
+  });
+
+  it('[+N]은 현재가 + N이다 (입찰 단위를 한 번 더 더하지 않음)', async () => {
+    renderDialog();
+    await userEvent.click(await screen.findByRole('button', { name: '+5,000' }));
+    expect(screen.getByLabelText('입찰 금액')).toHaveValue('20,000');
+  });
+
+  it('입찰 단위에 맞지 않는 금액이면 알려준다', async () => {
+    renderDialog();
+    await userEvent.type(await screen.findByLabelText('입찰 금액'), '16500');
+    await userEvent.click(screen.getByRole('button', { name: '16,500 P 입찰하기' }));
+    expect(screen.getByText('1,000 P 단위로 입찰할 수 있어요.')).toBeInTheDocument();
   });
 
   it('최소 입찰가보다 낮으면 알려준다', async () => {

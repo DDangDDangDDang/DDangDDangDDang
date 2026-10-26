@@ -29,7 +29,8 @@ public enum AuctionErrorCode implements ErrorCode {
     BID_TOO_LOW(HttpStatus.BAD_REQUEST, "AUCTION_016", "입찰가가 최소 입찰가보다 낮습니다."),
     BID_REACHES_BUY_NOW(HttpStatus.BAD_REQUEST, "AUCTION_017", "입찰가가 즉시구매가 이상입니다. 즉시구매를 이용해주세요."),
     BID_CONFLICT(HttpStatus.CONFLICT, "AUCTION_018", "입찰이 몰리고 있습니다. 잠시 후 다시 시도해주세요."),
-    BUY_NOW_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "AUCTION_019", "즉시구매가 없는 경매입니다.");
+    BUY_NOW_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "AUCTION_019", "즉시구매가 없는 경매입니다."),
+    BID_UNIT_MISMATCH(HttpStatus.BAD_REQUEST, "AUCTION_020", "입찰 금액은 입찰 단위만큼씩 올려야 합니다.");
 
 
 
