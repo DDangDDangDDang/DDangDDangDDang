@@ -1,4 +1,4 @@
-import type { Schema } from '@/api';
+import type { paths, Schema } from '@/api';
 
 /*
  * 판매자 프로필 화면의 계산 로직. (화면과 분리해 단위 테스트한다)
@@ -56,8 +56,11 @@ export function formatShippingTime(hours?: number): string | undefined {
   return `${Math.round((hours / 24) * 10) / 10}일`;
 }
 
+/** 상점 경매 기록 조회 조건 (명세에서 생성된 타입) */
+type SellerAuctionQueryParams = NonNullable<paths['/api/v1/sellers/{sellerId}/auctions']['get']['parameters']['query']>;
+
 /** 상점 경매 기록의 탭: 진행 중(기본) / 시작 전 / 지난 경매 */
-export type SellerAuctionTab = 'ONGOING' | 'READY' | 'PAST';
+export type SellerAuctionTab = NonNullable<SellerAuctionQueryParams['tab']>;
 
 export const SELLER_AUCTION_TABS: { key: SellerAuctionTab; label: string }[] = [
   { key: 'ONGOING', label: '진행 중' },
@@ -69,7 +72,7 @@ export const SELLER_AUCTION_TABS: { key: SellerAuctionTab; label: string }[] = [
  * 상점 경매 기록 조회 조건 (GET /sellers/{sellerId}/auctions). 지난 경매만 유찰·취소 포함 여부를 보낸다.
  * (서버 기본은 진행 중, 지난 경매는 낙찰만)
  */
-export function sellerAuctionQuery(tab: SellerAuctionTab, includeFailedAndCanceled: boolean): { tab: SellerAuctionTab; includeFailedAndCanceled?: boolean } {
+export function sellerAuctionQuery(tab: SellerAuctionTab, includeFailedAndCanceled: boolean): Pick<SellerAuctionQueryParams, 'tab' | 'includeFailedAndCanceled'> {
   return tab === 'PAST' ? { tab, includeFailedAndCanceled } : { tab };
 }
 
