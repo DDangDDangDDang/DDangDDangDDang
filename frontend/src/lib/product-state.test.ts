@@ -11,9 +11,9 @@ describe('productSaleState', () => {
     expect(productSaleState({ status: 'SOLD', auctionId: 1, auctionStatus: 'ENDED' })).toMatchObject({ label: '판매 완료', editable: false });
   });
 
-  it('경매가 없거나 유찰·취소면 판매 준비 중이고 수정·삭제할 수 있다', () => {
-    for (const auctionStatus of [undefined, 'FAILED', 'CANCELED'] as const) {
-      expect(productSaleState({ status: 'ACTIVE', auctionStatus })).toEqual({ label: '판매 준비 중', variant: 'info', editable: true });
-    }
+  it('경매가 없으면 판매 준비 중, 유찰·취소면 유찰·취소됨이고 모두 수정·삭제할 수 있다', () => {
+    expect(productSaleState({ status: 'ACTIVE', auctionStatus: undefined })).toEqual({ label: '판매 준비 중', variant: 'info', editable: true });
+    expect(productSaleState({ status: 'ACTIVE', auctionId: 1, auctionStatus: 'FAILED' })).toEqual({ label: '유찰', variant: 'warning', editable: true });
+    expect(productSaleState({ status: 'ACTIVE', auctionId: 1, auctionStatus: 'CANCELED' })).toEqual({ label: '취소됨', variant: 'neutral', editable: true });
   });
 });

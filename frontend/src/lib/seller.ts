@@ -1,4 +1,4 @@
-import type { Schema } from '@/api';
+import type { paths, Schema } from '@/api';
 
 /*
  * 판매자 프로필 화면의 계산 로직. (화면과 분리해 단위 테스트한다)
@@ -54,4 +54,40 @@ export function formatShippingTime(hours?: number): string | undefined {
   if (hours === undefined || hours === null) return undefined;
   if (hours < 24) return `${hours}시간`;
   return `${Math.round((hours / 24) * 10) / 10}일`;
+}
+
+/** 상점 경매 기록 조회 조건 (명세에서 생성된 타입) */
+type SellerAuctionQueryParams = NonNullable<paths['/api/v1/sellers/{sellerId}/auctions']['get']['parameters']['query']>;
+
+/** 상점 경매 기록의 탭: 진행 중(기본) / 시작 전 / 지난 경매 */
+export type SellerAuctionTab = NonNullable<SellerAuctionQueryParams['tab']>;
+
+export const SELLER_AUCTION_TABS: { key: SellerAuctionTab; label: string }[] = [
+  { key: 'ONGOING', label: '진행 중' },
+  { key: 'READY', label: '시작 전' },
+  { key: 'PAST', label: '지난 경매' },
+];
+
+/**
+ * 상점 경매 기록 조회 조건 (GET /sellers/{sellerId}/auctions). 지난 경매만 유찰·취소 포함 여부를 보낸다.
+ * (서버 기본은 진행 중, 지난 경매는 낙찰만)
+ */
+export function sellerAuctionQuery(tab: SellerAuctionTab, includeFailedAndCanceled: boolean): Pick<SellerAuctionQueryParams, 'tab' | 'includeFailedAndCanceled'> {
+  return tab === 'PAST' ? { tab, includeFailedAndCanceled } : { tab };
+}
+
+/** 경매 기록 한 줄의 가격 이름. 낙찰은 낙찰가, 진행 중은 현재가, 시작 전·유찰·취소는 시작가 */
+export function sellerAuctionPriceLabel(status?: Schema<'SellerAuctionResponse'>['status']): '낙찰가' | '현재가' | '시작가' {
+  if (status === 'ENDED') return '낙찰가';
+  if (status === 'ONGOING') return '현재가';
+  return '시작가';
+}
+
+/** 탭에 경매가 없을 때의 안내 */
+export function sellerAuctionEmpty(tab: SellerAuctionTab, includeFailedAndCanceled: boolean): { title: string; description: string } {
+  if (tab === 'ONGOING') return { title: '진행 중인 경매가 없어요', description: '판매자가 경매를 열면 여기에 나와요.' };
+  if (tab === 'READY') return { title: '시작을 기다리는 경매가 없어요', description: '시작 시각을 정해 둔 경매가 여기에 나와요.' };
+  return includeFailedAndCanceled
+    ? { title: '지난 경매가 없어요', description: '끝난 경매(낙찰·유찰·취소)가 여기에 쌓여요.' }
+    : { title: '낙찰된 경매가 없어요', description: '유찰·취소된 경매는 "유찰·취소 포함"을 켜면 보여요.' };
 }

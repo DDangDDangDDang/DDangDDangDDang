@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { formatBroadcastDuration, formatBusinessNumber, formatShippingTime, isValidBusinessNumber, soldRate } from './seller';
+import {
+  formatBroadcastDuration,
+  formatBusinessNumber,
+  formatShippingTime,
+  isValidBusinessNumber,
+  sellerAuctionEmpty,
+  sellerAuctionPriceLabel,
+  sellerAuctionQuery,
+  soldRate,
+} from './seller';
 
 describe('isValidBusinessNumber', () => {
   it('검증 숫자가 맞는 10자리만 통과한다 (하이픈 허용)', () => {
@@ -41,5 +50,27 @@ describe('formatShippingTime', () => {
     expect(formatShippingTime(5.5)).toBe('5.5시간');
     expect(formatShippingTime(36)).toBe('1.5일');
     expect(formatShippingTime(undefined)).toBeUndefined();
+  });
+});
+
+describe('상점 경매 기록 탭', () => {
+  it('지난 경매만 유찰·취소 포함 여부를 보낸다', () => {
+    expect(sellerAuctionQuery('ONGOING', true)).toEqual({ tab: 'ONGOING' });
+    expect(sellerAuctionQuery('READY', true)).toEqual({ tab: 'READY' });
+    expect(sellerAuctionQuery('PAST', false)).toEqual({ tab: 'PAST', includeFailedAndCanceled: false });
+    expect(sellerAuctionQuery('PAST', true)).toEqual({ tab: 'PAST', includeFailedAndCanceled: true });
+  });
+
+  it('가격 이름: 낙찰가·현재가·시작가', () => {
+    expect(sellerAuctionPriceLabel('ENDED')).toBe('낙찰가');
+    expect(sellerAuctionPriceLabel('ONGOING')).toBe('현재가');
+    expect(sellerAuctionPriceLabel('READY')).toBe('시작가');
+    expect(sellerAuctionPriceLabel('FAILED')).toBe('시작가');
+    expect(sellerAuctionPriceLabel('CANCELED')).toBe('시작가');
+  });
+
+  it('지난 경매가 비었을 때 유찰·취소를 숨겼으면 켜는 방법을 알려 준다', () => {
+    expect(sellerAuctionEmpty('PAST', false).description).toContain('유찰·취소 포함');
+    expect(sellerAuctionEmpty('PAST', true).title).toBe('지난 경매가 없어요');
   });
 });

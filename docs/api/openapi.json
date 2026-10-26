@@ -2537,15 +2537,23 @@
         "security" : [ ]
       }
     },
-    "/api/v1/auth/oauth/kakao" : {
+    "/api/v1/auth/oauth/{provider}" : {
       "post" : {
         "tags" : [ "o-auth-controller" ],
         "operationId" : "oAuthLogin",
+        "parameters" : [ {
+          "name" : "provider",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/KakaoLoginRequest"
+                "$ref" : "#/components/schemas/SocialLoginRequest"
               }
             }
           },
@@ -2557,7 +2565,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseKakaoLoginResponse"
+                  "$ref" : "#/components/schemas/ApiResponseSocialLoginResponse"
                 }
               }
             }
@@ -2586,15 +2594,23 @@
         "security" : [ ]
       }
     },
-    "/api/v1/auth/oauth/kakao/signup" : {
+    "/api/v1/auth/oauth/{provider}/signup" : {
       "post" : {
         "tags" : [ "o-auth-controller" ],
         "operationId" : "oAuthSignup",
+        "parameters" : [ {
+          "name" : "provider",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/KakaoSignupRequest"
+                "$ref" : "#/components/schemas/SocialSignupRequest"
               }
             }
           },
@@ -2606,7 +2622,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseKakaoSignupResponse"
+                  "$ref" : "#/components/schemas/ApiResponseSocialSignupResponse"
                 }
               }
             }
@@ -2635,15 +2651,23 @@
         "security" : [ ]
       }
     },
-    "/api/v1/auth/oauth/kakao/phone/code" : {
+    "/api/v1/auth/oauth/{provider}/phone/code" : {
       "post" : {
         "tags" : [ "o-auth-controller" ],
         "operationId" : "oAuthSendPhoneCode",
+        "parameters" : [ {
+          "name" : "provider",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/KakaoPhoneCodeRequest"
+                "$ref" : "#/components/schemas/SocialPhoneCodeRequest"
               }
             }
           },
@@ -4408,6 +4432,23 @@
             "format" : "int64"
           }
         }, {
+          "name" : "tab",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "ONGOING",
+            "enum" : [ "ONGOING", "READY", "PAST" ]
+          }
+        }, {
+          "name" : "includeFailedAndCanceled",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
           "name" : "cursor",
           "in" : "query",
           "required" : false,
@@ -5573,62 +5614,6 @@
         }
       }
     },
-    "/api/v1/admin/donation-policy/history" : {
-      "get" : {
-        "tags" : [ "admin-donation-policy-controller" ],
-        "operationId" : "adminDonationPolicyGetHistory",
-        "parameters" : [ {
-          "name" : "cursor",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "size",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32",
-            "default" : 20
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseCursorResponseDonationPolicyResponse"
-                }
-              }
-            }
-          },
-          "4XX" : {
-            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "5XX" : {
-            "description" : "서버 오류",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/admin/point-exchanges" : {
       "get" : {
         "tags" : [ "admin-point-exchange-controller" ],
@@ -5666,6 +5651,62 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseCursorResponseAdminPointExchangeResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/donation-policy/history" : {
+      "get" : {
+        "tags" : [ "admin-donation-policy-controller" ],
+        "operationId" : "adminDonationPolicyGetHistory",
+        "parameters" : [ {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseDonationPolicyResponse"
                 }
               }
             }
@@ -7597,7 +7638,7 @@
         },
         "required" : [ "email" ]
       },
-      "KakaoLoginRequest" : {
+      "SocialLoginRequest" : {
         "type" : "object",
         "properties" : {
           "code" : {
@@ -7607,21 +7648,21 @@
         },
         "required" : [ "code" ]
       },
-      "ApiResponseKakaoLoginResponse" : {
+      "ApiResponseSocialLoginResponse" : {
         "type" : "object",
         "properties" : {
           "success" : {
             "type" : "boolean"
           },
           "data" : {
-            "$ref" : "#/components/schemas/KakaoLoginResponse"
+            "$ref" : "#/components/schemas/SocialLoginResponse"
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
-      "KakaoLoginResponse" : {
+      "SocialLoginResponse" : {
         "type" : "object",
         "properties" : {
           "status" : {
@@ -7649,7 +7690,7 @@
           }
         }
       },
-      "KakaoSignupRequest" : {
+      "SocialSignupRequest" : {
         "type" : "object",
         "properties" : {
           "signupToken" : {
@@ -7679,21 +7720,21 @@
         },
         "required" : [ "email", "nickname", "phoneNumber", "phoneVerificationToken", "signupToken" ]
       },
-      "ApiResponseKakaoSignupResponse" : {
+      "ApiResponseSocialSignupResponse" : {
         "type" : "object",
         "properties" : {
           "success" : {
             "type" : "boolean"
           },
           "data" : {
-            "$ref" : "#/components/schemas/KakaoSignupResponse"
+            "$ref" : "#/components/schemas/SocialSignupResponse"
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
-      "KakaoSignupResponse" : {
+      "SocialSignupResponse" : {
         "type" : "object",
         "properties" : {
           "linkedExistingAccount" : {
@@ -7711,7 +7752,7 @@
           }
         }
       },
-      "KakaoPhoneCodeRequest" : {
+      "SocialPhoneCodeRequest" : {
         "type" : "object",
         "properties" : {
           "signupToken" : {
@@ -9609,38 +9650,6 @@
           }
         }
       },
-      "ApiResponseCursorResponseDonationPolicyResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/CursorResponseDonationPolicyResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "CursorResponseDonationPolicyResponse" : {
-        "type" : "object",
-        "properties" : {
-          "content" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/DonationPolicyResponse"
-            }
-          },
-          "nextCursor" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "hasNext" : {
-            "type" : "boolean"
-          }
-        }
-      },
       "ApiResponseCursorResponseAdminPointExchangeResponse" : {
         "type" : "object",
         "properties" : {
@@ -9662,6 +9671,38 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/AdminPointExchangeResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ApiResponseCursorResponseDonationPolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseDonationPolicyResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CursorResponseDonationPolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DonationPolicyResponse"
             }
           },
           "nextCursor" : {
@@ -10091,23 +10132,27 @@
   }, {
     "code" : "OAUTH_001",
     "status" : 400,
-    "message" : "카카오 로그인에 실패했습니다. 다시 시도해 주세요."
+    "message" : "소셜 로그인에 실패했습니다. 다시 시도해 주세요."
   }, {
     "code" : "OAUTH_002",
     "status" : 502,
-    "message" : "카카오와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+    "message" : "소셜 로그인 서버와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
   }, {
     "code" : "OAUTH_003",
     "status" : 400,
-    "message" : "가입 시간이 지났습니다. 카카오 로그인부터 다시 진행해 주세요."
+    "message" : "가입 시간이 지났습니다. 소셜 로그인부터 다시 진행해 주세요."
   }, {
     "code" : "OAUTH_004",
     "status" : 409,
-    "message" : "이 휴대폰 번호의 계정에는 이미 다른 카카오 계정이 연결되어 있습니다."
+    "message" : "이 휴대폰 번호의 계정에는 이미 같은 서비스의 다른 소셜 계정이 연결되어 있습니다."
   }, {
     "code" : "OAUTH_005",
     "status" : 503,
-    "message" : "카카오 로그인이 설정되지 않았습니다."
+    "message" : "소셜 로그인이 설정되지 않았습니다."
+  }, {
+    "code" : "OAUTH_006",
+    "status" : 400,
+    "message" : "지원하지 않는 소셜 로그인입니다."
   }, {
     "code" : "ORDER_001",
     "status" : 404,

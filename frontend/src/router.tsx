@@ -33,9 +33,8 @@ import { ProductAuctionPage } from '@/pages/products/ProductAuctionPage';
 import { ProductCreatePage } from '@/pages/products/ProductCreatePage';
 import { ProductEditPage } from '@/pages/products/ProductEditPage';
 import { SellerStudioPage } from '@/pages/studio/SellerStudioPage';
-import { KakaoCallbackPage } from '@/pages/auth/KakaoCallbackPage';
-import { KakaoSignupPage } from '@/pages/auth/KakaoSignupPage';
-
+import { SocialCallbackPage } from '@/pages/auth/SocialCallbackPage';
+import { SocialSignupPage } from '@/pages/auth/SocialSignupPage';
 /**
  * 화면 목록. 새 화면은 src/pages에 만들고 여기에 경로를 추가한다.
  * 로그인해야 하는 화면은 RequireAuth 아래에 둔다.
@@ -51,9 +50,11 @@ export const router = createBrowserRouter([
       { path: '/login', element: <LoginPage /> },
       { path: '/signup', element: <SignupPage /> },
       { path: '/find-email', element: <FindEmailPage /> },
-      // 카카오 로그인: 카카오가 돌려보내는 콜백, 처음 온 사용자의 추가 정보
-      { path: '/oauth/kakao/callback', element: <KakaoCallbackPage /> },
-      { path: '/signup/kakao', element: <KakaoSignupPage /> },
+      // 소셜 로그인(카카오·구글): 제공자가 돌려보내는 콜백, 처음 온 사용자의 추가 정보
+      { path: '/oauth/:provider/callback', element: <SocialCallbackPage /> },
+      { path: '/signup/social', element: <SocialSignupPage /> },
+      // 예전 카카오 전용 주소 (이미 열려 있던 탭이 있어도 동작하게)
+      { path: '/signup/kakao', element: <SocialSignupPage /> },
       // 로그인 전 재설정 + 내 정보의 [비밀번호 변경]이 같은 화면을 쓴다.
       { path: '/password-reset', element: <PasswordResetPage /> },
 

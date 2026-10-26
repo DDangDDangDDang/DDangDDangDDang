@@ -39,6 +39,14 @@ npm run dev
   # VITE_KAKAO_REDIRECT_URI=http://localhost:5173/oauth/kakao/callback
   ```
 
+- 구글 로그인([Google로 계속하기])은 Google Cloud 콘솔의 OAuth 클라이언트 ID(웹 애플리케이션)를 적습니다. 값이 없으면 "Google 로그인 설정이 필요합니다"라고 안내합니다.
+    - 콘솔의 **승인된 리디렉션 URI**에 `지금 주소/oauth/google/callback`을 등록하고, 백엔드 `GOOGLE_REDIRECT_URI`와 같게 맞춥니다.
+    - 백엔드에 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`이 필요합니다. 앱이 "테스트" 상태면 동의 화면의 테스트 사용자로 등록한 계정만 로그인할 수 있습니다.
+  ```
+  VITE_GOOGLE_CLIENT_ID=....apps.googleusercontent.com
+  # VITE_GOOGLE_REDIRECT_URI=http://localhost:5173/oauth/google/callback
+  ```
+
 ## 자주 쓰는 명령
 
 | 명령 | 하는 일 |
@@ -80,3 +88,5 @@ npm run dev
 카메라·마이크는 Chrome의 가짜 장치(`--use-fake-device-for-media-stream`, 테스트 패턴 영상)를 쓰므로 PC에 카메라가 없어도 됩니다.
 카테고리는 관리자 계정으로 `/admin/categories`에서 만듭니다. (로컬은 DB에서 `users.role`을 `ADMIN`으로 바꾼 계정으로 로그인)
 결과 보고서는 `playwright-report/`에 남고, 판매자 송출 테스트는 송출 중인 스튜디오·시청 화면 스크린샷을 보고서에 붙입니다.
+
+
