@@ -203,25 +203,3 @@ resource "aws_eip" "ec2" {
   instance = aws_instance.app[0].id
   tags     = { Name = "${var.project}-app" }
 }
-
-# 도메인 → 고정 IP. Route 53에서 산 도메인일 때만 만든다. (구입하면 호스팅 영역이 자동으로 생긴다)
-data "aws_route53_zone" "main" {
-  count = var.manage_dns_record ? 1 : 0
-  name  = var.domain_name
-
-  lifecycle {
-    precondition {
-      condition     = var.domain_name != ""
-      error_message = "manage_dns_record = true이면 domain_name도 넣어야 합니다."
-    }
-  }
-}
-
-resource "aws_route53_record" "ec2" {
-  count   = var.ec2_enabled && var.manage_dns_record ? 1 : 0
-  zone_id = data.aws_route53_zone.main[0].zone_id
-  name    = var.domain_name
-  type    = "A"
-  ttl     = 300
-  records = [aws_eip.ec2[0].public_ip]
-}

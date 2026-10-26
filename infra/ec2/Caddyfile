@@ -19,14 +19,21 @@
 		reverse_proxy app:8080
 	}
 
+	# 파일 이름에 내용 해시가 붙은 빌드 결과물은 오래 캐시한다.
+	# 새로 배포해 지워진 파일(이전 탭이 요청)은 index.html로 바꾸지 않고 캐시되지 않는 404로 응답한다.
+	handle /assets/* {
+		root * /srv
+		@exists file
+		header @exists Cache-Control "public, max-age=31536000, immutable"
+		@missing not file
+		header @missing Cache-Control "no-store"
+		file_server
+	}
+
 	handle {
 		root * /srv
-
-		# 파일 이름에 내용 해시가 붙은 빌드 결과물은 오래 캐시하고, 나머지(index.html, sw.js 등)는 매번 새 버전을 확인한다.
-		@hashed path /assets/*
-		header @hashed Cache-Control "public, max-age=31536000, immutable"
-		@unhashed not path /assets/*
-		header @unhashed Cache-Control "no-cache"
+		# index.html, sw.js 등은 매번 새 버전을 확인한다.
+		header Cache-Control "no-cache"
 
 		# 화면 경로(/auctions/1 등)는 파일이 없으므로 index.html을 주고 라우팅은 브라우저(React Router)가 한다.
 		try_files {path} /index.html

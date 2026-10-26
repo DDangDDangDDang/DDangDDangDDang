@@ -50,20 +50,23 @@ for f in "${CONFIG_FILES[@]}"; do
 done
 
 echo "배포 시작: $IMAGE, $WEB_IMAGE"
-docker compose pull
-docker compose up -d --remove-orphans
 
 # 앱은 서버 안에서 직접(127.0.0.1:8080) 확인하고, 웹(Caddy)은 컨테이너가 떠 있는지만 본다.
 # 웹은 도메인으로만 응답하고 인증서는 DNS를 연결한 뒤에 발급되므로 여기서 HTTPS까지 확인하지 않는다.
+# 이미지 받기·컨테이너 시작이 실패해도(포트 충돌 등) 스크립트를 바로 끝내지 않고 아래에서 이전 상태로 되돌린다.
 healthy=false
-for _ in $(seq 1 36); do # 최대 3분
-  if curl -fsS http://127.0.0.1:8080/actuator/health/liveness >/dev/null 2>&1 \
-    && docker compose ps --status running --services | grep -qx web; then
-    healthy=true
-    break
-  fi
-  sleep 5
-done
+if docker compose pull && docker compose up -d --remove-orphans; then
+  for _ in $(seq 1 36); do # 최대 3분
+    if curl -fsS http://127.0.0.1:8080/actuator/health/liveness >/dev/null 2>&1 \
+      && docker compose ps --status running --services | grep -qx web; then
+      healthy=true
+      break
+    fi
+    sleep 5
+  done
+else
+  echo "이미지를 받거나 컨테이너를 시작하지 못했습니다."
+fi
 
 if [ "$healthy" = true ]; then
   printf '%s\n%s\n' "$IMAGE" "$WEB_IMAGE" > .current_images

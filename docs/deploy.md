@@ -101,6 +101,15 @@ aws s3api put-public-access-block --bucket "$BUCKET" \
   --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 ```
 
+> **이미 로컬 상태로 apply한 적이 있다면** (예전 버전 문서대로 `infra/terraform.tfstate`가 있는 경우)
+> 새로 checkout한 폴더가 아니라 **그 상태 파일이 있는 원래 폴더**에서 진행합니다.
+> 1. `cp terraform.tfstate ~/terraform.tfstate.backup` 으로 백업
+> 2. `terraform init -migrate-state` → 기존 상태를 S3로 복사할지 물으면 `yes`
+> 3. `aws s3 ls s3://ddang-terraform-state-853900964851/ddang/prod/` 에 `terraform.tfstate`가 보이는지 확인
+> 4. `terraform plan`이 "No changes"(또는 이 문서에서 의도한 변경만)인지 확인한 뒤 apply. 처음부터 다 새로 만든다고 나오면 멈추고 백업을 확인합니다.
+>
+> 처음 만드는 경우에는 아래처럼 `terraform init`만 하면 됩니다.
+
 ```bash
 cd infra
 cp terraform.tfvars.example terraform.tfvars   # livekit_url, domain_name, app_environment 채우기
@@ -325,7 +334,15 @@ terraform apply   # 약 5~10분 (ALB·NAT·ECS 생성)
 배포가 끝나면 `terraform output app_url`(ALB 주소)로 접속해 확인합니다.
 같은 DB·Redis를 쓰므로 회원 데이터와 로그인 상태가 그대로 이어집니다.
 
-**4) EC2 끄기**
+**4) 도메인을 ALB로 옮기기** (EC2를 끄기 전에)
+
+EC2를 먼저 끄면 도메인이 가리키는 곳이 없어 접속이 끊깁니다. 위 "도메인·HTTPS"의 ECS 인증서(`certificate_arn`)를 먼저 붙인 뒤 옮깁니다.
+
+- `manage_dns_record = true`면 `dns_target = "ecs"`로 바꾸고 `terraform apply`. 같은 A 레코드를 제자리에서 ALB 별칭으로 바꿉니다.
+- 다른 곳에서 산 도메인이면 그곳 DNS를 `alb_dns_name`으로 바꿉니다.
+- DNS가 퍼질 때까지(TTL 5분) 기다린 뒤 다음 단계로 갑니다.
+
+**5) EC2 끄기**
 
 ```hcl
 ec2_enabled = false
@@ -336,7 +353,8 @@ ecs_enabled = true
 terraform apply   # EC2, Elastic IP 삭제. RDS·ElastiCache는 그대로
 ```
 
-GitHub의 `EC2_INSTANCE_ID` 변수는 지워도 됩니다. 도메인을 쓰고 있었다면 DNS를 ALB 주소로 바꿉니다.
+GitHub의 `EC2_INSTANCE_ID`, `ECR_WEB_REPOSITORY` 변수는 지워도 됩니다.
+(`dns_target = "ec2"`인 채로 EC2를 끄려고 하면 Terraform이 plan 단계에서 막습니다)
 
 ## 운영 중 자주 하는 일 (ECS 구성)
 

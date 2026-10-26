@@ -96,7 +96,7 @@ run "ec2_only" {
       jsondecode(aws_ssm_parameter.ec2_web_env[0].value)["SITE_ADDRESS"] == ":80" &&
       jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["JWT_COOKIE_SECURE"] == "false" &&
       !contains(keys(jsondecode(aws_ssm_parameter.ec2_app_env[0].value)), "KAKAO_REDIRECT_URI") &&
-      length(aws_route53_record.ec2) == 0
+      length(aws_route53_record.main) == 0
     )
     error_message = "도메인이 없으면 HTTP(:80)로 서비스하고 쿠키에 Secure를 붙이지 않아야 합니다."
   }
@@ -137,9 +137,40 @@ run "ec2_with_domain" {
   }
 
   assert {
-    condition     = length(aws_route53_record.ec2) == 1 && length(aws_vpc_security_group_ingress_rule.ec2_https) == 2
+    condition     = length(aws_route53_record.main) == 1 && length(aws_vpc_security_group_ingress_rule.ec2_https) == 2
     error_message = "도메인 A 레코드를 만들고 443(TCP·UDP)을 열어야 합니다."
   }
+}
+
+run "dns_moves_to_alb_before_ec2_off" {
+  command = plan
+
+  variables {
+    ec2_enabled       = true
+    ecs_enabled       = true
+    domain_name       = "example.com"
+    manage_dns_record = true
+    dns_target        = "ecs"
+  }
+
+  assert {
+    condition     = length(aws_route53_record.main[0].alias) == 1 && aws_route53_record.main[0].records == null
+    error_message = "dns_target = ecs면 같은 A 레코드가 ALB 별칭을 가리켜야 합니다."
+  }
+}
+
+run "dns_target_must_be_enabled" {
+  command = plan
+
+  variables {
+    ec2_enabled       = false
+    ecs_enabled       = true
+    domain_name       = "example.com"
+    manage_dns_record = true
+    dns_target        = "ec2"
+  }
+
+  expect_failures = [aws_route53_record.main]
 }
 
 run "domain_must_be_bare" {

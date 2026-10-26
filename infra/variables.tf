@@ -128,6 +128,17 @@ variable "manage_dns_record" {
   default     = false
 }
 
+variable "dns_target" {
+  description = "manage_dns_record = true일 때 도메인이 가리킬 구성. ec2(고정 IP) 또는 ecs(ALB). ECS로 전환할 때 EC2를 끄기 전에 ecs로 바꾼다."
+  type        = string
+  default     = "ec2"
+
+  validation {
+    condition     = contains(["ec2", "ecs"], var.dns_target)
+    error_message = "dns_target은 ec2 또는 ecs여야 합니다."
+  }
+}
+
 # ---------- LiveKit Cloud ----------
 
 variable "livekit_url" {
