@@ -19,6 +19,9 @@ export function productSaleState(product: Product): ProductSaleState {
   if (product.status === 'SOLD') return { label: '판매 완료', variant: 'neutral', editable: false };
   if (product.auctionStatus === 'READY') return { label: '경매 예정', variant: 'outline', editable: false };
   if (product.auctionStatus === 'ONGOING') return { label: '경매 중', variant: 'live', editable: false };
-  // 경매가 없거나 유찰·취소된 상품: 아직 살 수 없고, 다시 경매에 올려야 팔린다.
+  // 유찰·취소된 상품: 경매를 안 연 상품과 구분해 보여 준다. 다시 경매에 올려야 팔리므로 수정·삭제·다시 올리기는 그대로 된다.
+  if (product.auctionStatus === 'FAILED') return { label: '유찰', variant: 'warning', editable: true };
+  if (product.auctionStatus === 'CANCELED') return { label: '취소됨', variant: 'neutral', editable: true };
+  // 경매를 아직 열지 않은 상품
   return { label: '판매 준비 중', variant: 'info', editable: true };
 }

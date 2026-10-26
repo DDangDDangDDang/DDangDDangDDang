@@ -14,6 +14,7 @@ import { Badge, Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyStat
 import { auctionPhase, secondsUntil, type AuctionPhase } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint, formatRemaining } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
+import { ProductAuctionHistory } from './ProductAuctionHistory';
 
 /** 시작 전·진행 중인 경매도 이 간격으로 다시 불러온다. (실시간 메시지가 끊겼을 때의 보조) */
 const REFRESH_MS = 10_000;
@@ -61,6 +62,8 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
       setConfirmCancel(false);
       void queryClient.invalidateQueries({ queryKey: ['auction', auctionId] });
       void queryClient.invalidateQueries({ queryKey: ['auctions'] });
+      // 판매자에게 보이는 이 상품의 경매 이력도 취소된 상태로 다시 불러온다.
+      void queryClient.invalidateQueries({ queryKey: ['product-auctions', productId] });
     },
   });
 
@@ -106,6 +109,8 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
             )}
           </CardBody>
         </Card>
+        {/* 판매자 본인일 때만: 이 상품으로 열었던 경매 전부 (남이면 그리지도, 부르지도 않는다) */}
+        {isMine && productId !== undefined && auction.id !== undefined && <ProductAuctionHistory productId={productId} currentAuctionId={auction.id} />}
       </section>
 
       <aside aria-label="경매 정보" className="sticky top-22 flex w-[440px] shrink-0 flex-col gap-4">
