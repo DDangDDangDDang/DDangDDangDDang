@@ -260,6 +260,15 @@ class SellerSubscriptionControllerTest {
                 .andExpect(jsonPath("$.data.content[0].status").value("CANCELED"))
                 .andExpect(jsonPath("$.data.hasNext").value(false));
 
+        // 진행 중 경매가 두 개면 최근 것부터 1개씩 커서로 넘겨 볼 수 있다.
+        Long third = startLiveAuction(seller, liveStreamId, createProduct(seller, "프로필 삼각대"));
+        Long cursor = longValue(mockMvc.perform(get("/api/v1/sellers/{id}/auctions", seller.id()).param("size", "1"))
+                .andExpect(jsonPath("$.data.content[0].auctionId").value(third))
+                .andExpect(jsonPath("$.data.hasNext").value(true)), "$.data.nextCursor");
+        mockMvc.perform(get("/api/v1/sellers/{id}/auctions", seller.id()).param("size", "1").param("cursor", String.valueOf(cursor)))
+                .andExpect(jsonPath("$.data.content[0].auctionId").value(second))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+
         // 끝난 방송의 시간은 집계 쿼리로 더한다. 1시간 방송한 것으로 시작 시각을 앞당긴다.
         liveStreamService.end(liveStreamId, seller.id());
         LiveStream ended = liveStreamRepository.findById(liveStreamId).orElseThrow();
