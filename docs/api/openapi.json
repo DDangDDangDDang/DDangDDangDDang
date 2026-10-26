@@ -4969,6 +4969,53 @@
         }
       }
     },
+    "/api/v1/orders/{orderId}/tracking" : {
+      "get" : {
+        "tags" : [ "order-controller" ],
+        "operationId" : "orderGetTracking",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTrackingResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notifications" : {
       "get" : {
         "tags" : [ "notification-controller" ],
@@ -9046,6 +9093,64 @@
           }
         }
       },
+      "ApiResponseTrackingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/TrackingResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "TrackingEvent" : {
+        "type" : "object",
+        "properties" : {
+          "time" : {
+            "type" : "string"
+          },
+          "statusCode" : {
+            "type" : "string"
+          },
+          "statusName" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "delivered" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "TrackingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "courier" : {
+            "type" : "string",
+            "enum" : [ "CJ", "LOTTE", "HANJIN", "LOGEN", "POST", "ETC" ]
+          },
+          "trackingNo" : {
+            "type" : "string"
+          },
+          "lastEvent" : {
+            "$ref" : "#/components/schemas/TrackingEvent"
+          },
+          "events" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TrackingEvent"
+            }
+          }
+        }
+      },
       "ApiResponseCursorResponseNotificationResponse" : {
         "type" : "object",
         "properties" : {
@@ -10197,6 +10302,26 @@
     "code" : "ORDER_011",
     "status" : 409,
     "message" : "이미 다른 주문에 등록된 송장입니다."
+  }, {
+    "code" : "ORDER_012",
+    "status" : 400,
+    "message" : "발송 전인 주문은 배송 조회를 할 수 없습니다."
+  }, {
+    "code" : "ORDER_013",
+    "status" : 400,
+    "message" : "배송 조회를 지원하지 않는 택배사입니다."
+  }, {
+    "code" : "ORDER_014",
+    "status" : 404,
+    "message" : "아직 조회되는 배송 정보가 없습니다. 잠시 후 다시 확인해 주세요."
+  }, {
+    "code" : "ORDER_015",
+    "status" : 502,
+    "message" : "배송 조회 서비스와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+  }, {
+    "code" : "ORDER_016",
+    "status" : 503,
+    "message" : "배송 조회가 설정되지 않았습니다."
   }, {
     "code" : "POINT_001",
     "status" : 404,

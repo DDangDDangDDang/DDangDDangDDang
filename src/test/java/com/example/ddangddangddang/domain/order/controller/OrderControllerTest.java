@@ -4,6 +4,15 @@ import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.service.OrderService;
+import com.example.ddangddangddang.domain.order.entity.Courier;
+import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
+import com.example.ddangddangddang.domain.order.infra.DeliveryTrackingClient;
+import com.example.ddangddangddang.domain.order.infra.TrackingCacheRepository;
+import com.example.ddangddangddang.domain.order.infra.TrackingEvent;
+import com.example.ddangddangddang.domain.order.infra.TrackingInfo;
+import com.example.ddangddangddang.global.exception.BusinessException;
+import java.util.List;
+import java.util.Optional;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
@@ -21,6 +30,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,6 +56,13 @@ class OrderControllerTest {
 
     @MockitoBean
     private VerificationService verificationService;
+
+    // 실제 배송 조회 서비스·Redis 없이 실행하기 위해 Mock으로 대체
+    @MockitoBean
+    private DeliveryTrackingClient deliveryTrackingClient;
+
+    @MockitoBean
+    private TrackingCacheRepository trackingCacheRepository;
 
     private TestUser buyer;
     private TestUser seller;
@@ -341,6 +360,72 @@ class OrderControllerTest {
             mockMvc.perform(get("/api/v1/orders/{orderId}", 9999L).header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.error.code").value("ORDER_001"));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/orders/{orderId}/tracking")
+    class Tracking {
+
+        @Test
+        @DisplayName("발송한 주문은 구매자와 판매자 모두 배송 상태와 이력을 조회한다")
+        void participants() throws Exception {
+            Long orderId = shippedOrder();
+            TrackingEvent pickup = new TrackingEvent("2026-10-25T20:00:00+09:00", "AT_PICKUP", "집화처리", "곤지암Hub", null);
+            TrackingEvent out = new TrackingEvent("2026-10-26T18:10:00+09:00", "OUT_FOR_DELIVERY", "배송출발", "강남대리점", "배송기사 출발");
+            given(trackingCacheRepository.find(any(), anyString())).willReturn(Optional.empty());
+            given(deliveryTrackingClient.track(Courier.CJ, "1234567890")).willReturn(new TrackingInfo(out, List.of(pickup, out)));
+
+            for (TestUser user : List.of(buyer, seller)) {
+                mockMvc.perform(get("/api/v1/orders/{orderId}/tracking", orderId).header(HttpHeaders.AUTHORIZATION, user.bearer()))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.data.courier").value("CJ"))
+                        .andExpect(jsonPath("$.data.trackingNo").value("1234567890"))
+                        .andExpect(jsonPath("$.data.lastEvent.statusCode").value("OUT_FOR_DELIVERY"))
+                        .andExpect(jsonPath("$.data.lastEvent.location").value("강남대리점"))
+                        .andExpect(jsonPath("$.data.events.length()").value(2))
+                        .andExpect(jsonPath("$.data.events[0].statusName").value("집화처리"));
+            }
+        }
+
+        @Test
+        @DisplayName("다른 회원은 403 ORDER_003")
+        void stranger() throws Exception {
+            Long orderId = shippedOrder();
+
+            mockMvc.perform(get("/api/v1/orders/{orderId}/tracking", orderId).header(HttpHeaders.AUTHORIZATION, stranger.bearer()))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error.code").value("ORDER_003"));
+        }
+
+        @Test
+        @DisplayName("발송 전이면 400 ORDER_012")
+        void beforeShip() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+
+            mockMvc.perform(get("/api/v1/orders/{orderId}/tracking", orderId).header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("ORDER_012"));
+        }
+
+        @Test
+        @DisplayName("송장이 아직 택배사에 없으면 404 ORDER_014")
+        void notFound() throws Exception {
+            Long orderId = shippedOrder();
+            given(trackingCacheRepository.find(any(), anyString())).willReturn(Optional.empty());
+            given(deliveryTrackingClient.track(Courier.CJ, "1234567890"))
+                    .willThrow(new BusinessException(OrderErrorCode.TRACKING_NOT_FOUND));
+
+            mockMvc.perform(get("/api/v1/orders/{orderId}/tracking", orderId).header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.error.code").value("ORDER_014"));
+        }
+
+        private Long shippedOrder() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+            registerAddress(orderId, buyer).andExpect(status().isOk());
+            ship(orderId, "CJ", "1234567890").andExpect(status().isOk());
+            return orderId;
         }
     }
 

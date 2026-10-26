@@ -128,6 +128,10 @@ app:
       client-secret: ${GOOGLE_CLIENT_SECRET:}
       # 콘솔의 "승인된 리디렉션 URI"에 등록한 값. 프론트가 구글 로그인 페이지에 보낸 값과 같아야 한다
       redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:5173/oauth/google/callback}
+  delivery-tracker:
+    # 배송 조회(tracker.delivery) 콘솔에서 발급. 비어 있으면 배송 조회 API가 ORDER_016으로 응답한다. Free 플랜 키는 21일마다 만료
+    client-id: ${DELIVERY_TRACKER_CLIENT_ID:}
+    client-secret: ${DELIVERY_TRACKER_CLIENT_SECRET:}
   sms:
     # false면 문자를 실제로 보내지 않고 서버 로그에만 출력한다. (로컬 개발용)
     enabled: ${SMS_ENABLED:false}

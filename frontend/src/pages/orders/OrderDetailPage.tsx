@@ -8,6 +8,7 @@ import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorStat
 import { formatDateTime, formatPhone, formatPoint, onlyDigits } from '@/lib/format';
 import { COURIER_LABEL, type Courier } from '@/lib/labels';
 import { orderRoleOf, orderStage, requireOrderId } from '@/lib/order-view';
+import { TrackingCard } from './TrackingCard';
 
 type Order = Schema<'OrderResponse'>;
 
@@ -389,12 +390,15 @@ function AddressView({ order }: { order: Order }) {
 }
 
 function ShipmentView({ order }: { order: Order }) {
-  return (
-    <InfoList
-      items={[
-        ['택배사', order.courier ? COURIER_LABEL[order.courier] : '-'],
-        ['송장번호', <span className="num">{order.trackingNo ?? '-'}</span>],
-      ]}
-    />
-  );
+    return (
+        <div className="flex flex-col gap-4">
+            <InfoList
+                items={[
+                    ['택배사', order.courier ? COURIER_LABEL[order.courier] : '-'],
+                    ['송장번호', <span className="num">{order.trackingNo ?? '-'}</span>],
+                ]}
+            />
+            <TrackingCard order={order} />
+        </div>
+    );
 }
