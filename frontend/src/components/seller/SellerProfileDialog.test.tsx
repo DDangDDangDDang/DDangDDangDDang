@@ -9,10 +9,14 @@ type AuctionQuery = { tab?: string; includeFailedAndCanceled?: boolean; cursor?:
 type Request = { path: string; init?: { params?: { query?: AuctionQuery } } };
 
 // 탭별 경매. 지난 경매는 유찰·취소 포함 여부에 따라 다르게 돌려준다.
-const AUCTIONS: Record<string, { auctionId: number; productName: string; status: string; startPrice: number; currentPrice: number }[]> = {
+const AUCTIONS: Record<string, { auctionId: number; productName: string; status: string; startPrice: number; currentPrice?: number }[]> = {
   ONGOING: [{ auctionId: 1, productName: '진행 중 카메라', status: 'ONGOING', startPrice: 1_000, currentPrice: 5_000 }],
   READY: [{ auctionId: 2, productName: '시작 전 시계', status: 'READY', startPrice: 3_000, currentPrice: 3_000 }],
-  PAST: [{ auctionId: 3, productName: '낙찰 렌즈', status: 'ENDED', startPrice: 1_000, currentPrice: 9_000 }],
+  PAST: [
+    { auctionId: 3, productName: '낙찰 렌즈', status: 'ENDED', startPrice: 1_000, currentPrice: 9_000 },
+    // 낙찰가가 응답에 없는 경우
+    { auctionId: 6, productName: '가격 없는 낙찰', status: 'ENDED', startPrice: 1_000 },
+  ],
   PAST_ALL: [
     { auctionId: 3, productName: '낙찰 렌즈', status: 'ENDED', startPrice: 1_000, currentPrice: 9_000 },
     { auctionId: 4, productName: '유찰 가방', status: 'FAILED', startPrice: 7_000, currentPrice: 7_000 },
@@ -85,6 +89,10 @@ describe('판매자 프로필 경매 기록 탭', () => {
     const pastList = await list();
     expect(within(pastList).getByText('낙찰 렌즈')).toBeInTheDocument();
     expect(within(pastList).queryByText('유찰 가방')).toBeNull();
+    // 낙찰가가 없으면 0 P가 아니라 -로 보여 준다.
+    const noPrice = within(pastList).getByText('가격 없는 낙찰').closest('li') as HTMLElement;
+    expect(within(noPrice).getByText('-')).toBeInTheDocument();
+    expect(noPrice).not.toHaveTextContent('0 P');
     expect(state.auctionQueries.at(-1)).toEqual({ tab: 'PAST', includeFailedAndCanceled: false, cursor: undefined, size: 10 });
 
     const checkbox = screen.getByRole('checkbox', { name: '유찰·취소 포함' });

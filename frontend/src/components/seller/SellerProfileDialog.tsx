@@ -314,6 +314,8 @@ function AuctionList({
         {auctions.map((auction) => {
           const phase = auctionPhase(auction, now);
           const priceLabel = sellerAuctionPriceLabel(auction.status);
+          // 고른 가격이 응답에 없으면 0 P처럼 보이지 않게 -로 둔다.
+          const price = priceLabel === '시작가' ? auction.startPrice : auction.currentPrice;
           return (
             <li key={auction.auctionId}>
               <Link to={`/auctions/${auction.auctionId}`} onClick={onNavigate} className="flex items-center justify-between gap-3 px-1 py-3 hover:bg-neutral-25">
@@ -330,7 +332,7 @@ function AuctionList({
                 <span className="flex shrink-0 flex-col items-end">
                   <span className="text-caption text-neutral-500">{priceLabel}</span>
                   <span className="num text-body font-bold">
-                    {formatPoint((priceLabel === '시작가' ? auction.startPrice : auction.currentPrice) ?? 0)}
+                    {price === undefined ? '-' : formatPoint(price)}
                   </span>
                   <span className="text-caption text-neutral-500">
                     입찰 <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
