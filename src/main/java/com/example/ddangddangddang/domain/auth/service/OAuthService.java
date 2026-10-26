@@ -1,10 +1,10 @@
 package com.example.ddangddangddang.domain.auth.service;
 
-import com.example.ddangddangddang.domain.auth.dto.KakaoLoginResult;
-import com.example.ddangddangddang.domain.auth.dto.KakaoSignupRequest;
-import com.example.ddangddangddang.domain.auth.dto.KakaoSignupResult;
-import com.example.ddangddangddang.domain.auth.oauth.KakaoOAuthClient;
-import com.example.ddangddangddang.domain.auth.oauth.KakaoUser;
+import com.example.ddangddangddang.domain.auth.dto.SocialLoginResult;
+import com.example.ddangddangddang.domain.auth.dto.SocialSignupRequest;
+import com.example.ddangddangddang.domain.auth.dto.SocialSignupResult;
+import com.example.ddangddangddang.domain.auth.oauth.OAuthProviderClients;
+import com.example.ddangddangddang.domain.auth.oauth.SocialUser;
 import com.example.ddangddangddang.domain.auth.oauth.OAuthErrorCode;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignup;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignupRepository;
@@ -27,14 +27,14 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 카카오 로그인·가입.
+ * 소셜 로그인·가입 (카카오, 구글). 제공자마다 다른 것은 회원 정보를 받아 오는 부분(OAuthProviderClient)뿐이다.
  *
- * 1. loginWithKakao: 카카오 계정이 연결된 회원이면 로그인, 처음이면 가입 대기 토큰을 준다.
- * 2. signupWithKakao: 추가 정보와 휴대폰 인증으로 가입한다.
- *    인증한 번호로 가입한 회원이 이미 있으면 새로 만들지 않고 그 계정에 카카오를 연결한다.
+ * 1. login: 소셜 계정이 연결된 회원이면 로그인, 처음이면 가입 대기 토큰을 준다.
+ * 2. signup: 추가 정보와 휴대폰 인증으로 가입한다.
+ *    인증한 번호로 가입한 회원이 이미 있으면 새로 만들지 않고 그 계정에 소셜 계정을 연결한다.
  *
- * 계정 연결은 방금 문자로 인증한 휴대폰 번호로만 한다. 카카오 이메일이 같다는 이유로 연결하지 않는다.
- * (남의 이메일로 카카오 계정을 만들어 그 회원 계정을 가져가는 일을 막기 위해)
+ * 계정 연결은 방금 문자로 인증한 휴대폰 번호로만 한다. 소셜 계정의 이메일이 같다는 이유로 연결하지 않는다.
+ * (남의 이메일로 소셜 계정을 만들어 그 회원 계정을 가져가는 일을 막기 위해)
  */
 @Slf4j
 @Service
@@ -44,7 +44,7 @@ public class OAuthService {
 
     static final Duration SIGNUP_TOKEN_TTL = Duration.ofMinutes(10);
 
-    private final KakaoOAuthClient kakaoOAuthClient;
+    private final OAuthProviderClients providerClients;
     private final PendingSocialSignupRepository pendingSocialSignupRepository;
     private final SocialAccountRepository socialAccountRepository;
     private final UserRepository userRepository;
@@ -53,29 +53,27 @@ public class OAuthService {
     private final AuthService authService;
     private final SignupVerificationService signupVerificationService;
 
-    public KakaoLoginResult loginWithKakao(String authorizationCode) {
-        KakaoUser kakaoUser = kakaoOAuthClient.getUser(authorizationCode);
+    public SocialLoginResult login(SocialProvider provider, String authorizationCode) {
+        SocialUser socialUser = providerClients.get(provider).getUser(authorizationCode);
 
         Optional<SocialAccount> linked =
-                socialAccountRepository.findByProviderAndProviderUserId(SocialProvider.KAKAO, kakaoUser.id());
+                socialAccountRepository.findByProviderAndProviderUserId(provider, socialUser.id());
         if (linked.isPresent()) {
-            return KakaoLoginResult.login(authService.issueTokens(findUser(linked.get().getUserId())));
+            return SocialLoginResult.login(authService.issueTokens(findUser(linked.get().getUserId())));
         }
 
         String signupToken = pendingSocialSignupRepository.save(new PendingSocialSignup(
-                SocialProvider.KAKAO, kakaoUser.id(), kakaoUser.email(), kakaoUser.nickname()), SIGNUP_TOKEN_TTL);
-        return KakaoLoginResult.signupRequired(signupToken, kakaoUser.email(), kakaoUser.nickname());
+                provider, socialUser.id(), socialUser.email(), socialUser.nickname()), SIGNUP_TOKEN_TTL);
+        return SocialLoginResult.signupRequired(signupToken, socialUser.email(), socialUser.nickname());
     }
 
     /**
-     * 카카오 가입의 휴대폰 인증번호 발송. 일반 가입과 달리 이미 가입된 번호에도 보낸다. (그 계정에 카카오를 연결하므로)
-     * 카카오 로그인을 거친 사용자(가입 대기 토큰이 있는 사용자)만 쓸 수 있다.
+     * 소셜 가입의 휴대폰 인증번호 발송. 일반 가입과 달리 이미 가입된 번호에도 보낸다. (그 계정에 소셜 계정을 연결하므로)
+     * 같은 제공자로 소셜 로그인을 거친 사용자(가입 대기 토큰이 있는 사용자)만 쓸 수 있다.
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public long sendSignupPhoneCode(String signupToken, String phoneNumber) {
-        if (pendingSocialSignupRepository.find(signupToken).isEmpty()) {
-            throw new BusinessException(OAuthErrorCode.SIGNUP_TOKEN_EXPIRED);
-        }
+    public long sendSignupPhoneCode(SocialProvider provider, String signupToken, String phoneNumber) {
+        findPending(provider, signupToken);
         return signupVerificationService.sendCodeForSocialSignup(phoneNumber);
     }
 
@@ -85,16 +83,15 @@ public class OAuthService {
      * 같은 요청이 두 번 동시에 와도 휴대폰 인증 토큰은 한 번만 쓸 수 있으므로 하나만 통과한다.
      */
     @Transactional
-    public KakaoSignupResult signupWithKakao(KakaoSignupRequest request) {
-        PendingSocialSignup pending = pendingSocialSignupRepository.find(request.signupToken())
-                .orElseThrow(() -> new BusinessException(OAuthErrorCode.SIGNUP_TOKEN_EXPIRED));
+    public SocialSignupResult signup(SocialProvider provider, SocialSignupRequest request) {
+        PendingSocialSignup pending = findPending(provider, request.signupToken());
 
         // 다른 탭에서 이미 가입을 마쳤으면 그 회원으로 로그인시킨다
         Optional<SocialAccount> alreadyLinked = socialAccountRepository.findByProviderAndProviderUserId(
                 pending.provider(), pending.providerUserId());
         if (alreadyLinked.isPresent()) {
             pendingSocialSignupRepository.delete(request.signupToken());
-            return KakaoSignupResult.of(false, authService.issueTokens(findUser(alreadyLinked.get().getUserId())));
+            return SocialSignupResult.of(false, authService.issueTokens(findUser(alreadyLinked.get().getUserId())));
         }
 
         Optional<User> samePhoneUser = userRepository.findByPhoneNumber(request.phoneNumber());
@@ -103,10 +100,10 @@ public class OAuthService {
                 : createUser(pending, request);
 
         pendingSocialSignupRepository.delete(request.signupToken());
-        return KakaoSignupResult.of(samePhoneUser.isPresent(), authService.issueTokens(user));
+        return SocialSignupResult.of(samePhoneUser.isPresent(), authService.issueTokens(user));
     }
 
-    private User linkToExistingUser(User user, PendingSocialSignup pending, KakaoSignupRequest request) {
+    private User linkToExistingUser(User user, PendingSocialSignup pending, SocialSignupRequest request) {
         if (socialAccountRepository.existsByUserIdAndProvider(user.getId(), pending.provider())) {
             throw new BusinessException(OAuthErrorCode.ALREADY_LINKED_OTHER_ACCOUNT);
         }
@@ -118,7 +115,7 @@ public class OAuthService {
         return user;
     }
 
-    private User createUser(PendingSocialSignup pending, KakaoSignupRequest request) {
+    private User createUser(PendingSocialSignup pending, SocialSignupRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new BusinessException(UserErrorCode.DUPLICATE_EMAIL);
         }
@@ -134,9 +131,19 @@ public class OAuthService {
     }
 
     /** 요청한 번호로 인증한 토큰이어야 쓴다. 번호가 다르면 VERIFY_004이고 토큰은 남는다. */
-    private void consumePhoneVerification(KakaoSignupRequest request) {
+    private void consumePhoneVerification(SocialSignupRequest request) {
         verificationService.consumeMatchingToken(
                 VerificationPurpose.SIGNUP_PHONE, request.phoneVerificationToken(), request.phoneNumber());
+    }
+
+    /**
+     * 가입 대기 정보. 없거나 만료됐으면 OAUTH_003.
+     * 다른 제공자로 받은 토큰(예: 카카오 토큰으로 구글 가입 주소 호출)도 같은 오류로 거절한다.
+     */
+    private PendingSocialSignup findPending(SocialProvider provider, String signupToken) {
+        return pendingSocialSignupRepository.find(signupToken)
+                .filter(pending -> pending.provider() == provider)
+                .orElseThrow(() -> new BusinessException(OAuthErrorCode.SIGNUP_TOKEN_EXPIRED));
     }
 
     private User findUser(Long userId) {

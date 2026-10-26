@@ -21,7 +21,7 @@ public class VerificationWebConfig implements WebMvcConfigurer {
                         "/api/v1/auth/signup/phone/code",
                         "/api/v1/auth/find-email/code",
                         "/api/v1/auth/password-reset/code",
-                        "/api/v1/auth/oauth/kakao/phone/code"
+                        "/api/v1/auth/oauth/{provider}/phone/code"
                 );
     }
 }

@@ -4,7 +4,9 @@ import {releasePushSubscription} from './push';
 import {setSession, type UserInfo} from './session';
 
 export type LoginRequest = components['schemas']['LoginRequest'];
-export type KakaoSignupRequest = components['schemas']['KakaoSignupRequest'];
+export type SocialSignupRequest = components['schemas']['SocialSignupRequest'];
+/** 소셜 로그인 제공자 (API 경로의 {provider}) */
+export type SocialProviderName = 'kakao' | 'google';
 
 /** 로그인. 리프레시 토큰은 서버가 쿠키로 내려준다. */
 export async function login(body: LoginRequest) {
@@ -16,20 +18,20 @@ export async function login(body: LoginRequest) {
 }
 
 /**
- * 카카오 로그인. 인가 코드를 보내고, 연결된 회원이면(status: LOGIN) 로그인 상태로 만든다.
- * 처음 온 사용자면(status: SIGNUP_REQUIRED) 가입 대기 토큰과 카카오 이메일·닉네임을 돌려준다.
+ * 소셜 로그인(카카오·구글). 인가 코드를 보내고, 연결된 회원이면(status: LOGIN) 로그인 상태로 만든다.
+ * 처음 온 사용자면(status: SIGNUP_REQUIRED) 가입 대기 토큰과 제공자의 이메일·닉네임을 돌려준다.
  */
-export async function kakaoLogin(code: string) {
-    const data = await call(api.POST('/api/v1/auth/oauth/kakao', {body: {code}}));
+export async function socialLogin(provider: SocialProviderName, code: string) {
+    const data = await call(api.POST('/api/v1/auth/oauth/{provider}', {params: {path: {provider}}, body: {code}}));
     if (data?.status === 'LOGIN' && data.accessToken && data.user) {
         setSession({accessToken: data.accessToken, user: data.user});
     }
     return data;
 }
 
-/** 카카오 가입(또는 같은 휴대폰 번호의 기존 계정에 연결). 가입과 동시에 로그인한다. */
-export async function kakaoSignup(body: KakaoSignupRequest) {
-    const data = await call(api.POST('/api/v1/auth/oauth/kakao/signup', {body}));
+/** 소셜 가입(또는 같은 휴대폰 번호의 기존 계정에 연결). 가입과 동시에 로그인한다. */
+export async function socialSignup(provider: SocialProviderName, body: SocialSignupRequest) {
+    const data = await call(api.POST('/api/v1/auth/oauth/{provider}/signup', {params: {path: {provider}}, body}));
     if (data?.accessToken && data.user) {
         setSession({accessToken: data.accessToken, user: data.user});
     }

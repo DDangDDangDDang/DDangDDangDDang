@@ -3,8 +3,8 @@ package com.example.ddangddangddang.domain.auth.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
-// 카카오 가입 화면의 휴대폰 인증번호 요청
-public record KakaoPhoneCodeRequest(
+// 소셜 가입 화면의 휴대폰 인증번호 요청
+public record SocialPhoneCodeRequest(
         @NotBlank(message = "가입 토큰이 필요합니다.")
         String signupToken,
 
