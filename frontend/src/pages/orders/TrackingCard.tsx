@@ -72,8 +72,12 @@ function TrackingTimeline({ lastEvent, events }: { lastEvent?: TrackingEvent; ev
     }
     // 최신 이력이 위로 오게 뒤집는다 (서버는 오래된 순)
     const latestFirst = [...events].reverse();
-    // 이력 없이 현재 상태만 오는 경우에도 단계 그림이 비지 않게 현재 상태로 그린다
-    const stepEvents = events.length > 0 ? events : lastEvent ? [lastEvent] : [];
+    // 현재 상태가 이력에 없으면(이력이 비었거나 최근 20개 밖) 단계 그림에 더한다.
+    // 배달 완료 뒤에 이벤트가 더 와도 현재 상태는 배달 완료이므로, 마지막 이력이 아니라 이력 전체에서 찾는다
+    const stepEvents =
+        lastEvent && !events.some((event) => event.time === lastEvent.time && event.statusCode === lastEvent.statusCode)
+            ? [...events, lastEvent]
+            : events;
 
     return (
         <div className="flex flex-col gap-4">

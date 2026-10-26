@@ -89,6 +89,25 @@ describe('TrackingCard', () => {
     expect(screen.queryByText(/전체 이력 보기/)).not.toBeInTheDocument();
   });
 
+  it('배달 완료 뒤에 이벤트가 더 와도 도착 단계에 배달완료를 한 번만 적는다', async () => {
+    const delivered = { time: '2026-10-26T15:00:00+09:00', statusCode: 'DELIVERED', statusName: '배달완료', location: '강남' };
+    server.tracking = () => ({
+      courier: 'CJ',
+      trackingNo: '1234567890',
+      lastEvent: delivered,
+      events: [
+        { time: '2026-10-25T20:00:00+09:00', statusCode: 'AT_PICKUP', statusName: '집화처리' },
+        delivered,
+        { time: '2026-10-26T18:00:00+09:00', statusCode: 'UNKNOWN', statusName: '반품접수' },
+      ],
+    });
+    renderCard();
+
+    const steps = within(await screen.findByRole('list', { name: '배송 단계' })).getAllByRole('listitem');
+    expect(steps[3]).toHaveAttribute('aria-current', 'step');
+    expect(steps[3]).toHaveTextContent(/^도착 \(현재\)배달완료 · 반품접수$/);
+  });
+
   it('아직 택배사에 등록 전이면(ORDER_014) 안내하고 택배사 사이트를 권한다', async () => {
     server.tracking = () => {
       throw new ApiError('ORDER_014', '아직 조회되는 배송 정보가 없습니다. 잠시 후 다시 확인해 주세요.', 404);
