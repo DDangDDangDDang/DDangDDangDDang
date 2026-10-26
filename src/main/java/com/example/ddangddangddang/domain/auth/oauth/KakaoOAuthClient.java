@@ -14,18 +14,19 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.JsonNode;
+import com.example.ddangddangddang.domain.user.entity.SocialProvider;
 
 /**
  * 카카오 로그인 REST API 클라이언트.
  * (https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api)
- *
+ * <p>
  * 1. 인가 코드 → 카카오 토큰 (kauth /oauth/token)
  * 2. 카카오 토큰 → 회원 정보 (kapi /v2/user/me)
  * 카카오 토큰은 회원 정보를 받는 데만 쓰고 저장하지 않는다. 인가 코드와 토큰은 로그에 남기지 않는다.
  */
 @Slf4j
 @Component
-public class KakaoOAuthClient {
+public class KakaoOAuthClient implements OAuthProviderClient {
 
     static final String TOKEN_PATH = "/oauth/token";
     static final String USER_PATH = "/v2/user/me";
@@ -49,8 +50,13 @@ public class KakaoOAuthClient {
         requestFactory.setReadTimeout(properties.readTimeout());
         return RestClient.builder().requestFactory(requestFactory).build();
     }
+    @Override
+    public SocialProvider provider() {
+        return SocialProvider.KAKAO;
+    }
 
-    public KakaoUser getUser(String authorizationCode) {
+    @Override
+    public SocialUser getUser(String authorizationCode) {
         if (!properties.isConfigured()) {
             throw new BusinessException(OAuthErrorCode.NOT_CONFIGURED);
         }
@@ -98,7 +104,7 @@ public class KakaoOAuthClient {
         }
     }
 
-    private KakaoUser fetchUser(String accessToken) {
+    private SocialUser fetchUser(String accessToken) {
         try {
             JsonNode response = restClient.get()
                     .uri(properties.apiBaseUrl() + USER_PATH)
@@ -115,8 +121,10 @@ public class KakaoOAuthClient {
         }
     }
 
-    /** 이메일은 유효하고(is_email_valid) 카카오가 인증한(is_email_verified) 경우에만 쓴다. */
-    private KakaoUser toKakaoUser(JsonNode response) {
+    /**
+     * 이메일은 유효하고(is_email_valid) 카카오가 인증한(is_email_verified) 경우에만 쓴다.
+     */
+    private SocialUser toKakaoUser(JsonNode response) {
         JsonNode account = response.path("kakao_account");
         String email = null;
         if (account.path("is_email_valid").asBoolean(false) && account.path("is_email_verified").asBoolean(false)) {
@@ -126,6 +134,6 @@ public class KakaoOAuthClient {
         if (nickname == null) {
             nickname = response.path("properties").path("nickname").asString(null);
         }
-        return new KakaoUser(response.path("id").asString(), email, nickname);
+        return new SocialUser(response.path("id").asString(), email, nickname);
     }
 }

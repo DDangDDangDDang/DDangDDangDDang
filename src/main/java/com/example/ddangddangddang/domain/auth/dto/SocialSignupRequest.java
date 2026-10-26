@@ -5,8 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-// 카카오 가입의 추가 정보
-public record KakaoSignupRequest(
+// 소셜 가입의 추가 정보
+public record SocialSignupRequest(
         @NotBlank(message = "가입 토큰이 필요합니다.")
         String signupToken,
 

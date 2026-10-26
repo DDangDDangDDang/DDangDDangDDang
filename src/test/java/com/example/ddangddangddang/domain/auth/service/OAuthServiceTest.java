@@ -1,13 +1,14 @@
 package com.example.ddangddangddang.domain.auth.service;
 
-import com.example.ddangddangddang.domain.auth.dto.KakaoLoginResponse;
-import com.example.ddangddangddang.domain.auth.dto.KakaoLoginResult;
-import com.example.ddangddangddang.domain.auth.dto.KakaoSignupRequest;
-import com.example.ddangddangddang.domain.auth.dto.KakaoSignupResult;
+import com.example.ddangddangddang.domain.auth.dto.SocialLoginResponse;
+import com.example.ddangddangddang.domain.auth.dto.SocialLoginResult;
+import com.example.ddangddangddang.domain.auth.dto.SocialSignupRequest;
+import com.example.ddangddangddang.domain.auth.dto.SocialSignupResult;
 import com.example.ddangddangddang.domain.auth.dto.LoginResponse;
 import com.example.ddangddangddang.domain.auth.dto.LoginResult;
-import com.example.ddangddangddang.domain.auth.oauth.KakaoOAuthClient;
-import com.example.ddangddangddang.domain.auth.oauth.KakaoUser;
+import com.example.ddangddangddang.domain.auth.oauth.OAuthProviderClient;
+import com.example.ddangddangddang.domain.auth.oauth.OAuthProviderClients;
+import com.example.ddangddangddang.domain.auth.oauth.SocialUser;
 import com.example.ddangddangddang.domain.auth.oauth.OAuthErrorCode;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignup;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignupRepository;
@@ -55,7 +56,10 @@ class OAuthServiceTest {
     private OAuthService oAuthService;
 
     @Mock
-    private KakaoOAuthClient kakaoOAuthClient;
+    private OAuthProviderClients providerClients;
+
+    @Mock
+    private OAuthProviderClient kakaoClient;
 
     @Mock
     private PendingSocialSignupRepository pendingSocialSignupRepository;
@@ -84,7 +88,8 @@ class OAuthServiceTest {
 
         @BeforeEach
         void kakaoUser() {
-            given(kakaoOAuthClient.getUser("auth-code")).willReturn(new KakaoUser(KAKAO_ID, "user@kakao.com", "카카오닉"));
+            given(providerClients.get(SocialProvider.KAKAO)).willReturn(kakaoClient);
+            given(kakaoClient.getUser("auth-code")).willReturn(new SocialUser(KAKAO_ID, "user@kakao.com", "카카오닉"));
         }
 
         @Test
@@ -96,10 +101,10 @@ class OAuthServiceTest {
             given(userRepository.findById(7L)).willReturn(Optional.of(user));
             given(authService.issueTokens(user)).willReturn(loginResult(user));
 
-            KakaoLoginResult result = oAuthService.loginWithKakao("auth-code");
+            SocialLoginResult result = oAuthService.login(SocialProvider.KAKAO, "auth-code");
 
             assertThat(result.loggedIn()).isTrue();
-            assertThat(result.response().status()).isEqualTo(KakaoLoginResponse.Status.LOGIN);
+            assertThat(result.response().status()).isEqualTo(SocialLoginResponse.Status.LOGIN);
             assertThat(result.response().user().userId()).isEqualTo(7L);
             assertThat(result.refreshToken()).isEqualTo("refresh-token");
             verify(pendingSocialSignupRepository, never()).save(any(), any());
@@ -114,10 +119,10 @@ class OAuthServiceTest {
                     new PendingSocialSignup(SocialProvider.KAKAO, KAKAO_ID, "user@kakao.com", "카카오닉"),
                     OAuthService.SIGNUP_TOKEN_TTL)).willReturn(SIGNUP_TOKEN);
 
-            KakaoLoginResult result = oAuthService.loginWithKakao("auth-code");
+            SocialLoginResult result = oAuthService.login(SocialProvider.KAKAO, "auth-code");
 
             assertThat(result.loggedIn()).isFalse();
-            assertThat(result.response().status()).isEqualTo(KakaoLoginResponse.Status.SIGNUP_REQUIRED);
+            assertThat(result.response().status()).isEqualTo(SocialLoginResponse.Status.SIGNUP_REQUIRED);
             assertThat(result.response().signupToken()).isEqualTo(SIGNUP_TOKEN);
             assertThat(result.response().email()).isEqualTo("user@kakao.com");
             assertThat(result.response().nickname()).isEqualTo("카카오닉");
@@ -129,8 +134,8 @@ class OAuthServiceTest {
     @DisplayName("카카오 가입")
     class Signup {
 
-        private final KakaoSignupRequest request =
-                new KakaoSignupRequest(SIGNUP_TOKEN, "경매왕", "user@test.com", PHONE, "phone-token");
+        private final SocialSignupRequest request =
+                new SocialSignupRequest(SIGNUP_TOKEN, "경매왕", "user@test.com", PHONE, "phone-token");
         private final PendingSocialSignup pending =
                 new PendingSocialSignup(SocialProvider.KAKAO, KAKAO_ID, "user@kakao.com", "카카오닉");
 
@@ -151,7 +156,7 @@ class OAuthServiceTest {
             });
             given(authService.issueTokens(any(User.class))).willAnswer(invocation -> loginResult(invocation.getArgument(0)));
 
-            KakaoSignupResult result = oAuthService.signupWithKakao(request);
+            SocialSignupResult result = oAuthService.signup(SocialProvider.KAKAO, request);
 
             ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
             verify(userRepository).save(userCaptor.capture());
@@ -177,7 +182,7 @@ class OAuthServiceTest {
             given(socialAccountRepository.existsByUserIdAndProvider(3L, SocialProvider.KAKAO)).willReturn(false);
             given(authService.issueTokens(existing)).willReturn(loginResult(existing));
 
-            KakaoSignupResult result = oAuthService.signupWithKakao(request);
+            SocialSignupResult result = oAuthService.signup(SocialProvider.KAKAO, request);
 
             verify(userRepository, never()).save(any());
             verify(pointService, never()).createWallet(anyLong());
@@ -195,7 +200,7 @@ class OAuthServiceTest {
             given(userRepository.findByPhoneNumber(PHONE)).willReturn(Optional.of(user(3L, "old@test.com", "기존회원", PHONE)));
             given(socialAccountRepository.existsByUserIdAndProvider(3L, SocialProvider.KAKAO)).willReturn(true);
 
-            assertThatThrownBy(() -> oAuthService.signupWithKakao(request))
+            assertThatThrownBy(() -> oAuthService.signup(SocialProvider.KAKAO, request))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode").isEqualTo(OAuthErrorCode.ALREADY_LINKED_OTHER_ACCOUNT);
             verify(verificationService, never()).consumeMatchingToken(any(), anyString(), anyString());
@@ -209,7 +214,7 @@ class OAuthServiceTest {
             given(userRepository.findByPhoneNumber(PHONE)).willReturn(Optional.empty());
             given(userRepository.existsByEmail("user@test.com")).willReturn(true);
 
-            assertThatThrownBy(() -> oAuthService.signupWithKakao(request))
+            assertThatThrownBy(() -> oAuthService.signup(SocialProvider.KAKAO, request))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode").isEqualTo(UserErrorCode.DUPLICATE_EMAIL);
             verify(verificationService, never()).consumeMatchingToken(any(), anyString(), anyString());
@@ -223,7 +228,7 @@ class OAuthServiceTest {
             given(userRepository.findByPhoneNumber(PHONE)).willReturn(Optional.empty());
             given(userRepository.existsByNickname("경매왕")).willReturn(true);
 
-            assertThatThrownBy(() -> oAuthService.signupWithKakao(request))
+            assertThatThrownBy(() -> oAuthService.signup(SocialProvider.KAKAO, request))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode").isEqualTo(UserErrorCode.DUPLICATE_NICKNAME);
             verify(verificationService, never()).consumeMatchingToken(any(), anyString(), anyString());
@@ -238,7 +243,7 @@ class OAuthServiceTest {
             willThrow(new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN))
                     .given(verificationService).consumeMatchingToken(VerificationPurpose.SIGNUP_PHONE, "phone-token", PHONE);
 
-            assertThatThrownBy(() -> oAuthService.signupWithKakao(request))
+            assertThatThrownBy(() -> oAuthService.signup(SocialProvider.KAKAO, request))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode").isEqualTo(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
             verify(userRepository, never()).save(any());
@@ -253,7 +258,7 @@ class OAuthServiceTest {
             given(userRepository.findById(5L)).willReturn(Optional.of(user));
             given(authService.issueTokens(user)).willReturn(loginResult(user));
 
-            KakaoSignupResult result = oAuthService.signupWithKakao(request);
+            SocialSignupResult result = oAuthService.signup(SocialProvider.KAKAO, request);
 
             assertThat(result.response().user().userId()).isEqualTo(5L);
             assertThat(result.response().linkedExistingAccount()).isFalse();
@@ -273,7 +278,7 @@ class OAuthServiceTest {
                     new PendingSocialSignup(SocialProvider.KAKAO, KAKAO_ID, null, null)));
             given(signupVerificationService.sendCodeForSocialSignup(PHONE)).willReturn(300L);
 
-            assertThat(oAuthService.sendSignupPhoneCode(SIGNUP_TOKEN, PHONE)).isEqualTo(300L);
+            assertThat(oAuthService.sendSignupPhoneCode(SocialProvider.KAKAO, SIGNUP_TOKEN, PHONE)).isEqualTo(300L);
             verify(signupVerificationService, never()).sendCode(anyString());
         }
 
@@ -282,7 +287,55 @@ class OAuthServiceTest {
         void expiredSignupToken() {
             given(pendingSocialSignupRepository.find("expired")).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> oAuthService.sendSignupPhoneCode("expired", PHONE))
+            assertThatThrownBy(() -> oAuthService.sendSignupPhoneCode(SocialProvider.KAKAO, "expired", PHONE))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode").isEqualTo(OAuthErrorCode.SIGNUP_TOKEN_EXPIRED);
+            verify(signupVerificationService, never()).sendCodeForSocialSignup(anyString());
+        }
+    }
+
+    @Nested
+    @DisplayName("제공자 구분")
+    class Providers {
+
+        @Test
+        @DisplayName("구글 로그인으로 처음 온 사용자는 GOOGLE 제공자로 가입 대기 정보를 저장한다")
+        void googleNewUser() {
+            OAuthProviderClient googleClient = org.mockito.Mockito.mock(OAuthProviderClient.class);
+            given(providerClients.get(SocialProvider.GOOGLE)).willReturn(googleClient);
+            given(googleClient.getUser("google-code")).willReturn(new SocialUser("google-sub", "user@gmail.com", "Google User"));
+            given(socialAccountRepository.findByProviderAndProviderUserId(SocialProvider.GOOGLE, "google-sub"))
+                    .willReturn(Optional.empty());
+            given(pendingSocialSignupRepository.save(
+                    new PendingSocialSignup(SocialProvider.GOOGLE, "google-sub", "user@gmail.com", "Google User"),
+                    OAuthService.SIGNUP_TOKEN_TTL)).willReturn(SIGNUP_TOKEN);
+
+            SocialLoginResult result = oAuthService.login(SocialProvider.GOOGLE, "google-code");
+
+            assertThat(result.response().signupToken()).isEqualTo(SIGNUP_TOKEN);
+            assertThat(result.response().email()).isEqualTo("user@gmail.com");
+        }
+
+        @Test
+        @DisplayName("다른 제공자로 받은 가입 대기 토큰으로 가입하면 OAUTH_003, 회원을 만들지 않는다")
+        void signupWithOtherProviderToken() {
+            given(pendingSocialSignupRepository.find(SIGNUP_TOKEN)).willReturn(Optional.of(
+                    new PendingSocialSignup(SocialProvider.KAKAO, KAKAO_ID, null, null)));
+
+            assertThatThrownBy(() -> oAuthService.signup(SocialProvider.GOOGLE,
+                    new SocialSignupRequest(SIGNUP_TOKEN, "경매왕", "user@test.com", PHONE, "phone-token")))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode").isEqualTo(OAuthErrorCode.SIGNUP_TOKEN_EXPIRED);
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("다른 제공자로 받은 가입 대기 토큰으로 인증번호를 요청하면 OAUTH_003, 문자를 보내지 않는다")
+        void phoneCodeWithOtherProviderToken() {
+            given(pendingSocialSignupRepository.find(SIGNUP_TOKEN)).willReturn(Optional.of(
+                    new PendingSocialSignup(SocialProvider.KAKAO, KAKAO_ID, null, null)));
+
+            assertThatThrownBy(() -> oAuthService.sendSignupPhoneCode(SocialProvider.GOOGLE, SIGNUP_TOKEN, PHONE))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode").isEqualTo(OAuthErrorCode.SIGNUP_TOKEN_EXPIRED);
             verify(signupVerificationService, never()).sendCodeForSocialSignup(anyString());
@@ -294,8 +347,8 @@ class OAuthServiceTest {
     void signupTokenExpired() {
         given(pendingSocialSignupRepository.find("expired")).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> oAuthService.signupWithKakao(
-                new KakaoSignupRequest("expired", "경매왕", "user@test.com", PHONE, "phone-token")))
+        assertThatThrownBy(() -> oAuthService.signup(SocialProvider.KAKAO, 
+                new SocialSignupRequest("expired", "경매왕", "user@test.com", PHONE, "phone-token")))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(OAuthErrorCode.SIGNUP_TOKEN_EXPIRED);
     }

@@ -1,7 +1,7 @@
 // 화면에서는 이 파일에서만 가져다 쓴다.
 export { api, call } from './client';
 export { ApiError, errorMessage, isErrorCode } from './errors';
-export { login, logout, restoreSession, replaceSession, clearSession, kakaoLogin, kakaoSignup } from './auth';
+export { login, logout, restoreSession, replaceSession, clearSession, socialLogin, socialSignup, type SocialProviderName } from './auth';
 export { currentPushSubscription, PushSaveBlocked, runPushSave } from './push';
 export { useSession, getSession, subscribeSession, type Session, type UserInfo } from './session';
 export type { components, paths, operations } from './generated/schema';

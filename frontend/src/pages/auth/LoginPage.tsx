@@ -4,7 +4,7 @@ import { errorMessage, login, useSession } from '@/api';
 import { AuthCard } from '@/components/layout/PageHeader';
 import { Button, Input, Notice } from '@/components/ui';
 import { safeRedirect } from '@/lib/redirect';
-import { KakaoLoginButton, OrDivider } from '@/components/auth/KakaoLoginButton';
+import { OrDivider, SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
 /** 다른 화면에서 로그인 화면으로 보낼 때 함께 보여줄 안내 (예: 비밀번호 변경 완료) */
 export type LoginLocationState = { notice?: string } | null;
@@ -74,7 +74,7 @@ export function LoginPage() {
         </Button>
       </form>
       <OrDivider />
-      <KakaoLoginButton redirect={redirect} />
+      <SocialLoginButtons redirect={redirect} />
     </AuthCard>
   );
 }

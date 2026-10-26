@@ -57,9 +57,9 @@ class KakaoOAuthClientTest {
                                            "profile": {"nickname": "카카오닉"}}}
                         """, MediaType.APPLICATION_JSON));
 
-        KakaoUser user = client.getUser("auth-code");
+        SocialUser user = client.getUser("auth-code");
 
-        assertThat(user).isEqualTo(new KakaoUser("1234567890", "user@kakao.com", "카카오닉"));
+        assertThat(user).isEqualTo(new SocialUser("1234567890", "user@kakao.com", "카카오닉"));
         server.verify();
     }
 
@@ -82,7 +82,7 @@ class KakaoOAuthClientTest {
                 {"id": 1, "kakao_account": {}}
                 """);
 
-        KakaoUser user = client.getUser("auth-code");
+        SocialUser user = client.getUser("auth-code");
 
         assertThat(user.id()).isEqualTo("1");
         assertThat(user.email()).isNull();

@@ -5,7 +5,7 @@ package com.example.ddangddangddang.domain.auth.oauth;
  * @param email     카카오가 검증한 이메일만 담는다.
  * @param nickname  카카오 닉네임
  */
-public record KakaoUser(
+public record SocialUser(
         String id,
         String email,
         String nickname

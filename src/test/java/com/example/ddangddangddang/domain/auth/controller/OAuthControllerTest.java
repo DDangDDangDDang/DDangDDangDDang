@@ -1,7 +1,8 @@
 package com.example.ddangddangddang.domain.auth.controller;
 
-import com.example.ddangddangddang.domain.auth.oauth.KakaoOAuthClient;
-import com.example.ddangddangddang.domain.auth.oauth.KakaoUser;
+import com.example.ddangddangddang.domain.auth.oauth.OAuthProviderClient;
+import com.example.ddangddangddang.domain.auth.oauth.OAuthProviderClients;
+import com.example.ddangddangddang.domain.auth.oauth.SocialUser;
 import com.example.ddangddangddang.domain.auth.oauth.OAuthErrorCode;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignup;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignupRepository;
@@ -35,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -60,9 +62,12 @@ class OAuthControllerTest {
     @Autowired
     private PointWalletRepository pointWalletRepository;
 
-    // 실제 카카오·Redis 없이 실행하기 위해 Mock으로 대체
+    // 실제 카카오·구글·Redis 없이 실행하기 위해 Mock으로 대체
     @MockitoBean
-    private KakaoOAuthClient kakaoOAuthClient;
+    private OAuthProviderClients providerClients;
+
+    private final OAuthProviderClient kakaoOAuthClient = mock(OAuthProviderClient.class);
+    private final OAuthProviderClient googleOAuthClient = mock(OAuthProviderClient.class);
 
     @MockitoBean
     private PendingSocialSignupRepository pendingSocialSignupRepository;
@@ -83,6 +88,8 @@ class OAuthControllerTest {
     @BeforeEach
     void stubPhoneVerification() {
         SignupFixture.stubPhoneVerification(verificationService);
+        given(providerClients.get(SocialProvider.KAKAO)).willReturn(kakaoOAuthClient);
+        given(providerClients.get(SocialProvider.GOOGLE)).willReturn(googleOAuthClient);
     }
 
     @Nested
@@ -94,7 +101,7 @@ class OAuthControllerTest {
         void linkedUser() throws Exception {
             User user = userRepository.save(User.createSocial("user@test.com", "경매왕", "01012345678"));
             socialAccountRepository.save(SocialAccount.link(user.getId(), SocialProvider.KAKAO, KAKAO_ID));
-            given(kakaoOAuthClient.getUser("auth-code")).willReturn(new KakaoUser(KAKAO_ID, null, null));
+            given(kakaoOAuthClient.getUser("auth-code")).willReturn(new SocialUser(KAKAO_ID, null, null));
 
             mockMvc.perform(post("/api/v1/auth/oauth/kakao")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -110,7 +117,7 @@ class OAuthControllerTest {
         @Test
         @DisplayName("처음 온 사용자면 가입 대기 토큰과 카카오 이메일·닉네임을 주고, 쿠키는 내려주지 않는다")
         void newUser() throws Exception {
-            given(kakaoOAuthClient.getUser("auth-code")).willReturn(new KakaoUser(KAKAO_ID, "user@kakao.com", "카카오닉"));
+            given(kakaoOAuthClient.getUser("auth-code")).willReturn(new SocialUser(KAKAO_ID, "user@kakao.com", "카카오닉"));
             given(pendingSocialSignupRepository.save(any(), any())).willReturn("signup-token");
 
             mockMvc.perform(post("/api/v1/auth/oauth/kakao")
@@ -144,6 +151,51 @@ class OAuthControllerTest {
                             .content("{\"code\": \"auth-code\"}"))
                     .andExpect(status().isServiceUnavailable())
                     .andExpect(jsonPath("$.error.code").value("OAUTH_005"));
+        }
+    }
+
+    @Nested
+    @DisplayName("구글 / 지원하지 않는 제공자")
+    class Providers {
+
+        @Test
+        @DisplayName("구글로 처음 온 사용자는 POST /oauth/google 로 가입 대기 토큰과 구글 이메일·이름을 받는다")
+        void googleNewUser() throws Exception {
+            given(googleOAuthClient.getUser("google-code")).willReturn(new SocialUser("google-sub", "user@gmail.com", "Google User"));
+            given(pendingSocialSignupRepository.save(any(), any())).willReturn("google-signup-token");
+
+            mockMvc.perform(post("/api/v1/auth/oauth/google")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"code\": \"google-code\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("SIGNUP_REQUIRED"))
+                    .andExpect(jsonPath("$.data.signupToken").value("google-signup-token"))
+                    .andExpect(jsonPath("$.data.email").value("user@gmail.com"));
+        }
+
+        @Test
+        @DisplayName("구글 계정이 연결된 회원이면 로그인된다")
+        void googleLinkedUser() throws Exception {
+            User user = userRepository.save(User.createSocial("g@test.com", "구글회원", "01077778888"));
+            socialAccountRepository.save(SocialAccount.link(user.getId(), SocialProvider.GOOGLE, "google-sub"));
+            given(googleOAuthClient.getUser("google-code")).willReturn(new SocialUser("google-sub", "g@test.com", null));
+
+            mockMvc.perform(post("/api/v1/auth/oauth/google")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"code\": \"google-code\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("LOGIN"))
+                    .andExpect(jsonPath("$.data.user.userId").value(user.getId()));
+        }
+
+        @Test
+        @DisplayName("지원하지 않는 제공자면 400 OAUTH_006")
+        void unsupportedProvider() throws Exception {
+            mockMvc.perform(post("/api/v1/auth/oauth/naver")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"code\": \"code\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("OAUTH_006"));
         }
     }
 

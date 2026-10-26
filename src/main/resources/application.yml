@@ -122,6 +122,12 @@ app:
       client-secret: ${KAKAO_CLIENT_SECRET:}
       # 카카오 콘솔에 등록한 Redirect URI. 프론트가 카카오 로그인 페이지에 보낸 값과 같아야 한다
       redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao/callback}
+    google:
+      # Google Cloud 콘솔 > API 및 서비스 > 사용자 인증 정보 > OAuth 클라이언트 ID(웹). 비어 있으면 구글 로그인 API가 OAUTH_005로 응답한다
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+      # 콘솔의 "승인된 리디렉션 URI"에 등록한 값. 프론트가 구글 로그인 페이지에 보낸 값과 같아야 한다
+      redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:5173/oauth/google/callback}
   sms:
     # false면 문자를 실제로 보내지 않고 서버 로그에만 출력한다. (로컬 개발용)
     enabled: ${SMS_ENABLED:false}
