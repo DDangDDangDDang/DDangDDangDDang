@@ -9,6 +9,7 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 입찰의 트랜잭션 범위를 정하는 곳. 이 클래스에는 @Transactional을 붙이지 않는다.
@@ -23,6 +24,9 @@ import java.util.Optional;
 public class BidFacade {
 
     static final int MAX_ATTEMPTS = 5;
+    /** 재시도 전 기다리는 시간(밀리초). 동시에 실패한 입찰들이 같은 순간 다시 부딪히지 않게 무작위로 흩는다 */
+    private static final int MIN_BACKOFF_MS = 10;
+    private static final int MAX_BACKOFF_MS = 50;
 
     private final BidService bidService;
 
@@ -37,7 +41,19 @@ public class BidFacade {
                 // 락 대기 시간 초과나 데드락 감지로 롤백된 경우. 락 순서를 지키므로 드물지만 재시도한다
                 log.warn("입찰 락 충돌, 재시도 auctionId={}, attempt={}", auctionId, attempt, e);
             }
+            if (attempt < MAX_ATTEMPTS) {
+                backoff();
+            }
         }
         throw new BusinessException(AuctionErrorCode.BID_CONFLICT);
+    }
+
+    private void backoff() {
+        try {
+            Thread.sleep(ThreadLocalRandom.current().nextInt(MIN_BACKOFF_MS, MAX_BACKOFF_MS + 1));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(AuctionErrorCode.BID_CONFLICT);
+        }
     }
 }

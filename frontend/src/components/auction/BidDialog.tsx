@@ -4,12 +4,14 @@ import { Link } from 'react-router';
 import { api, call, errorMessage, useSession } from '@/api';
 import { Button, buttonVariants, Dialog, ErrorState, Input, Notice, Skeleton } from '@/components/ui';
 import { auctionPhase, formatAmountInput, parseAmount } from '@/lib/auction';
-import { BID_STEPS, minimumBid, validateBid } from '@/lib/bid';
+import { bidPresets, minimumBid, validateBid } from '@/lib/bid';
 import { cn } from '@/lib/cn';
 import { formatNumber, formatPoint } from '@/lib/format';
 import { auctionKey, useAuctionRealtime } from '@/lib/use-auction-realtime';
+import { useMyBid } from '@/lib/use-my-bid';
 import { useNow } from '@/lib/use-now';
 import { AuctionPhaseBadge, AuctionTime } from './AuctionBits';
+import { MyBidStatus } from './MyBidStatus';
 
 /** 입찰 창이 열려 있는 동안 이 간격으로도 다시 불러온다. (실시간 메시지가 끊겼을 때를 대비한 보조) */
 const REFRESH_MS = 10_000;
@@ -63,6 +65,8 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
   const [confirmBuyNow, setConfirmBuyNow] = useState(false);
   const [result, setResult] = useState<{ kind: 'bid'; amount: number; extended: boolean } | { kind: 'buy'; orderId?: number; price: number }>();
   useAuctionRealtime(auctionId, realtime);
+  // 창을 열었을 때 이미 최고 입찰 중인지·밀렸는지 보여준다. (경매 키 아래라 입찰·실시간 메시지 때 함께 다시 불러온다)
+  const myBid = useMyBid(auctionId);
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: auctionKey(auctionId) });
@@ -176,11 +180,11 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
       ) : ongoing ? (
         <>
           <div role="group" aria-label="금액 빠르게 정하기" className="grid grid-cols-4 gap-2">
-            {BID_STEPS.map((step) => {
-              const preset = min + unit * step;
+            {/* [+N]은 기준가(현재가, 입찰이 없으면 시작가) + N. 입찰 단위를 한 번 더 더하지 않는다. */}
+            {bidPresets(auction).map(({ label, amount: preset }) => {
               return (
                 <button
-                  key={step}
+                  key={label}
                   type="button"
                   aria-pressed={value === preset}
                   onClick={() => {
@@ -194,7 +198,7 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
                     value === preset ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-neutral-200 hover:bg-neutral-25',
                   )}
                 >
-                  {step === 0 ? '최소' : `+${formatNumber(unit * step)}`}
+                  {label}
                 </button>
               );
             })}
@@ -206,7 +210,7 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
             placeholder={formatNumber(min)}
             value={formatAmountInput(amount)}
             error={error}
-            hint={`${formatPoint(min)}부터 입찰할 수 있어요.`}
+            hint={`${formatPoint(min)}부터 ${formatPoint(unit)} 단위로 입찰할 수 있어요.`}
             onChange={(e) => {
               setAmount(e.target.value);
               setError(undefined);
@@ -226,13 +230,15 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
             </Notice>
           )}
           {bid.isError && <Notice tone="error">{errorMessage(bid.error)}</Notice>}
+          {/* 이 창에서 방금 입찰했으면 아래 결과 안내가 대신한다. */}
+          {result === undefined && <MyBidStatus myBid={myBid.data} />}
           {result?.kind === 'bid' &&
             // 그 뒤 실시간으로 더 높은 입찰이 들어오면 최고 입찰자 안내 대신 밀렸다고 알린다.
             ((auction.currentPrice ?? 0) > result.amount ? (
               <Notice>{formatPoint(result.amount)} 입찰보다 높은 입찰이 들어왔어요. 다시 입찰할 수 있어요.</Notice>
             ) : (
               <Notice tone="success">
-                {formatPoint(result.amount)}로 입찰했어요. 지금 최고 입찰자예요.{result.extended && ' 마감 직전 입찰이라 마감이 30초 늘어났어요.'}
+                {formatPoint(result.amount)}로 입찰했어요. 지금 최고 입찰자예요.{result.extended && ' 마감 직전 입찰이라 남은 시간이 30초로 늘어났어요.'}
               </Notice>
             ))}
           {confirmAmount !== undefined ? (

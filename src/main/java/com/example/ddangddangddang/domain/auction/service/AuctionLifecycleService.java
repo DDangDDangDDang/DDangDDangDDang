@@ -42,10 +42,15 @@ public class AuctionLifecycleService {
         }
     }
 
-    //경매 마감 (ONGOING-> ENDED/FAILED) + 종료 이벤트 발생
+    /**
+     * 경매 마감 (ONGOING-> ENDED/FAILED) + 종료 이벤트 발생. 낙찰이면 같은 트랜잭션에서 정산한다 (AuctionSettlementListener)
+     *
+     * 경매 행을 먼저 잠근다. 정산이 낙찰자 지갑을 잠그므로 잠그는 순서가 "경매 → 지갑"이 되어 입찰·즉시구매와 같아진다.
+     * 잠그지 않으면 "지갑 → (커밋 때) 경매" 순서가 되어, 마감 순간 들어온 입찰(경매 → 지갑)과 서로 기다리는 데드락이 날 수 있다.
+     */
     @Transactional
     public void closeAuction(Long auctionId){
-        Auction auction = auctionRepository.findById(auctionId).orElse(null);
+        Auction auction = auctionRepository.findByIdForUpdate(auctionId).orElse(null);
         //스케줄러가 목록을 찾은뒤 상태가 다시 바뀌었을수 있으니 재검증
         //ONGOING상태가 아니면 마감되지 않음
         if (auction == null || auction.getStatus() != AuctionStatus.ONGOING){

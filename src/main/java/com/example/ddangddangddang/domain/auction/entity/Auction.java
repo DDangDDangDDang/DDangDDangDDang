@@ -24,9 +24,14 @@ indexes = {
 })
 public class Auction extends BaseTimeEntity {
 
-    //연장 규칙(기본 마감 30초전 이내 입찰시 30초 연장,최대 횟수 없음)
+    //연장 규칙: 마감 30초 전 이내에 입찰하면 남은 시간이 다시 30초가 되게 마감을 미룬다 (입찰 시각 + 30초, 최대 횟수 없음)
+    //예) 10초 남았을 때 입찰 → 마감이 20초 늦춰져 30초 남음. 남은 시간이 30초를 넘게 늘어나지는 않는다
     private static final int BEFORE_DEADLINE_SECONDS = 30; //마감 몇초전
-    private static final int EXTENSION_SECONDS =30; //몇 초 연장
+    private static final int EXTENSION_SECONDS =30; //입찰 후 남겨 둘 시간
+
+    //마감 재시도 규칙: 실패할 때마다 다음 시도까지 1초, 2초, 4초 ... 최대 5분을 기다리고, 이 횟수만큼 실패하면 멈춘다
+    public static final int MAX_CLOSE_FAILURES = 10;
+    private static final long MAX_CLOSE_RETRY_DELAY_SECONDS = 300;
 
 
     @Id
@@ -76,6 +81,13 @@ public class Auction extends BaseTimeEntity {
     @Column(nullable = false)
     private int extendCount;
 
+    //마감(정산 포함)에 실패한 횟수. MAX_CLOSE_FAILURES에 닿으면 스케줄러가 더 시도하지 않는다 (AuctionCloseRetryService)
+    @Column(nullable = false)
+    private int closeFailCount;
+
+    //마감에 실패했을 때 다음으로 시도할 시각. 실패한 적 없으면 null
+    private LocalDateTime nextCloseAttemptAt;
+
     //경매 생성(현재가==시작가,입찰수 =0,status=READY로 시작)
     public Auction(Product product, LiveStream liveStream, Long startPrice, Long bidUnit,
                    Long buyNowPrice, LocalDateTime startAt, LocalDateTime endAt) {
@@ -124,7 +136,11 @@ public class Auction extends BaseTimeEntity {
         if (bidAt.isBefore(this.endAt.minusSeconds(BEFORE_DEADLINE_SECONDS))){
             return false;
         }
-        this.endAt=this.endAt.plusSeconds(EXTENSION_SECONDS);
+        LocalDateTime newEndAt = endAtAfterBid(bidAt);
+        if (!newEndAt.isAfter(this.endAt)) {
+            return false;
+        }
+        this.endAt = newEndAt;
         this.extendCount++;
         return true;
     }
@@ -154,17 +170,43 @@ public class Auction extends BaseTimeEntity {
         if (this.buyNowPrice != null && amount >= this.buyNowPrice) {
             throw new BusinessException(AuctionErrorCode.BID_REACHES_BUY_NOW);
         }
+        if (this.bidUnit > 0 && (amount - bidBasePrice()) % this.bidUnit != 0) {
+            throw new BusinessException(AuctionErrorCode.BID_UNIT_MISMATCH);
+        }
     }
 
     /**
-     * 지금 입찰하면 바뀔 종료 시각. 연장 규칙은 extendEndAtIfNeeded와 같다 (마감 30초 전 이내면 30초 연장).
+     * 입찰 금액의 기준. 첫 입찰은 시작가, 이후는 현재가에서 입찰 단위만큼씩 올라간다.
+     * (현재가를 기준으로 삼아, 규칙 도입 전에 단위와 맞지 않게 들어간 입찰이 있어도 다음 입찰이 막히지 않는다)
+     */
+    public long bidBasePrice() {
+        return this.bidCount == 0 ? this.startPrice : this.currentPrice;
+    }
+
+    // ===== 마감 재시도 =====
+
+    /**
+     * 마감(정산 포함)에 실패했다. 다음 시도까지 기다릴 시간을 늘린다. (1초, 2초, 4초 ... 최대 5분)
+     * @return 이번 실패로 재시도 한도에 닿았으면 true (스케줄러가 더 시도하지 않음)
+     */
+    public boolean recordCloseFailure(LocalDateTime now) {
+        this.closeFailCount++;
+        long delaySeconds = Math.min(1L << Math.min(this.closeFailCount - 1, 20), MAX_CLOSE_RETRY_DELAY_SECONDS);
+        this.nextCloseAttemptAt = now.plusSeconds(delaySeconds);
+        return this.closeFailCount >= MAX_CLOSE_FAILURES;
+    }
+
+    /**
+     * 지금 입찰하면 바뀔 종료 시각. 마감 30초 전 이내면 입찰 시각 + 30초 (남은 시간이 다시 30초가 됨).
+     * 정확히 30초 남았을 때는 그대로라 연장으로 보지 않는다. 마감을 앞당기는 일은 없다.
      * 엔티티를 바꾸지 않고 값만 계산한다. 조건부 UPDATE에 이 값을 넣어 원자적으로 반영하기 위해서다.
      */
     public LocalDateTime endAtAfterBid(LocalDateTime bidAt) {
         if (bidAt.isBefore(this.endAt.minusSeconds(BEFORE_DEADLINE_SECONDS))) {
             return this.endAt;
         }
-        return this.endAt.plusSeconds(EXTENSION_SECONDS);
+        LocalDateTime refreshed = bidAt.plusSeconds(EXTENSION_SECONDS);
+        return refreshed.isAfter(this.endAt) ? refreshed : this.endAt;
     }
 
     /** 즉시구매 가능 여부 검증 */

@@ -56,12 +56,13 @@ export type LiveAuctionChangedMessage = {
 
 /**
  * 경매 한 건의 변경 (`/topic/auctions/{id}`). 손님도 받는다.
- * - 입찰이 반영됨: bidderId·amount·bidCount·endAt·extended (마감 30초 전 안쪽 입찰이면 endAt이 늘어남)
- * - 경매가 끝남: result(ENDED 낙찰, FAILED 유찰)·winnerId·finalPrice
+ * - 입찰이 반영됨: bidderNickname(가린 닉네임)·amount·bidCount·endAt·extended (마감 30초 전 안쪽 입찰이면 endAt이 입찰 시각 + 30초로 늘어남)
+ * - 경매가 끝남: result(ENDED 낙찰, FAILED 유찰)·finalPrice
+ * 손님도 받으므로 회원 번호는 오지 않는다. 내가 최고 입찰자인지는 GET /auctions/{id}/bids/me (useMyBid)로 확인한다.
  */
 export type AuctionRealtimeMessage =
-  | { auctionId: number; bidderId: number; amount: number; bidCount: number; endAt: string; extended: boolean }
-  | { auctionId: number; result: 'ENDED' | 'FAILED'; sellerId: number; winnerId: number | null; finalPrice: number | null; productName: string };
+  | { auctionId: number; bidderNickname: string; amount: number; bidCount: number; endAt: string; extended: boolean }
+  | { auctionId: number; result: 'ENDED' | 'FAILED'; finalPrice: number | null; productName: string };
 
 /** AI가 확인이 필요하다고 본 채팅 (`/user/queue/moderation`). 방송 판매자에게만 온다. */
 export type ModerationAlert = {

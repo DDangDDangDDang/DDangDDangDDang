@@ -1,10 +1,10 @@
 package com.example.ddangddangddang.domain.auction.service;
 
-import com.example.ddangddangddang.domain.auction.dto.response.BidHistoryResponse;
 import com.example.ddangddangddang.domain.auction.dto.response.BidResponse;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.entity.Bid;
+import com.example.ddangddangddang.domain.auction.entity.BidStatus;
 import com.example.ddangddangddang.domain.auction.event.BidOutbidEvent;
 import com.example.ddangddangddang.domain.auction.event.BidPlacedEvent;
 import com.example.ddangddangddang.domain.auction.event.LiveAuctionEvent;
@@ -12,16 +12,13 @@ import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.auction.repository.BidRepository;
 import com.example.ddangddangddang.domain.point.service.PointService;
-import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -35,8 +32,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class BidService {
-
-    private static final int MAX_PAGE_SIZE = 100;
 
     private final AuctionRepository auctionRepository;
     private final BidRepository bidRepository;
@@ -85,6 +80,8 @@ public class BidService {
             pointService.replaceHold(bidderId, amount, prevBidderId, prevAmount, auctionId);
         }
 
+        // 밀려난 최고 입찰을 OUTBID로 바꾸고 새 입찰을 ACTIVE로 저장한다 (경매 행은 위 UPDATE로 잠겨 있다)
+        bidRepository.changeStatus(auctionId, BidStatus.ACTIVE, BidStatus.OUTBID);
         Bid bid = bidRepository.save(Bid.create(auctionId, bidderId, amount));
         eventPublisher.publishEvent(new BidPlacedEvent(auctionId, bidderId, amount, nextBidCount, newEndAt, extended));
         // 최고 입찰자에서 밀려난 회원에게 알린다
@@ -97,14 +94,5 @@ public class BidService {
         }
 
         return Optional.of(new BidResponse(bid.getId(), auctionId, amount, nextBidCount, newEndAt, extended));
-    }
-
-    public CursorResponse<BidHistoryResponse> getBids(Long auctionId, Long cursor, int size) {
-        if (!auctionRepository.existsById(auctionId)) {
-            throw new BusinessException(AuctionErrorCode.NOT_FOUND);
-        }
-        int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
-        List<Bid> fetched = bidRepository.findByCursor(auctionId, cursor, PageRequest.of(0, pageSize + 1));
-        return CursorResponse.of(fetched, pageSize, BidHistoryResponse::from, Bid::getId);
     }
 }
