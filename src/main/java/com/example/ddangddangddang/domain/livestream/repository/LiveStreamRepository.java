@@ -63,15 +63,26 @@ public interface LiveStreamRepository extends JpaRepository<LiveStream, Long> {
                  or s.sellerId in (select u.id from User u where lower(u.nickname) like :pattern escape '!'))
             """;
 
-    // 방송 중: 최근 시작한 순
+    // 방송 중: 최근 시작한 순. excludedIds(맨 위에 따로 올린 파워 판매자 방송)는 빼고, 뺄 것이 없으면 존재하지 않는 ID(-1) 하나를 넘긴다.
     @Query("select s from LiveStream s where s.status = com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus.LIVE and "
             + SEARCH_CONDITION + """
+            and s.id not in :excludedIds
             and (:cursorAt is null or s.startedAt < :cursorAt or (s.startedAt = :cursorAt and s.id < :cursorId))
             order by s.startedAt desc, s.id desc
             """)
     List<LiveStream> findLiveList(@Param("sellerId") Long sellerId, @Param("pattern") String pattern,
+                                  @Param("excludedIds") Collection<Long> excludedIds,
                                   @Param("cursorAt") LocalDateTime cursorAt, @Param("cursorId") Long cursorId,
                                   Pageable pageable);
+
+    // 방송 중인 파워 판매자 방송: 라이브 목록 맨 위에 올린다. 검색 조건은 목록과 같고, 최근 시작한 순
+    @Query("select s from LiveStream s where s.status = com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus.LIVE and "
+            + SEARCH_CONDITION + """
+            and s.sellerId in :powerSellerIds
+            order by s.startedAt desc, s.id desc
+            """)
+    List<LiveStream> findPromotedLive(@Param("sellerId") Long sellerId, @Param("pattern") String pattern,
+                                      @Param("powerSellerIds") Collection<Long> powerSellerIds, Pageable pageable);
 
     // 방송 예정: 시작 예정 시간이 가까운 순 (시작 예정 시간을 정하지 않은 방송은 제외)
     @Query("select s from LiveStream s where s.status = com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus.SCHEDULED"

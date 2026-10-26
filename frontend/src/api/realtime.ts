@@ -18,15 +18,28 @@ import { getAccessToken } from './session';
  * - 서버가 ERROR 프레임으로 끊으면(토큰 만료 등) 다음 연결 전에 토큰을 재발급한다.
  */
 
-/** 방송 채팅 (`/topic/live-streams/{id}/chat`). SYSTEM은 서버 안내(방송 종료 등)로 senderId, nickname이 null */
+/**
+ * 방송 채팅 (`/topic/live-streams/{id}/chat`). SYSTEM은 서버 안내(방송 종료 등)로 senderId, nickname이 null
+ * DONATION은 도네이션 포인트 선물: 선물한 사람(senderId·nickname), 포인트(amount), 함께 보낸 한마디(content, 없으면 null)
+ * BID는 방송에 올라간 경매의 입찰: 입찰자(senderId·nickname), 입찰 금액(amount), 직전 현재가(previousAmount), 경매(auctionId·productName)
+ * AUCTION_SOLD는 낙찰: 낙찰자(senderId·nickname), 낙찰가(amount), 경매(auctionId·productName)
+ * BID·AUCTION_SOLD의 content는 채팅에 그대로 보여 줄 안내 문장이다.
+ */
 export type ChatMessage = {
   messageId: string;
-  type: 'CHAT' | 'SYSTEM';
+  type: 'CHAT' | 'SYSTEM' | 'DONATION' | 'BID' | 'AUCTION_SOLD';
   liveStreamId: number;
   senderId: number | null;
   nickname: string | null;
-  content: string;
+  content: string | null;
   sentAt: string;
+  /** DONATION·BID·AUCTION_SOLD에만 있다 */
+  amount?: number | null;
+  /** BID에만 있다 (첫 입찰이면 시작가) */
+  previousAmount?: number | null;
+  /** BID·AUCTION_SOLD에만 있다 */
+  auctionId?: number | null;
+  productName?: string | null;
 };
 
 /** 방송 정보 변경 (`/topic/live-streams/{id}`). 바뀐 값만이 아니라 전체 정보 */

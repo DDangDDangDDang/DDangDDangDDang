@@ -74,4 +74,14 @@ public class User extends BaseTimeEntity {
     public void changeNickname(String nickname) {
         this.nickname = nickname;
     }
+
+    /** 개발용 관리자 계정 생성 (DevAdminInitializer). 운영에서는 쓰지 않는다 */
+    public static User createAdmin(String email, String encodedPassword, String nickname) {
+        return new User(email, encodedPassword, nickname, null, UserRole.ADMIN);
+    }
+
+    /** 관리자 권한 부여. 이미 로그인한 상태면 다시 로그인해야 반영된다 (권한이 토큰에 들어 있음) */
+    public void grantAdmin() {
+        this.role = UserRole.ADMIN;
+    }
 }

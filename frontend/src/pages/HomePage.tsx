@@ -1,59 +1,45 @@
 import { useQuery } from "@tanstack/react-query";
-import { Gavel } from "lucide-react";
+import { ChevronRight, Eye } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { api, call, errorMessage, useSession, type Schema } from "@/api";
+import { api, call, errorMessage, type Schema } from "@/api";
+import { AdBanner } from "@/components/ad/AdBanner";
 import {
   AuctionCard,
   AuctionCardSkeleton,
 } from "@/components/auction/AuctionBits";
+import { Hashtags } from "@/components/live/Hashtags";
 import {
   LiveStreamCard,
   LiveStreamCardSkeleton,
+  LiveThumbnail,
 } from "@/components/live/LiveStreamCard";
+import { RecordedBadge } from "@/components/live/RecordedBadge";
+import { SellerAvatar } from "@/components/seller/SellerAvatar";
 import {
+  Badge,
   buttonVariants,
   EmptyState,
   ErrorState,
   Skeleton,
 } from "@/components/ui";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatNumber } from "@/lib/format";
+
+type Card = Schema<"LiveStreamCard">;
 
 /** 섹션별로 보여줄 방송 수 (한 줄 4개씩 2줄) */
 const SECTION_SIZE = 8;
 
 /**
- * 홈: 인기 라이브 · 시청자 급상승 · 방송 예정 · 인기 경매.
- * 로그인하지 않아도 방송·경매를 둘러볼 수 있다. 로그인 전에는 맨 위에 서비스 소개와 로그인 안내를 함께 보여준다.
+ * 홈: 대표 라이브 · 배너 광고 · 인기 라이브 · 시청자 급상승 · 방송 예정 · 인기 경매.
+ * 로그인하지 않아도 방송·경매를 둘러볼 수 있다. (로그인·회원가입은 헤더 오른쪽 위)
  */
 export function HomePage() {
-  const session = useSession();
   return (
     <div className="flex flex-col gap-12">
-      {!session && <GuestIntro />}
       <LiveHome />
       <PopularAuctions />
     </div>
-  );
-}
-
-/** 로그인 전 맨 위 소개. 아래 방송·경매는 로그인 없이도 볼 수 있다. 로그인·회원가입 버튼은 헤더 오른쪽 위에만 둔다. */
-function GuestIntro() {
-  return (
-    <section className="flex items-center gap-6 rounded-lg border border-neutral-100 bg-neutral-0 px-8 py-8 shadow-sm">
-      <span className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-neutral-0">
-        <Gavel className="size-7" aria-hidden="true" />
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <h1 className="text-title-lg font-bold tracking-tight">
-          라이브로 보고, 실시간으로 입찰하세요
-        </h1>
-        <p className="text-body text-neutral-500">
-          방송과 경매는 로그인 없이 둘러볼 수 있어요. 채팅과 입찰은 오른쪽
-          위에서 로그인한 뒤에 할 수 있어요.
-        </p>
-      </div>
-    </section>
   );
 }
 
@@ -71,19 +57,14 @@ function LiveHome() {
   if (query.isPending) {
     return (
       <div className="flex flex-col gap-12">
+        <Skeleton className="aspect-[21/8] rounded-lg" />
+        <AdBanner placement="home-top" />
         <Section title="지금 인기 라이브">
           <CardGrid>
             {Array.from({ length: 4 }, (_, i) => (
               <LiveStreamCardSkeleton key={i} />
             ))}
           </CardGrid>
-        </Section>
-        <Section title="방송 예정">
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: 2 }, (_, i) => (
-              <Skeleton key={i} className="h-20" />
-            ))}
-          </div>
         </Section>
       </div>
     );
@@ -101,43 +82,40 @@ function LiveHome() {
   const mostViewed = query.data?.mostViewed ?? [];
   const surging = query.data?.surging ?? [];
   const upcoming = query.data?.upcoming ?? [];
-
-  if (
-    mostViewed.length === 0 &&
-    surging.length === 0 &&
-    upcoming.length === 0
-  ) {
-    return (
-      <EmptyState
-        title="지금은 진행 중인 방송이 없어요"
-        description="판매자가 방송을 시작하거나 예약하면 여기에 나와요."
-        action={
-          <Link
-            to="/lives?status=ENDED"
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            지난 방송 보기
-          </Link>
-        }
-      />
-    );
-  }
+  const [featured, ...others] = mostViewed;
 
   return (
     <div className="flex flex-col gap-12">
-      <Section title="지금 인기 라이브" moreTo="/lives">
-        {mostViewed.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-neutral-200 px-5 py-8 text-center text-body text-neutral-500">
-            지금 라이브 중인 방송이 없어요. 아래 예정된 방송을 확인해 보세요.
-          </p>
-        ) : (
+      {featured ? (
+        <FeaturedLive card={featured} others={others.slice(0, 5)} />
+      ) : (
+        <div className="rounded-lg border border-neutral-100 bg-neutral-0">
+          <EmptyState
+            title="지금은 라이브 중인 방송이 없어요"
+            description="판매자가 방송을 시작하면 여기에 크게 나와요. 아래 예정된 방송과 경매를 둘러보세요."
+            action={
+              <Link
+                to="/lives?status=ENDED"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                지난 방송 보기
+              </Link>
+            }
+          />
+        </div>
+      )}
+
+      <AdBanner placement="home-top" />
+
+      {mostViewed.length > 0 && (
+        <Section title="지금 인기 라이브" moreTo="/lives">
           <CardGrid>
             {mostViewed.map((card) => (
               <LiveStreamCard key={card.liveStreamId} card={card} />
             ))}
           </CardGrid>
-        )}
-      </Section>
+        </Section>
+      )}
 
       {surging.length > 0 && (
         <Section
@@ -158,16 +136,97 @@ function LiveHome() {
 
       {upcoming.length > 0 && (
         <Section title="방송 예정" moreTo="/lives?status=SCHEDULED">
-          <ul className="flex flex-col gap-3">
+          <ul className="grid grid-cols-3 gap-4">
             {upcoming.map((card) => (
               <li key={card.liveStreamId}>
-                <UpcomingRow card={card} />
+                <UpcomingCard card={card} />
               </li>
             ))}
           </ul>
         </Section>
       )}
     </div>
+  );
+}
+
+/** 맨 위 대표 라이브: 가장 많이 보는 방송을 크게, 그다음 방송들은 아래 작은 썸네일로 */
+function FeaturedLive({ card, others }: { card: Card; others: Card[] }) {
+  const seller = card.sellerNickname || "판매자";
+  const to = `/lives/${card.liveStreamId}`;
+  return (
+    <section aria-label="대표 라이브" className="flex flex-col gap-3">
+      <div className="flex overflow-hidden rounded-lg border border-neutral-100 bg-neutral-0">
+        <Link
+          to={to}
+          state={{ sellerNickname: card.sellerNickname }}
+          aria-label={`${card.title || "제목 없는 방송"} 방송 보기`}
+          className="min-w-0 flex-[3]"
+        >
+          <LiveThumbnail name={seller} className="rounded-none">
+            <div className="absolute top-4 left-4 flex gap-1.5">
+              <Badge variant="live">LIVE</Badge>
+              <Badge className="bg-stage/70 font-semibold text-white">
+                <Eye className="size-3.5" aria-hidden="true" />
+                <span className="num">
+                  {formatNumber(card.viewerCount ?? 0)}
+                </span>
+                <span>명 시청</span>
+              </Badge>
+              {card.recorded && <RecordedBadge />}
+            </div>
+          </LiveThumbnail>
+        </Link>
+        <div className="flex min-w-[320px] flex-1 flex-col gap-4 p-6">
+          <div className="flex items-center gap-3">
+            <SellerAvatar name={seller} size="md" live />
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate font-bold">{seller}</span>
+              {card.startedAt && (
+                <span className="text-caption text-neutral-500">
+                  {formatDateTime(card.startedAt)} 시작
+                </span>
+              )}
+            </span>
+          </div>
+          <h1 className="line-clamp-3 text-title-lg font-bold tracking-tight">
+            {card.title || "제목 없는 방송"}
+          </h1>
+          <Hashtags tags={card.hashtags} />
+          <Link
+            to={to}
+            state={{ sellerNickname: card.sellerNickname }}
+            className={buttonVariants({
+              variant: "primary",
+              size: "lg",
+              className: "mt-auto w-full",
+            })}
+          >
+            방송 보기
+          </Link>
+        </div>
+      </div>
+      {others.length > 0 && (
+        <ul aria-label="다른 인기 방송" className="grid grid-cols-5 gap-3">
+          {others.map((other) => (
+            <li key={other.liveStreamId}>
+              <Link
+                to={`/lives/${other.liveStreamId}`}
+                state={{ sellerNickname: other.sellerNickname }}
+                className="group flex flex-col gap-1.5"
+              >
+                <LiveThumbnail
+                  name={other.sellerNickname || "판매자"}
+                  className="rounded-md opacity-80 transition-opacity group-hover:opacity-100"
+                />
+                <span className="truncate text-label font-semibold text-neutral-700 group-hover:text-neutral-900">
+                  {other.title || "제목 없는 방송"}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -184,8 +243,8 @@ function PopularAuctions() {
   return (
     <Section
       title="인기 경매"
-      description="지금 입찰이 몰리는 경매예요."
-      // 홈 인기 경매와 같은 기준(입찰 수 많은 순)으로 연다. 상단 [경매] 메뉴로 들어가면 최신순 그대로.
+      description="방송을 보지 않아도 바로 입찰할 수 있어요."
+      // 홈 인기 경매와 같은 기준(입찰 수 많은 순)으로 연다. 왼쪽 [경매] 메뉴로 들어가면 최신순 그대로.
       moreTo="/auctions?status=ONGOING&sort=POPULAR"
     >
       {query.isPending ? (
@@ -228,7 +287,7 @@ function Section({
   return (
     <section aria-label={title} className="flex flex-col gap-4">
       <div className="flex items-end justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
+        <div className="flex items-baseline gap-3">
           <h2 className="text-title-lg font-bold tracking-tight">{title}</h2>
           {description && (
             <p className="text-body text-neutral-500">{description}</p>
@@ -237,9 +296,10 @@ function Section({
         {moreTo && (
           <Link
             to={moreTo}
-            className="text-body font-semibold text-neutral-500 hover:text-neutral-900"
+            className="flex items-center gap-0.5 text-label font-semibold text-neutral-500 hover:text-neutral-900"
           >
             전체 보기
+            <ChevronRight className="size-4" aria-hidden="true" />
           </Link>
         )}
       </div>
@@ -252,14 +312,15 @@ function CardGrid({ children }: { children: ReactNode }) {
   return <div className="grid grid-cols-4 gap-x-5 gap-y-8">{children}</div>;
 }
 
-function UpcomingRow({ card }: { card: Schema<"LiveStreamCard"> }) {
+/** 방송 예정: 시작 시각을 왼쪽 네모 안에 크게 */
+function UpcomingCard({ card }: { card: Card }) {
   return (
     <Link
       to={`/lives/${card.liveStreamId}`}
       state={{ sellerNickname: card.sellerNickname }}
-      className="flex items-center gap-4 rounded-lg border border-neutral-100 bg-neutral-0 p-4 shadow-sm hover:bg-neutral-25"
+      className="flex items-center gap-4 rounded-lg border border-neutral-100 bg-neutral-0 p-4 hover:border-neutral-200 hover:bg-neutral-50"
     >
-      <span className="w-[180px] shrink-0 text-label font-bold text-brand-700">
+      <span className="flex w-[104px] shrink-0 flex-col items-center justify-center rounded-md bg-neutral-50 px-2 py-2.5 text-center text-label font-bold text-brand-700">
         {card.scheduledStartAt
           ? formatDateTime(card.scheduledStartAt)
           : "시작 시간 미정"}

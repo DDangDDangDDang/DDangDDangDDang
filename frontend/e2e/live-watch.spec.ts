@@ -96,7 +96,7 @@ test.describe('방송 시청', () => {
     await page.getByRole('region', { name: '지금 인기 라이브' }).getByRole('link', { name: '전체 보기' }).click();
     await expect(page).toHaveURL(/\/lives/);
     await page.getByRole('searchbox', { name: '방송 검색' }).fill(stream.title);
-    await page.getByRole('button', { name: '검색' }).click();
+    await page.getByRole('main').getByRole('button', { name: '검색' }).click();
     // 왼쪽 "구독 중인 판매자"의 LIVE 링크 이름(aria-label)에도 방송 제목이 들어가므로, 제목 글자가 화면에 보이는 방송 카드만 고른다.
     await page.getByRole('link').filter({ hasText: stream.title }).click();
 
@@ -114,15 +114,22 @@ test.describe('방송 시청', () => {
     await expect(page.getByRole('list', { name: '채팅 메시지' }).getByText(content)).toBeVisible();
     await expect(chatInput).toHaveValue('');
 
-    // 시청 중에 다른 화면으로 가는 링크(헤더 [경매])는 새 탭으로 열리고, 이 탭은 방송을 계속 본다.
-    const [newTab] = await Promise.all([
-      page.context().waitForEvent('page'),
-      page.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '경매', exact: true }).click(),
-    ]);
-    await expect(newTab).toHaveURL(/\/auctions$/);
+    // 시청 중에 다른 화면(헤더 [경매])으로 가면 이 탭에서 옮겨 가고, 방송은 오른쪽 아래 작은 플레이어에서 이어진다.
+    await page.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '경매', exact: true }).click();
+    await expect(page).toHaveURL(/\/auctions$/);
+    const mini = page.getByRole('complementary', { name: '보던 방송' });
+    await expect(mini).toBeVisible();
+    await expect(mini).toContainText(stream.title);
+    // [방송으로 돌아가기]로 시청 화면에 돌아오면 작은 플레이어는 사라진다.
+    await mini.getByRole('link', { name: '방송으로 돌아가기' }).click();
     await expect(page).toHaveURL(new RegExp(`/lives/${stream.id}$`));
     await expect(page.getByRole('heading', { level: 1, name: stream.title })).toBeVisible();
-    await newTab.close();
+    await expect(mini).toBeHidden();
+    // 다시 떠난 뒤 [닫기]를 누르면 작은 플레이어가 닫힌다.
+    await page.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '홈' }).click();
+    await expect(mini).toBeVisible();
+    await mini.getByRole('button', { name: '작은 플레이어 닫기' }).click();
+    await expect(mini).toBeHidden();
   });
 
   test('로그인하지 않아도 방송과 채팅을 보고, 채팅을 보내려 하면 로그인 창에서 로그인한 뒤 이어서 보낸다', async ({ browser }) => {
@@ -134,9 +141,10 @@ test.describe('방송 시청', () => {
     const member = await memberContext.newPage();
 
     try {
-      // 손님: 홈에 소개와 방송 섹션이 함께 보인다.
+      // 손님: 홈에 대표 라이브와 방송 섹션이 보이고, 로그인은 헤더 오른쪽 위에서 한다.
       await guest.goto('/');
-      await expect(guest.getByRole('heading', { name: '라이브로 보고, 실시간으로 입찰하세요' })).toBeVisible();
+      await expect(guest.getByRole('region', { name: '대표 라이브' })).toBeVisible();
+      await expect(guest.getByRole('banner').getByRole('link', { name: '로그인' })).toBeVisible();
       await expect(guest.getByRole('heading', { name: '지금 인기 라이브' })).toBeVisible();
 
       // 손님: 방송 시청 화면에 들어가 영상에 입장하고(손님 토큰) 채팅을 본다.
@@ -274,6 +282,15 @@ test.describe('판매자 송출', () => {
       await expect(watch.getByText('판매자 화면을 기다리고 있어요')).toBeHidden();
       expect(watch.url(), '방송이 시작돼도 시청 화면 주소는 그대로다').toContain(watchHref ?? '');
 
+      // 시청자가 다른 화면으로 가도 작은 플레이어에서 판매자 영상이 이어지고, 돌아오면 시청 화면에서 다시 본다.
+      await watch.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '경매', exact: true }).click();
+      const viewerMini = watch.getByRole('complementary', { name: '보던 방송' });
+      await expect.poll(() => videoWidth(viewerMini.locator('video')), { timeout: 15_000 }).toBeGreaterThan(0);
+      await test.info().attach('시청자 작은 플레이어', { body: await watch.screenshot(), contentType: 'image/png' });
+      await viewerMini.getByRole('link', { name: '방송으로 돌아가기' }).click();
+      await expect(viewerMini).toBeHidden();
+      await expect.poll(() => videoWidth(video), { timeout: 15_000 }).toBeGreaterThan(0);
+
       if (tagged) {
         // 해시태그는 시청 화면 제목 아래와 방송 목록 카드에 나온다.
         await expect(watch.getByRole('list', { name: '해시태그' }).getByText(`#${tag}`)).toBeVisible();
@@ -391,14 +408,15 @@ test.describe('판매자 송출', () => {
         await expect(watch.getByRole('list', { name: '채팅 메시지' }).getByText(`‘${scheduled.name}’ 경매가 방송에 올라왔습니다`, { exact: false })).toBeVisible();
         await test.info().attach('시청 화면 (이 방송의 경매)', { body: await watch.screenshot(), contentType: 'image/png' });
 
-        // 판매자가 경매 하나를 영상 위에 띄우면 시청 화면 영상 위에 바로 나오고(먼저 띄운 경매는 내려감), 내리면 사라진다.
+        // 판매자가 경매를 영상 위에 띄우면 시청 화면 영상 위에 바로 나오고(먼저 띄운 경매와 함께 2개까지), 내리면 사라진다.
         // 스튜디오 경매 패널은 기본이 [진행 중] 탭이라, 시작 전 경매는 [시작 전] 탭에서 띄운다.
         await studio.getByRole('tablist', { name: '경매 상태' }).getByRole('tab', { name: /^시작 전/ }).click();
         await studio.getByRole('button', { name: `${scheduled.name} 영상에 띄우기` }).click();
         await expect(studio.getByRole('region', { name: '영상 위 경매' }).getByText(scheduled.name)).toBeVisible();
-        const overlay = watch.getByRole('region', { name: '영상 위 경매' });
-        await expect(overlay.getByText(scheduled.name)).toBeVisible();
-        await expect(overlay).toHaveCount(1);
+        const overlays = watch.getByRole('region', { name: '영상 위 경매' });
+        const overlay = overlays.filter({ hasText: scheduled.name });
+        await expect(overlay).toBeVisible();
+        await expect(overlays).toHaveCount(liveProductName ? 2 : 1);
         await expect(overlay.getByText('시작가')).toBeVisible();
         await test.info().attach('시청 화면 (영상 위 경매)', { body: await watch.screenshot(), contentType: 'image/png' });
         await test.info().attach('스튜디오 (영상 위 경매)', { body: await studio.screenshot(), contentType: 'image/png' });
@@ -412,9 +430,9 @@ test.describe('판매자 송출', () => {
         auctionPage = await viewerContext.newPage();
         await auctionPage.goto('/auctions');
         await auctionPage.getByRole('searchbox', { name: '상품명' }).fill(liveProductName);
-        await auctionPage.getByRole('button', { name: '검색' }).click();
+        await auctionPage.getByRole('main').getByRole('button', { name: '검색' }).click();
         await auctionPage.getByRole('link', { name: new RegExp(escapeRegExp(liveProductName)) }).click();
-        await expect(auctionPage.getByRole('link', { name: /LIVE\s*방송 보러 가기/ })).toBeVisible();
+        await expect(auctionPage.getByRole('main').getByRole('link', { name: /LIVE\s*방송 보러 가기/ })).toBeVisible();
       }
 
       if (endAfter) {
@@ -429,17 +447,15 @@ test.describe('판매자 송출', () => {
           // 방송에서 연 경매는 방송이 끝나도 이어지지만, 경매 목록에서 "방송 중 경매"로 나오지 않는다.
           await watch.goto('/auctions');
           await watch.getByRole('searchbox', { name: '상품명' }).fill(liveProductName);
-          await watch.getByRole('button', { name: '검색' }).click();
+          await watch.getByRole('main').getByRole('button', { name: '검색' }).click();
           const card = watch.getByRole('link', { name: new RegExp(escapeRegExp(liveProductName)) });
           await expect(card).toBeVisible();
           await expect(card.getByText('방송 중 경매')).toBeHidden();
         }
         if (auctionPage) {
-          // 열어 둔 경매 상세는 다시 불러오면서 "방송 종료"(누를 수 없음)로 바뀐다.
-          const ended = auctionPage.getByRole('button', { name: '방송 종료' });
-          await expect(ended).toBeVisible({ timeout: 15_000 });
-          await expect(ended).toBeDisabled();
-          await expect(auctionPage.getByRole('link', { name: /방송 보러 가기/ })).toBeHidden();
+          // 열어 둔 경매 상세는 다시 불러오면서 방송 링크 대신 "방송이 끝났어요" 안내로 바뀐다.
+          await expect(auctionPage.getByText('이 경매가 소개된 방송은 끝났어요.')).toBeVisible({ timeout: 15_000 });
+          await expect(auctionPage.getByRole('main').getByRole('link', { name: /방송 보러 가기/ })).toBeHidden();
           await test.info().attach('경매 상세 (방송 종료)', { body: await auctionPage.screenshot(), contentType: 'image/png' });
           await auctionPage.close();
         }

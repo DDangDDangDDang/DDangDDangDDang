@@ -20,8 +20,10 @@ type Props = {
   publisher: PublisherState & { retry: () => void };
   onToggle: (kind: MediaKind) => void;
   onSelectDevice: (kind: MediaKind, deviceId: string) => void;
-  /** 영상 위에 띄운 경매. 시청자에게 보이는 모습 그대로 미리보기 위에 그린다. */
+  /** 영상 위 UI(경매 카드·선물·입찰·낙찰 안내). 시청자에게 보이는 모습 그대로 미리보기 위에 그린다. */
   overlay?: ReactNode;
+  /** overlay를 그릴지 (기본: 방송 중일 때만. 화면 배치 편집 중이면 방송 전에도 그린다) */
+  showOverlay?: boolean;
 };
 
 /**
@@ -37,6 +39,7 @@ export function StudioStage({
   onToggle,
   onSelectDevice,
   overlay,
+  showOverlay = live,
 }: Props) {
   const recordedMode = source.kind === "recorded";
   const showVideo = camera.track && camera.enabled;
@@ -79,7 +82,7 @@ export function StudioStage({
               </OverlayLine>
             </div>
           )}
-        {live && overlay}
+        {showOverlay && overlay}
 
         <div className="absolute bottom-4 left-4 flex gap-2">
           <StageToggle
@@ -336,7 +339,7 @@ function PublishBadge({
 }) {
   if (!live) {
     return (
-      <Badge className="h-7 bg-stage/70 px-2.5 font-semibold text-neutral-0">
+      <Badge className="h-7 bg-stage/70 px-2.5 font-semibold text-white">
         방송 전 미리보기
       </Badge>
     );
@@ -353,7 +356,7 @@ function PublishBadge({
     );
   }
   return (
-    <Badge className="h-7 bg-stage/70 px-2.5 font-semibold text-neutral-0">
+    <Badge className="h-7 bg-stage/70 px-2.5 font-semibold text-white">
       송출 준비 중
     </Badge>
   );
@@ -429,7 +432,7 @@ function OverlayLine({
   return (
     <div
       role="status"
-      className="flex items-center gap-3 rounded-md bg-stage/80 px-4 py-2.5 text-label text-neutral-0"
+      className="flex items-center gap-3 rounded-md bg-stage/80 px-4 py-2.5 text-label text-white"
     >
       {icon}
       <span>{children}</span>
@@ -459,7 +462,7 @@ function StageToggle({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex size-11 items-center justify-center rounded-md text-neutral-0 transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        "flex size-11 items-center justify-center rounded-md text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60",
         on ? "bg-stage/70 hover:bg-stage" : "bg-brand-500 hover:bg-brand-600",
       )}
     >
@@ -517,7 +520,7 @@ function Centered({
       className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center"
     >
       {icon}
-      <p className="text-body-lg font-semibold text-neutral-0">{title}</p>
+      <p className="text-body-lg font-semibold text-white">{title}</p>
       {children && <div className="text-body text-neutral-400">{children}</div>}
     </div>
   );

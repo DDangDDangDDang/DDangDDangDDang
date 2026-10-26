@@ -98,7 +98,7 @@ export const EXCHANGE_STATUS_LABEL: Record<ExchangeStatus, string> = {
   PENDING: '신청됨',
   PROCESSING: '송금 중',
   COMPLETE: '송금 완료',
-  FAILED: '송금 실패',
+  FAILED: '반려됨',
   CANCELLED: '취소됨',
 };
 

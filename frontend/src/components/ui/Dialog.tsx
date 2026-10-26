@@ -46,7 +46,7 @@ export function Dialog({ open, title, description, onClose, closeDisabled = fals
         event.preventDefault();
         if (!closeDisabled) onClose();
       }}
-      className={cn('m-auto max-h-[90vh] w-[720px] overflow-y-auto rounded-lg bg-neutral-0 p-6 text-neutral-900 shadow-md backdrop:bg-neutral-900/40', className)}
+      className={cn('m-auto max-h-[90vh] w-[720px] overflow-y-auto rounded-lg bg-neutral-0 p-6 text-neutral-900 shadow-md backdrop:bg-black/60', className)}
     >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">

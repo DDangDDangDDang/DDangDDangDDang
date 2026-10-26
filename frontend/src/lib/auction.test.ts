@@ -6,7 +6,7 @@ import {
   durationLabel,
   EMPTY_AUCTION_CONDITION,
   LIVE_AUCTION_DURATIONS,
-  featuredAuction,
+  featuredAuctions,
   formatAmountInput,
   leafCategoryOptions,
   parseAmount,
@@ -23,7 +23,7 @@ const categories = [
   { id: 2, name: '시계', children: [] },
 ];
 
-describe('featuredAuction', () => {
+describe('featuredAuctions', () => {
   const auctions = [
     { id: 1, status: 'ONGOING' as const, endAt: '2026-10-21T12:05:00' },
     { id: 2, status: 'READY' as const, endAt: '2026-10-21T13:00:00' },
@@ -31,18 +31,17 @@ describe('featuredAuction', () => {
     { id: 4, status: 'ENDED' as const, endAt: '2026-10-21T11:00:00' },
     { id: 5, status: 'CANCELED' as const, endAt: '2026-10-21T13:00:00' },
   ];
+  const ids = (list: { id: number }[]) => list.map((a) => a.id);
 
-  it('띄운 경매가 시작 전·진행 중·마감 집계 중이면 그 경매', () => {
-    expect(featuredAuction(1, auctions, NOW)?.id).toBe(1);
-    expect(featuredAuction(2, auctions, NOW)?.id).toBe(2);
-    expect(featuredAuction(3, auctions, NOW)?.id).toBe(3);
+  it('띄운 경매가 시작 전·진행 중·마감 집계 중이면 띄운 순서대로', () => {
+    expect(ids(featuredAuctions([2, 1], auctions, NOW))).toEqual([2, 1]);
+    expect(ids(featuredAuctions([3], auctions, NOW))).toEqual([3]);
   });
 
-  it('끝났거나 취소됐거나 목록에 없거나 띄운 경매가 없으면 없음', () => {
-    expect(featuredAuction(4, auctions, NOW)).toBeUndefined();
-    expect(featuredAuction(5, auctions, NOW)).toBeUndefined();
-    expect(featuredAuction(99, auctions, NOW)).toBeUndefined();
-    expect(featuredAuction(undefined, auctions, NOW)).toBeUndefined();
+  it('끝났거나 취소됐거나 목록에 없는 경매는 빼고, 띄운 경매가 없으면 빈 목록', () => {
+    expect(ids(featuredAuctions([4, 1], auctions, NOW))).toEqual([1]);
+    expect(featuredAuctions([5, 99], auctions, NOW)).toEqual([]);
+    expect(featuredAuctions(undefined, auctions, NOW)).toEqual([]);
   });
 });
 

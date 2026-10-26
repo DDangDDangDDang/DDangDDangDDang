@@ -1,8 +1,10 @@
-import { Megaphone, SendHorizontal, X } from 'lucide-react';
+import { Gavel, HandCoins, Megaphone, SendHorizontal, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { useSession, type ChatMessage, type RealtimeStatus } from '@/api';
 import { Badge, Notice } from '@/components/ui';
+import { bidIncreasePercent, bidTier } from '@/lib/auction-effects';
 import { cn } from '@/lib/cn';
+import { formatPoint } from '@/lib/format';
 import { CHAT_MAX_LENGTH, isSendableChat } from '@/lib/live-room';
 
 type Props = {
@@ -192,6 +194,41 @@ export function LiveChat({ messages, sellerId, canChat, status, error, onSend, f
 function ChatLine({ message, isSeller, isMine, flagged }: { message: ChatMessage; isSeller: boolean; isMine: boolean; flagged: boolean }) {
   if (message.type === 'SYSTEM') {
     return <li className="self-center rounded-full bg-neutral-50 px-3 py-1 text-caption text-neutral-500">{message.content}</li>;
+  }
+  // 도네이션 선물: 채팅에 한 줄로 남긴다. (방송 화면 이펙트는 따로)
+  if (message.type === 'DONATION') {
+    return (
+      <li className="self-center rounded-full bg-brand-50 px-3 py-1 text-caption font-semibold text-brand-700">
+        {message.nickname || '알 수 없음'}님이 <span className="num">{formatPoint(message.amount ?? 0)}</span>를 선물했어요
+        {message.content && <span className="font-normal text-neutral-700"> · {message.content}</span>}
+      </li>
+    );
+  }
+  // 입찰·낙찰: 서버가 만든 안내 문장을 한 줄로 남긴다. (방송 화면 이펙트는 따로) 10% 이상 올린 입찰은 오른 비율을 붙인다.
+  if (message.type === 'BID') {
+    const percent = bidIncreasePercent(message.amount ?? 0, message.previousAmount);
+    const tier = bidTier(message.amount ?? 0, message.previousAmount);
+    return (
+      <li className="flex items-start gap-2 rounded-md bg-neutral-50 px-3 py-1.5 text-caption text-neutral-700">
+        <HandCoins className="mt-px size-3.5 shrink-0 text-brand-700" aria-hidden="true" />
+        <span className="min-w-0 break-words">
+          {message.content}
+          {percent !== undefined && tier !== 'normal' && (
+            <span className={cn('ml-1 font-bold', tier === 'up10' ? 'text-brand-700' : 'text-gold-300')}>
+              (<span className="num">{percent}%</span> 올림)
+            </span>
+          )}
+        </span>
+      </li>
+    );
+  }
+  if (message.type === 'AUCTION_SOLD') {
+    return (
+      <li className="flex items-start gap-2 rounded-md border border-gold-300 bg-neutral-50 px-3 py-1.5 text-caption font-semibold text-gold-300">
+        <Gavel className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+        <span className="min-w-0 break-words">{message.content}</span>
+      </li>
+    );
   }
   return (
     <li className={cn('leading-relaxed break-words', flagged && '-mx-2 rounded-md bg-brand-50 px-2 py-1')}>

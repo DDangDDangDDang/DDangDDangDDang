@@ -6,6 +6,9 @@ import { Badge, buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
 import { useBroadcast } from './broadcast-context';
+import { AuctionEffects } from '@/components/auction/AuctionEffects';
+import { DonationEffects } from '@/components/donation/DonationEffects';
+import { useStudioDonationSound } from '@/lib/donation-sound';
 import { IdleWarning } from './IdleWarning';
 
 /** 송출 연결 상태 문구 (송출 중이 아닐 때만) */
@@ -24,7 +27,9 @@ const PHASE_TEXT: Partial<Record<string, string>> = {
  * 마이크·카메라를 끄거나 스튜디오로 돌아갈 수 있다.
  */
 export function MiniBroadcast() {
-  const { publishing, liveStream, media, publisher, unseen, idle } = useBroadcast();
+  const { publishing, liveStream, media, publisher, unseen, idle, chat } = useBroadcast();
+  // 스튜디오에서 정한 선물 효과음 설정을 따른다.
+  const [donationSound] = useStudioDonationSound();
   const location = useLocation();
   const [folded, setFolded] = useState(false);
   if (!publishing || !liveStream || location.pathname === '/studio') return null;
@@ -67,11 +72,15 @@ export function MiniBroadcast() {
               </span>
             )}
             {publisher.viewerCount !== undefined && (
-              <Badge className="absolute top-2 left-2 bg-stage/70 font-normal text-neutral-0">
+              <Badge className="absolute top-2 left-2 bg-stage/70 font-normal text-white">
                 <Eye className="size-3.5" aria-hidden="true" />
                 <span className="num">{formatNumber(publisher.viewerCount)}</span>명 시청
               </Badge>
             )}
+            {/* 다른 화면에 가 있어도 도네이션 선물이 오면 작게 알려 준다. */}
+            <DonationEffects messages={chat.messages} compact sound={donationSound} className="absolute inset-x-2 bottom-2 flex justify-center" />
+            {/* 입찰·낙찰도 작게 알려 준다. */}
+            <AuctionEffects messages={chat.messages} compact sound={donationSound} className="absolute inset-0" />
           </div>
           {phaseText && (
             <p role="status" className="bg-brand-50 px-3 py-1.5 text-caption text-brand-700">
@@ -134,7 +143,7 @@ function MiniToggle({ on, label, disabled, onClick, children }: { on: boolean; l
       onClick={onClick}
       className={cn(
         'flex size-9 shrink-0 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-        on ? 'bg-neutral-50 text-neutral-900 hover:bg-neutral-100' : 'bg-brand-500 text-neutral-0 hover:bg-brand-600',
+        on ? 'bg-neutral-50 text-neutral-900 hover:bg-neutral-100' : 'bg-brand-500 text-white hover:bg-brand-600',
       )}
     >
       {children}

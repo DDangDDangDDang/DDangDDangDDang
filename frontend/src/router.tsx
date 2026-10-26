@@ -8,6 +8,7 @@ import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
 import { SignupPage } from '@/pages/auth/SignupPage';
 import { CategoryAdminPage } from '@/pages/admin/CategoryAdminPage';
 import { DmReportsPage } from '@/pages/admin/DmReportsPage';
+import { PointExchangesAdminPage } from '@/pages/admin/PointExchangesAdminPage';
 import { SellerApplicationsPage } from '@/pages/admin/SellerApplicationsPage';
 import { AuctionDetailPage } from '@/pages/auctions/AuctionDetailPage';
 import { AuctionListPage } from '@/pages/auctions/AuctionListPage';
@@ -18,6 +19,9 @@ import { LiveWatchPage } from '@/pages/live/LiveWatchPage';
 import { MyInfoPage } from '@/pages/me/MyInfoPage';
 import { MessagesPage } from '@/pages/messages/MessagesPage';
 import { PointsPage } from '@/pages/me/PointsPage';
+import { DonationPointsPage } from '@/pages/me/DonationPointsPage';
+import { SellerShopPage } from '@/pages/me/SellerShopPage';
+import { DonationPolicyPage } from '@/pages/admin/DonationPolicyPage';
 import { AlertedAuctionsPage } from '@/pages/me/AlertedAuctionsPage';
 import { NotificationSettingsPage } from '@/pages/me/NotificationSettingsPage';
 import { SellerApplicationPage } from '@/pages/me/SellerApplicationPage';
@@ -65,6 +69,7 @@ export const router = createBrowserRouter([
         children: [
           { path: '/me', element: <MyInfoPage /> },
           { path: '/points', element: <PointsPage /> },
+          { path: '/me/donation-points', element: <DonationPointsPage /> },
           { path: '/me/seller', element: <SellerApplicationPage /> },
           { path: '/me/notifications', element: <NotificationSettingsPage /> },
           { path: '/me/auction-alerts', element: <AlertedAuctionsPage /> },
@@ -78,6 +83,7 @@ export const router = createBrowserRouter([
             element: <RequireVerifiedSeller />,
             children: [
               { path: '/me/products', element: <MyProductsPage /> },
+              { path: '/me/donation-shop', element: <SellerShopPage /> },
               { path: '/products/new', element: <ProductCreatePage /> },
               { path: '/products/:productId/edit', element: <ProductEditPage /> },
               { path: '/products/:productId/auction', element: <ProductAuctionPage /> },
@@ -87,6 +93,8 @@ export const router = createBrowserRouter([
           { path: '/admin/categories', element: <CategoryAdminPage /> },
           { path: '/admin/dm-reports', element: <DmReportsPage /> },
           { path: '/admin/seller-applications', element: <SellerApplicationsPage /> },
+          { path: '/admin/donation-policy', element: <DonationPolicyPage /> },
+          { path: '/admin/point-exchanges', element: <PointExchangesAdminPage /> },
         ],
       },
 

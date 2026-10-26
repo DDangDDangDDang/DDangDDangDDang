@@ -9,7 +9,8 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Hashtags } from '@/components/live/Hashtags';
 import { LiveChat } from '@/components/live/LiveChat';
 import { Badge, Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
-import { FeaturedAuctionSlot } from '@/components/auction/FeaturedAuctionOverlay';
+import { StageOverlays } from '@/components/live/StageOverlays';
+import { featuredAuctions } from '@/lib/auction';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { useSellerProfile } from '@/lib/use-seller';
 import { LiveAuctionProducts, LiveAuctionStatus } from './LiveAuctionPanel';
@@ -17,6 +18,11 @@ import { ChatNoticeEditor } from './ChatNoticeEditor';
 import { ModerationPanel } from './ModerationPanel';
 import { StreamForm } from './StreamForm';
 import { StudioStage } from './StudioStage';
+import { OverlayLayoutBar } from './OverlayLayoutBar';
+import { useOverlayLayoutEditing } from './use-overlay-layout-editing';
+import { OverlayLayoutEditor } from './OverlayLayoutEditor';
+import { DonationSoundToggle } from '@/components/donation/DonationSoundToggle';
+import { useStudioDonationSound } from '@/lib/donation-sound';
 import { useLiveAuctions } from './use-live-auctions';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
@@ -132,9 +138,13 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
   // 카메라·마이크, 송출(LiveKit), 채팅·검토 알림(STOMP)은 앱 전체에서 이어진다. (BroadcastProvider)
   useStudioPresence();
   const { media, source, publisher, chat, alerts, dismissAlert, idle } = useBroadcast();
+  // 시청자가 선물하면 효과음 (스튜디오에서 켜고 끔, 기본 켜짐)
+  const [donationSound] = useStudioDonationSound();
   const flaggedIds = useMemo(() => new Set(alerts.map((a) => a.messageId)), [alerts]);
   // 방송 중 경매
-  const liveAuctions = useLiveAuctions(liveStreamId, liveStream.featuredAuctionId);
+  const liveAuctions = useLiveAuctions(liveStreamId, liveStream.featuredAuctionIds);
+  // 화면 배치 편집 (방송 시작 전에도 미리 정할 수 있다)
+  const layoutEditing = useOverlayLayoutEditing(liveStream, onChange);
   // 방송 시작은 판매자 인증을 받은 회원만 (서버도 LIVESTREAM_016으로 막는다). 프로필을 불러오기 전에는 막지 않는다.
   const session = useSession();
   const myProfile = useSellerProfile(session?.user.userId);
@@ -206,8 +216,11 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             </Card>
           )}
 
+          <OverlayLayoutBar editing={layoutEditing} />
+
           <StudioStage
             live={isLive}
+            showOverlay={isLive || layoutEditing.draft !== undefined}
             camera={media.camera}
             microphone={media.microphone}
             source={source}
@@ -215,8 +228,23 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             onToggle={(kind) => void media.toggle(kind)}
             onSelectDevice={(kind, deviceId) => void media.selectDevice(kind, deviceId)}
             overlay={
-              // 시청 화면은 왼쪽 아래. 여기는 마이크·카메라 버튼 바로 위에 둔다.
-              <FeaturedAuctionSlot featuredAuctionId={liveStream.featuredAuctionId} auctions={liveAuctions.auctions} className="absolute bottom-20 left-4" />
+              layoutEditing.draft ? (
+                // 화면 배치 편집: 견본을 옮겨 자리를 정한다. (저장 전까지 시청 화면은 그대로)
+                <OverlayLayoutEditor
+                  layout={layoutEditing.draft}
+                  onChange={layoutEditing.setDraft}
+                  featured={featuredAuctions(liveStream.featuredAuctionIds, liveAuctions.auctions, new Date())}
+                />
+              ) : (
+                // 시청자 화면과 같은 배치로 경매 카드·선물·입찰·낙찰 안내를 본다.
+                <StageOverlays
+                  layout={layoutEditing.saved}
+                  featuredAuctionIds={liveStream.featuredAuctionIds}
+                  auctions={liveAuctions.auctions}
+                  messages={chat.messages}
+                  sound={donationSound}
+                />
+              )
             }
           />
 
@@ -227,6 +255,9 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
                   방송 종료
                 </Button>
                 <span className="text-label text-neutral-500">종료하면 시청자 연결이 끊기고 채팅에 종료 안내가 나가요. 종료한 방송은 다시 시작할 수 없어요.</span>
+                <span className="ml-auto shrink-0">
+                  <DonationSoundToggle />
+                </span>
               </div>
             ) : (
               <div className="flex items-center gap-4">

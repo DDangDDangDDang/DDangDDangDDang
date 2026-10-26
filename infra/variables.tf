@@ -11,34 +11,35 @@ variable "region" {
 }
 
 # ---------- 배포 구성 선택 ----------
-# 개발 중: ec2_enabled = true,  ecs_enabled = false  (EC2 한 대, 월 약 $27)
-# 전환 중: ec2_enabled = true,  ecs_enabled = true   (둘 다 켜고 데이터를 옮긴다. docs/deploy.md "ECS로 전환")
-# 운영:    ec2_enabled = false, ecs_enabled = true   (ALB + ECS + RDS + ElastiCache, 월 약 $160)
+# RDS·ElastiCache는 두 구성이 함께 쓰므로 스위치와 관계없이 항상 만든다.
+# 개발 중: ec2_enabled = true,  ecs_enabled = false  (EC2 앱 서버 + RDS + ElastiCache, 월 약 $65)
+# 전환 중: ec2_enabled = true,  ecs_enabled = true   (둘 다 켜고 배포 대상만 바꾼다. docs/deploy.md "ECS로 전환")
+# 운영:    ec2_enabled = false, ecs_enabled = true   (ALB + ECS + NAT + RDS + ElastiCache, 월 약 $160)
 
 variable "ec2_enabled" {
-  description = "EC2 한 대 구성(앱·MySQL·Redis를 Docker Compose로 실행)을 만들지"
+  description = "EC2 구성(EC2 한 대에서 앱을 Docker Compose로 실행)을 만들지"
   type        = bool
   default     = true
 }
 
 variable "ecs_enabled" {
-  description = "ECS 구성(ALB, Fargate, RDS, ElastiCache, NAT)을 만들지"
+  description = "ECS 구성(ALB, Fargate, NAT)을 만들지"
   type        = bool
   default     = false
 }
 
-# ---------- EC2 한 대 구성 ----------
+# ---------- EC2 구성 ----------
 
 variable "ec2_instance_type" {
-  description = "EC2 인스턴스 크기. 앱·MySQL·Redis를 함께 돌리므로 메모리 2GB 이상"
+  description = "EC2 인스턴스 크기. 앱(Spring Boot)만 돌리지만 메모리 2GB 이상을 권장"
   type        = string
   default     = "t3.small"
 }
 
 variable "ec2_volume_size" {
-  description = "EC2 디스크(GB). MySQL·Redis 데이터와 Docker 이미지가 들어간다."
+  description = "EC2 디스크(GB). OS와 Docker 이미지·로그만 들어간다."
   type        = number
-  default     = 30
+  default     = 20
 }
 
 # ---------- 앱(ECS) ----------
@@ -112,7 +113,7 @@ variable "livekit_url" {
   }
 }
 
-# ---------- DB · Redis ----------
+# ---------- DB · Redis (두 구성 공통) ----------
 
 variable "db_instance_class" {
   description = "RDS 인스턴스 크기"

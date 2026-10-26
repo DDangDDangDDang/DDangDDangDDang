@@ -19,7 +19,9 @@ public enum NotificationCategory {
     AUCTION_CLOSING_SOON("마감 임박", "알림 받기·입찰한 경매가 10분 안에 끝날 때", Set.of(NotificationType.AUCTION_CLOSING_SOON)),
     AUCTION_CANCELED("경매 취소", "알림 받기·입찰한 경매가 취소될 때", Set.of(NotificationType.AUCTION_CANCELED)),
     AUCTION_RESULT("경매 결과", "낙찰·유찰 등 경매가 끝났을 때 (내 경매의 결과 포함)",
-            Set.of(NotificationType.AUCTION_WON, NotificationType.AUCTION_SOLD, NotificationType.AUCTION_FAILED, NotificationType.AUCTION_ENDED));
+            Set.of(NotificationType.AUCTION_WON, NotificationType.AUCTION_SOLD, NotificationType.AUCTION_FAILED, NotificationType.AUCTION_ENDED)),
+    DONATION_POINT("도네이션 포인트", "도네이션 포인트가 적립되거나 곧 사라질 때",
+            Set.of(NotificationType.DONATION_POINT_EARNED, NotificationType.DONATION_POINT_EXPIRING));
 
     private final String label;
     private final String description;

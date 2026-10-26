@@ -22,8 +22,13 @@ output "alb_dns_name" {
 }
 
 output "rds_address" {
-  description = "ECS 구성의 RDS 주소 (EC2 → RDS 데이터 이전에 쓴다)"
-  value       = var.ecs_enabled ? aws_db_instance.main[0].address : null
+  description = "RDS 주소 (EC2 서버에서 직접 접속할 때 쓴다)"
+  value       = aws_db_instance.main.address
+}
+
+output "redis_address" {
+  description = "ElastiCache Redis 주소"
+  value       = aws_elasticache_cluster.redis.cache_nodes[0].address
 }
 
 output "app_secret_name" {

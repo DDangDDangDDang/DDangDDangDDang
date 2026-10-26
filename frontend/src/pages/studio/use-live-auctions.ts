@@ -19,9 +19,9 @@ const MY_OPEN_AUCTIONS_KEY = ['auctions', 'mine', 'open'] as const;
  * - 새 경매: POST /lives/{id}/auctions (시작 즉시 진행 중)
  * - 미리 만든 경매: POST /lives/{id}/auctions/{auctionId} (방송에 올리기, 일정은 그대로)
  * - 취소: POST /auctions/{id}/cancel
- * - 영상 위에 띄우기·내리기: PUT·DELETE /live-streams/{id}/featured-auction (한 번에 하나)
+ * - 영상 위에 띄우기·내리기: PUT /live-streams/{id}/featured-auction, DELETE /live-streams/{id}/featured-auction/{auctionId} (최대 2개)
  */
-export function useLiveAuctions(liveStreamId: number, featuredAuctionId?: number) {
+export function useLiveAuctions(liveStreamId: number, featuredAuctionIds?: number[]) {
   const queryClient = useQueryClient();
 
   const products = useQuery({
@@ -62,16 +62,16 @@ export function useLiveAuctions(liveStreamId: number, featuredAuctionId?: number
     },
   });
 
-  // 영상 위에 띄우기·내리기(null). 응답은 방송 정보라 스튜디오의 방송 정보를 바로 바꾼다. (시청 화면에는 방송 정보 변경 알림으로 반영)
+  // 영상 위에 띄우기(on)·내리기. 응답은 방송 정보라 스튜디오의 방송 정보를 바로 바꾼다. (시청 화면에는 방송 정보 변경 알림으로 반영)
   const feature = useMutation({
-    mutationFn: (auctionId: number | null) =>
-      auctionId === null
-        ? call(api.DELETE('/api/v1/live-streams/{liveStreamId}/featured-auction', { params: { path: { liveStreamId } } }))
-        : call(api.PUT('/api/v1/live-streams/{liveStreamId}/featured-auction', { params: { path: { liveStreamId } }, body: { auctionId } })),
+    mutationFn: ({ auctionId, on }: { auctionId: number; on: boolean }) =>
+      on
+        ? call(api.PUT('/api/v1/live-streams/{liveStreamId}/featured-auction', { params: { path: { liveStreamId } }, body: { auctionId } }))
+        : call(api.DELETE('/api/v1/live-streams/{liveStreamId}/featured-auction/{auctionId}', { params: { path: { liveStreamId, auctionId } } })),
     onSuccess: (saved) => {
       if (saved) queryClient.setQueryData(ACTIVE_STREAM_KEY, saved);
     },
-    // 경매가 그새 끝났으면(LIVESTREAM_014) 목록을 새로 받아 버튼을 맞춘다.
+    // 경매가 그새 끝났거나(LIVESTREAM_014) 2개가 이미 떠 있으면(LIVESTREAM_017) 목록을 새로 받아 버튼을 맞춘다.
     onError: refresh,
   });
 
@@ -83,7 +83,7 @@ export function useLiveAuctions(liveStreamId: number, featuredAuctionId?: number
     [auctions, mine.data],
   );
 
-  return { liveStreamId, featuredAuctionId, products, auctions, loadingAuctions: liveQuery.isPending, start, show, cancel, feature, activeAuctionOf };
+  return { liveStreamId, featuredAuctionIds, products, auctions, loadingAuctions: liveQuery.isPending, start, show, cancel, feature, activeAuctionOf };
 }
 
 export type LiveAuctions = ReturnType<typeof useLiveAuctions>;

@@ -52,13 +52,16 @@ export function AuctionCard({ auction }: { auction: ListItem }) {
   const phase = auctionPhase(auction, now);
 
   return (
-    <Link to={`/auctions/${auction.auctionId}`} className="group flex flex-col gap-3 rounded-lg">
+    <Link
+      to={`/auctions/${auction.auctionId}`}
+      className="group flex flex-col gap-3 rounded-lg border border-neutral-100 bg-neutral-0 p-3 transition-colors hover:border-neutral-200"
+    >
       <div className="relative">
-        <ProductImage alt={auction.productName ?? '상품'} className="aspect-square w-full rounded-lg" />
+        <ProductImage alt={auction.productName ?? '상품'} className="aspect-square w-full rounded-md" />
         <div className="absolute top-3 left-3 flex gap-1.5">
           <AuctionPhaseBadge phase={phase} />
           {auction.live && (
-            <Badge className="bg-stage/70 font-semibold text-neutral-0">
+            <Badge className="bg-stage/70 font-semibold text-white">
               <Radio className="size-3.5" aria-hidden="true" />
               방송 중 경매
             </Badge>

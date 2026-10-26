@@ -49,3 +49,23 @@ describe('LiveChat 고정 공지', () => {
     expect(screen.queryByRole('note', { name: '판매자 공지' })).not.toBeInTheDocument();
   });
 });
+
+describe('LiveChat 도네이션 선물', () => {
+  it('선물 메시지는 "누구님이 몇 P를 선물했어요"로 한 줄 남기고, 한마디가 있으면 함께 보여 준다', () => {
+    const base = { liveStreamId: 1, senderId: 3, nickname: '필름팬', sentAt: '2026-10-23T12:00:00' };
+    render(
+      <LiveChat
+        messages={[
+          { ...base, messageId: 'a', type: 'DONATION', amount: 1000, content: '오늘 방송 최고예요' },
+          { ...base, messageId: 'b', type: 'DONATION', amount: 300, content: null },
+        ]}
+        canChat
+        status="connected"
+        onSend={() => true}
+      />,
+    );
+    const [withMessage, plain] = screen.getAllByRole('listitem');
+    expect(withMessage).toHaveTextContent('필름팬님이 1,000 P를 선물했어요 · 오늘 방송 최고예요');
+    expect(plain).toHaveTextContent(/^필름팬님이 300 P를 선물했어요$/);
+  });
+});
