@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.seller.controller;
 
+import com.example.ddangddangddang.domain.auction.entity.SellerAuctionTab;
 import com.example.ddangddangddang.domain.seller.dto.SellerAuctionResponse;
 import com.example.ddangddangddang.domain.seller.dto.SellerProfileResponse;
 import com.example.ddangddangddang.domain.seller.dto.SubscribedSellerResponse;
@@ -36,13 +37,18 @@ public class SellerController {
         return ResponseEntity.ok(ApiResponse.ok(profileService.getProfile(sellerId, authUser == null ? null : authUser.id())));
     }
 
-    /** 판매자 경매 기록. 최근 경매부터, 다음 페이지는 nextCursor를 cursor로 넘긴다. */
+    /**
+     * 판매자 경매 기록. 최근 경매부터, 다음 페이지는 nextCursor를 cursor로 넘긴다.
+     * tab: ONGOING(진행 중, 기본) / READY(시작전) / PAST(지난 경매)
+     * includeFailedAndCanceled : 지난 경매에서 유찰,취소도 볼지(기본 false = 낙찰만)*/
     @GetMapping("/sellers/{sellerId}/auctions")
     public ResponseEntity<ApiResponse<CursorResponse<SellerAuctionResponse>>> getAuctions(
             @PathVariable Long sellerId,
+            @RequestParam(defaultValue = "ONGOING") SellerAuctionTab tab,
+            @RequestParam(defaultValue = "false") boolean includeFailedAndCanceled,
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(ApiResponse.ok(profileService.getAuctions(sellerId, cursor, size)));
+        return ResponseEntity.ok(ApiResponse.ok(profileService.getAuctions(sellerId,tab, includeFailedAndCanceled , cursor, size)));
     }
 
     /** 판매자를 구독한다. 그 판매자가 방송을 시작하면 알림이 온다. 이미 구독 중이면 그대로 둔다. */

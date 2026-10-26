@@ -4431,6 +4431,23 @@
             "format" : "int64"
           }
         }, {
+          "name" : "tab",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "ONGOING",
+            "enum" : [ "ONGOING", "READY", "PAST" ]
+          }
+        }, {
+          "name" : "includeFailedAndCanceled",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
           "name" : "cursor",
           "in" : "query",
           "required" : false,

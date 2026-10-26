@@ -245,19 +245,28 @@ class SellerSubscriptionControllerTest {
                 .andExpect(jsonPath("$.data.broadcastCount").value(1))
                 .andExpect(jsonPath("$.data.firstBroadcastAt").exists());
 
-        // 방송에서 경매 두 개를 열고 하나를 취소하면, 경매 기록에 최근 것부터 1개씩 넘겨 볼 수 있고 취소 수가 신뢰 지표에 잡힌다.
+        // 방송에서 경매 두 개를 열고 하나를 취소하면, 진행 중 탭에는 진행중인 것만,지난 경매(유찰,취소 포함)에는 취소한 것이 나오고 취소 수가 신뢰 지표에 잡힌다.
         Long first = startLiveAuction(seller, liveStreamId, createProduct(seller, "프로필 카메라"));
         Long second = startLiveAuction(seller, liveStreamId, createProduct(seller, "프로필 렌즈"));
         mockMvc.perform(post("/api/v1/auctions/{id}/cancel", first).header(HttpHeaders.AUTHORIZATION, seller.bearer()))
                 .andExpect(status().isNoContent());
-        Long cursor = longValue(mockMvc.perform(get("/api/v1/sellers/{id}/auctions", seller.id()).param("size", "1"))
+        mockMvc.perform(get("/api/v1/sellers/{id}/auctions", seller.id()).param("size", "1"))
                 .andExpect(jsonPath("$.data.content[0].auctionId").value(second))
                 .andExpect(jsonPath("$.data.content[0].productName").value("프로필 렌즈"))
                 .andExpect(jsonPath("$.data.content[0].liveStreamId").value(liveStreamId))
-                .andExpect(jsonPath("$.data.hasNext").value(true)), "$.data.nextCursor");
-        mockMvc.perform(get("/api/v1/sellers/{id}/auctions", seller.id()).param("size", "1").param("cursor", String.valueOf(cursor)))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+        mockMvc.perform(get("/api/v1/sellers/{id}/auctions", seller.id()).param("tab", "PAST").param("includeFailedAndCanceled", "true"))
                 .andExpect(jsonPath("$.data.content[0].auctionId").value(first))
                 .andExpect(jsonPath("$.data.content[0].status").value("CANCELED"))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+
+        // 진행 중 경매가 두 개면 최근 것부터 1개씩 커서로 넘겨 볼 수 있다.
+        Long third = startLiveAuction(seller, liveStreamId, createProduct(seller, "프로필 삼각대"));
+        Long cursor = longValue(mockMvc.perform(get("/api/v1/sellers/{id}/auctions", seller.id()).param("size", "1"))
+                .andExpect(jsonPath("$.data.content[0].auctionId").value(third))
+                .andExpect(jsonPath("$.data.hasNext").value(true)), "$.data.nextCursor");
+        mockMvc.perform(get("/api/v1/sellers/{id}/auctions", seller.id()).param("size", "1").param("cursor", String.valueOf(cursor)))
+                .andExpect(jsonPath("$.data.content[0].auctionId").value(second))
                 .andExpect(jsonPath("$.data.hasNext").value(false));
 
         // 끝난 방송의 시간은 집계 쿼리로 더한다. 1시간 방송한 것으로 시작 시각을 앞당긴다.
