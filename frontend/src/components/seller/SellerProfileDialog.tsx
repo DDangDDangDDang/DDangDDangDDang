@@ -287,6 +287,8 @@ function AuctionList({
   const filter = sellerAuctionQuery(tab, includeFailedAndCanceled);
   const query = useInfiniteQuery({
     queryKey: ['seller-auctions', sellerId, filter],
+    // 탭을 떠나면 캐시를 바로 지운다. 다시 돌아왔을 때 예전에 내려 본 여러 페이지가 잠깐 보이지 않고 첫 페이지부터 불러오게.
+    gcTime: 0,
     queryFn: ({ pageParam }) =>
       call(api.GET('/api/v1/sellers/{sellerId}/auctions', { params: { path: { sellerId }, query: { ...filter, cursor: pageParam, size: AUCTION_PAGE_SIZE } } })),
     initialPageParam: undefined as number | undefined,
