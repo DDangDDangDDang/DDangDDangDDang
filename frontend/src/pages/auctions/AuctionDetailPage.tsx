@@ -62,6 +62,8 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
       setConfirmCancel(false);
       void queryClient.invalidateQueries({ queryKey: ['auction', auctionId] });
       void queryClient.invalidateQueries({ queryKey: ['auctions'] });
+      // 판매자에게 보이는 이 상품의 경매 이력도 취소된 상태로 다시 불러온다.
+      void queryClient.invalidateQueries({ queryKey: ['product-auctions', productId] });
     },
   });
 

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuctionDetailPage } from './AuctionDetailPage';
@@ -7,14 +8,14 @@ import { AuctionDetailPage } from './AuctionDetailPage';
 type Request = { path: string };
 const SELLER_ID = 7;
 // 지금 보는 경매(유찰)와 예전 경매(취소). history가 비면 빈 배열을 돌려준다.
-const state = vi.hoisted(() => ({ userId: 7 as number | undefined, history: [] as unknown[], paths: [] as string[] }));
+const state = vi.hoisted(() => ({ userId: 7 as number | undefined, status: 'FAILED', history: [] as unknown[], paths: [] as string[] }));
 
 vi.mock('@/api', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/api')>();
   return {
     ...original,
     useSession: () => (state.userId === undefined ? null : { accessToken: 't', user: { userId: state.userId } }),
-    api: { GET: (path: string) => ({ path }) },
+    api: { GET: (path: string) => ({ path }), POST: (path: string) => ({ path }) },
     call: async (r: Request) => {
       state.paths.push(r.path);
       if (r.path === '/api/v1/auctions/{auctionId}')
@@ -23,15 +24,19 @@ vi.mock('@/api', async (importOriginal) => {
           productId: 5,
           sellerId: SELLER_ID,
           productName: '필름 카메라',
-          status: 'FAILED',
+          status: state.status,
           startPrice: 12_000,
           currentPrice: 12_000,
           bidCount: 0,
           startAt: '2026-10-20T10:00:00',
-          endAt: '2026-10-21T10:00:00',
+          endAt: state.status === 'ONGOING' ? '2099-10-21T10:00:00' : '2026-10-21T10:00:00',
         };
       if (r.path === '/api/v1/products/{productId}') return { id: 5, description: '잘 작동해요.' };
       if (r.path === '/api/v1/products/{productId}/auctions') return state.history;
+      if (r.path === '/api/v1/auctions/{auctionId}/cancel') {
+        state.status = 'CANCELED';
+        return undefined;
+      }
       return undefined;
     },
   };
@@ -59,6 +64,14 @@ function renderDetail() {
 describe('경매 상세 - 이 상품의 경매 이력', () => {
   beforeEach(() => {
     state.userId = SELLER_ID;
+    state.status = 'FAILED';
+    // jsdom에는 <dialog>의 showModal·close가 없다.
+    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+      this.open = true;
+    };
+    HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+      this.open = false;
+    };
     state.paths = [];
     state.history = [
       { id: 20, status: 'FAILED', startPrice: 12_000, currentPrice: 12_000, bidCount: 0, startAt: '2026-10-20T10:00:00', endAt: '2026-10-21T10:00:00' },
@@ -87,6 +100,19 @@ describe('경매 상세 - 이 상품의 경매 이력', () => {
     const row = within(await screen.findByRole('list', { name: '이 상품의 경매 이력' })).getByRole('listitem');
     expect(within(row).getAllByText('-')).toHaveLength(2);
     expect(row).not.toHaveTextContent('0 P');
+  });
+
+  it('판매자가 지금 경매를 취소하면 경매 이력도 다시 불러온다', async () => {
+    state.status = 'ONGOING';
+    renderDetail();
+    await screen.findByRole('list', { name: '이 상품의 경매 이력' });
+    const historyCalls = () => state.paths.filter((path) => path === '/api/v1/products/{productId}/auctions').length;
+    const before = historyCalls();
+
+    await userEvent.click(screen.getByRole('button', { name: '경매 취소' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '경매 취소' }));
+
+    await vi.waitFor(() => expect(historyCalls()).toBeGreaterThan(before));
   });
 
   it('이력이 비었으면 "경매 이력이 없어요"', async () => {
