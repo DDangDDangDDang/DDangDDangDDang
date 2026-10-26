@@ -8,6 +8,7 @@ import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
 import { SignupPage } from '@/pages/auth/SignupPage';
 import { CategoryAdminPage } from '@/pages/admin/CategoryAdminPage';
 import { DmReportsPage } from '@/pages/admin/DmReportsPage';
+import { PointExchangesAdminPage } from '@/pages/admin/PointExchangesAdminPage';
 import { SellerApplicationsPage } from '@/pages/admin/SellerApplicationsPage';
 import { AuctionDetailPage } from '@/pages/auctions/AuctionDetailPage';
 import { AuctionListPage } from '@/pages/auctions/AuctionListPage';
@@ -93,6 +94,7 @@ export const router = createBrowserRouter([
           { path: '/admin/dm-reports', element: <DmReportsPage /> },
           { path: '/admin/seller-applications', element: <SellerApplicationsPage /> },
           { path: '/admin/donation-policy', element: <DonationPolicyPage /> },
+          { path: '/admin/point-exchanges', element: <PointExchangesAdminPage /> },
         ],
       },
 
