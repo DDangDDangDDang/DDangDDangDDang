@@ -66,7 +66,7 @@ class AuctionBidRuleTest {
         void reachesBuyNow() {
             Auction auction = AuctionFixture.ongoing(NOW);
             assertError(() -> auction.validateBid(BIDDER, 100_000L, NOW), AuctionErrorCode.BID_REACHES_BUY_NOW);
-            assertThatCode(() -> auction.validateBid(BIDDER, 99_999L, NOW)).doesNotThrowAnyException();
+            assertThatCode(() -> auction.validateBid(BIDDER, 99_000L, NOW)).doesNotThrowAnyException();
         }
 
         @Test
@@ -77,6 +77,35 @@ class AuctionBidRuleTest {
         }
 
         @Test
+        @DisplayName("입찰 금액은 기준가(첫 입찰은 시작가, 이후는 현재가)에서 입찰 단위만큼씩 올려야 한다")
+        void bidUnit() {
+            Auction auction = AuctionFixture.ongoing(NOW); // 시작가 10,000 · 단위 1,000
+            assertError(() -> auction.validateBid(BIDDER, 10_500L, NOW), AuctionErrorCode.BID_UNIT_MISMATCH);
+            assertThatCode(() -> auction.validateBid(BIDDER, 12_000L, NOW)).doesNotThrowAnyException();
+
+            AuctionFixture.bidBy(auction, OTHER, 20_000L);
+            assertError(() -> auction.validateBid(BIDDER, 21_500L, NOW), AuctionErrorCode.BID_UNIT_MISMATCH);
+            assertThatCode(() -> auction.validateBid(BIDDER, 40_000L, NOW)).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("단위가 맞지 않는 예전 입찰이 현재가여도 그 현재가를 기준으로 계속 입찰할 수 있다")
+        void bidUnitFromCurrentPrice() {
+            Auction auction = AuctionFixture.ongoing(NOW);
+            AuctionFixture.bidBy(auction, OTHER, 15_500L); // 규칙 도입 전에 들어간 입찰
+
+            assertThatCode(() -> auction.validateBid(BIDDER, 16_500L, NOW)).doesNotThrowAnyException();
+            assertError(() -> auction.validateBid(BIDDER, 17_000L, NOW), AuctionErrorCode.BID_UNIT_MISMATCH);
+        }
+
+        @Test
+        @DisplayName("최소 금액보다 낮으면 단위보다 금액 부족을 먼저 알린다")
+        void tooLowBeforeUnit() {
+            Auction auction = AuctionFixture.ongoing(NOW);
+            assertError(() -> auction.validateBid(BIDDER, 9_500L, NOW), AuctionErrorCode.BID_TOO_LOW);
+        }
+
+        @Test
         @DisplayName("마감 시각이 지났거나 진행 중이 아니면 입찰할 수 없다")
         void closed() {
             Auction auction = AuctionFixture.ongoing(NOW, Duration.ofSeconds(10), null);
@@ -84,6 +113,43 @@ class AuctionBidRuleTest {
 
             auction.cancel();
             assertError(() -> auction.validateBid(BIDDER, 10_000L, NOW), AuctionErrorCode.AUCTION_NOT_ONGOING);
+        }
+    }
+
+    @Nested
+    @DisplayName("마감 재시도")
+    class CloseRetry {
+
+        @Test
+        @DisplayName("실패할 때마다 다음 시도까지 1초, 2초, 4초 ... 로 늘리고 최대 5분까지만 기다린다")
+        void backoff() {
+            Auction auction = AuctionFixture.ongoing(NOW);
+
+            auction.recordCloseFailure(NOW);
+            assertThat(auction.getNextCloseAttemptAt()).isEqualTo(NOW.plusSeconds(1));
+            auction.recordCloseFailure(NOW);
+            assertThat(auction.getNextCloseAttemptAt()).isEqualTo(NOW.plusSeconds(2));
+            auction.recordCloseFailure(NOW);
+            assertThat(auction.getNextCloseAttemptAt()).isEqualTo(NOW.plusSeconds(4));
+
+            for (int i = 0; i < 5; i++) {
+                auction.recordCloseFailure(NOW);
+            }
+            assertThat(auction.getNextCloseAttemptAt()).isEqualTo(NOW.plusSeconds(128));
+            auction.recordCloseFailure(NOW);
+            assertThat(auction.getNextCloseAttemptAt()).isEqualTo(NOW.plusSeconds(256));
+        }
+
+        @Test
+        @DisplayName("한도만큼 실패하면 더 시도하지 않는다고 알린다")
+        void exhausted() {
+            Auction auction = AuctionFixture.ongoing(NOW);
+
+            for (int i = 1; i < Auction.MAX_CLOSE_FAILURES; i++) {
+                assertThat(auction.recordCloseFailure(NOW)).isFalse();
+            }
+            assertThat(auction.recordCloseFailure(NOW)).isTrue();
+            assertThat(auction.getCloseFailCount()).isEqualTo(Auction.MAX_CLOSE_FAILURES);
         }
     }
 
@@ -99,10 +165,17 @@ class AuctionBidRuleTest {
         }
 
         @Test
-        @DisplayName("마감 30초 전 이내면 30초 연장한다")
+        @DisplayName("마감 30초 전 이내면 남은 시간이 다시 30초가 되게 미룬다 (입찰 시각 + 30초)")
         void extended() {
+            Auction auction = AuctionFixture.ongoing(NOW, Duration.ofSeconds(10), null);
+            assertThat(auction.endAtAfterBid(NOW)).isEqualTo(NOW.plusSeconds(30));
+        }
+
+        @Test
+        @DisplayName("정확히 30초 남았을 때는 그대로다 (30초를 넘게 늘리지 않는다)")
+        void notBeyondThirtySeconds() {
             Auction auction = AuctionFixture.ongoing(NOW, Duration.ofSeconds(30), null);
-            assertThat(auction.endAtAfterBid(NOW)).isEqualTo(auction.getEndAt().plusSeconds(30));
+            assertThat(auction.endAtAfterBid(NOW)).isEqualTo(auction.getEndAt());
         }
 
         @Test

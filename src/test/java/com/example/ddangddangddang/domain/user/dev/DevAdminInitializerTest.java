@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.user.dev;
 
+import com.example.ddangddangddang.domain.point.repository.PointWalletRepository;
+import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.entity.UserRole;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
@@ -34,6 +36,12 @@ class DevAdminInitializerTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private PointService pointService;
+
+    @Mock
+    private PointWalletRepository pointWalletRepository;
+
     private void configure(String email, String password) {
         ReflectionTestUtils.setField(initializer, "email", email);
         ReflectionTestUtils.setField(initializer, "password", password);
@@ -56,6 +64,11 @@ class DevAdminInitializerTest {
         configure("admin@ddang.local", "admin1234!");
         given(userRepository.findByEmail("admin@ddang.local")).willReturn(Optional.empty());
         given(passwordEncoder.encode("admin1234!")).willReturn("encoded");
+        given(userRepository.save(any(User.class))).willAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            ReflectionTestUtils.setField(user, "id", 7L);
+            return user;
+        });
 
         initializer.run(null);
 
@@ -63,6 +76,7 @@ class DevAdminInitializerTest {
         verify(userRepository).save(saved.capture());
         assertThat(saved.getValue().getRole()).isEqualTo(UserRole.ADMIN);
         assertThat(saved.getValue().getPassword()).isEqualTo("encoded");
+        verify(pointService).createWallet(7L);
     }
 
     @Test
@@ -70,12 +84,15 @@ class DevAdminInitializerTest {
     void grantExisting() {
         configure("me@ddang.com", "admin1234!");
         User user = User.create("me@ddang.com", "original", "나");
+        ReflectionTestUtils.setField(user, "id", 8L);
         given(userRepository.findByEmail("me@ddang.com")).willReturn(Optional.of(user));
+        given(pointWalletRepository.existsByUserId(8L)).willReturn(true);
 
         initializer.run(null);
 
         assertThat(user.getRole()).isEqualTo(UserRole.ADMIN);
         assertThat(user.getPassword()).isEqualTo("original");
         verify(userRepository, never()).save(any());
+        verify(pointService, never()).createWallet(any());
     }
 }

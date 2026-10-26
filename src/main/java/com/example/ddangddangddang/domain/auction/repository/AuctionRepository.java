@@ -31,6 +31,21 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
     //종료 시간이 지난 ONGOING 경매(ONGOING -> ENDED/FAILED 대상)
     List<Auction> findByStatusAndEndAtLessThanEqual(AuctionStatus status, LocalDateTime now);
 
+    /**
+     * 스케줄러가 마감할 경매: 종료 시간이 지난 ONGOING 중, 마감 재시도를 기다리는 중이 아니고 재시도 한도에 닿지 않은 것.
+     * 마감에 실패한 경매가 1초마다 같은 실패를 반복하지 않게 한다. (AuctionCloseRetryService)
+     */
+    @Query("""
+            select a from Auction a
+            where a.status = :status
+              and a.endAt <= :now
+              and a.closeFailCount < :maxFailures
+              and (a.nextCloseAttemptAt is null or a.nextCloseAttemptAt <= :now)
+            """)
+    List<Auction> findCloseTargets(@Param("status") AuctionStatus status,
+                                   @Param("now") LocalDateTime now,
+                                   @Param("maxFailures") int maxFailures);
+
     //마감 임박 알림: 종료 시각이 [from, to] 사이인 진행 중 경매. 알림 문구에 쓰는 상품을 같이 읽는다.
     @EntityGraph(attributePaths = {"product"})
     List<Auction> findByStatusAndEndAtBetween(AuctionStatus status, LocalDateTime from, LocalDateTime to);

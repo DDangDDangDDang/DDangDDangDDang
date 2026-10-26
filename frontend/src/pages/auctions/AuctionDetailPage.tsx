@@ -6,6 +6,8 @@ import { api, call, errorMessage, isErrorCode, useSession } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
 import { AuctionAlertButton } from '@/components/auction/AuctionAlertButton';
 import { BidDialog } from '@/components/auction/BidDialog';
+import { BidHistory } from '@/components/auction/BidHistory';
+import { MyBidStatus } from '@/components/auction/MyBidStatus';
 import { auctionKey, useAuctionRealtime } from '@/lib/use-auction-realtime';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
 import { ProductImage } from '@/components/order/OrderBits';
@@ -13,13 +15,17 @@ import { SellerIdentity } from '@/components/seller/SellerIdentity';
 import { Badge, Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { auctionPhase, secondsUntil, type AuctionPhase } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint, formatRemaining } from '@/lib/format';
+import { useMyBid } from '@/lib/use-my-bid';
 import { useNow } from '@/lib/use-now';
 import { ProductAuctionHistory } from './ProductAuctionHistory';
 
 /** 시작 전·진행 중인 경매도 이 간격으로 다시 불러온다. (실시간 메시지가 끊겼을 때의 보조) */
 const REFRESH_MS = 10_000;
 
-/** 경매 상세: 상품 정보 + 현재가·입찰 수·남은 시간. 내 경매면 취소할 수 있다. [입찰하기]는 입찰 창(BidDialog)을 연다. */
+/**
+ * 경매 상세: 상품 정보·입찰 기록 + 현재가·입찰 수·남은 시간·내 입찰 상태. 내 경매면 취소할 수 있다.
+ * [입찰하기]는 입찰 창(BidDialog)을 연다.
+ */
 export function AuctionDetailPage() {
   const params = useParams();
   const auctionId = Number(params.auctionId);
@@ -68,6 +74,8 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
   });
 
   const now = useNow(auction?.status === 'ONGOING' ? 1000 : null);
+  // 내 경매에는 입찰할 수 없으니 불러오지 않는다.
+  const myBid = useMyBid(auctionId, auction !== undefined && auction.sellerId !== session?.user.userId);
 
   if (query.isPending) return <DetailSkeleton />;
   if (query.isError) {
@@ -109,6 +117,8 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
             )}
           </CardBody>
         </Card>
+        {/* 시작 전 경매는 입찰이 있을 수 없으니 기록을 보여주지 않는다. */}
+        {phase !== 'READY' && phase !== 'CANCELED' && <BidHistory auctionId={auctionId} bidCount={auction.bidCount ?? 0} />}
         {/* 판매자 본인일 때만: 이 상품으로 열었던 경매 전부 (남이면 그리지도, 부르지도 않는다) */}
         {isMine && productId !== undefined && auction.id !== undefined && <ProductAuctionHistory productId={productId} currentAuctionId={auction.id} />}
       </section>
@@ -152,6 +162,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
             {phase === 'ONGOING' && <TimeProgress startAt={auction.startAt} endAt={auction.endAt} now={now} />}
 
             {phase === 'CLOSING' && <Notice>마감됐어요. 낙찰 결과를 정리하고 있어요.</Notice>}
+            {!isMine && <MyBidStatus myBid={myBid.data} />}
             {!isMine && phase === 'ONGOING' && (
               <Button size="lg" onClick={() => guard(() => setBidOpen(true))}>
                 입찰하기
