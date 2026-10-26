@@ -86,7 +86,7 @@ describe('TrackingCard', () => {
     const steps = within(await screen.findByRole('list', { name: '배송 단계' })).getAllByRole('listitem');
     expect(steps[2]).toHaveAttribute('aria-current', 'step');
     expect(steps[2]).toHaveTextContent('배송출발');
-    expect(screen.queryByText(/전체 이력 보기/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/최근 이력 보기/)).not.toBeInTheDocument();
   });
 
   it('배달 완료 뒤에 이벤트가 더 와도 도착 단계에 배달완료를 한 번만 적는다', async () => {

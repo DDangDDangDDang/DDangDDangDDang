@@ -11,7 +11,7 @@ type Order = Schema<'OrderResponse'>;
 type TrackingEvent = Schema<'TrackingEvent'>;
 
 /**
- * 배송 조회: 현재 상태 + 단계 그림(접수 → 출발 → 배송 중 → 도착) + 전체 이력(최신 순, 접어 둠). 발송된 주문(택배사·송장번호 있음)에서만 보여준다.
+ * 배송 조회: 현재 상태 + 단계 그림(접수 → 출발 → 배송 중 → 도착) + 최근 이력(최대 20개, 최신 순, 접어 둠). 발송된 주문(택배사·송장번호 있음)에서만 보여준다.
  * 조회가 안 되면(아직 등록 전, 서비스 장애, 지원하지 않는 택배사) 택배사 조회 페이지 링크로 대신한다.
  */
 export function TrackingCard({ order }: { order: Order }) {
@@ -91,7 +91,7 @@ function TrackingTimeline({ lastEvent, events }: { lastEvent?: TrackingEvent; ev
             <TrackingSteps events={stepEvents} problem={trackingStatusVariant(lastEvent?.statusCode) === 'warning'} />
             {latestFirst.length > 0 && (
                 <details>
-                    <summary className="cursor-pointer text-label text-neutral-500 hover:text-neutral-900">전체 이력 보기 ({latestFirst.length})</summary>
+                    <summary className="cursor-pointer text-label text-neutral-500 hover:text-neutral-900">최근 이력 보기 ({latestFirst.length})</summary>
                     <ol aria-label="배송 이력" className="mt-3 flex flex-col gap-2 border-l border-neutral-100 pl-4">
                         {latestFirst.map((event, index) => (
                             <li key={`${event.time}-${index}`} className="flex flex-col">
