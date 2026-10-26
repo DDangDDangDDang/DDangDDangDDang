@@ -81,6 +81,14 @@ describe('경매 상세 - 이 상품의 경매 이력', () => {
     expect(within(rows[0] as HTMLElement).queryByRole('link')).toBeNull();
   });
 
+  it('가격이 응답에 없으면 0 P가 아니라 -로 보여 준다', async () => {
+    state.history = [{ id: 20, status: 'FAILED', bidCount: 0, startAt: '2026-10-20T10:00:00', endAt: '2026-10-21T10:00:00' }];
+    renderDetail();
+    const row = within(await screen.findByRole('list', { name: '이 상품의 경매 이력' })).getByRole('listitem');
+    expect(within(row).getAllByText('-')).toHaveLength(2);
+    expect(row).not.toHaveTextContent('0 P');
+  });
+
   it('이력이 비었으면 "경매 이력이 없어요"', async () => {
     state.history = [];
     renderDetail();

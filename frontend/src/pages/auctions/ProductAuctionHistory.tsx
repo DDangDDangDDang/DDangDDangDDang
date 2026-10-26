@@ -71,11 +71,11 @@ function HistoryRow({ auction, current, now }: { auction: Auction; current: bool
       <dl className="grid shrink-0 grid-cols-3 gap-4 text-right">
         <div>
           <dt className="text-caption text-neutral-500">시작가</dt>
-          <dd className="num text-body font-semibold">{formatPoint(auction.startPrice ?? 0)}</dd>
+          <dd className="num text-body font-semibold">{pointOrDash(auction.startPrice)}</dd>
         </div>
         <div>
           <dt className="text-caption text-neutral-500">최종가</dt>
-          <dd className="num text-body font-bold">{formatPoint(auction.currentPrice ?? auction.startPrice ?? 0)}</dd>
+          <dd className="num text-body font-bold">{pointOrDash(auction.currentPrice)}</dd>
         </div>
         <div>
           <dt className="text-caption text-neutral-500">입찰</dt>
@@ -93,4 +93,9 @@ function HistoryRow({ auction, current, now }: { auction: Auction; current: bool
       {content}
     </Link>
   );
+}
+
+/** 금액이 응답에 없으면 0 P처럼 보이지 않게 -로 */
+function pointOrDash(amount?: number): string {
+  return amount === undefined ? '-' : formatPoint(amount);
 }
