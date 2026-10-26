@@ -69,3 +69,17 @@ export function isExchangeInFlight(status?: string): boolean {
 export function hasFinishedExchange(previous: ReadonlyMap<number, string | undefined>, rows: ExchangeRow[]): boolean {
   return rows.some((row) => row.exchangeId !== undefined && isExchangeInFlight(previous.get(row.exchangeId)) && !isExchangeInFlight(row.status));
 }
+
+/**
+ * 관리자 환전 처리에서 신청 상태별로 할 수 있는 다음 동작. (서버 규칙과 같다)
+ * - 신청됨: 송금 시작 또는 반려
+ * - 송금 중: 송금 완료 또는 반려 (이미 이체했다면 반려하지 않는다)
+ * - 그 밖(완료·실패·취소): 할 일 없음
+ */
+export type AdminExchangeAction = 'start' | 'complete' | 'reject';
+
+export function adminExchangeActions(status?: string): AdminExchangeAction[] {
+  if (status === 'PENDING') return ['reject', 'start'];
+  if (status === 'PROCESSING') return ['reject', 'complete'];
+  return [];
+}

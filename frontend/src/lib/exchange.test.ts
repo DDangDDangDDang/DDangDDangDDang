@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bankName, EMPTY_EXCHANGE_FORM, hasFinishedExchange, toExchangeRequest, validateExchangeForm } from './exchange';
+import { adminExchangeActions, bankName, EMPTY_EXCHANGE_FORM, hasFinishedExchange, toExchangeRequest, validateExchangeForm } from './exchange';
 
 const valid = { amount: '50,000', bankCode: '004', accountNumber: '123-456-789012', accountHolder: ' 홍길동 ' };
 
@@ -51,5 +51,16 @@ describe('hasFinishedExchange', () => {
 
   it('여전히 처리 중이거나, 처음 보는 신청이거나, 원래 끝난 신청이면 false', () => {
     expect(hasFinishedExchange(previous, [{ exchangeId: 1, status: 'PROCESSING' }, { exchangeId: 3, status: 'COMPLETE' }, { exchangeId: 9, status: 'FAILED' }])).toBe(false);
+  });
+});
+
+describe('adminExchangeActions', () => {
+  it('신청됨은 송금 시작·반려, 송금 중은 송금 완료·반려', () => {
+    expect(adminExchangeActions('PENDING')).toEqual(['reject', 'start']);
+    expect(adminExchangeActions('PROCESSING')).toEqual(['reject', 'complete']);
+  });
+
+  it('끝난 신청은 할 일이 없다', () => {
+    for (const status of ['COMPLETE', 'FAILED', 'CANCELLED', undefined]) expect(adminExchangeActions(status)).toEqual([]);
   });
 });

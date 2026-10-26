@@ -5,6 +5,8 @@ import com.example.ddangddangddang.domain.point.entity.PointExchange;
 import com.example.ddangddangddang.domain.point.entity.PointExchangeType;
 import com.example.ddangddangddang.domain.point.exception.PointErrorCode;
 import com.example.ddangddangddang.domain.point.repository.PointExchangeRepository;
+import com.example.ddangddangddang.domain.user.entity.User;
+import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +42,9 @@ class AdminPointExchangeServiceTest {
     @Mock
     private PointExchangeLedger pointExchangeLedger;
 
+    @Mock
+    private UserRepository userRepository;
+
     private PointExchange pending() {
         PointExchange exchange = PointExchange.create(1L, 10_000L, "point-exchange-test", "088", "110-123-456789", "홍길동");
         ReflectionTestUtils.setField(exchange, "id", EXCHANGE_ID);
@@ -57,6 +63,26 @@ class AdminPointExchangeServiceTest {
         assertThat(response.accountNumber()).isEqualTo("110123456789");
         assertThat(response.handledBy()).isEqualTo(ADMIN_ID);
         verify(pointExchangeLedger, never()).refund(any());
+    }
+
+    @Test
+    @DisplayName("목록: 신청한 회원의 닉네임·이메일을 함께 보여주고, 회원을 못 찾으면 비워 둔다")
+    void listWithUser() {
+        PointExchange mine = PointExchange.create(1L, 10_000L, "p-1", "088", "110-123-456789", "홍길동");
+        PointExchange unknown = PointExchange.create(2L, 5_000L, "p-2", "004", "123-456-789012", "김철수");
+        ReflectionTestUtils.setField(mine, "id", 1L);
+        ReflectionTestUtils.setField(unknown, "id", 2L);
+        User user = User.create("seller@ddang.com", "encoded", "판매왕");
+        ReflectionTestUtils.setField(user, "id", 1L);
+        given(pointExchangeRepository.findForAdmin(any(), any(), any())).willReturn(List.of(mine, unknown));
+        given(userRepository.findAllById(List.of(1L, 2L))).willReturn(List.of(user));
+
+        var page = adminPointExchangeService.getExchanges(PointExchangeType.PENDING, null, 20);
+
+        assertThat(page.content()).hasSize(2);
+        assertThat(page.content().get(0).nickname()).isEqualTo("판매왕");
+        assertThat(page.content().get(0).email()).isEqualTo("seller@ddang.com");
+        assertThat(page.content().get(1).nickname()).isNull();
     }
 
     @Test

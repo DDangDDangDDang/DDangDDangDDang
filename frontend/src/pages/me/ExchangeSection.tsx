@@ -21,7 +21,7 @@ import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 type Exchange = Schema<'PointExchangeResponse'>;
 
 const PAGE_SIZE = 10;
-/** 신청됨·송금 중인 신청이 있으면 이 간격으로 다시 불러온다. (송금은 서버가 따로 처리한다) */
+/** 신청됨·송금 중인 신청이 있으면 이 간격으로 다시 불러온다. (송금은 관리자가 확인한 뒤 처리한다) */
 const REFRESH_MS = 10_000;
 const BANK_OPTIONS = [{ value: '', label: '은행 선택' }, ...Object.entries(BANK_LABEL).map(([value, label]) => ({ value, label }))];
 const STATUS_BADGE: Record<ExchangeStatus, NonNullable<BadgeProps['variant']>> = {
@@ -34,7 +34,7 @@ const STATUS_BADGE: Record<ExchangeStatus, NonNullable<BadgeProps['variant']>> =
 
 /**
  * 포인트 환전: 신청(금액·은행·계좌·예금주) + 신청 내역(취소).
- * 신청하면 사용 가능 포인트에서 바로 빠지고, 송금은 서버가 따로 처리한다. 신청됨(PENDING)일 때만 취소할 수 있고, 취소·송금 실패면 포인트를 돌려받는다.
+ * 신청하면 사용 가능 포인트에서 바로 빠지고, 관리자가 확인한 뒤 송금한다. 신청됨(PENDING)일 때만 취소할 수 있고, 취소·반려면 포인트를 돌려받는다.
  */
 export function ExchangeSection() {
   // 잔액 요약과 같은 캐시를 쓴다.
@@ -94,7 +94,7 @@ function ExchangeForm({ balance, onClose, onDone }: { balance?: number; onClose:
     mutationFn: () => call(api.POST('/api/v1/points/exchanges', { body: request })),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['points'] });
-      onDone(`${formatPoint(request.amount)} 환전을 신청했어요. 송금이 끝나면 내역에 "송금 완료"로 바뀌어요.`);
+      onDone(`${formatPoint(request.amount)} 환전을 신청했어요. 관리자가 확인하고 송금하면 내역이 "송금 완료"로 바뀌어요.`);
     },
     onError: () => setConfirming(false),
   });
@@ -137,7 +137,7 @@ function ExchangeForm({ balance, onClose, onDone }: { balance?: number; onClose:
         />
         <Input label="예금주" maxLength={30} autoComplete="off" value={values.accountHolder} onChange={(e) => update({ accountHolder: e.target.value })} error={errors.accountHolder} />
       </div>
-      <p className="text-caption text-neutral-500">신청하면 사용 가능 포인트에서 바로 빠져요. 송금 전(신청됨)에는 취소할 수 있고, 취소하거나 송금에 실패하면 돌려받아요.</p>
+      <p className="text-caption text-neutral-500">신청하면 사용 가능 포인트에서 바로 빠지고, 관리자가 확인한 뒤 계좌로 보내 드려요. 송금 전(신청됨)에는 취소할 수 있고, 취소하거나 반려되면 돌려받아요.</p>
       {mutation.isError && <Notice tone="error">{errorMessage(mutation.error)}</Notice>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onClose}>
