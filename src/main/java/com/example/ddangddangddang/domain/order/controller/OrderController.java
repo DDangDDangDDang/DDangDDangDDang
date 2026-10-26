@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.order.dto.OrderSummaryResponse;
 import com.example.ddangddangddang.domain.order.entity.OrderRole;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.service.OrderService;
+import com.example.ddangddangddang.domain.order.service.OrderTrackingService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
@@ -15,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import com.example.ddangddangddang.domain.order.dto.TrackingResponse;
+import com.example.ddangddangddang.domain.order.service.OrderTrackingService;
 
 @RestController
 @RequiredArgsConstructor
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderTrackingService orderTrackingService;
 
     /** role=BUYER(기본값)면 구매 내역, role=SELLER면 판매 내역 */
     @GetMapping
@@ -39,6 +43,14 @@ public class OrderController {
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long orderId) {
         return ResponseEntity.ok(ApiResponse.ok(orderService.getOrder(authUser.id(), orderId)));
+    }
+
+    /** 배송 조회. 발송된 주문(택배사·송장번호 있음)의 구매자·판매자만 조회할 수 있다. */
+    @GetMapping("/{orderId}/tracking")
+    public ResponseEntity<ApiResponse<TrackingResponse>> getTracking(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long orderId) {
+        return ResponseEntity.ok(ApiResponse.ok(orderTrackingService.getTracking(authUser.id(), orderId)));
     }
 
     @PatchMapping("/{orderId}/ship")
