@@ -74,6 +74,21 @@ describe('TrackingCard', () => {
     expect(steps[3]).toHaveTextContent('도착');
   });
 
+  it('이력 없이 현재 상태만 오면 단계 그림을 현재 상태로 그린다', async () => {
+    server.tracking = () => ({
+      courier: 'CJ',
+      trackingNo: '1234567890',
+      lastEvent: { time: '2026-10-26T09:00:00+09:00', statusCode: 'OUT_FOR_DELIVERY', statusName: '배송출발', location: '강남대리점' },
+      events: [],
+    });
+    renderCard();
+
+    const steps = within(await screen.findByRole('list', { name: '배송 단계' })).getAllByRole('listitem');
+    expect(steps[2]).toHaveAttribute('aria-current', 'step');
+    expect(steps[2]).toHaveTextContent('배송출발');
+    expect(screen.queryByText(/전체 이력 보기/)).not.toBeInTheDocument();
+  });
+
   it('아직 택배사에 등록 전이면(ORDER_014) 안내하고 택배사 사이트를 권한다', async () => {
     server.tracking = () => {
       throw new ApiError('ORDER_014', '아직 조회되는 배송 정보가 없습니다. 잠시 후 다시 확인해 주세요.', 404);

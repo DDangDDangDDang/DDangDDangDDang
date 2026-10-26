@@ -72,6 +72,8 @@ function TrackingTimeline({ lastEvent, events }: { lastEvent?: TrackingEvent; ev
     }
     // 최신 이력이 위로 오게 뒤집는다 (서버는 오래된 순)
     const latestFirst = [...events].reverse();
+    // 이력 없이 현재 상태만 오는 경우에도 단계 그림이 비지 않게 현재 상태로 그린다
+    const stepEvents = events.length > 0 ? events : lastEvent ? [lastEvent] : [];
 
     return (
         <div className="flex flex-col gap-4">
@@ -82,7 +84,7 @@ function TrackingTimeline({ lastEvent, events }: { lastEvent?: TrackingEvent; ev
                     {lastEvent.time && <span className="text-caption text-neutral-500">{formatDateTime(lastEvent.time)}</span>}
                 </div>
             )}
-            <TrackingSteps events={events} problem={trackingStatusVariant(lastEvent?.statusCode) === 'warning'} />
+            <TrackingSteps events={stepEvents} problem={trackingStatusVariant(lastEvent?.statusCode) === 'warning'} />
             {latestFirst.length > 0 && (
                 <details>
                     <summary className="cursor-pointer text-label text-neutral-500 hover:text-neutral-900">전체 이력 보기 ({latestFirst.length})</summary>
