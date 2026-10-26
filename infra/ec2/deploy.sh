@@ -91,6 +91,8 @@ if [ -f .env.prev ]; then
   done
   docker compose up -d --remove-orphans
 else
-  echo "첫 배포라 되돌릴 이전 상태가 없습니다."
+  # 실패한 앱을 웹이 계속 넘겨주지 않도록 멈춘다. 컨테이너는 지우지 않아 docker compose logs로 원인을 볼 수 있다.
+  echo "첫 배포라 되돌릴 이전 상태가 없습니다. 시작된 컨테이너를 멈춥니다."
+  docker compose stop || true
 fi
 exit 1

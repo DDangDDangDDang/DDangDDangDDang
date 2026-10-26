@@ -9,11 +9,17 @@
 locals {
   ec2_param_prefix = "/${var.project}/ec2"
   ec2_https        = var.domain_name != ""
+  ec2_public_ip    = join("", aws_eip.ec2[*].public_ip)
 
   # 앱 환경변수 중 비밀이 아닌 것 (DB·Redis 주소 포함)
   ec2_app_environment = merge(local.common_app_environment, {
     # HTTPS로 서비스할 때만 쿠키에 Secure를 붙인다. (HTTP에서 붙이면 브라우저가 쿠키를 저장하지 않는다)
     JWT_COOKIE_SECURE = tostring(local.ec2_https)
+    }, local.ec2_https ? {} : {
+    # 도메인이 없으면 프론트가 고정 IP 주소의 콜백을 쓰므로 백엔드도 같은 값을 쓴다. (도메인이 있으면 ecr.tf의 공통 값)
+    # 구글은 IP·HTTP 주소를 redirect URI로 받지 않아 구글 로그인은 도메인을 연결해야 동작한다.
+    KAKAO_REDIRECT_URI  = "http://${local.ec2_public_ip}/oauth/kakao/callback"
+    GOOGLE_REDIRECT_URI = "http://${local.ec2_public_ip}/oauth/google/callback"
   })
 
   # 웹(Caddy) 환경변수. 도메인이 없으면 :80(모든 주소, HTTP)으로 서비스한다.

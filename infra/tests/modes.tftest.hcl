@@ -54,6 +54,13 @@ mock_provider "aws" {
     }
   }
 
+  mock_resource "aws_eip" {
+    override_during = plan
+    defaults = {
+      public_ip = "203.0.113.10"
+    }
+  }
+
   mock_resource "aws_elasticache_cluster" {
     override_during = plan
     defaults = {
@@ -95,7 +102,7 @@ run "ec2_only" {
     condition = (
       jsondecode(aws_ssm_parameter.ec2_web_env[0].value)["SITE_ADDRESS"] == ":80" &&
       jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["JWT_COOKIE_SECURE"] == "false" &&
-      !contains(keys(jsondecode(aws_ssm_parameter.ec2_app_env[0].value)), "KAKAO_REDIRECT_URI") &&
+      jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["KAKAO_REDIRECT_URI"] == "http://203.0.113.10/oauth/kakao/callback" &&
       length(aws_route53_record.main) == 0
     )
     error_message = "도메인이 없으면 HTTP(:80)로 서비스하고 쿠키에 Secure를 붙이지 않아야 합니다."
