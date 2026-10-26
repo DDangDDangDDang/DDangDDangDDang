@@ -339,7 +339,11 @@ terraform apply   # 약 5~10분 (ALB·NAT·ECS 생성)
 EC2를 먼저 끄면 도메인이 가리키는 곳이 없어 접속이 끊깁니다. 위 "도메인·HTTPS"의 ECS 인증서(`certificate_arn`)를 먼저 붙인 뒤 옮깁니다.
 
 - `manage_dns_record = true`면 `dns_target = "ecs"`로 바꾸고 `terraform apply`. 같은 A 레코드를 제자리에서 ALB 별칭으로 바꿉니다.
-- 다른 곳에서 산 도메인이면 그곳 DNS를 `alb_dns_name`으로 바꿉니다.
+- 다른 곳에서 산 도메인이면 그곳 DNS를 `alb_dns_name`으로 바꿉니다. ALB는 IP가 바뀌므로 A 레코드에 IP를 넣을 수 없고,
+  루트 도메인(`ddangddangddang.com`, `@`)에는 일반 CNAME도 쓸 수 없습니다.
+  - DNS 업체가 ALIAS·ANAME(또는 CNAME 플래트닝)을 지원하면 `@`를 그 방식으로 `alb_dns_name`에 연결합니다.
+  - 지원하지 않으면 네임서버를 Route 53으로 옮기는 것이 가장 간단합니다: Route 53에 호스팅 영역을 만들고 → 도메인 업체의 네임서버를 그 영역의 NS 4개로 바꾼 뒤 → `manage_dns_record = true`, `dns_target = "ecs"`로 apply.
+  - `www.` 같은 하위 도메인은 CNAME으로 `alb_dns_name`을 가리킬 수 있지만, 서비스 주소가 바뀌므로 `domain_name`과 카카오·구글 redirect URI도 함께 바꿔야 합니다.
 - DNS가 퍼질 때까지(TTL 5분) 기다린 뒤 다음 단계로 갑니다.
 
 **5) EC2 끄기**
