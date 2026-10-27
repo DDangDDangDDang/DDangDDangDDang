@@ -5453,53 +5453,6 @@
         "security" : [ ]
       }
     },
-    "/api/v1/auctions/{auctionId}/bids/me" : {
-      "get" : {
-        "tags" : [ "bid-controller" ],
-        "operationId" : "bidGetMyBid",
-        "parameters" : [ {
-          "name" : "auctionId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseMyBidResponse"
-                }
-              }
-            }
-          },
-          "4XX" : {
-            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "5XX" : {
-            "description" : "서버 오류",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/auctions/{auctionId}" : {
       "get" : {
         "tags" : [ "auction-controller" ],
@@ -5546,6 +5499,53 @@
           }
         },
         "security" : [ ]
+      }
+    },
+    "/api/v1/auctions/{auctionId}/bids/me" : {
+      "get" : {
+        "tags" : [ "bid-controller" ],
+        "operationId" : "bidGetMyBid",
+        "parameters" : [ {
+          "name" : "auctionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyBidResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auctions/popular" : {
@@ -7918,37 +7918,6 @@
           }
         }
       },
-      "ApiResponseMyBidResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/MyBidResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "MyBidResponse" : {
-        "type" : "object",
-        "properties" : {
-          "auctionId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "state" : {
-            "type" : "string",
-            "enum" : [ "NONE", "LEADING", "OUTBID", "WON", "LOST" ]
-          },
-          "myHighestAmount" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
       "BidRequest" : {
         "type" : "object",
         "properties" : {
@@ -8194,6 +8163,10 @@
             "enum" : [ "USER", "ADMIN" ]
           },
           "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "nicknameChangeAvailableAt" : {
             "type" : "string",
             "format" : "date-time"
           }
@@ -9706,6 +9679,37 @@
           }
         }
       },
+      "ApiResponseMyBidResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/MyBidResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "MyBidResponse" : {
+        "type" : "object",
+        "properties" : {
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "NONE", "LEADING", "OUTBID", "WON", "LOST" ]
+          },
+          "myHighestAmount" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "ApiResponseListAuctionListResponse" : {
         "type" : "object",
         "properties" : {
@@ -10462,6 +10466,10 @@
     "code" : "USER_004",
     "status" : 409,
     "message" : "이미 가입된 휴대폰 번호입니다."
+  }, {
+    "code" : "USER_005",
+    "status" : 429,
+    "message" : "닉네임을 바꾼 뒤 일정 기간이 지나야 다시 바꿀 수 있습니다."
   }, {
     "code" : "VERIFY_001",
     "status" : 400,
