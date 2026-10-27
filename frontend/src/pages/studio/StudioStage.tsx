@@ -64,7 +64,7 @@ export function StudioStage({
             <CameraMessage camera={camera} onRetry={() => onToggle("camera")} />
           ))}
 
-        <div className="absolute top-4 left-4 flex gap-2">
+        <div className="absolute top-4 left-4 z-10 flex gap-2">
           <PublishBadge live={live} phase={publisher.phase} />
           {recordedMode && camera.track && <RecordedBadge className="h-7 px-2.5" />}
         </div>
@@ -84,7 +84,7 @@ export function StudioStage({
           )}
         {showOverlay && overlay}
 
-        <div className="absolute bottom-4 left-4 flex gap-2">
+        <div className="absolute bottom-4 left-4 z-10 flex gap-2">
           <StageToggle
             on={microphone.enabled && !!microphone.track}
             label={

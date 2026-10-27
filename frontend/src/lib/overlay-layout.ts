@@ -29,10 +29,11 @@ export const DEFAULT_OVERLAY_LAYOUT: OverlayLayout = {
 };
 
 /**
- * 배치 영역: 영상에서 왼쪽 위 LIVE·시청자 수 배지와 아래쪽 버튼 줄(시청 화면의 소리·전체 화면, 스튜디오의 마이크·카메라)을 뺀 곳.
- * 이 안에서만 움직이므로 어디에 두어도 버튼을 가리지 않는다.
+ * 배치 영역: 영상 전체. 판매자가 보는 방송 화면 끝까지 옮길 수 있다.
+ * 영상 위 UI는 가장자리에서 OverlayItem의 여백(16px)만큼 떨어져 그려지고, LIVE 배지·버튼 줄은 이 영역보다 위(z-10)에 그려 가려지지 않는다.
+ * isolate로 영역 안의 z-index가 배지·버튼과 섞이지 않게 한다.
  */
-export const OVERLAY_AREA_CLASS = 'absolute inset-x-4 top-14 bottom-16';
+export const OVERLAY_AREA_CLASS = 'absolute inset-0 isolate';
 
 /** 서버 배치(없으면 null)를 화면에서 쓸 배치로. 빠진 값은 기본 배치로 채운다. */
 export function resolveOverlayLayout(saved: Schema<'OverlayLayoutResponse'> | null | undefined): OverlayLayout {
