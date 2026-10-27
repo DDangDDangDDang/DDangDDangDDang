@@ -1,0 +1,10 @@
+node_modules
+# 백엔드 명세(docs/api/openapi.json)에서 dev·build·typecheck·test 때마다 자동 생성된다.
+src/api/generated
+dist
+.env.local
+*.local
+coverage
+test-results
+playwright-report
+frontend/public/portone-test.html

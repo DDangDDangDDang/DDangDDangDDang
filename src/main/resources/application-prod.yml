@@ -1,0 +1,49 @@
+# 운영(AWS ECS) 설정. SPRING_PROFILES_ACTIVE=prod 로 켠다.
+# application.yml 위에 덮어쓰며, 값은 ECS 작업 정의의 환경변수·Secrets Manager에서 주입된다. (infra/ecs.tf)
+# 로컬 기본값을 운영에서 그대로 쓰지 않도록, 비밀값은 기본값 없이 적어 두어 빠지면 서버가 뜨지 않게 한다.
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    properties:
+      hibernate:
+        format_sql: false
+
+server:
+  # ALB가 붙이는 X-Forwarded-* 헤더로 원래 요청의 scheme·클라이언트 IP를 알아낸다.
+  # native(Tomcat RemoteIpValve)는 X-Forwarded-For를 오른쪽부터 읽으며 사설망 프록시(ALB, VPC 10.0.0.0/16)를 건너뛰고
+  # ALB가 덧붙인 실제 클라이언트 IP를 쓴다. framework는 맨 왼쪽 값(클라이언트가 보낸 값)을 믿어 IP를 속여
+  # 요청 제한(인증번호·손님 시청 입장)을 피할 수 있으므로 쓰지 않는다. (ALB 기본 xff 처리는 append)
+  forward-headers-strategy: native
+  shutdown: graceful
+
+logging:
+  level:
+    org.hibernate.SQL: info
+
+jwt:
+  secret: ${JWT_SECRET}
+
+# API 명세·Swagger UI는 개발용이라 운영에서는 끈다. (프론트엔드는 저장소의 docs/api/openapi.json을 쓴다)
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+livekit:
+  api-url: ${LIVEKIT_API_URL}
+  ws-url: ${LIVEKIT_WS_URL}
+  api-key: ${LIVEKIT_API_KEY}
+  api-secret: ${LIVEKIT_API_SECRET}
+
+# 웹 푸시 VAPID 키. 서버를 켤 때마다 키가 바뀌면 이미 저장된 구독으로 보낸 푸시가 모두 거절되므로, 운영은 반드시 고정 키를 넣는다.
+# 값이 빈 문자열이어도 서버가 뜨지 않게 require-keys로 한 번 더 확인한다. (VapidKeys)
+web-push:
+  public-key: ${WEB_PUSH_PUBLIC_KEY}
+  private-key: ${WEB_PUSH_PRIVATE_KEY}
+  require-keys: true

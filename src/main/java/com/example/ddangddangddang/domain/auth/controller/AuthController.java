@@ -6,6 +6,16 @@ import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.RefreshTokenCookieProvider;
+import com.example.ddangddangddang.domain.auth.dto.CodeSentResponse;
+import com.example.ddangddangddang.domain.auth.dto.PhoneCodeRequest;
+import com.example.ddangddangddang.domain.auth.dto.PhoneVerifyRequest;
+import com.example.ddangddangddang.domain.auth.dto.VerificationTokenResponse;
+import com.example.ddangddangddang.domain.auth.service.SignupVerificationService;
+import com.example.ddangddangddang.domain.auth.dto.FindEmailResponse;
+import com.example.ddangddangddang.domain.auth.dto.PasswordResetCodeRequest;
+import com.example.ddangddangddang.domain.auth.dto.PasswordResetRequest;
+import com.example.ddangddangddang.domain.auth.dto.PasswordResetVerifyRequest;
+import com.example.ddangddangddang.domain.auth.service.AccountRecoveryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -21,8 +31,11 @@ public class AuthController {
 
     private final AuthService authService;
     private final RefreshTokenCookieProvider refreshTokenCookieProvider;
+    private final SignupVerificationService signupVerificationService;
+    private final AccountRecoveryService accountRecoveryService;
 
     @PostMapping("/signup")
+    @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
         SignupResponse response = authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
@@ -57,5 +70,47 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookieProvider.create(result.refreshToken()).toString())
                 .body(ApiResponse.ok(result.response()));
+    }
+
+    @PostMapping("/signup/phone/code")
+    public ResponseEntity<ApiResponse<CodeSentResponse>> sendSignupPhoneCode(@Valid @RequestBody PhoneCodeRequest request) {
+        long expiresIn = signupVerificationService.sendCode(request.phoneNumber());
+        return ResponseEntity.ok(ApiResponse.ok(new CodeSentResponse(expiresIn)));
+    }
+
+    @PostMapping("/signup/phone/verify")
+    public ResponseEntity<ApiResponse<VerificationTokenResponse>> verifySignupPhone(@Valid @RequestBody PhoneVerifyRequest request) {
+        String token = signupVerificationService.verifyCode(request.phoneNumber(), request.code());
+        return ResponseEntity.ok(ApiResponse.ok(new VerificationTokenResponse(token)));
+    }
+
+    @PostMapping("/find-email/code")
+    public ResponseEntity<ApiResponse<CodeSentResponse>> sendFindEmailCode(@Valid @RequestBody PhoneCodeRequest request) {
+        long expiresIn = accountRecoveryService.sendFindEmailCode(request.phoneNumber());
+        return ResponseEntity.ok(ApiResponse.ok(new CodeSentResponse(expiresIn)));
+    }
+
+    @PostMapping("/find-email/verify")
+    public ResponseEntity<ApiResponse<FindEmailResponse>> findEmail(@Valid @RequestBody PhoneVerifyRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(accountRecoveryService.findEmail(request.phoneNumber(), request.code())));
+    }
+
+    @PostMapping("/password-reset/code")
+    public ResponseEntity<ApiResponse<CodeSentResponse>> sendPasswordResetCode(@Valid @RequestBody PasswordResetCodeRequest request) {
+        long expiresIn = accountRecoveryService.sendPasswordResetCode(request.email());
+        return ResponseEntity.ok(ApiResponse.ok(new CodeSentResponse(expiresIn)));
+    }
+
+    @PostMapping("/password-reset/verify")
+    public ResponseEntity<ApiResponse<VerificationTokenResponse>> verifyPasswordResetCode(
+            @Valid @RequestBody PasswordResetVerifyRequest request) {
+        String token = accountRecoveryService.verifyPasswordResetCode(request.email(), request.code());
+        return ResponseEntity.ok(ApiResponse.ok(new VerificationTokenResponse(token)));
+    }
+
+    @PostMapping("/password-reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
+        accountRecoveryService.resetPassword(request.verificationToken(), request.newPassword());
+        return ResponseEntity.ok(ApiResponse.ok());
     }
 }

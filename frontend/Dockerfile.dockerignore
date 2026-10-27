@@ -1,0 +1,23 @@
+# frontend/Dockerfile 전용 (빌드 컨텍스트는 저장소 루트). 필요한 파일만 넣는다.
+# 상위 폴더를 다시 포함한 뒤 그 안의 나머지는 다시 뺀다. (infra/.terraform, terraform.tfvars 등이 컨텍스트에 올라가지 않게)
+*
+!frontend
+!docs
+docs/*
+!docs/api
+docs/api/*
+!docs/api/openapi.json
+!infra
+infra/*
+!infra/ec2
+infra/ec2/*
+!infra/ec2/Caddyfile
+
+# 로컬 설정(.env.local, .env.e2e.local의 테스트 계정 등)과 빌드·테스트 산출물은 넣지 않는다.
+frontend/.env*
+frontend/node_modules
+frontend/dist
+frontend/src/api/generated
+frontend/e2e
+frontend/playwright-report
+frontend/test-results

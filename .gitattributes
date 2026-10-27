@@ -1,3 +1,7 @@
 /gradlew text eol=lf
 *.bat text eol=crlf
 *.jar binary
+# 서버(Linux)에서 실행되거나 Terraform이 그대로 서버에 올리는 파일은 Windows에서도 LF로 유지한다.
+/infra/** text eol=lf
+/Dockerfile text eol=lf
+*.sh text eol=lf

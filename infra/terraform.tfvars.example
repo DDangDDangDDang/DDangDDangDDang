@@ -1,0 +1,31 @@
+# 이 파일을 terraform.tfvars 로 복사해 값을 채운다. (terraform.tfvars는 커밋하지 않는다)
+
+# LiveKit Cloud 프로젝트 주소 (LiveKit Cloud 콘솔 → Settings → Project URL)
+livekit_url = "wss://<프로젝트>.livekit.cloud"
+
+# 배포 구성. 개발 중에는 EC2 앱 서버, 운영 전환 때 ECS. RDS·ElastiCache는 두 구성이 함께 쓴다. (docs/deploy.md "ECS로 전환")
+ec2_enabled = true
+ecs_enabled = false
+
+# 서비스 도메인. 넣으면 EC2가 HTTPS(Let's Encrypt 자동 발급)로 서비스한다. 비우면 Elastic IP의 HTTP로만 서비스한다.
+domain_name = "ddangddangddang.com"
+# 도메인을 Route 53에서 샀으면 true: 도메인 → EC2 고정 IP A 레코드를 Terraform이 만든다. 다른 곳에서 샀으면 false로 두고 직접 등록한다.
+manage_dns_record = true
+
+# 비밀이 아닌 앱 환경변수 (EC2·ECS 공통). 이 값을 쓰면 기본값 전체를 대신하므로 기능 스위치를 모두 적는다.
+app_environment = {
+  MAIL_ENABLED               = "true"
+  SMS_ENABLED                = "true"
+  CHAT_MODERATION_AI_ENABLED = "false"
+  # 포트원 콘솔의 상점 ID (결제를 쓰지 않으면 빈 문자열)
+  PORTONE_STORE_ID = ""
+}
+
+# 이 AWS 계정에 GitHub OIDC 공급자가 이미 있으면 false
+# create_github_oidc_provider = false
+
+# ---- ECS 구성 옵션 ----
+# 도메인을 연결한 뒤 ACM 인증서를 발급받으면 넣는다. 비워 두면 HTTP로만 서비스한다.
+# certificate_arn = "arn:aws:acm:ap-northeast-2:<계정 ID>:certificate/<ID>"
+# 서버(컨테이너) 수
+# app_desired_count = 2

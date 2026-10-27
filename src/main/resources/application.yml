@@ -1,3 +1,8 @@
+server:
+  # 로드밸런서·리버스 프록시 뒤에서 실제 클라이언트 IP를 얻기 위한 설정.
+  # 사설망(10.x, 192.168.x 등)에서 온 요청의 X-Forwarded-For만 믿는다. 외부에서 직접 보낸 X-Forwarded-For는 무시한다.
+  forward-headers-strategy: native
+
 spring:
   application:
     name: DDangDDangDDang
@@ -7,6 +12,10 @@ spring:
     username: ${DB_USERNAME:ddang}
     password: ${DB_PASSWORD:ddang}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # 비관적 락을 기다리는 최대 시간(초). MySQL 기본값은 50초
+      # 락을 기다리는 동안 커넥션을 붙잡고 있으므로, 길면 요청이 몰릴 때 커넥션 풀이 고갈
+      connection-init-sql: SET SESSION innodb_lock_wait_timeout = ${DB_LOCK_WAIT_TIMEOUT_SECONDS:3}
 
   jpa:
     hibernate:
@@ -17,18 +26,152 @@ spring:
         format_sql: true
         default_batch_fetch_size: 100
 
-logging:
-  level:
-    org.hibernate.SQL: debug
+  mail:
+    # Gmail SMTP. 구글 계정 2단계 인증을 켠 뒤 발급한 "앱 비밀번호"를 MAIL_APP_PASSWORD로 주입한다.
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_APP_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
 
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
-  jwt:
-    # Base64로 인코딩된 256비트(32바이트) 이상의 키. 운영 환경에서는 반드시 환경변수로 주입
-    secret: ${JWT_SECRET:bG9jYWwtZGV2ZWxvcG1lbnQtand0LXNlY3JldC1rZXktZGRhbmctZGRhbmctZGRhbmc=}
-    access-token-validity: 30m
-    refresh-token-validity: 14d
-    cookie-secure: ${JWT_COOKIE_SECURE:false}
+logging:
+  level:
+    org.hibernate.SQL: debug
+
+jwt:
+  # Base64로 인코딩된 256비트(32바이트) 이상의 키. 운영 환경에서는 반드시 환경변수로 주입
+  secret: ${JWT_SECRET:bG9jYWwtZGV2ZWxvcG1lbnQtand0LXNlY3JldC1rZXktZGRhbmctZGRhbmctZGRhbmc=}
+  access-token-validity: 30m
+  refresh-token-validity: 14d
+  cookie-secure: ${JWT_COOKIE_SECURE:false}
+
+#livekit:
+#  # 로컬은 livekit-server --dev 기본값. 운영 환경에서는 반드시 환경변수로 주입
+#  api-url: ${LIVEKIT_API_URL:http://localhost:7880}
+#  ws-url: ${LIVEKIT_WS_URL:ws://localhost:7880}
+#  api-key: ${LIVEKIT_API_KEY:devkey}
+#  api-secret: ${LIVEKIT_API_SECRET:secret}
+#
+#toss:
+#  # 토스페이먼츠 테스트 시크릿 키. 운영 환경에서는 반드시 환경변수로 주입
+#  secret-key: ${TOSS_SECRET_KEY:test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6}
+#  base-url: https://api.tosspayments.com
+#  connect-timeout: 3s
+#  read-timeout: 30s
+
+portone:
+  api-url: ${PORTONE_API_URL:https://api.portone.io}
+  api-secret: ${PORTONE_API_SECRET:}          # ← 기본값에 실제 시크릿을 넣지 말 것
+  webhook-secret: ${PORTONE_WEBHOOK_SECRET:}  # 포트원 콘솔 > 결제연동 > 웹훅 에서 발급
+  store-id: ${PORTONE_STORE_ID:}
+
+point:
+  payout:
+    # manual: 관리자가 직접 이체하고 관리자 화면(/admin/point-exchanges)에서 완료 처리한다. (실제 송금사 계약 전)
+    # fake: 송금한 척만 하는 자동 처리. worker.enabled: true와 함께 쓴다
+    provider: manual
+    fake:
+      result: SUCCESS          # SUCCESS / FAILED / IN_PROGRESS 로 바꿔서 흐름 확인 가능
+  exchange:
+    worker:
+      # 자동 송금 스케줄러. manual에서는 반드시 false (송금 구현체가 없어 켜면 서버가 뜨지 않는다)
+      enabled: false
+      pending-delay-ms: 10000      # PENDING 처리 주기 (10초)
+      recovery-delay-ms: 60000     # 복구 확인 주기 (1분)
+      stuck-threshold-minutes: 10  # PROCESSING에 10분 넘게 머물면 복구 대상
+livekit:
+  # 로컬은 livekit-server --dev 기본값. 운영 환경에서는 반드시 환경변수로 주입
+  api-url: ${LIVEKIT_API_URL:http://localhost:7880}
+  ws-url: ${LIVEKIT_WS_URL:ws://localhost:7880}
+  api-key: ${LIVEKIT_API_KEY:devkey}
+  api-secret: ${LIVEKIT_API_SECRET:secret}
+
+toss:
+  # 토스페이먼츠 테스트 시크릿 키. 운영 환경에서는 반드시 환경변수로 주입
+  secret-key: ${TOSS_SECRET_KEY:test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6}
+  base-url: https://api.tosspayments.com
+  connect-timeout: 3s
+  read-timeout: 30s
+
+app:
+  # 로컬 개발용 관리자 계정. 이메일을 넣고 서버를 켜면 그 계정을 관리자로 만든다. (없으면 새로 만들고, 있으면 권한만 준다)
+  # 비우면 아무것도 하지 않는다. 운영(prod)에서는 동작하지 않는다. (DevAdminInitializer)
+  dev-admin:
+    email: ${DEV_ADMIN_EMAIL:}
+    password: ${DEV_ADMIN_PASSWORD:}
+    nickname: ${DEV_ADMIN_NICKNAME:관리자}
+  mail:
+    # false면 메일을 실제로 보내지 않고 서버 로그에만 출력한다. (로컬 개발용)
+    enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:no-reply@ddangddangddang.com}
+  oauth:
+    kakao:
+      # 카카오 개발자 콘솔 > 앱 키 > REST API 키. 비어 있으면 카카오 로그인 API가 OAUTH_005로 응답한다
+      client-id: ${KAKAO_CLIENT_ID:}
+      # 카카오 개발자 콘솔 > 보안 > Client Secret (사용 ON)
+      client-secret: ${KAKAO_CLIENT_SECRET:}
+      # 카카오 콘솔에 등록한 Redirect URI. 프론트가 카카오 로그인 페이지에 보낸 값과 같아야 한다
+      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao/callback}
+    google:
+      # Google Cloud 콘솔 > API 및 서비스 > 사용자 인증 정보 > OAuth 클라이언트 ID(웹). 비어 있으면 구글 로그인 API가 OAUTH_005로 응답한다
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+      # 콘솔의 "승인된 리디렉션 URI"에 등록한 값. 프론트가 구글 로그인 페이지에 보낸 값과 같아야 한다
+      redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:5173/oauth/google/callback}
+  user:
+    # 닉네임을 바꾼 뒤 다시 바꿀 수 있을 때까지의 기간 (가입 후 첫 변경은 바로 가능)
+    nickname-change-interval: 30d
+  delivery-tracker:
+    # 배송 조회(tracker.delivery) 콘솔에서 발급. 비어 있으면 배송 조회 API가 ORDER_016으로 응답한다. Free 플랜 키는 21일마다 만료
+    client-id: ${DELIVERY_TRACKER_CLIENT_ID:}
+    client-secret: ${DELIVERY_TRACKER_CLIENT_SECRET:}
+  sms:
+    # false면 문자를 실제로 보내지 않고 서버 로그에만 출력한다. (로컬 개발용)
+    enabled: ${SMS_ENABLED:false}
+    solapi:
+      base-url: https://api.solapi.com
+      api-key: ${SOLAPI_API_KEY:}
+      api-secret: ${SOLAPI_API_SECRET:}
+      # SOLAPI 콘솔에 미리 등록한 발신번호. 하이픈 없이 숫자만 (예: 01012345678)
+      sender: ${SOLAPI_SENDER:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # 헬스 체크만 공개한다. (env, beans 등 다른 엔드포인트는 노출하지 않음)
+        include: health
+  endpoint:
+    health:
+      # /actuator/health/liveness: 서버 프로세스가 살아 있는지만 본다. ALB 헬스 체크용
+      # /actuator/health/readiness: 요청을 받을 준비가 됐는지 본다.
+      # DB·Redis가 잠깐 끊겨도 서버를 재시작하지 않도록 ALB는 liveness만 확인한다.
+      probes:
+        enabled: true
+  health:
+    # 메일은 선택 기능(MAIL_ENABLED)이라, 설정이 없을 때 전체 상태가 DOWN이 되지 않도록 점검에서 뺀다.
+    mail:
+      enabled: false
+
+springdoc:
+  # 명세 파일(docs/api/openapi.json)의 키 순서를 고정해, 실제 변경만 diff에 보이게 한다.
+  writer-with-order-by-keys: true
+  # 실제 API만 명세에 넣는다. (actuator 제외)
+  paths-to-match: /api/**
+
+# 웹 푸시(브라우저 알림). 키가 비어 있으면 서버를 켤 때마다 새로 만든다. (로컬 개발용, 운영에서는 반드시 고정 키를 환경변수로 넣는다)
+# 키 만들기: npx web-push generate-vapid-keys 의 Public Key / Private Key
+web-push:
+  public-key: ${WEB_PUSH_PUBLIC_KEY:}
+  private-key: ${WEB_PUSH_PRIVATE_KEY:}
+  subject: ${WEB_PUSH_SUBJECT:mailto:no-reply@ddangddangddang.com}

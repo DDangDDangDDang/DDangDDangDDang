@@ -1,0 +1,226 @@
+# EC2 구성: 퍼블릭 서브넷의 EC2 한 대에서 웹(Caddy + 프론트엔드)과 앱을 Docker Compose로 실행하고,
+# DB·Redis는 RDS·ElastiCache를 쓴다. (data_stores.tf)
+# - 80·443 포트만 열고 SSH는 열지 않는다. 서버 접속과 배포는 SSM(Session Manager, Run Command)으로 한다.
+# - domain_name을 넣으면 Caddy가 인증서를 자동으로 받아 HTTPS로 서비스한다. (infra/ec2/Caddyfile)
+# - 서버 디스크에는 데이터가 없어 서버를 다시 만들어도 잃는 것이 없다. DB 백업은 RDS 자동 백업이 맡는다.
+#   (인증서는 서버 디스크에 있지만 새 서버에서 다시 발급받는다)
+# - 배포 중 앱이 다시 뜨는 동안(약 30초) 접속이 끊긴다.
+
+locals {
+  ec2_param_prefix = "/${var.project}/ec2"
+  ec2_https        = var.domain_name != ""
+  ec2_public_ip    = join("", aws_eip.ec2[*].public_ip)
+
+  # 앱 환경변수 중 비밀이 아닌 것 (DB·Redis 주소 포함)
+  ec2_app_environment = merge(local.common_app_environment, {
+    # HTTPS로 서비스할 때만 쿠키에 Secure를 붙인다. (HTTP에서 붙이면 브라우저가 쿠키를 저장하지 않는다)
+    JWT_COOKIE_SECURE = tostring(local.ec2_https)
+    }, local.ec2_https ? {} : {
+    # 도메인이 없으면 프론트가 고정 IP 주소의 콜백을 쓰므로 백엔드도 같은 값을 쓴다. (도메인이 있으면 ecr.tf의 공통 값)
+    # 구글은 IP·HTTP 주소를 redirect URI로 받지 않아 구글 로그인은 도메인을 연결해야 동작한다.
+    KAKAO_REDIRECT_URI  = "http://${local.ec2_public_ip}/oauth/kakao/callback"
+    GOOGLE_REDIRECT_URI = "http://${local.ec2_public_ip}/oauth/google/callback"
+  })
+
+  # 웹(Caddy) 환경변수. 도메인이 없으면 :80(모든 주소, HTTP)으로 서비스한다.
+  ec2_web_environment = {
+    SITE_ADDRESS = local.ec2_https ? var.domain_name : ":80"
+  }
+}
+
+data "aws_ssm_parameter" "al2023_ami" {
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+}
+
+resource "aws_security_group" "ec2" {
+  count       = var.ec2_enabled ? 1 : 0
+  name        = "${var.project}-ec2"
+  description = "EC2 app server: allow HTTP/HTTPS from the internet"
+  vpc_id      = aws_vpc.main.id
+}
+
+# 80: HTTP → HTTPS 이동, Let's Encrypt 도메인 확인 / 443 TCP: HTTPS / 443 UDP: HTTP/3
+resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
+  count             = var.ec2_enabled ? 1 : 0
+  security_group_id = aws_security_group.ec2[0].id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "tcp"
+  from_port         = 80
+  to_port           = 80
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ec2_https" {
+  for_each          = var.ec2_enabled ? toset(["tcp", "udp"]) : toset([])
+  security_group_id = aws_security_group.ec2[0].id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = each.key
+  from_port         = 443
+  to_port           = 443
+}
+
+resource "aws_vpc_security_group_egress_rule" "ec2_all" {
+  count             = var.ec2_enabled ? 1 : 0
+  security_group_id = aws_security_group.ec2[0].id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+}
+
+# ---------- 배포 스크립트·설정 (SSM 파라미터) ----------
+# deploy.sh가 배포할 때마다 최신 값을 받아 쓰므로, 이 값들을 바꾼 뒤 apply하고 다시 배포하면 반영된다.
+# SSM은 값에 이중 중괄호가 있으면 다른 파라미터 참조로 보고 거부한다. apply 도중 실패하지 않게 plan에서 먼저 막는다.
+
+resource "aws_ssm_parameter" "ec2_compose" {
+  count = var.ec2_enabled ? 1 : 0
+  name  = "${local.ec2_param_prefix}/compose"
+  type  = "String"
+  tier  = "Intelligent-Tiering"
+  value = file("${path.module}/ec2/docker-compose.yml")
+
+  lifecycle {
+    precondition {
+      condition     = !strcontains(file("${path.module}/ec2/docker-compose.yml"), "{{")
+      error_message = "infra/ec2/docker-compose.yml에 이중 중괄호를 쓸 수 없습니다. (SSM 파라미터 제한)"
+    }
+  }
+}
+
+resource "aws_ssm_parameter" "ec2_deploy_script" {
+  count = var.ec2_enabled ? 1 : 0
+  name  = "${local.ec2_param_prefix}/deploy-script"
+  type  = "String"
+  tier  = "Intelligent-Tiering"
+  value = file("${path.module}/ec2/deploy.sh")
+
+  lifecycle {
+    precondition {
+      condition     = !strcontains(file("${path.module}/ec2/deploy.sh"), "{{")
+      error_message = "infra/ec2/deploy.sh에 이중 중괄호를 쓸 수 없습니다. (SSM 파라미터 제한, docker --format 대신 --format json + jq)"
+    }
+  }
+}
+
+resource "aws_ssm_parameter" "ec2_app_env" {
+  count = var.ec2_enabled ? 1 : 0
+  name  = "${local.ec2_param_prefix}/app-env"
+  type  = "String"
+  tier  = "Intelligent-Tiering"
+  value = jsonencode(local.ec2_app_environment)
+}
+
+resource "aws_ssm_parameter" "ec2_web_env" {
+  count = var.ec2_enabled ? 1 : 0
+  name  = "${local.ec2_param_prefix}/web-env"
+  type  = "String"
+  tier  = "Intelligent-Tiering"
+  value = jsonencode(local.ec2_web_environment)
+}
+
+# ---------- 서버 역할 ----------
+
+data "aws_iam_policy_document" "ec2_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "ec2" {
+  count              = var.ec2_enabled ? 1 : 0
+  name               = "${var.project}-ec2"
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume.json
+}
+
+# SSM 접속·명령 실행
+resource "aws_iam_role_policy_attachment" "ec2_ssm" {
+  count      = var.ec2_enabled ? 1 : 0
+  role       = aws_iam_role.ec2[0].name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+# ECR에서 이미지 받기
+resource "aws_iam_role_policy_attachment" "ec2_ecr" {
+  count      = var.ec2_enabled ? 1 : 0
+  role       = aws_iam_role.ec2[0].name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+resource "aws_iam_role_policy" "ec2_secrets" {
+  count  = var.ec2_enabled ? 1 : 0
+  name   = "read-app-secrets"
+  role   = aws_iam_role.ec2[0].id
+  policy = data.aws_iam_policy_document.read_app_secrets.json
+}
+
+data "aws_iam_policy_document" "ec2_params" {
+  statement {
+    actions   = ["ssm:GetParameter"]
+    resources = ["arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter${local.ec2_param_prefix}/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "ec2_params" {
+  count  = var.ec2_enabled ? 1 : 0
+  name   = "read-deploy-params"
+  role   = aws_iam_role.ec2[0].id
+  policy = data.aws_iam_policy_document.ec2_params.json
+}
+
+resource "aws_iam_instance_profile" "ec2" {
+  count = var.ec2_enabled ? 1 : 0
+  name  = "${var.project}-ec2"
+  role  = aws_iam_role.ec2[0].name
+}
+
+data "aws_caller_identity" "current" {}
+
+# ---------- 서버 ----------
+
+resource "aws_instance" "app" {
+  count = var.ec2_enabled ? 1 : 0
+
+  ami                    = data.aws_ssm_parameter.al2023_ami.value
+  instance_type          = var.ec2_instance_type
+  subnet_id              = aws_subnet.public[0].id
+  vpc_security_group_ids = [aws_security_group.ec2[0].id]
+  iam_instance_profile   = aws_iam_instance_profile.ec2[0].name
+
+  user_data = templatefile("${path.module}/ec2/user_data.sh.tftpl", {
+    compose_version = "v2.29.7"
+    region          = var.region
+    registry        = split("/", aws_ecr_repository.app.repository_url)[0]
+    param_prefix    = local.ec2_param_prefix
+    app_secret_id   = aws_secretsmanager_secret.app.name
+    db_secret_id    = aws_secretsmanager_secret.db.name
+  })
+
+  # IMDSv2만 허용
+  metadata_options {
+    http_tokens = "required"
+  }
+
+  root_block_device {
+    volume_type = "gp3"
+    volume_size = var.ec2_volume_size
+    encrypted   = true
+    tags        = { Name = "${var.project}-ec2-root" }
+  }
+
+  tags = { Name = "${var.project}-app" }
+
+  # 새 AMI가 나오거나 user_data를 고쳐도 apply 때마다 서버가 바뀌어 접속이 끊기지 않게 한다.
+  # 서버를 새로 만들고 싶으면 terraform apply -replace=aws_instance.app[0] 후 다시 배포한다.
+  lifecycle {
+    ignore_changes = [ami, user_data]
+  }
+}
+
+# 서버를 껐다 켜도 주소가 바뀌지 않도록 고정 IP를 붙인다.
+resource "aws_eip" "ec2" {
+  count    = var.ec2_enabled ? 1 : 0
+  domain   = "vpc"
+  instance = aws_instance.app[0].id
+  tags     = { Name = "${var.project}-app" }
+}

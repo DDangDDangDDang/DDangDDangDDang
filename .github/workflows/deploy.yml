@@ -1,0 +1,229 @@
+# main에 머지되면 테스트 → Docker 이미지 빌드·ECR 푸시 → 배포를 한다.
+# 배포 대상은 저장소 변수 DEPLOY_TARGET으로 고른다.
+#   ec2: EC2 한 대(Docker Compose)에 SSM Run Command로 배포 (개발 중)
+#   ecs: ECS Fargate 롤링 배포 (운영)
+#   (비어 있음): AWS를 아직 만들지 않은 상태. 테스트만 하고 빌드·배포는 건너뛴다.
+# AWS 리소스는 infra/(Terraform)로 만들고, 나머지 변수는 GitHub Environment "production"에 등록한다. (docs/deploy.md)
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  # Actions 탭에서 수동으로 다시 배포할 때 (첫 배포, 환경변수 변경 반영 등)
+  workflow_dispatch:
+
+# 배포는 한 번에 하나씩, 진행 중인 배포를 취소하지 않고 순서대로 한다.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: 배포 대상 확인
+    runs-on: ubuntu-latest
+    outputs:
+      target: ${{ steps.target.outputs.target }}
+    steps:
+      - name: DEPLOY_TARGET 확인
+        id: target
+        env:
+          DEPLOY_TARGET: ${{ vars.DEPLOY_TARGET }}
+        run: |
+          case "$DEPLOY_TARGET" in
+            ec2|ecs)
+              echo "배포 대상: $DEPLOY_TARGET" ;;
+            "")
+              echo "::notice::저장소 변수 DEPLOY_TARGET이 없어 테스트만 하고 배포는 건너뜁니다. (docs/deploy.md 3단계)" ;;
+            *)
+              echo "::error::DEPLOY_TARGET은 ec2 또는 ecs여야 합니다. (현재: '${DEPLOY_TARGET}')"
+              exit 1 ;;
+          esac
+          echo "target=$DEPLOY_TARGET" >> "$GITHUB_OUTPUT"
+
+  # main의 테스트는 배포 대상과 관계없이 항상 돈다. (ci.yml은 main 푸시에서 돌지 않음)
+  test:
+    name: 테스트
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: 이미지 빌드
+    needs: [check, test]
+    if: needs.check.outputs.target != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC로 AWS 역할을 빌리기 위해 필요
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # 액세스 키 없이, Terraform이 만든 배포 전용 역할을 빌린다.
+      - name: AWS 인증
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: ECR 로그인
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      # 커밋 SHA 태그로 어떤 커밋이 배포됐는지 추적하고, latest는 ECS 첫 작업 정의가 가리킨다.
+      - name: 이미지 빌드 · 푸시
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:latest
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
+
+      # EC2 구성의 웹 이미지: 프론트엔드 빌드 + Caddy(HTTPS, /api·/ws 프록시). ECS 구성은 아직 쓰지 않는다.
+      # VITE_* 는 브라우저에 그대로 노출되는 공개 값이라 GitHub 변수(vars)로 넣는다.
+      - name: 웹 이미지 빌드 · 푸시
+        if: needs.check.outputs.target == 'ec2'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          build-args: |
+            VITE_KAKAO_REST_API_KEY=${{ vars.VITE_KAKAO_REST_API_KEY }}
+            VITE_GOOGLE_CLIENT_ID=${{ vars.VITE_GOOGLE_CLIENT_ID }}
+            VITE_PORTONE_STORE_ID=${{ vars.VITE_PORTONE_STORE_ID }}
+            VITE_PORTONE_CHANNEL_KEY=${{ vars.VITE_PORTONE_CHANNEL_KEY }}
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_WEB_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  deploy-ec2:
+    name: EC2 배포
+    needs: [check, build]
+    if: needs.check.outputs.target == 'ec2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: AWS 인증
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: ECR 주소 확인
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 서버의 deploy.sh가 새 이미지로 바꾸고 헬스 체크를 한다. 실패하면 서버에서 이전 이미지로 되돌린다.
+      - name: 서버에서 배포 스크립트 실행
+        env:
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+          WEB_IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_WEB_REPOSITORY }}:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          commands=$(jq -nc --arg image "$IMAGE" --arg web "$WEB_IMAGE" '{commands: [
+            "set -e",
+            "cd /opt/ddang",
+            "source ./config.sh",
+            "aws ssm get-parameter --region \"$REGION\" --name \"$PARAM_PREFIX/deploy-script\" --query Parameter.Value --output text > deploy.sh",
+            ("bash deploy.sh " + ($image | @sh) + " " + ($web | @sh))
+          ]}')
+
+          command_id=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${GITHUB_SHA::7}" \
+            --timeout-seconds 900 \
+            --parameters "$commands" \
+            --query Command.CommandId --output text)
+          echo "SSM 명령 ID: $command_id"
+
+          status=Pending
+          for _ in $(seq 1 90); do # 최대 15분
+            sleep 10
+            status=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            case "$status" in Pending|InProgress|Delayed) continue ;; *) break ;; esac
+          done
+
+          echo "----- 서버 출력 -----"
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" \
+            --query '[StandardOutputContent, StandardErrorContent]' --output text || true
+
+          if [ "$status" != "Success" ]; then
+            echo "::error::EC2 배포 실패 (상태: $status)"
+            exit 1
+          fi
+
+  deploy-ecs:
+    name: ECS 배포
+    needs: [check, build]
+    if: needs.check.outputs.target == 'ecs'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+      ECS_TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY }}
+      ECS_CONTAINER_NAME: ${{ vars.ECS_CONTAINER_NAME }}
+
+    steps:
+      - name: AWS 인증
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: ECR 주소 확인
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 지금 쓰는 작업 정의(환경변수·비밀값은 Terraform이 관리)에 이미지만 바꿔 새 리비전을 만든다.
+      - name: 현재 작업 정의 가져오기
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$ECS_TASK_FAMILY" \
+            --query taskDefinition > task-definition.json
+
+      - name: 작업 정의에 새 이미지 넣기
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.ECS_CONTAINER_NAME }}
+          image: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+
+      # 새 서버가 헬스 체크를 통과할 때까지 기다린다. 실패하면 ECS가 이전 버전으로 되돌리고 이 단계도 실패한다.
+      - name: ECS 배포
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
+          wait-for-service-stability: true
+          wait-for-minutes: 20

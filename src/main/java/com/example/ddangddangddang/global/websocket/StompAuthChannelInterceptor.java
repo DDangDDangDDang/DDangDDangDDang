@@ -1,0 +1,161 @@
+package com.example.ddangddangddang.global.websocket;
+
+import com.example.ddangddangddang.domain.auth.exception.AuthErrorCode;
+import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.exception.CommonErrorCode;
+import com.example.ddangddangddang.global.security.jwt.AccessTokenAuthenticator;
+import com.example.ddangddangddang.global.security.jwt.AuthenticatedToken;
+import com.example.ddangddangddang.global.security.jwt.JwtProvider;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.simp.stomp.StompCommand;
+import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
+import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+
+/**
+ * 클라이언트가 보낸 STOMP 프레임을 검사한다.
+ * - CONNECT: Access Token으로 인증하고 사용자 정보를 세션에 저장한다. 이후 프레임은 이 사용자로 처리된다.
+ *   토큰 없이 연결하면 손님 연결이다. 로그인하지 않은 사람도 방송 채팅과 방송 정보 변경을 볼 수 있게 한다.
+ *   토큰이 있는데 잘못됐으면 손님으로 바꾸지 않고 거부한다. (클라이언트가 토큰을 재발급해 다시 연결하도록)
+ * - SUBSCRIBE / SEND: 인증된 연결인지, 연결에 쓴 토큰이 아직 유효한지, 허용된 경로인지 확인한다.
+ *   손님 연결은 방송 토픽(GUEST_SUBSCRIBABLE_DESTINATIONS)만 구독할 수 있고, 보내기(채팅)는 할 수 없다.
+ *   연결은 토큰 유효시간보다 오래 유지되므로, 연결 뒤에 토큰이 만료되거나 로그아웃되면 여기서 막고 연결을 끊는다.
+ *
+ * 여기서 던진 예외는 StompErrorHandler가 ERROR 프레임으로 바꿔 보내고 연결을 끊는다.
+ */
+@Component
+@RequiredArgsConstructor
+public class StompAuthChannelInterceptor implements ChannelInterceptor {
+
+    private static final String APP_DESTINATION_PREFIX = "/app/";
+
+    // CONNECT에 쓴 토큰 정보를 WebSocket 세션 속성에 저장하는 키
+    private static final String TOKEN_ID_ATTRIBUTE = "accessTokenId";
+    private static final String TOKEN_EXPIRES_AT_ATTRIBUTE = "accessTokenExpiresAt";
+    // 토큰 없이 연결한 손님 연결 표시
+    private static final String GUEST_ATTRIBUTE = "guest";
+
+    // 클라이언트가 구독할 수 있는 경로. 새 토픽을 만들면 여기에 추가한다.
+    private static final List<Pattern> SUBSCRIBABLE_DESTINATIONS = List.of(
+            Pattern.compile("^/topic/live-streams/\\d+/chat$"),
+            // 방송 정보 변경 알림 (제목·설명 수정)
+            Pattern.compile("^/topic/live-streams/\\d+$"),
+            // 방송에 올라간 경매 변경 알림 (시작·방송에 올림·취소·마감)
+            Pattern.compile("^/topic/live-streams/\\d+/auctions$"),
+            // 경매 한 건의 입찰·종료 (현재가·입찰 수·마감 시각 실시간 갱신)
+            Pattern.compile("^/topic/auctions/\\d+$"),
+            Pattern.compile("^/user/queue/errors$"),
+            // 판매자에게만 오는 채팅 검토 알림 (내 방송의 알림만 나에게 전달됨)
+            Pattern.compile("^/user/queue/moderation$"),
+            // 판매자에게만 오는 내 방송 안내 (송출이 없어 곧 자동 종료됨 등)
+            Pattern.compile("^/user/queue/live-stream$"),
+            // 1:1 채팅 메시지 (나에게 온 메시지와 내가 다른 화면에서 보낸 메시지)
+            Pattern.compile("^/user/queue/dm$"),
+            // 알림 (구독한 판매자의 방송 시작 등)
+            Pattern.compile("^/user/queue/notifications$")
+    );
+
+    // 손님(로그인하지 않은 연결)이 구독할 수 있는 경로: 방송 채팅, 방송 정보 변경, 방송의 경매 변경, 경매 한 건의 입찰·종료
+    private static final List<Pattern> GUEST_SUBSCRIBABLE_DESTINATIONS = List.of(
+            Pattern.compile("^/topic/live-streams/\\d+/chat$"),
+            Pattern.compile("^/topic/live-streams/\\d+$"),
+            Pattern.compile("^/topic/live-streams/\\d+/auctions$"),
+            Pattern.compile("^/topic/auctions/\\d+$")
+    );
+
+    private final AccessTokenAuthenticator accessTokenAuthenticator;
+
+    @Override
+    public Message<?> preSend(Message<?> message, MessageChannel channel) {
+        StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        if (accessor == null || accessor.getCommand() == null) {
+            return message;
+        }
+
+        StompCommand command = accessor.getCommand();
+        if (command == StompCommand.CONNECT) {
+            authenticate(accessor);
+        } else if (command == StompCommand.SUBSCRIBE) {
+            if (isGuest(accessor)) {
+                validateSubscribable(accessor.getDestination(), GUEST_SUBSCRIBABLE_DESTINATIONS);
+            } else {
+                validateAuthenticated(accessor);
+                validateSubscribable(accessor.getDestination(), SUBSCRIBABLE_DESTINATIONS);
+            }
+        } else if (command == StompCommand.SEND) {
+            validateAuthenticated(accessor);
+            validateSendable(accessor.getDestination());
+        }
+        return message;
+    }
+
+    private void authenticate(StompHeaderAccessor accessor) {
+        String authorization = accessor.getFirstNativeHeader(HttpHeaders.AUTHORIZATION);
+        String token = JwtProvider.resolveBearerToken(authorization);
+        // 인증에 실패하면 Spring이 CONNECT 프레임 전체를 에러 로그로 남기므로, 토큰이 로그에 찍히지 않게 헤더에서 지운다.
+        accessor.removeNativeHeader(HttpHeaders.AUTHORIZATION);
+        if (token == null) {
+            // 헤더가 아예 없을 때만 손님 연결이다. Bearer가 아니거나 값이 비었으면 잘못된 인증 정보로 거부한다.
+            if (authorization != null) {
+                throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
+            }
+            sessionAttributes(accessor).put(GUEST_ATTRIBUTE, Boolean.TRUE);
+            return;
+        }
+        AuthenticatedToken authenticatedToken = accessTokenAuthenticator.authenticateForSession(token);
+        accessor.setUser(authenticatedToken.authentication());
+
+        Map<String, Object> sessionAttributes = sessionAttributes(accessor);
+        sessionAttributes.put(TOKEN_ID_ATTRIBUTE, authenticatedToken.tokenId());
+        sessionAttributes.put(TOKEN_EXPIRES_AT_ATTRIBUTE, authenticatedToken.expiresAt());
+    }
+
+    private void validateAuthenticated(StompHeaderAccessor accessor) {
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if (accessor.getUser() == null || sessionAttributes == null
+                || !(sessionAttributes.get(TOKEN_ID_ATTRIBUTE) instanceof String tokenId)
+                || !(sessionAttributes.get(TOKEN_EXPIRES_AT_ATTRIBUTE) instanceof Instant expiresAt)) {
+            throw new BusinessException(AuthErrorCode.TOKEN_NOT_FOUND);
+        }
+        accessTokenAuthenticator.validateStillActive(tokenId, expiresAt);
+    }
+
+    private boolean isGuest(StompHeaderAccessor accessor) {
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        return accessor.getUser() == null && sessionAttributes != null && Boolean.TRUE.equals(sessionAttributes.get(GUEST_ATTRIBUTE));
+    }
+
+    private Map<String, Object> sessionAttributes(StompHeaderAccessor accessor) {
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if (sessionAttributes == null) {
+            throw new IllegalStateException("WebSocket 세션 속성이 없습니다.");
+        }
+        return sessionAttributes;
+    }
+
+    private void validateSubscribable(String destination, List<Pattern> allowed) {
+        if (destination == null
+                || allowed.stream().noneMatch(pattern -> pattern.matcher(destination).matches())) {
+            throw new BusinessException(CommonErrorCode.INVALID_DESTINATION);
+        }
+    }
+
+    /**
+     * 클라이언트는 /app 경로로만 보낼 수 있다.
+     * /topic으로 직접 보내면 서버 검증 없이 브로커가 그대로 전체 전송하므로, 남을 사칭한 메시지를 막기 위해 차단한다.
+     */
+    private void validateSendable(String destination) {
+        if (destination == null || !destination.startsWith(APP_DESTINATION_PREFIX)) {
+            throw new BusinessException(CommonErrorCode.INVALID_DESTINATION);
+        }
+    }
+}
