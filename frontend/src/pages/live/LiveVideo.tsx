@@ -57,7 +57,7 @@ export function LiveVideo({ liveStream, video, overlay, muted, onToggleSound }: 
       {!playing && <StageMessage liveStream={liveStream} video={video} />}
 
       {isLive && (
-        <div className="absolute top-4 left-4 flex gap-2">
+        <div className="absolute top-4 left-4 z-10 flex gap-2">
           <Badge variant="live" className="h-7 px-2.5 tracking-wide">
             <span
               aria-hidden="true"
@@ -80,7 +80,7 @@ export function LiveVideo({ liveStream, video, overlay, muted, onToggleSound }: 
       {isLive && overlay}
 
       {playing && (
-        <div className="absolute right-4 bottom-4 flex gap-2">
+        <div className="absolute right-4 bottom-4 z-10 flex gap-2">
           <StageButton
             label={muted ? "소리 켜기" : "소리 끄기"}
             onClick={toggleSound}

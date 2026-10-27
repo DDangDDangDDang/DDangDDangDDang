@@ -40,7 +40,7 @@ export function OverlayLayoutEditor({
   const samples = useSamples(featured);
 
   return (
-    <div ref={areaRef} role="group" aria-label="화면 배치 편집" className={cn(OVERLAY_AREA_CLASS, 'rounded-md outline-2 outline-white/40 outline-dashed')}>
+    <div ref={areaRef} role="group" aria-label="화면 배치 편집" className={cn(OVERLAY_AREA_CLASS, 'rounded-lg outline-2 -outline-offset-2 outline-white/40 outline-dashed')}>
       <p id={hintId} className="sr-only">
         끌어서 옮기거나, 누른 뒤 화살표 키로 옮겨요. Shift와 함께 누르면 크게 움직여요.
       </p>
@@ -119,7 +119,8 @@ function DraggableOverlay({
 
   const onPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     const area = areaRef.current;
-    const item = itemRef.current;
+    // 여백을 포함한 바깥 상자(OverlayItem) 크기로 남는 공간을 잰다. (위치 %는 바깥 상자 기준)
+    const item = itemRef.current?.parentElement;
     if (!area || !item) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     onGrab();
@@ -166,7 +167,7 @@ function DraggableOverlay({
           onKeyDown={onKeyDown}
           className="absolute inset-0 cursor-grab touch-none rounded-lg outline-2 outline-white/80 outline-dashed hover:outline-gold-300 focus-visible:outline-gold-300 active:cursor-grabbing"
         >
-          <span className="absolute -top-6 left-0 rounded-sm bg-stage/90 px-1.5 py-0.5 text-caption font-semibold whitespace-nowrap text-white">{label}</span>
+          <span className="absolute top-1.5 left-1.5 rounded-sm bg-stage/90 px-1.5 py-0.5 text-caption font-semibold whitespace-nowrap text-white">{label}</span>
         </button>
       </div>
     </OverlayItem>

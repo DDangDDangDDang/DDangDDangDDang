@@ -10,7 +10,7 @@ import { OverlayItem } from './OverlayItem';
  * 영상 위 UI 전부를 판매자가 정한 화면 배치대로 그린다. 시청 화면과 스튜디오 미리보기가 같이 써서 판매자가 시청자 화면을 그대로 본다.
  * - 경매 카드(최대 2장 묶음): 시청 화면이면 누르면 입찰 창을 연다(onOpenAuction).
  * - 선물·입찰·낙찰 안내: 채팅 메시지로 온 것을 차례로 보여 준다.
- * 배치 영역은 LIVE 배지와 아래 버튼 줄을 피한다. (OVERLAY_AREA_CLASS)
+ * 배치 영역은 영상 전체다. (OVERLAY_AREA_CLASS) LIVE 배지와 버튼 줄은 그 위에 그려진다.
  */
 export function StageOverlays({
   layout,
