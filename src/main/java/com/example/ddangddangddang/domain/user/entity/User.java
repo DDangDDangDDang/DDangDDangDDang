@@ -13,6 +13,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+
 @Getter
 @Entity
 @Table(name = "users")
@@ -38,6 +41,9 @@ public class User extends BaseTimeEntity {
 
     @Column(unique = true, length = 11)
     private String phoneNumber;
+
+    // 마지막으로 닉네임을 바꾼 시각. 가입 후 한 번도 바꾸지 않았으면 null (첫 변경은 바로 할 수 있다)
+    private LocalDateTime nicknameChangedAt;
 
     private User(String email, String password, String nickname, String phoneNumber, UserRole role) {
         this.email = email;
@@ -71,8 +77,22 @@ public class User extends BaseTimeEntity {
         this.password = encodedPassword;
     }
 
-    public void changeNickname(String nickname) {
+    public void changeNickname(String nickname, LocalDateTime now) {
         this.nickname = nickname;
+        this.nicknameChangedAt = now;
+    }
+
+    /**
+     * 다음에 닉네임을 바꿀 수 있는 시각. 지금 바로 바꿀 수 있으면 null
+     *
+     * @param interval 닉네임을 바꾼 뒤 다시 바꿀 수 있을 때까지의 기간
+     */
+    public LocalDateTime nicknameChangeAvailableAt(Duration interval, LocalDateTime now) {
+        if (nicknameChangedAt == null) {
+            return null;
+        }
+        LocalDateTime availableAt = nicknameChangedAt.plus(interval);
+        return now.isBefore(availableAt) ? availableAt : null;
     }
 
     /** 개발용 관리자 계정 생성 (DevAdminInitializer). 운영에서는 쓰지 않는다 */

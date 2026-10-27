@@ -99,6 +99,25 @@ class UserControllerTest {
         }
 
         @Test
+        @DisplayName("닉네임을 바꾸면 30일 뒤까지 다시 바꿀 수 없다: 429 USER_005, 내 정보에 다음 변경 가능 시각")
+        void tooSoon() throws Exception {
+            mockMvc.perform(get("/api/v1/users/me").header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                    .andExpect(jsonPath("$.data.nicknameChangeAvailableAt").doesNotExist());
+            String response = update(accessToken, "새닉네임")
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.user.nicknameChangeAvailableAt").isNotEmpty())
+                    .andReturn().getResponse().getContentAsString();
+            String newAccessToken = JsonPath.read(response, "$.data.accessToken");
+
+            update(newAccessToken, "또새닉네임")
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(jsonPath("$.error.code").value("USER_005"));
+            mockMvc.perform(get("/api/v1/users/me").header(HttpHeaders.AUTHORIZATION, bearer(newAccessToken)))
+                    .andExpect(jsonPath("$.data.nickname").value("새닉네임"))
+                    .andExpect(jsonPath("$.data.nicknameChangeAvailableAt").isNotEmpty());
+        }
+
+        @Test
         @DisplayName("다른 회원이 쓰는 닉네임이면 409 USER_002")
         void duplicate() throws Exception {
             signupAndLogin("other@test.com", "남의닉네임");

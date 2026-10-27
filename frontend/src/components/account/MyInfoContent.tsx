@@ -3,9 +3,12 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, replaceSession } from '@/api';
 import { Button, Card, CardBody, CardHeader, CardTitle, ErrorState, Input, Notice, Skeleton, buttonVariants } from '@/components/ui';
-import { formatDate, formatPhone } from '@/lib/format';
+import { formatDate, formatDateTime, formatPhone } from '@/lib/format';
 
 const myInfoQueryKey = ['users', 'me'] as const;
+
+/** 닉네임 변경 주기 안내 문구용. 실제 제한은 서버(app.user.nickname-change-interval, 기본 30일)가 한다 */
+const NICKNAME_CHANGE_INTERVAL_DAYS = 30;
 
 /**
  * 내 정보: 이메일, 닉네임, 휴대폰 번호, 가입일 + 닉네임 변경 + 비밀번호 변경 + 판매자 인증.
@@ -39,7 +42,7 @@ export function MyInfoContent({ onNavigate }: { onNavigate?: () => void }) {
               <dd>{query.data?.email ?? '-'}</dd>
               <dt className="text-neutral-500">닉네임</dt>
               <dd>
-                <NicknameEditor current={query.data?.nickname ?? ''} />
+                <NicknameEditor current={query.data?.nickname ?? ''} availableAt={query.data?.nicknameChangeAvailableAt} />
               </dd>
               <dt className="text-neutral-500">휴대폰 번호</dt>
               <dd className="num">{query.data?.phoneNumber ? formatPhone(query.data.phoneNumber) : '-'}</dd>
@@ -77,7 +80,8 @@ export function MyInfoContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function NicknameEditor({ current }: { current: string }) {
+/** availableAt: 다음에 닉네임을 바꿀 수 있는 시각. 없으면 지금 바꿀 수 있다 */
+function NicknameEditor({ current, availableAt }: { current: string; availableAt?: string }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [nickname, setNickname] = useState(current);
@@ -102,6 +106,7 @@ function NicknameEditor({ current }: { current: string }) {
           <Button
             variant="outline"
             size="sm"
+            disabled={Boolean(availableAt)}
             onClick={() => {
               setNickname(current);
               setDone(false);
@@ -112,6 +117,7 @@ function NicknameEditor({ current }: { current: string }) {
             변경
           </Button>
         </div>
+        {availableAt && <p className="text-caption text-neutral-500">{formatDateTime(availableAt)}부터 다시 바꿀 수 있어요.</p>}
         {done && <Notice tone="success">닉네임을 변경했어요.</Notice>}
       </div>
     );
@@ -131,7 +137,7 @@ function NicknameEditor({ current }: { current: string }) {
           autoFocus
           value={nickname}
           maxLength={10}
-          hint="2~10자로 입력해 주세요."
+          hint={`2~10자로 입력해 주세요. 바꾸면 ${NICKNAME_CHANGE_INTERVAL_DAYS}일 동안 다시 바꿀 수 없어요.`}
           error={mutation.isError ? errorMessage(mutation.error) : undefined}
           onChange={(e) => setNickname(e.target.value)}
         />
