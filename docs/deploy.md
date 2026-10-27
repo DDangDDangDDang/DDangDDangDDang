@@ -241,6 +241,44 @@ docker compose ps
 docker compose logs -f app      # 웹(Caddy)은 web
 ```
 
+## dev 사이트 (dev.ddangddangddang.com)
+
+**dev 브랜치에 푸시(머지)하면** 테스트 후 dev 사이트로 자동 배포됩니다. 운영(main → ddangddangddang.com)과 같은 워크플로(`deploy.yml`)를 쓰지만, 아래가 모두 따로라 dev 배포가 운영에 닿지 않습니다.
+
+| | 운영 | dev |
+|---|---|---|
+| 서버 | EC2 `ddang-app` | EC2 `ddang-dev` (`infra/dev.tf`) |
+| DB · Redis | RDS · ElastiCache | 같은 서버의 MySQL 8.4 · Redis 7.4 컨테이너 (`infra/ec2/docker-compose.dev.yml`) |
+| 이미지 저장소 | `ddang-app`, `ddang-web` | `ddang-dev-app`, `ddang-dev-web` |
+| 비밀값 | `ddang/app`, `ddang/db` | `ddang-dev/app`, `ddang-dev/db` |
+| GitHub Environment / AWS 역할 | `production` / `ddang-github-deploy` | `development` / `ddang-github-deploy-dev` (dev 서버에만 배포 가능) |
+| 문자·메일 | 실제 발송 | 기본 꺼짐. 인증번호는 dev 서버 앱 로그에서 확인 |
+| 월 비용 | 약 $65 | 약 $20 (t3.small + 디스크 + 고정 IP). 꺼 두면 약 $6 |
+
+dev 데이터는 서버 디스크(Docker 볼륨)에만 있습니다. 배포해도 남지만 서버를 다시 만들면 사라집니다.
+
+**켜기**
+
+1. `infra/terraform.tfvars`에 `dev_enabled = true` (LiveKit은 dev 프로젝트를 따로 만들어 `dev_livekit_url`에 넣는 것을 권장. 비우면 운영 프로젝트를 같이 씀) → `terraform apply`
+2. Secrets Manager `ddang-dev/app`에 "2. 앱 비밀값 넣기"와 같은 키를 넣습니다. **`JWT_SECRET`은 운영과 다른 새 값**으로 만듭니다. (같으면 dev 토큰으로 운영에 로그인할 수 있음)
+3. 카카오·구글 콘솔에 redirect URI `https://dev.ddangddangddang.com/oauth/kakao/callback`, `.../oauth/google/callback` 추가
+4. GitHub → Settings → Environments → **New environment** `development`
+   - Deployment branches and tags: **Selected branches** → `dev`
+   - Variables: `terraform output github_variables_dev`의 5개 + `VITE_KAKAO_REST_API_KEY`, `VITE_GOOGLE_CLIENT_ID`
+5. 저장소 변수(Settings → Secrets and variables → Actions → Variables) `DEV_DEPLOY_ENABLED` = `true`
+6. Actions → Deploy → Run workflow (branch: `dev`)로 첫 배포. 이후로는 dev에 머지할 때마다 자동
+
+**자주 하는 일**
+
+| 하고 싶은 일 | 방법 |
+|---|---|
+| 서버 접속 | `aws ssm start-session --target "$(terraform output -json github_variables_dev \| jq -r .EC2_INSTANCE_ID)"` → `sudo -i; cd /opt/ddang` |
+| 인증번호 확인 (문자·메일 꺼짐) | 서버에서 `docker compose logs app \| grep -i 인증` |
+| dev DB 접속 | 서버에서 `docker compose exec mysql sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" ddang'` |
+| dev 데이터 초기화 | 서버에서 `docker compose down -v` 후 Actions → Deploy → Run workflow (branch: `dev`) |
+| 잠시 끄기 (비용 절약) | `aws ec2 stop-instances --instance-ids <ID>` / 다시 켜기 `start-instances`. 켜면 컨테이너가 자동으로 다시 뜸 |
+| 완전히 없애기 | `dev_enabled = false` → `terraform apply`, GitHub 변수 `DEV_DEPLOY_ENABLED` 삭제 |
+
 ## 운영 중 자주 하는 일 (EC2 구성)
 
 | 하고 싶은 일 | 방법 |

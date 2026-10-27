@@ -21,6 +21,10 @@ app_environment = {
   PORTONE_STORE_ID = ""
 }
 
+# dev 사이트(dev.<도메인>): dev 브랜치에 푸시하면 배포되는 별도 서버. 월 약 $20 (docs/deploy.md "dev 사이트")
+# dev_enabled     = true
+# dev_livekit_url = "wss://<dev 프로젝트>.livekit.cloud"   # 비우면 운영 LiveKit 프로젝트를 같이 쓴다
+
 # 이 AWS 계정에 GitHub OIDC 공급자가 이미 있으면 false
 # create_github_oidc_provider = false
 

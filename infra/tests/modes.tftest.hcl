@@ -84,7 +84,7 @@ run "ec2_only" {
   }
 
   assert {
-    condition     = length(aws_instance.app) == 1 && length(aws_nat_gateway.main) == 0 && length(aws_lb.main) == 0 && length(aws_ecs_service.app) == 0
+    condition     = length(aws_instance.app) == 1 && length(aws_nat_gateway.main) == 0 && length(aws_lb.main) == 0 && length(aws_ecs_service.app) == 0 && length(aws_instance.dev) == 0
     error_message = "EC2 구성에서는 EC2를 만들고 NAT·ALB·ECS는 만들지 않아야 합니다."
   }
 
@@ -215,5 +215,42 @@ run "ecs_only" {
   assert {
     condition     = length(aws_instance.app) == 0 && length(aws_ecs_service.app) == 1 && length(aws_nat_gateway.main) == 1 && length(aws_vpc_security_group_ingress_rule.db_from_ec2) == 0
     error_message = "ECS 구성에서는 EC2 없이 ECS·NAT를 만들고, EC2용 DB 접속 규칙은 없어야 합니다."
+  }
+}
+
+run "dev_site" {
+  command = plan
+
+  variables {
+    ec2_enabled       = true
+    ecs_enabled       = false
+    domain_name       = "example.com"
+    manage_dns_record = true
+    dev_enabled       = true
+  }
+
+  assert {
+    condition = (
+      length(aws_instance.dev) == 1 && length(aws_route53_record.dev) == 1 &&
+      aws_route53_record.dev[0].name == "dev.example.com" &&
+      length(aws_ecr_repository.dev) == 2 && length(aws_iam_role.github_deploy_dev) == 1
+    )
+    error_message = "dev 사이트는 서버·dev 도메인 레코드·전용 이미지 저장소·전용 배포 역할을 따로 가져야 합니다."
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_ssm_parameter.dev_web_env[0].value)["SITE_ADDRESS"] == "dev.example.com" &&
+      startswith(jsondecode(aws_ssm_parameter.dev_app_env[0].value)["DB_URL"], "jdbc:mysql://mysql:3306/ddang?") &&
+      jsondecode(aws_ssm_parameter.dev_app_env[0].value)["REDIS_HOST"] == "redis" &&
+      jsondecode(aws_ssm_parameter.dev_app_env[0].value)["KAKAO_REDIRECT_URI"] == "https://dev.example.com/oauth/kakao/callback" &&
+      jsondecode(aws_ssm_parameter.dev_app_env[0].value)["SMS_ENABLED"] == "false"
+    )
+    error_message = "dev 앱은 같은 서버의 MySQL·Redis 컨테이너와 dev 도메인을 쓰고, 문자 발송은 꺼져 있어야 합니다."
+  }
+
+  assert {
+    condition     = jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["KAKAO_REDIRECT_URI"] == "https://example.com/oauth/kakao/callback"
+    error_message = "dev 사이트를 켜도 운영 설정은 그대로여야 합니다."
   }
 }
