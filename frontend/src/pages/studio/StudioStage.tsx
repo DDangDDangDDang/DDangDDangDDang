@@ -74,7 +74,7 @@ export function StudioStage({
           publisher.phase === "connected" &&
           !(camera.enabled && camera.track) &&
           !(microphone.enabled && microphone.track) && (
-            <div className="absolute inset-x-4 top-14 flex justify-center">
+            <div className="pointer-events-none absolute inset-x-4 top-14 z-10 flex justify-center *:pointer-events-auto">
               <OverlayLine
                 icon={<VideoOff className="size-4" aria-hidden="true" />}
               >
@@ -414,7 +414,7 @@ function PublishOverlay({
   }
   if (!content) return null;
   return (
-    <div className="absolute inset-x-4 top-14 flex justify-center">
+    <div className="pointer-events-none absolute inset-x-4 top-14 z-10 flex justify-center *:pointer-events-auto">
       {content}
     </div>
   );
