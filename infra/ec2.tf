@@ -67,6 +67,7 @@ resource "aws_vpc_security_group_egress_rule" "ec2_all" {
 
 # ---------- 배포 스크립트·설정 (SSM 파라미터) ----------
 # deploy.sh가 배포할 때마다 최신 값을 받아 쓰므로, 이 값들을 바꾼 뒤 apply하고 다시 배포하면 반영된다.
+# SSM은 값에 이중 중괄호가 있으면 다른 파라미터 참조로 보고 거부한다. apply 도중 실패하지 않게 plan에서 먼저 막는다.
 
 resource "aws_ssm_parameter" "ec2_compose" {
   count = var.ec2_enabled ? 1 : 0
@@ -74,6 +75,13 @@ resource "aws_ssm_parameter" "ec2_compose" {
   type  = "String"
   tier  = "Intelligent-Tiering"
   value = file("${path.module}/ec2/docker-compose.yml")
+
+  lifecycle {
+    precondition {
+      condition     = !strcontains(file("${path.module}/ec2/docker-compose.yml"), "{{")
+      error_message = "infra/ec2/docker-compose.yml에 이중 중괄호를 쓸 수 없습니다. (SSM 파라미터 제한)"
+    }
+  }
 }
 
 resource "aws_ssm_parameter" "ec2_deploy_script" {
@@ -82,6 +90,13 @@ resource "aws_ssm_parameter" "ec2_deploy_script" {
   type  = "String"
   tier  = "Intelligent-Tiering"
   value = file("${path.module}/ec2/deploy.sh")
+
+  lifecycle {
+    precondition {
+      condition     = !strcontains(file("${path.module}/ec2/deploy.sh"), "{{")
+      error_message = "infra/ec2/deploy.sh에 이중 중괄호를 쓸 수 없습니다. (SSM 파라미터 제한, docker --format 대신 --format json + jq)"
+    }
+  }
 }
 
 resource "aws_ssm_parameter" "ec2_app_env" {

@@ -71,7 +71,8 @@ fi
 if [ "$healthy" = true ]; then
   printf '%s\n%s\n' "$IMAGE" "$WEB_IMAGE" > .current_images
   # 디스크가 차지 않도록 저장소 이미지 중 지금 버전과 직전 버전(빠른 되돌리기용)만 남긴다.
-  docker images --format '{{.Repository}}:{{.Tag}}' \
+  # (이 스크립트는 SSM 파라미터로 올라가는데, SSM은 값에 이중 중괄호가 있으면 거부하므로 Go 템플릿 대신 JSON + jq를 쓴다)
+  docker images --format json | jq -r '.Repository + ":" + .Tag' \
     | grep "^${REGISTRY}/" \
     | grep -vxF -e "$IMAGE" -e "$WEB_IMAGE" -f <(printf '%s\n' "${previous_images:-none}") \
     | xargs -r docker rmi >/dev/null 2>&1 || true
