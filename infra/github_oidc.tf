@@ -32,10 +32,14 @@ data "aws_iam_policy_document" "github_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # 저장소가 ID를 넣은 새 형식(immutable subject)을 쓰면 sub가 repo:<owner>@<ID>/<repo>@<ID>:... 로 온다.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:environment:${var.github_environment}"]
+      values = compact([
+        "repo:${var.github_repository}:environment:${var.github_environment}",
+        var.github_oidc_subject_prefix == "" ? "" : "${var.github_oidc_subject_prefix}:environment:${var.github_environment}",
+      ])
     }
   }
 }

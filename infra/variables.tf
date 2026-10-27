@@ -193,6 +193,16 @@ variable "github_repository" {
   default     = "DDangDDangDDang/DDangDDangDDang"
 }
 
+variable "github_oidc_subject_prefix" {
+  description = <<-EOT
+    GitHub OIDC 토큰 sub의 저장소 부분. 저장소가 "immutable subject"(소유자·저장소 ID 포함)를 쓰면 그 값을 넣는다.
+    확인: gh api repos/<owner>/<repo>/actions/oidc/customization/sub 의 sub_claim_prefix
+    비워 두면 예전 형식(repo:<owner>/<repo>)만 허용한다. 두 형식 모두 지정한 Environment에서 실행된 작업만 허용한다.
+  EOT
+  type        = string
+  default     = "repo:DDangDDangDDang@339603727/DDangDDangDDang@1411657907"
+}
+
 variable "github_environment" {
   description = "배포 워크플로가 쓰는 GitHub Environment 이름. 이 환경에서 실행된 작업만 AWS 배포 권한을 받는다."
   type        = string
