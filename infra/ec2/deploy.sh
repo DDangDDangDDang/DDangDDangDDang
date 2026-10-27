@@ -2,7 +2,8 @@
 # EC2 구성의 배포 스크립트. GitHub Actions가 SSM Run Command로 서버에서 실행한다.
 #   사용법: deploy.sh <앱 이미지 URI> <웹 이미지 URI>
 # 1) 최신 docker-compose.yml과 앱·웹 환경변수를 SSM 파라미터에서 받는다.
-# 2) 비밀값을 Secrets Manager에서 읽어 .env / app.env / web.env를 만든다. (서버 디스크에만 남고 권한은 root 전용)
+# 2) 비밀값을 Secrets Manager에서 읽어 .env / app.env / web.env / db.env를 만든다. (서버 디스크에만 남고 권한은 root 전용)
+#    운영 EC2와 dev 서버가 같은 스크립트를 쓰고, 어느 서버인지는 config.sh(PARAM_PREFIX 등)로 정해진다.
 # 3) 새 이미지·설정으로 컨테이너를 바꾸고, 헬스 체크가 통과하지 않으면 직전 배포의 이미지·설정으로 되돌린다.
 set -euo pipefail
 
@@ -33,12 +34,15 @@ db_json="$(jq '{DB_USERNAME: .username, DB_PASSWORD: .password}' <<<"$db_secret_
 
 { to_env <<<"$app_env_json"; to_env <<<"$app_secret_json"; to_env <<<"$db_json"; } > app.env.new
 to_env <<<"$web_env_json" > web.env.new
+# dev 서버처럼 MySQL을 컨테이너로 띄울 때 쓰는 접속 정보. (운영은 RDS라 compose가 이 파일을 쓰지 않는다)
+jq '{MYSQL_DATABASE: (.dbname // "ddang"), MYSQL_USER: .username, MYSQL_PASSWORD: .password, MYSQL_ROOT_PASSWORD: .password}' \
+  <<<"$db_secret_json" | to_env > db.env.new
 printf "APP_IMAGE='%s'\nWEB_IMAGE='%s'\n" "$IMAGE" "$WEB_IMAGE" > .env.new
 
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY" >/dev/null
 
 # 실패하면 이미지뿐 아니라 설정(compose, 환경변수)까지 직전 배포 상태로 되돌릴 수 있게 백업한다.
-CONFIG_FILES=(docker-compose.yml app.env web.env .env)
+CONFIG_FILES=(docker-compose.yml app.env web.env db.env .env)
 # 직전 배포의 이미지 목록 (한 줄에 하나: 앱, 웹)
 previous_images="$(cat .current_images 2>/dev/null || true)"
 for f in "${CONFIG_FILES[@]}"; do

@@ -67,3 +67,20 @@ output "github_variables" {
     } : {},
   )
 }
+
+output "dev_url" {
+  description = "dev 사이트 주소"
+  value       = var.dev_enabled ? local.dev_origin : null
+}
+
+# GitHub 저장소 Settings → Environments → development → Variables 에 넣는다.
+output "github_variables_dev" {
+  description = "GitHub development Environment에 등록할 값"
+  value = var.dev_enabled ? {
+    AWS_REGION          = var.region
+    AWS_DEPLOY_ROLE_ARN = aws_iam_role.github_deploy_dev[0].arn
+    ECR_REPOSITORY      = aws_ecr_repository.dev["app"].name
+    ECR_WEB_REPOSITORY  = aws_ecr_repository.dev["web"].name
+    EC2_INSTANCE_ID     = aws_instance.dev[0].id
+  } : null
+}

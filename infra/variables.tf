@@ -214,3 +214,44 @@ variable "create_github_oidc_provider" {
   type        = bool
   default     = true
 }
+
+# ---------- dev 사이트 (dev.<도메인>, infra/dev.tf) ----------
+
+variable "dev_enabled" {
+  description = "dev 사이트(EC2 한 대에 앱·웹·MySQL·Redis 컨테이너)를 만들지. dev 브랜치에 푸시하면 이 서버로 배포한다."
+  type        = bool
+  default     = false
+}
+
+variable "dev_instance_type" {
+  description = "dev 서버 크기. 앱·MySQL·Redis를 한 대에 띄우므로 메모리 2GB 이상"
+  type        = string
+  default     = "t3.small"
+}
+
+variable "dev_livekit_url" {
+  description = "dev 사이트가 쓸 LiveKit Cloud 프로젝트 주소. 비우면 운영과 같은 프로젝트(livekit_url)를 쓴다. (방 이름이 겹치지 않도록 따로 두는 것을 권장)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.dev_livekit_url == "" || startswith(var.dev_livekit_url, "wss://")
+    error_message = "dev_livekit_url은 wss:// 로 시작해야 합니다."
+  }
+}
+
+variable "dev_app_environment" {
+  description = "dev 사이트의 비밀이 아닌 추가 환경변수. 문자·메일은 기본으로 끄고 서버 로그로 확인한다."
+  type        = map(string)
+  default = {
+    MAIL_ENABLED               = "false"
+    SMS_ENABLED                = "false"
+    CHAT_MODERATION_AI_ENABLED = "false"
+  }
+}
+
+variable "github_dev_environment" {
+  description = "dev 배포 워크플로가 쓰는 GitHub Environment 이름. 이 환경에서 실행된 작업만 dev 배포 역할을 받는다."
+  type        = string
+  default     = "development"
+}
