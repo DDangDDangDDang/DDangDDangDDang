@@ -64,7 +64,7 @@ data "aws_iam_policy_document" "github_deploy" {
       "ecr:PutImage",
       "ecr:UploadLayerPart",
     ]
-    resources = [aws_ecr_repository.app.arn]
+    resources = [aws_ecr_repository.app.arn, aws_ecr_repository.web.arn]
   }
 
   # ---- EC2 구성: SSM Run Command로 서버에서 deploy.sh 실행 ----

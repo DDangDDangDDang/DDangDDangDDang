@@ -1,15 +1,37 @@
-# EC2 구성: 이 서버에서는 앱만 실행하고, DB·Redis는 RDS·ElastiCache에 접속한다.
+# EC2 구성: 이 서버에서는 웹(Caddy + 프론트엔드)과 앱을 실행하고, DB·Redis는 RDS·ElastiCache에 접속한다.
 # Terraform이 SSM 파라미터로 올리고, deploy.sh가 배포할 때마다 받아서 쓴다. (서버에서 직접 고치지 않는다)
-# .env(APP_IMAGE)와 app.env(DB·Redis 주소를 포함한 앱 환경변수, 비밀값)는 deploy.sh가 만든다.
+# .env(APP_IMAGE, WEB_IMAGE), app.env(DB·Redis 주소를 포함한 앱 환경변수, 비밀값), web.env(SITE_ADDRESS)는 deploy.sh가 만든다.
+#
+# 요청 흐름: 브라우저 ─80/443─▶ web(Caddy: HTTPS, 화면) ─/api, /ws─▶ app(8080)
 name: ddang
 
 services:
+  web:
+    image: ${WEB_IMAGE:?WEB_IMAGE가 필요합니다}
+    env_file: [web.env]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      # 발급받은 인증서. 배포·재시작해도 다시 발급받지 않도록 볼륨에 둔다.
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 128m
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
   app:
     image: ${APP_IMAGE:?APP_IMAGE가 필요합니다}
     env_file: [app.env]
+    # 밖에서는 web을 거쳐서만 들어온다. 서버 안의 헬스 체크(deploy.sh)만 직접 접속한다.
     ports:
-      - "80:8080"
-    # 서버 메모리 2GB 중 OS·Docker 몫을 빼고 앱에 준다. (힙은 이 한도의 75%)
+      - "127.0.0.1:8080:8080"
+    # 서버 메모리 2GB 중 OS·Docker·web 몫을 빼고 앱에 준다. (힙은 이 한도의 75%)
     mem_limit: 1536m
     stop_grace_period: 30s
     restart: unless-stopped
@@ -18,3 +40,7 @@ services:
       options:
         max-size: 10m
         max-file: "5"
+
+volumes:
+  caddy_data:
+  caddy_config:

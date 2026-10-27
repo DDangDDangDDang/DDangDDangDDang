@@ -7,6 +7,20 @@ livekit_url = "wss://<프로젝트>.livekit.cloud"
 ec2_enabled = true
 ecs_enabled = false
 
+# 서비스 도메인. 넣으면 EC2가 HTTPS(Let's Encrypt 자동 발급)로 서비스한다. 비우면 Elastic IP의 HTTP로만 서비스한다.
+domain_name = "ddangddangddang.com"
+# 도메인을 Route 53에서 샀으면 true: 도메인 → EC2 고정 IP A 레코드를 Terraform이 만든다. 다른 곳에서 샀으면 false로 두고 직접 등록한다.
+manage_dns_record = true
+
+# 비밀이 아닌 앱 환경변수 (EC2·ECS 공통). 이 값을 쓰면 기본값 전체를 대신하므로 기능 스위치를 모두 적는다.
+app_environment = {
+  MAIL_ENABLED               = "true"
+  SMS_ENABLED                = "true"
+  CHAT_MODERATION_AI_ENABLED = "false"
+  # 포트원 콘솔의 상점 ID (결제를 쓰지 않으면 빈 문자열)
+  PORTONE_STORE_ID = ""
+}
+
 # 이 AWS 계정에 GitHub OIDC 공급자가 이미 있으면 false
 # create_github_oidc_provider = false
 

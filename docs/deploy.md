@@ -6,7 +6,7 @@ main 브랜치에 머지되면 GitHub Actions가 테스트 → 이미지 빌드 
 | | EC2 (개발 중, 지금) | ECS (운영) |
 |---|---|---|
 | 스위치 | `ec2_enabled = true`, `ecs_enabled = false` | `ec2_enabled = false`, `ecs_enabled = true` |
-| 앱 | EC2 1대에서 Docker Compose로 실행 | ALB + ECS Fargate 2대 + NAT |
+| 앱 | EC2 1대에서 Docker Compose로 실행 (Caddy가 화면·HTTPS 담당) | ALB + ECS Fargate 2대 + NAT (API만, 화면 제공은 전환 때 추가) |
 | DB · Redis | RDS MySQL + ElastiCache Redis (두 구성 공통) | 같음 |
 | 월 비용(대략) | **약 $65** | 약 $160 |
 | 배포 중 | 약 30초 끊김 | 끊김 없음 (롤링 배포) |
@@ -22,12 +22,13 @@ EC2 구성에서는 앱 서버가 퍼블릭 서브넷에 있어 NAT 없이 외�
 
 ```
 [EC2 구성]
-브라우저 ──HTTP:80──▶ EC2 (Elastic IP, 퍼블릭 서브넷)
-                       └ Docker Compose: app(8080)
-                            ├─▶ RDS MySQL 8.4        (프라이빗 서브넷)
-                            ├─▶ ElastiCache Redis 7  (프라이빗 서브넷)
-                            └─▶ 외부 API (인터넷 게이트웨이)
-GitHub Actions ──OIDC──▶ ECR에 이미지 푸시 ──SSM Run Command──▶ EC2에서 deploy.sh 실행
+브라우저 ──HTTPS:443──▶ EC2 (Elastic IP, 퍼블릭 서브넷)  ※ ddangddangddang.com A 레코드
+                        └ Docker Compose
+                           web(Caddy): 인증서 자동 발급, 화면(정적 파일), /api·/ws ─▶ app(8080)
+                                                                                  ├─▶ RDS MySQL 8.4        (프라이빗 서브넷)
+                                                                                  ├─▶ ElastiCache Redis 7  (프라이빗 서브넷)
+                                                                                  └─▶ 외부 API (인터넷 게이트웨이)
+GitHub Actions ──OIDC──▶ ECR에 앱·웹 이미지 푸시 ──SSM Run Command──▶ EC2에서 deploy.sh 실행
 
 [ECS 구성]
 브라우저 ──HTTP(S)/WebSocket──▶ ALB ──▶ ECS Fargate (컨테이너 2개, 프라이빗 서브넷)
@@ -40,9 +41,11 @@ GitHub Actions ──OIDC──▶ ECR에 이미지 푸시 ──▶ ECS 새 작
 | 파일 | 역할 |
 |---|---|
 | `Dockerfile` | jar 빌드 후 JRE 이미지로 실행 (두 구성 공통) |
+| `frontend/Dockerfile` | 웹 이미지: 프론트엔드 빌드 + Caddy (EC2 구성) |
+| `infra/ec2/Caddyfile` | HTTPS 자동 발급, `/api`·`/ws`를 앱으로, 나머지는 화면 |
 | `src/main/resources/application-prod.yml` | 운영 설정 (비밀값 기본값 없음, 프록시 헤더, SQL 로그 끔) |
 | `infra/*.tf` | AWS 리소스 전체. `ec2.tf`는 EC2 구성, `ecs.tf`·`alb.tf`는 ECS 구성, `data_stores.tf`(RDS·ElastiCache)는 공통 |
-| `infra/ec2/` | EC2 서버의 `docker-compose.yml`(앱만), `deploy.sh`, 첫 부팅 스크립트 |
+| `infra/ec2/` | EC2 서버의 `docker-compose.yml`(web + app), `deploy.sh`, 첫 부팅 스크립트 |
 | `infra/tests/` | 세 가지 구성이 plan까지 되는지 확인하는 테스트 (`terraform test`) |
 | `.github/workflows/deploy.yml` | main 푸시 시 테스트 → 이미지 빌드 → `DEPLOY_TARGET`에 따라 EC2 또는 ECS 배포 |
 
@@ -57,7 +60,7 @@ GitHub Actions ──OIDC──▶ ECR에 이미지 푸시 ──▶ ECS 새 작
 | 공인 IPv4 (Elastic IP) | 약 $3.6 |
 | RDS MySQL db.t4g.micro + 20GB + 백업 | 약 $22 |
 | ElastiCache Redis cache.t4g.micro | 약 $18 |
-| Secrets Manager, ECR | 1~2달러 |
+| Secrets Manager, ECR, S3(상태 파일), Route 53 호스팅 영역 | 2~3달러 |
 
 합계 약 **$65 / 월**. NAT·ALB가 없어 ECS 구성보다 고정비가 작습니다.
 (AWS 프리 티어 대상 계정이면 처음 12개월은 EC2·RDS·ElastiCache 일부가 무료일 수 있습니다. 인스턴스 크기가 프리 티어 대상인지 확인하세요.)
@@ -72,7 +75,11 @@ GitHub Actions ──OIDC──▶ ECR에 이미지 푸시 ──▶ ECS 새 작
   - 루트 계정으로 작업하지 마세요.
 - [AWS CLI](https://aws.amazon.com/cli/) v2: `aws configure` 또는 `aws configure sso`로 로그인
 - [Terraform](https://developer.hashicorp.com/terraform/install) 1.10 이상
+  - 설치하지 않고 Docker로 실행해도 됩니다: `docker run --rm -it -v "$PWD:/w" -w /w -v "$HOME/.aws:/root/.aws:ro" hashicorp/terraform:1.13 <명령>` (Git Bash는 앞에 `MSYS_NO_PATHCONV=1`)
 - [LiveKit Cloud](https://cloud.livekit.io) 프로젝트 1개 (무료 플랜 가능): Project URL, API Key, API Secret
+- 도메인 (`ddangddangddang.com`). HTTPS는 카메라·마이크(판매자 송출), 웹 푸시, 구글 로그인, Secure 쿠키에 꼭 필요합니다.
+- 카카오·구글 로그인 앱: redirect URI `https://<도메인>/oauth/kakao/callback`, `https://<도메인>/oauth/google/callback`
+- SOLAPI 발신번호 등록 (회원가입 문자 인증)
 - 서버 접속용 [Session Manager 플러그인](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) (선택)
 
 ```bash
@@ -82,9 +89,30 @@ terraform -version
 
 ## 1. 인프라 만들기 (EC2 구성)
 
+**처음 한 번: 상태 파일용 S3 버킷 만들기.** Terraform 상태(DB 비밀번호 포함)는 S3에 둡니다. (`infra/versions.tf`)
+버킷 이름은 계정 ID를 붙여 전 세계에서 겹치지 않게 했습니다. 다른 계정에서 쓰면 `versions.tf`의 `bucket`도 바꿉니다.
+
+```bash
+BUCKET=ddang-terraform-state-853900964851
+aws s3api create-bucket --bucket "$BUCKET" --region ap-northeast-2 \
+  --create-bucket-configuration LocationConstraint=ap-northeast-2
+aws s3api put-bucket-versioning --bucket "$BUCKET" --versioning-configuration Status=Enabled   # 실수로 덮어써도 이전 상태로 되돌린다
+aws s3api put-public-access-block --bucket "$BUCKET" \
+  --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+```
+
+> **이미 로컬 상태로 apply한 적이 있다면** (예전 버전 문서대로 `infra/terraform.tfstate`가 있는 경우)
+> 새로 checkout한 폴더가 아니라 **그 상태 파일이 있는 원래 폴더**에서 진행합니다.
+> 1. `cp terraform.tfstate ~/terraform.tfstate.backup` 으로 백업
+> 2. `terraform init -migrate-state` → 기존 상태를 S3로 복사할지 물으면 `yes`
+> 3. `aws s3 ls s3://ddang-terraform-state-853900964851/ddang/prod/` 에 `terraform.tfstate`가 보이는지 확인
+> 4. `terraform plan`이 "No changes"(또는 이 문서에서 의도한 변경만)인지 확인한 뒤 apply. 처음부터 다 새로 만든다고 나오면 멈추고 백업을 확인합니다.
+>
+> 처음 만드는 경우에는 아래처럼 `terraform init`만 하면 됩니다.
+
 ```bash
 cd infra
-cp terraform.tfvars.example terraform.tfvars   # livekit_url 채우기. ec2_enabled = true, ecs_enabled = false
+cp terraform.tfvars.example terraform.tfvars   # livekit_url, domain_name, app_environment 채우기
 terraform init
 terraform plan     # 만들 리소스 확인
 terraform apply    # 약 10~15분 (RDS·ElastiCache 생성이 가장 오래 걸린다)
@@ -93,8 +121,9 @@ terraform apply    # 약 10~15분 (RDS·ElastiCache 생성이 가장 오래 걸�
 EC2는 켜진 뒤 1~2분 동안 Docker를 설치합니다. 앱은 4단계의 첫 배포 때 뜹니다.
 DB 테이블은 첫 배포 때 앱이 만듭니다(`ddl-auto=update`).
 
-> **상태 파일 주의**: `infra/terraform.tfstate`에 DB 비밀번호가 들어 있습니다. 커밋하지 마세요. (`.gitignore`에 있음)
-> 이 파일을 잃어버리면 Terraform으로 리소스를 고치거나 지울 수 없습니다. 팀원과 같이 관리하려면 S3에 두세요. (`infra/versions.tf`의 `backend "s3"` 주석 참고)
+**도메인 연결**: `manage_dns_record = true`(Route 53에서 산 도메인)면 apply가 `도메인 → EC2 고정 IP` A 레코드를 만듭니다.
+다른 곳에서 샀으면 그곳 DNS 관리에서 A 레코드(`@` → `terraform output -raw ec2_public_ip`)를 직접 넣습니다.
+DNS가 연결된 뒤 첫 배포를 하면 Caddy가 Let's Encrypt 인증서를 자동으로 받습니다. (DNS가 늦게 퍼져도 Caddy가 알아서 다시 시도합니다)
 
 ## 2. 앱 비밀값 넣기 (Secrets Manager)
 
@@ -110,6 +139,10 @@ DB 테이블은 첫 배포 때 앱이 만듭니다(`ddl-auto=update`).
 | `SOLAPI_API_KEY` / `SOLAPI_API_SECRET` / `SOLAPI_SENDER` | SOLAPI 콘솔 / 등록한 발신번호 | `SMS_ENABLED=true`일 때 |
 | `ANTHROPIC_API_KEY` | Claude API 키 | `CHAT_MODERATION_AI_ENABLED=true`일 때 |
 | `WEB_PUSH_PUBLIC_KEY` / `WEB_PUSH_PRIVATE_KEY` | 브라우저 알림(웹 푸시) VAPID 키. `npx web-push generate-vapid-keys`의 Public Key / Private Key. 한 번 정하면 바꾸지 않음 (바꾸면 모든 회원이 다시 구독해야 함) | ✅ |
+| `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET` | 카카오디벨로퍼스 → [앱] → [플랫폼 키] → REST API 키 / 그 키의 클라이언트 시크릿 | 카카오 로그인 사용 시 |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud 콘솔 → OAuth 클라이언트(웹 애플리케이션) | 구글 로그인 사용 시 |
+
+소셜 로그인 redirect URI는 비밀값이 아니라 `domain_name`으로 Terraform이 정합니다. (`https://<도메인>/oauth/{kakao|google}/callback`)
 
 값에는 작은따옴표(`'`)와 줄바꿈을 넣을 수 없습니다. (EC2 배포 스크립트가 거부합니다)
 
@@ -129,7 +162,11 @@ DB 테이블은 첫 배포 때 앱이 만듭니다(`ddl-auto=update`).
   "SOLAPI_SENDER": "",
   "ANTHROPIC_API_KEY": "",
   "WEB_PUSH_PUBLIC_KEY": "<Public Key>",
-  "WEB_PUSH_PRIVATE_KEY": "<Private Key>"
+  "WEB_PUSH_PRIVATE_KEY": "<Private Key>",
+  "KAKAO_CLIENT_ID": "",
+  "KAKAO_CLIENT_SECRET": "",
+  "GOOGLE_CLIENT_ID": "",
+  "GOOGLE_CLIENT_SECRET": ""
 }
 ```
 
@@ -154,7 +191,16 @@ aws secretsmanager put-secret-value --secret-id ddang/app --secret-string file:/
 | `AWS_DEPLOY_ROLE_ARN` | `arn:aws:iam::<계정 ID>:role/ddang-github-deploy` | 공통 |
 | `ECR_REPOSITORY` | `ddang-app` | 공통 |
 | `EC2_INSTANCE_ID` | `i-0123...` | EC2 |
+| `ECR_WEB_REPOSITORY` | `ddang-web` | EC2 |
 | `ECS_CLUSTER`, `ECS_SERVICE`, `ECS_TASK_FAMILY`, `ECS_CONTAINER_NAME` | `ddang`, `ddang-app`, `ddang-app`, `app` | ECS (전환할 때 추가) |
+
+   같은 곳에 **화면 빌드용 공개 값**도 넣습니다. 브라우저에 그대로 보이는 값이라 Secrets가 아니라 Variables입니다. 없는 값은 비워 두면 해당 버튼에서 "설정이 필요합니다"라고 안내합니다.
+
+| 이름 | 값 |
+|---|---|
+| `VITE_KAKAO_REST_API_KEY` | 카카오 REST API 키 (`KAKAO_CLIENT_ID`와 같은 값) |
+| `VITE_GOOGLE_CLIENT_ID` | 구글 클라이언트 ID (`GOOGLE_CLIENT_ID`와 같은 값) |
+| `VITE_PORTONE_STORE_ID` / `VITE_PORTONE_CHANNEL_KEY` | 포트원 콘솔의 상점 ID / 채널 키 (결제 사용 시) |
 
 4. **배포 대상**은 Environment가 아니라 **저장소 변수**로 넣습니다.
    **Settings → Secrets and variables → Actions → Variables → New repository variable**
@@ -168,16 +214,22 @@ AWS 액세스 키는 GitHub에 넣지 않습니다. 배포는 OIDC로 역할을 
 
 `main`에 머지하면 자동으로 배포됩니다. 처음에는 **Actions → Deploy → Run workflow**(branch: `main`)로 직접 실행해도 됩니다.
 
-진행 순서: 배포 대상 확인 → 테스트 → 이미지 빌드·ECR 푸시 → EC2 배포
-- EC2 배포는 SSM으로 서버의 `deploy.sh`를 실행합니다. 새 이미지로 바꾼 뒤 헬스 체크가 3분 안에 통과하지 않으면 이전 이미지로 되돌리고 워크플로를 실패로 표시합니다.
+진행 순서: 배포 대상 확인 → 테스트 → 앱·웹 이미지 빌드·ECR 푸시 → EC2 배포
+- EC2 배포는 SSM으로 서버의 `deploy.sh`를 실행합니다. 새 이미지로 바꾼 뒤 3분 안에 앱 헬스 체크가 통과하고 웹(Caddy) 컨테이너가 떠 있지 않으면 이전 이미지로 되돌리고 워크플로를 실패로 표시합니다.
+- 인증서 발급은 배포 성공 여부에 넣지 않습니다. HTTPS가 안 되면 아래 "5. 확인"의 web 로그를 봅니다.
 - 서버 출력(앱 로그 일부 포함)은 워크플로의 "서버에서 배포 스크립트 실행" 단계에서 볼 수 있습니다.
 
 ## 5. 확인
 
 ```bash
 cd infra
-curl "$(terraform output -raw app_url)/actuator/health/liveness"   # {"status":"UP"}
+terraform output -raw ec2_url                       # https://ddangddangddang.com
+curl -I "$(terraform output -raw ec2_url)"          # 200, 화면(index.html)
+curl -I "http://ddangddangddang.com"                # 308 → https 로 이동
 ```
+
+`/actuator`는 밖에 열어 두지 않았습니다. 앱 상태는 서버 안에서 `curl http://127.0.0.1:8080/actuator/health/liveness`로 봅니다.
+HTTPS가 안 되면 서버에서 `docker compose logs web`을 봅니다. 대부분 DNS가 아직 EC2 IP를 가리키지 않거나 80 포트가 막힌 경우입니다.
 
 서버 접속 (SSH 대신 Session Manager):
 
@@ -186,7 +238,7 @@ aws ssm start-session --target "$(terraform output -raw ec2_instance_id)"
 sudo -i
 cd /opt/ddang
 docker compose ps
-docker compose logs -f app
+docker compose logs -f app      # 웹(Caddy)은 web
 ```
 
 ## 운영 중 자주 하는 일 (EC2 구성)
@@ -282,7 +334,19 @@ terraform apply   # 약 5~10분 (ALB·NAT·ECS 생성)
 배포가 끝나면 `terraform output app_url`(ALB 주소)로 접속해 확인합니다.
 같은 DB·Redis를 쓰므로 회원 데이터와 로그인 상태가 그대로 이어집니다.
 
-**4) EC2 끄기**
+**4) 도메인을 ALB로 옮기기** (EC2를 끄기 전에)
+
+EC2를 먼저 끄면 도메인이 가리키는 곳이 없어 접속이 끊깁니다. 위 "도메인·HTTPS"의 ECS 인증서(`certificate_arn`)를 먼저 붙인 뒤 옮깁니다.
+
+- `manage_dns_record = true`면 `dns_target = "ecs"`로 바꾸고 `terraform apply`. 같은 A 레코드를 제자리에서 ALB 별칭으로 바꿉니다.
+- 다른 곳에서 산 도메인이면 그곳 DNS를 `alb_dns_name`으로 바꿉니다. ALB는 IP가 바뀌므로 A 레코드에 IP를 넣을 수 없고,
+  루트 도메인(`ddangddangddang.com`, `@`)에는 일반 CNAME도 쓸 수 없습니다.
+  - DNS 업체가 ALIAS·ANAME(또는 CNAME 플래트닝)을 지원하면 `@`를 그 방식으로 `alb_dns_name`에 연결합니다.
+  - 지원하지 않으면 네임서버를 Route 53으로 옮기는 것이 가장 간단합니다: Route 53에 호스팅 영역을 만들고 → 도메인 업체의 네임서버를 그 영역의 NS 4개로 바꾼 뒤 → `manage_dns_record = true`, `dns_target = "ecs"`로 apply.
+  - `www.` 같은 하위 도메인은 CNAME으로 `alb_dns_name`을 가리킬 수 있지만, 서비스 주소가 바뀌므로 `domain_name`과 카카오·구글 redirect URI도 함께 바꿔야 합니다.
+- DNS가 퍼질 때까지(TTL 5분) 기다린 뒤 다음 단계로 갑니다.
+
+**5) EC2 끄기**
 
 ```hcl
 ec2_enabled = false
@@ -293,7 +357,8 @@ ecs_enabled = true
 terraform apply   # EC2, Elastic IP 삭제. RDS·ElastiCache는 그대로
 ```
 
-GitHub의 `EC2_INSTANCE_ID` 변수는 지워도 됩니다. 도메인을 쓰고 있었다면 DNS를 ALB 주소로 바꿉니다.
+GitHub의 `EC2_INSTANCE_ID`, `ECR_WEB_REPOSITORY` 변수는 지워도 됩니다.
+(`dns_target = "ec2"`인 채로 EC2를 끄려고 하면 Terraform이 plan 단계에서 막습니다)
 
 ## 운영 중 자주 하는 일 (ECS 구성)
 
@@ -307,10 +372,11 @@ GitHub의 `EC2_INSTANCE_ID` 변수는 지워도 됩니다. 도메인을 쓰고 �
 | 로그 | CloudWatch → 로그 그룹 `/ecs/ddang-app` |
 | 컨테이너 접속 | `aws ecs execute-command --cluster ddang --task <작업 ID> --container app --interactive --command "/bin/sh"` |
 
-## 도메인·HTTPS 연결 (나중에)
+## 도메인·HTTPS
 
-- **ECS 구성**: ACM(서울 리전)에서 인증서 발급 → `certificate_arn` 설정 → `terraform apply` → 도메인 DNS를 `alb_dns_name`으로 연결 → Deploy 다시 실행
-- **EC2 구성**: 지금은 HTTP만 지원합니다. HTTPS가 필요하면 EC2 앞에 Caddy·Nginx 같은 리버스 프록시를 두거나, ECS로 전환할 때 붙이는 것을 권장합니다.
+- **EC2 구성**: `domain_name`을 넣으면 Caddy가 Let's Encrypt 인증서를 자동으로 받고 갱신합니다. (위 "1. 인프라 만들기")
+- **ECS 구성**: ACM(서울 리전)에서 인증서 발급 → `certificate_arn` 설정 → `terraform apply` → 도메인 DNS를 `alb_dns_name`으로 연결 → Deploy 다시 실행.
+  지금 ECS 구성은 API만 서비스합니다. 전환 전에 화면 제공(웹 이미지를 ECS 서비스로 띄우거나 S3 + CloudFront)을 추가해야 합니다.
 
 ## 알아 둘 점
 

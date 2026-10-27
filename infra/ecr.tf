@@ -39,5 +39,24 @@ locals {
     DB_URL                 = "jdbc:mysql://${aws_db_instance.main.address}:${aws_db_instance.main.port}/${local.db_name}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
     REDIS_HOST             = aws_elasticache_cluster.redis.cache_nodes[0].address
     REDIS_PORT             = tostring(aws_elasticache_cluster.redis.port)
+    }, var.domain_name == "" ? {} : {
+    # 프론트는 접속한 주소의 /oauth/{provider}/callback을 쓴다. 카카오·구글 콘솔에도 같은 주소를 등록한다.
+    KAKAO_REDIRECT_URI  = "https://${var.domain_name}/oauth/kakao/callback"
+    GOOGLE_REDIRECT_URI = "https://${var.domain_name}/oauth/google/callback"
   })
+}
+
+# 웹 이미지 저장소 (EC2 구성: 프론트엔드 + Caddy. frontend/Dockerfile)
+resource "aws_ecr_repository" "web" {
+  name                 = "${var.project}-web"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "web" {
+  repository = aws_ecr_repository.web.name
+  policy     = aws_ecr_lifecycle_policy.app.policy
 }
