@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 /**
  * 도네이션 포인트 원장. 수정·삭제하지 않고 쌓기만 한다. (현금 포인트의 PointHistory와 같은 방식)
  * 변동 뒤 잔액을 함께 남겨 잔액이 틀어진 시점을 찾을 수 있게 한다.
- * refId는 type에 따라 주문(EARN·SALE), 선물(GIFT·RECEIVE), 적립 묶음(EXPIRE), 판매자 혜택(SPEND)의 ID다.
+ * refId는 type에 따라 주문(EARN·SALE), 선물(GIFT·RECEIVE), 적립 묶음(EXPIRE), 판매자 혜택(SPEND), 상점 구매(SHOP)의 ID다.
  */
 @Getter
 @Entity

@@ -19,7 +19,9 @@ public enum UserErrorCode implements ErrorCode {
     PROFILE_IMAGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "USER_008", "프로필 이미지는 5MB 이하만 올릴 수 있습니다."),
     PROFILE_IMAGE_NOT_UPLOADED(HttpStatus.BAD_REQUEST, "USER_009", "올린 이미지를 찾을 수 없습니다. 다시 올려 주세요."),
     SAME_EMAIL(HttpStatus.BAD_REQUEST, "USER_010", "지금 쓰고 있는 이메일입니다."),
-    SAME_PHONE_NUMBER(HttpStatus.BAD_REQUEST, "USER_011", "지금 쓰고 있는 휴대폰 번호입니다.");
+    SAME_PHONE_NUMBER(HttpStatus.BAD_REQUEST, "USER_011", "지금 쓰고 있는 휴대폰 번호입니다."),
+    NICKNAME_TICKET_NOT_NEEDED(HttpStatus.BAD_REQUEST, "USER_012", "지금은 변경권 없이 닉네임을 바꿀 수 있습니다."),
+    SAME_NICKNAME(HttpStatus.BAD_REQUEST, "USER_013", "지금 쓰고 있는 닉네임입니다.");
 
     private final HttpStatus status;
     private final String code;

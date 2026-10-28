@@ -21,6 +21,7 @@ import { MessagesPage } from '@/pages/messages/MessagesPage';
 import { PointsPage } from '@/pages/me/PointsPage';
 import { DonationPointsPage } from '@/pages/me/DonationPointsPage';
 import { SellerShopPage } from '@/pages/me/SellerShopPage';
+import { ShopPage } from '@/pages/me/ShopPage';
 import { DonationPolicyPage } from '@/pages/admin/DonationPolicyPage';
 import { AlertedAuctionsPage } from '@/pages/me/AlertedAuctionsPage';
 import { NotificationSettingsPage } from '@/pages/me/NotificationSettingsPage';
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
           { path: '/me', element: <MyInfoPage /> },
           { path: '/points', element: <PointsPage /> },
           { path: '/me/donation-points', element: <DonationPointsPage /> },
+          { path: '/shop', element: <ShopPage /> },
           { path: '/me/seller', element: <SellerApplicationPage /> },
           { path: '/me/notifications', element: <NotificationSettingsPage /> },
           { path: '/me/auction-alerts', element: <AlertedAuctionsPage /> },

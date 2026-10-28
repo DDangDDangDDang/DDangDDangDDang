@@ -97,18 +97,47 @@ public class UserService {
             if (user.nicknameChangeAvailableAt(policy.nicknameChangeInterval(), now) != null) {
                 throw new BusinessException(UserErrorCode.NICKNAME_CHANGE_TOO_SOON);
             }
-            if (userRepository.existsByNickname(request.nickname())) {
-                throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME);
-            }
-            user.changeNickname(request.nickname(), now);
-            try {
-                userRepository.flush();
-            } catch (DataIntegrityViolationException e) {
-                throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME);
-            }
+            changeNickname(user, request.nickname(), now);
         }
 
         return withNewAccessToken(user);
+    }
+
+    /**
+     * 닉네임 변경권으로 바꾼다. 변경 제한 기간 중에도 바로 바꾸고, 바꾼 시각부터 다시 제한이 시작된다.
+     * 마일리지 결제와 같은 트랜잭션에서 부른다. (ShopService) 여기서 실패하면 마일리지도 빠지지 않는다.
+     * - 제한 기간이 아니면(무료로 바꿀 수 있음) 변경권을 쓰지 않게 USER_012
+     * - 지금과 같은 닉네임이면 USER_013 (바뀌는 것 없이 마일리지만 빠지지 않게)
+     */
+    @Transactional
+    public MyInfoUpdateResponse changeNicknameWithTicket(Long userId, String nickname) {
+        User user = findUser(userId);
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (user.nicknameChangeAvailableAt(policy.nicknameChangeInterval(), now) == null) {
+            throw new BusinessException(UserErrorCode.NICKNAME_TICKET_NOT_NEEDED);
+        }
+        if (user.getNickname().equals(nickname)) {
+            throw new BusinessException(UserErrorCode.SAME_NICKNAME);
+        }
+        changeNickname(user, nickname, now);
+        return withNewAccessToken(user);
+    }
+
+    /** 다음에 닉네임을 바꿀 수 있는 시각. 지금 바로 바꿀 수 있으면 null */
+    public LocalDateTime nicknameChangeAvailableAt(Long userId) {
+        return findUser(userId).nicknameChangeAvailableAt(policy.nicknameChangeInterval(), LocalDateTime.now(clock));
+    }
+
+    private void changeNickname(User user, String nickname, LocalDateTime now) {
+        if (userRepository.existsByNickname(nickname)) {
+            throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME);
+        }
+        user.changeNickname(nickname, now);
+        try {
+            userRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME);
+        }
     }
 
     /**

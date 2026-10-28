@@ -55,6 +55,10 @@ function Summary() {
               <Link to="/lives" className="font-semibold text-brand-700 underline">
                 라이브 방송 보러 가기
               </Link>
+              {' · '}
+              <Link to="/shop" className="font-semibold text-brand-700 underline">
+                마일리지 상점
+              </Link>
             </dd>
           </div>
           <div className="flex flex-col gap-1 px-6 py-5">
