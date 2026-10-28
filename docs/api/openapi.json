@@ -1998,6 +1998,54 @@
         }
       }
     },
+    "/api/v1/live-streams/{liveStreamId}/preview" : {
+      "post" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamPreview",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveStreamTokenResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
     "/api/v1/live-streams/{liveStreamId}/join" : {
       "post" : {
         "tags" : [ "live-stream-controller" ],
@@ -10726,6 +10774,10 @@
     "code" : "LIVESTREAM_017",
     "status" : 409,
     "message" : "영상 위에는 경매를 2개까지 띄울 수 있습니다. 띄운 경매 하나를 내린 뒤 다시 시도해 주세요."
+  }, {
+    "code" : "LIVESTREAM_018",
+    "status" : 429,
+    "message" : "미리보기 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
   }, {
     "code" : "NOTIFICATION_001",
     "status" : 404,

@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/cn';
 
 /** 방송 영상 트랙을 그린다. (시청 화면·작은 플레이어가 같이 쓴다) */
-export function TrackVideo({ track, className }: { track: RemoteTrack; className?: string }) {
+export function TrackVideo({ track, className, onPlaying }: { track: RemoteTrack; className?: string; onPlaying?: () => void }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const element = ref.current;
@@ -14,7 +14,7 @@ export function TrackVideo({ track, className }: { track: RemoteTrack; className
     };
   }, [track]);
   // 소리는 별도 오디오 트랙으로 재생하므로 영상은 항상 음소거한다. (자동 재생 허용)
-  return <video ref={ref} className={cn('absolute inset-0 size-full object-contain', className)} autoPlay playsInline muted />;
+  return <video ref={ref} className={cn('absolute inset-0 size-full object-contain', className)} autoPlay playsInline muted onPlaying={onPlaying} />;
 }
 
 /** 방송 소리 트랙을 재생한다. */
