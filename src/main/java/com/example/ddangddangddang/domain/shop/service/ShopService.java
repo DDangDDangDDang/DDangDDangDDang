@@ -4,7 +4,12 @@ import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
+import com.example.ddangddangddang.domain.donation.exception.DonationErrorCode;
 import com.example.ddangddangddang.domain.donation.service.DonationShopPayment;
+import com.example.ddangddangddang.domain.donation.service.PowerSellers;
+import com.example.ddangddangddang.domain.order.entity.OrderStatus;
+import com.example.ddangddangddang.domain.order.repository.OrderRepository;
+import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import com.example.ddangddangddang.domain.shop.dto.AuctionBoostResponse;
 import com.example.ddangddangddang.domain.shop.entity.AuctionBoost;
 import com.example.ddangddangddang.domain.shop.entity.ShopLock;
@@ -38,6 +43,9 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ShopService {
 
+    /** 파워 판매자를 살 수 있는 판매 확정 건수 */
+    static final int POWER_SELLER_MIN_SALES = 20;
+
     private final DonationShopPayment payment;
     private final ShopPurchaseRepository purchaseRepository;
     private final UserService userService;
@@ -45,6 +53,9 @@ public class ShopService {
     private final AuctionRepository auctionRepository;
     private final AuctionBoostRepository boostRepository;
     private final ShopLocks shopLocks;
+    private final PowerSellers powerSellers;
+    private final SellerVerification sellerVerification;
+    private final OrderRepository orderRepository;
 
     /** 상품 목록과 이 회원이 지금 살 수 있는지 */
     public List<ShopItemResponse> getItems(Long userId) {
@@ -61,6 +72,10 @@ public class ShopService {
                     case AUCTION_BOOST -> boostUnavailable != null
                             ? ShopItemResponse.unavailable(item, boostUnavailable)
                             : ShopItemResponse.available(item);
+                    case POWER_SELLER -> {
+                        String reason = powerSellerUnavailableReason(userId);
+                        yield reason != null ? ShopItemResponse.unavailable(item, reason) : ShopItemResponse.available(item);
+                    }
                 })
                 .toList();
     }
@@ -99,6 +114,48 @@ public class ShopService {
             ShopPurchase purchase = purchaseRepository.save(ShopPurchase.of(userId, ShopItem.AUCTION_BOOST, String.valueOf(auctionId)));
             return new DonationShopPayment.Charge<>(purchase.getId(), AuctionBoostResponse.from(boost));
         });
+    }
+
+    /**
+     * 파워 판매자: 영구로 한 번 산다. 인증 판매자(DONATION_009)이고 판매 확정 20건 이상(SHOP_005)이어야 한다.
+     * 이미 파워 판매자면 SHOP_006. 같은 회원의 구매는 지갑 잠금으로 한 줄로 처리되어 두 번 사지 않는다.
+     */
+    public void buyPowerSeller(Long userId) {
+        payment.pay(userId, ShopItem.POWER_SELLER.price(), () -> {
+            if (!sellerVerification.isVerified(userId)) {
+                throw new BusinessException(DonationErrorCode.NOT_VERIFIED_SELLER);
+            }
+            if (powerSellers.owns(userId)) {
+                throw new BusinessException(ShopErrorCode.ALREADY_POWER_SELLER);
+            }
+            long sales = completedSales(userId);
+            if (sales < POWER_SELLER_MIN_SALES) {
+                throw new BusinessException(ShopErrorCode.NOT_ENOUGH_SALES, notEnoughSalesMessage(sales));
+            }
+            powerSellers.grant(userId, ShopItem.POWER_SELLER.price());
+            ShopPurchase purchase = purchaseRepository.save(ShopPurchase.of(userId, ShopItem.POWER_SELLER, null));
+            return new DonationShopPayment.Charge<>(purchase.getId(), null);
+        });
+    }
+
+    /** 파워 판매자를 지금 살 수 없는 이유 (화면 문구). 살 수 있으면 null */
+    private String powerSellerUnavailableReason(Long userId) {
+        if (powerSellers.owns(userId)) {
+            return "이미 파워 판매자예요.";
+        }
+        if (!sellerVerification.isVerified(userId)) {
+            return "판매자 인증을 받은 회원만 살 수 있어요.";
+        }
+        long sales = completedSales(userId);
+        return sales < POWER_SELLER_MIN_SALES ? notEnoughSalesMessage(sales) : null;
+    }
+
+    private long completedSales(Long userId) {
+        return orderRepository.countBySellerIdAndStatus(userId, OrderStatus.COMPLETED);
+    }
+
+    private static String notEnoughSalesMessage(long sales) {
+        return "판매 확정 %d건 이상부터 살 수 있어요. (지금 %d건)".formatted(POWER_SELLER_MIN_SALES, sales);
     }
 
     /** 자리가 다 찼으면 안내 문구 (가장 먼저 끝나는 홍보가 끝날 때까지 남은 분), 자리가 있으면 null */

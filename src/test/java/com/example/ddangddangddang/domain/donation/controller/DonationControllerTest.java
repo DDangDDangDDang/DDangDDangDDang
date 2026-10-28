@@ -20,13 +20,11 @@ import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
-import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.entity.UserRole;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
-import com.example.ddangddangddang.support.SellerFixture;
 import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.DisplayName;
@@ -62,10 +60,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 도네이션 마일리지: 구매·판매 확정 적립 → 방송 중인 판매자에게 선물 → 유효기간 만료 → 판매자 상점(파워 판매자) → 신뢰 지표
+ * 도네이션 마일리지: 구매·판매 확정 적립 → 방송 중인 판매자에게 선물 → 유효기간 만료 → 신뢰 지표 (파워 판매자는 마일리지 상점: ShopControllerTest)
  * 구매·판매 적립과 선물받은 마일리지는 구분 없이 하나의 잔액(balance)으로 쓴다.
  * 기본 설정(DonationProperties): 낙찰가의 1%를 구매자·판매자에게 각각(주문당 최대 1,000P), 한 달 적립 10,000P(구매·판매 각각), 유효기간 90일,
- * 선물 100~5,000P(100P 단위), 판매자 한 명에게 한 달 5,000P, 파워 판매자 30,000P/30일
+ * 선물 100~5,000P(100P 단위), 판매자 한 명에게 한 달 5,000P
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -104,9 +102,6 @@ class DonationControllerTest {
 
     @Autowired
     private LiveStreamRepository liveStreamRepository;
-
-    @Autowired
-    private SellerApplicationRepository sellerApplicationRepository;
 
     @Autowired
     private ApplicationEventPublisher eventPublisher;
@@ -336,42 +331,6 @@ class DonationControllerTest {
     }
 
     @Test
-    @DisplayName("인증 판매자는 마일리지로 파워 판매자를 사고(다시 사면 기간이 이어짐), 프로필에 배지가 붙고 방송이 라이브 목록 맨 위에 올라간다")
-    void powerSeller() throws Exception {
-        Member seller = signupAndLogin();
-        Member fan = signupAndLogin();
-        mockMvc.perform(get("/api/v1/seller-perks/shop").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
-                .andExpect(jsonPath("$.data[0].type").value("POWER_SELLER"))
-                .andExpect(jsonPath("$.data[0].price").value(30_000))
-                .andExpect(jsonPath("$.data[0].periodDays").value(30));
-
-        // 인증 전에는 살 수 없다.
-        buyPower(seller).andExpect(status().isForbidden()).andExpect(jsonPath("$.error.code").value("DONATION_009"));
-        SellerFixture.verify(sellerApplicationRepository, seller.id());
-        buyPower(seller).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("DONATION_002"));
-
-        // 마일리지 60,000P (구매 적립 40,000P + 선물받은 20,000P처럼 묶음 두 개로 넣는다. 어디서 왔든 같이 쓴다)
-        lot(seller, fan, 40_000, LocalDateTime.now().plusDays(30));
-        lot(seller, fan, 20_000, LocalDateTime.now().plusDays(60));
-        String first = buyPower(seller).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
-        String second = buyPower(seller).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
-        // 두 번째는 첫 번째가 끝나는 시각부터 30일
-        assertThat((String) JsonPath.read(second, "$.data.startsAt")).isEqualTo(JsonPath.read(first, "$.data.endsAt"));
-        wallet(seller).andExpect(jsonPath("$.data.balance").value(0));
-        mockMvc.perform(get("/api/v1/seller-perks/me").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
-                .andExpect(jsonPath("$.data.length()").value(2));
-
-        mockMvc.perform(get("/api/v1/sellers/{id}/profile", seller.id())).andExpect(jsonPath("$.data.powerSeller").value(true));
-
-        // 늦게 시작했어도 파워 판매자 방송이 맨 위
-        Long power = liveStream(seller, true);
-        liveStream(fan, true);
-        mockMvc.perform(get("/api/v1/live-streams"))
-                .andExpect(jsonPath("$.data.content[0].liveStreamId").value(power))
-                .andExpect(jsonPath("$.data.content[0].powerSeller").value(true));
-    }
-
-    @Test
     @DisplayName("적립 이벤트 처리가 실패한 구매 확정 주문은 새벽 보정에서 구매자·판매자에게 한 번씩만 적립한다")
     void backfill() throws Exception {
         Member buyer = signupAndLogin();
@@ -436,7 +395,7 @@ class DonationControllerTest {
         String body = """
                 {"earnRatePercent": 1, "maxEarnPerOrder": 1000, "monthlyEarnLimit": 10000, "pointValidDays": 90, "expiringNoticeDays": 7,
                  "minGift": %d, "giftUnit": 100, "maxGift": 5000, "monthlyGiftLimitPerSeller": %d, "trustWindowDays": 90,
-                 "powerSellerPrice": 30000, "powerSellerDays": 30, "promotedLiveSlots": 4, "memo": "%s"}
+                 "memo": "%s"}
                 """.formatted(minGift, monthlyGiftLimitPerSeller, memo);
         return mockMvc.perform(put("/api/v1/admin/donation-policy").header(HttpHeaders.AUTHORIZATION, adminBearer())
                 .contentType(MediaType.APPLICATION_JSON).content(body));
@@ -457,11 +416,6 @@ class DonationControllerTest {
         return mockMvc.perform(post("/api/v1/live-streams/{id}/donations", liveStreamId)
                 .header(HttpHeaders.AUTHORIZATION, giver.bearer())
                 .contentType(MediaType.APPLICATION_JSON).content(body));
-    }
-
-    private ResultActions buyPower(Member seller) throws Exception {
-        return mockMvc.perform(post("/api/v1/seller-perks").header(HttpHeaders.AUTHORIZATION, seller.bearer())
-                .contentType(MediaType.APPLICATION_JSON).content("{\"type\": \"POWER_SELLER\"}"));
     }
 
     private ResultActions wallet(Member member) throws Exception {

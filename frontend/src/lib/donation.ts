@@ -20,7 +20,7 @@ export const DONATION_HISTORY_LABEL: Record<DonationHistoryType, string> = {
   GIFT: '선물함',
   RECEIVE: '선물받음',
   EXPIRE: '유효기간 만료',
-  SPEND: '판매자 상점',
+  SPEND: '판매자 상점 (예전)',
   SHOP: '마일리지 상점',
 };
 

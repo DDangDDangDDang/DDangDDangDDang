@@ -33,14 +33,6 @@ const GROUPS: { title: string; fields: { key: PolicyKey; label: string; unit: st
       { key: 'trustWindowDays', label: '응원 지표 기간', unit: '일', hint: '판매자 프로필의 응원한 사람 수' },
     ],
   },
-  {
-    title: '판매자 상점',
-    fields: [
-      { key: 'powerSellerPrice', label: '파워 판매자 가격', unit: 'M' },
-      { key: 'powerSellerDays', label: '파워 판매자 기간', unit: '일' },
-      { key: 'promotedLiveSlots', label: '라이브 목록 맨 위 칸 수', unit: '개' },
-    ],
-  },
 ];
 
 /**
@@ -62,7 +54,7 @@ export function DonationPolicyPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="도네이션 정책" description="적립·선물·판매자 상점 규칙이에요. 바꾸면 바로 모든 서버에 적용되고, 이미 쌓인 마일리지는 그대로예요." />
+      <PageHeader title="도네이션 정책" description="적립·선물 규칙이에요. (마일리지 상점 가격은 고정) 바꾸면 바로 모든 서버에 적용되고, 이미 쌓인 마일리지는 그대로예요." />
       {current.isPending ? (
         <Skeleton className="h-96" />
       ) : current.isError || !current.data?.policy ? (

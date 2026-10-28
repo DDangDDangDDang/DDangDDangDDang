@@ -20,9 +20,6 @@ import java.time.Duration;
  * donation.max-gift                       한 번에 선물할 수 있는 최대 포인트. 기본 5,000
  * donation.monthly-gift-limit-per-seller  한 계정이 판매자 한 명에게 한 달에 선물할 수 있는 최대 포인트. 기본 5,000
  * donation.trust-window                   판매자 프로필의 "응원" 지표를 세는 기간. 기본 90일
- * donation.power-seller-price             파워 판매자 가격 (마일리지). 기본 30,000
- * donation.power-seller-period            파워 판매자 기간. 기본 30일
- * donation.promoted-live-slots            라이브 목록 맨 위에 올리는 파워 판매자 방송 수. 기본 4
  * </pre>
  */
 @ConfigurationProperties(prefix = "donation")
@@ -36,10 +33,7 @@ public record DonationProperties(
         Long giftUnit,
         Long maxGift,
         Long monthlyGiftLimitPerSeller,
-        Duration trustWindow,
-        Long powerSellerPrice,
-        Duration powerSellerPeriod,
-        Integer promotedLiveSlots
+        Duration trustWindow
 ) {
     public DonationProperties {
         earnRatePercent = earnRatePercent == null ? 1 : earnRatePercent;
@@ -52,14 +46,11 @@ public record DonationProperties(
         maxGift = maxGift == null ? 5_000L : maxGift;
         monthlyGiftLimitPerSeller = monthlyGiftLimitPerSeller == null ? 5_000L : monthlyGiftLimitPerSeller;
         trustWindow = trustWindow == null ? Duration.ofDays(90) : trustWindow;
-        powerSellerPrice = powerSellerPrice == null ? 30_000L : powerSellerPrice;
-        powerSellerPeriod = powerSellerPeriod == null ? Duration.ofDays(30) : powerSellerPeriod;
-        promotedLiveSlots = promotedLiveSlots == null ? 4 : promotedLiveSlots;
     }
 
     /** 기본값만 쓰는 설정 (테스트) */
     public static DonationProperties defaults() {
-        return new DonationProperties(null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new DonationProperties(null, null, null, null, null, null, null, null, null, null);
     }
 
     /** 처음 정책 (기간은 일 단위로) */
@@ -67,6 +58,6 @@ public record DonationProperties(
         return new DonationPolicy(earnRatePercent, maxEarnPerOrder, monthlyEarnLimit,
                 (int) pointValidFor.toDays(), (int) expiringNoticeBefore.toDays(),
                 minGift, giftUnit, maxGift, monthlyGiftLimitPerSeller,
-                (int) trustWindow.toDays(), powerSellerPrice, (int) powerSellerPeriod.toDays(), promotedLiveSlots);
+                (int) trustWindow.toDays());
     }
 }
