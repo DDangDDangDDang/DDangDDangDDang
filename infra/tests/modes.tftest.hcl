@@ -147,6 +147,23 @@ run "ec2_with_domain" {
     condition     = length(aws_route53_record.main) == 1 && length(aws_vpc_security_group_ingress_rule.ec2_https) == 2
     error_message = "도메인 A 레코드를 만들고 443(TCP·UDP)을 열어야 합니다."
   }
+
+  assert {
+    condition = (
+      jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["APP_STORAGE_TYPE"] == "s3" &&
+      jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["APP_STORAGE_S3_BUCKET"] == "ddang-uploads-123456789012" &&
+      length(aws_iam_role_policy.ec2_uploads) == 1
+    )
+    error_message = "운영 앱은 업로드 버킷(S3)을 쓰고, 서버 역할에 그 버킷 권한이 있어야 합니다."
+  }
+
+  assert {
+    condition = (
+      one(aws_s3_bucket_cors_configuration.uploads["main"].cors_rule).allowed_origins == toset(["https://example.com"]) &&
+      aws_s3_bucket_public_access_block.uploads["main"].block_public_acls
+    )
+    error_message = "업로드 버킷은 사이트 주소의 PUT만 CORS로 허용하고, 공개 ACL은 막아야 합니다."
+  }
 }
 
 run "dns_moves_to_alb_before_ec2_off" {
@@ -247,6 +264,15 @@ run "dev_site" {
       jsondecode(aws_ssm_parameter.dev_app_env[0].value)["SMS_ENABLED"] == "false"
     )
     error_message = "dev 앱은 같은 서버의 MySQL·Redis 컨테이너와 dev 도메인을 쓰고, 문자 발송은 꺼져 있어야 합니다."
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_ssm_parameter.dev_app_env[0].value)["APP_STORAGE_S3_BUCKET"] == "ddang-dev-uploads-123456789012" &&
+      length(aws_iam_role_policy.dev_uploads) == 1 &&
+      one(aws_s3_bucket_cors_configuration.uploads["dev"].cors_rule).allowed_origins == toset(["https://dev.example.com"])
+    )
+    error_message = "dev 앱은 운영과 다른 dev 업로드 버킷을 쓰고, dev 사이트 주소의 PUT만 허용해야 합니다."
   }
 
   assert {
