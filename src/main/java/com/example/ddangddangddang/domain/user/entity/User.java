@@ -22,6 +22,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseTimeEntity {
 
+    public static final int BIO_MAX_LENGTH = 150;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -44,6 +46,14 @@ public class User extends BaseTimeEntity {
 
     // 마지막으로 닉네임을 바꾼 시각. 가입 후 한 번도 바꾸지 않았으면 null (첫 변경은 바로 할 수 있다)
     private LocalDateTime nicknameChangedAt;
+
+    // 자기소개. 프로필에 보여 준다. 없으면 null
+    @Column(length = BIO_MAX_LENGTH)
+    private String bio;
+
+    // 프로필 이미지의 저장소 키 (profile-images/{회원 ID}/...). 화면 주소는 FileStorage.publicUrl로 만든다. 없으면 null
+    @Column(length = 200)
+    private String profileImageKey;
 
     private User(String email, String password, String nickname, String phoneNumber, UserRole role) {
         this.email = email;
@@ -80,6 +90,26 @@ public class User extends BaseTimeEntity {
     public void changeNickname(String nickname, LocalDateTime now) {
         this.nickname = nickname;
         this.nicknameChangedAt = now;
+    }
+
+    /** 빈 값이면 소개를 지운다 */
+    public void changeBio(String bio) {
+        this.bio = bio == null || bio.isBlank() ? null : bio;
+    }
+
+    /** null이면 프로필 이미지를 지운다 */
+    public void changeProfileImage(String profileImageKey) {
+        this.profileImageKey = profileImageKey;
+    }
+
+    /** 본인 인증을 마친 새 이메일로 바꾼다 */
+    public void changeEmail(String email) {
+        this.email = email;
+    }
+
+    /** 본인 인증을 마친 새 휴대폰 번호로 바꾼다 */
+    public void changePhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 
     /**

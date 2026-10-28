@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.seller.service;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.seller.dto.SellerApplicationRequest;
 import com.example.ddangddangddang.domain.seller.dto.SellerApplicationResponse;
+import com.example.ddangddangddang.domain.seller.dto.SellerStoreUpdateRequest;
 import com.example.ddangddangddang.domain.seller.entity.BusinessNumber;
 import com.example.ddangddangddang.domain.seller.entity.SellerApplication;
 import com.example.ddangddangddang.domain.seller.entity.SellerApplicationStatus;
@@ -65,6 +66,22 @@ public class SellerApplicationService {
             // 같은 회원이 동시에 두 번 신청한 경우
             throw new BusinessException(SellerErrorCode.APPLICATION_PENDING, e);
         }
+    }
+
+    /** 인증받은 판매자의 상점 이름·소개 수정. 신청할 때와 같은 내용 검사를 한다. */
+    @Transactional
+    public SellerApplicationResponse updateStore(Long userId, SellerStoreUpdateRequest request) {
+        String storeName = request.storeName().strip();
+        String introduction = request.introduction().strip();
+        validateContent(storeName);
+        validateContent(introduction);
+
+        SellerApplication application = applicationRepository.findByUserId(userId)
+                .orElseThrow(() -> new BusinessException(SellerErrorCode.NOT_VERIFIED_SELLER));
+        application.updateStore(storeName, introduction);
+        // 관리자 심사와 겹칠 일은 없지만(승인된 신청만 바꿈), 같은 회원이 두 탭에서 동시에 고치면 먼저 저장한 쪽만 남긴다.
+        flush(application, SellerErrorCode.ALREADY_REVIEWED);
+        return SellerApplicationResponse.from(application);
     }
 
     /** 내 판매자 신청. 신청한 적이 없으면 null */

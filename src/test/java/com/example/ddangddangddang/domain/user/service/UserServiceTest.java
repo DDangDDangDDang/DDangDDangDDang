@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.user.service;
 
+import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
+import com.example.ddangddangddang.domain.livechat.moderation.ChatModerationProperties;
 import com.example.ddangddangddang.domain.user.config.UserPolicyProperties;
 import com.example.ddangddangddang.domain.user.dto.MyInfoResponse;
 import com.example.ddangddangddang.domain.user.dto.MyInfoUpdateRequest;
@@ -9,6 +11,9 @@ import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
+import com.example.ddangddangddang.global.storage.FileStorage;
+import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadRequest;
+import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,11 +28,16 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
@@ -47,11 +57,15 @@ class UserServiceTest {
     @Mock
     private JwtProvider jwtProvider;
 
+    @Mock
+    private FileStorage fileStorage;
+
     @BeforeEach
     void setUp() {
         ZoneId zone = ZoneId.of("Asia/Seoul");
         Clock clock = Clock.fixed(NOW.atZone(zone).toInstant(), zone);
-        userService = new UserService(userRepository, jwtProvider, new UserPolicyProperties(INTERVAL), clock);
+        ChatContentFilter contentFilter = new ChatContentFilter(new ChatModerationProperties(List.of(), null));
+        userService = new UserService(userRepository, jwtProvider, new UserPolicyProperties(INTERVAL), fileStorage, contentFilter, clock);
     }
 
     @Nested
@@ -203,6 +217,142 @@ class UserServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(UserErrorCode.DUPLICATE_NICKNAME);
+        }
+    }
+
+    @Nested
+    @DisplayName("소개 수정")
+    class UpdateBio {
+
+        @Test
+        @DisplayName("소개만 보내면 소개만 바꾸고 닉네임은 그대로 둔다 (앞뒤 공백은 지운다)")
+        void bioOnly() {
+            User user = user();
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(jwtProvider.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
+
+            MyInfoUpdateResponse response = userService.updateMyInfo(1L, new MyInfoUpdateRequest(null, "  빈티지 카메라 모아요  "));
+
+            assertThat(response.user().bio()).isEqualTo("빈티지 카메라 모아요");
+            assertThat(user.getNickname()).isEqualTo("경매왕");
+            assertThat(user.getNicknameChangedAt()).isNull();
+            verify(userRepository, never()).existsByNickname(anyString());
+        }
+
+        @Test
+        @DisplayName("빈 소개를 보내면 지운다")
+        void clear() {
+            User user = user();
+            user.changeBio("예전 소개");
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(jwtProvider.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
+
+            userService.updateMyInfo(1L, new MyInfoUpdateRequest(null, "  "));
+
+            assertThat(user.getBio()).isNull();
+        }
+
+        @Test
+        @DisplayName("연락처로 외부 거래를 유도하면 USER_006, 바꾸지 않는다")
+        void contentNotAllowed() {
+            User user = user();
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+            assertThatThrownBy(() -> userService.updateMyInfo(1L, new MyInfoUpdateRequest(null, "문의 010-1234-5678")))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.CONTENT_NOT_ALLOWED);
+            assertThat(user.getBio()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("프로필 이미지")
+    class ProfileImage {
+
+        private static final String KEY = "profile-images/1/123e4567-e89b-12d3-a456-426614174000.png";
+
+        @Test
+        @DisplayName("업로드 URL: 내 회원 ID가 들어간 키로 형식·크기를 정해 발급한다")
+        void uploadUrl() {
+            given(fileStorage.presignUpload(startsWith("profile-images/1/"), eq("image/png"), eq(1000L), any()))
+                    .willReturn("https://upload.example/signed");
+
+            ProfileImageUploadResponse response =
+                    userService.createProfileImageUploadUrl(1L, new ProfileImageUploadRequest("image/png", 1000L));
+
+            assertThat(response.uploadUrl()).isEqualTo("https://upload.example/signed");
+            assertThat(response.imageKey()).matches("profile-images/1/[0-9a-f-]{36}\\.png");
+            assertThat(response.expiresIn()).isEqualTo(300);
+        }
+
+        @Test
+        @DisplayName("업로드 URL: 이미지가 아니면 USER_007, 5MB를 넘으면 USER_008")
+        void uploadUrlRejected() {
+            assertThatThrownBy(() -> userService.createProfileImageUploadUrl(1L, new ProfileImageUploadRequest("image/svg+xml", 1000L)))
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.UNSUPPORTED_PROFILE_IMAGE_TYPE);
+            assertThatThrownBy(() -> userService.createProfileImageUploadUrl(1L,
+                    new ProfileImageUploadRequest("image/png", UserService.PROFILE_IMAGE_MAX_BYTES + 1)))
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.PROFILE_IMAGE_TOO_LARGE);
+            verify(fileStorage, never()).presignUpload(anyString(), anyString(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("확정: 올라간 이미지로 바꾸고 이전 이미지는 지운다")
+        void change() {
+            User user = user();
+            user.changeProfileImage("profile-images/1/old.png");
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(fileStorage.find(KEY)).willReturn(Optional.of(new FileStorage.StoredFile(1000, "image/png")));
+            given(fileStorage.publicUrl(KEY)).willReturn("https://cdn.example/" + KEY);
+
+            MyInfoResponse response = userService.changeProfileImage(1L, KEY);
+
+            assertThat(user.getProfileImageKey()).isEqualTo(KEY);
+            assertThat(response.profileImageUrl()).isEqualTo("https://cdn.example/" + KEY);
+            verify(fileStorage).delete("profile-images/1/old.png");
+        }
+
+        @Test
+        @DisplayName("확정: 남의 키(다른 회원 ID)나 형식이 다른 키면 저장소를 보지도 않고 USER_009")
+        void othersKey() {
+            assertThatThrownBy(() -> userService.changeProfileImage(1L, "profile-images/2/123e4567-e89b-12d3-a456-426614174000.png"))
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.PROFILE_IMAGE_NOT_UPLOADED);
+            assertThatThrownBy(() -> userService.changeProfileImage(1L, "profile-images/1/../2/a.png"))
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.PROFILE_IMAGE_NOT_UPLOADED);
+            verify(fileStorage, never()).find(anyString());
+        }
+
+        @Test
+        @DisplayName("확정: 아직 올리지 않았으면 USER_009, 올라간 파일이 너무 크면 USER_008")
+        void notUploadedOrTooLarge() {
+            given(fileStorage.find(KEY)).willReturn(Optional.empty());
+            assertThatThrownBy(() -> userService.changeProfileImage(1L, KEY))
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.PROFILE_IMAGE_NOT_UPLOADED);
+
+            given(fileStorage.find(KEY)).willReturn(Optional.of(
+                    new FileStorage.StoredFile(UserService.PROFILE_IMAGE_MAX_BYTES + 1, "image/png")));
+            assertThatThrownBy(() -> userService.changeProfileImage(1L, KEY))
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.PROFILE_IMAGE_TOO_LARGE);
+        }
+
+        @Test
+        @DisplayName("삭제: 프로필 이미지를 비우고 파일을 지운다")
+        void delete() {
+            User user = user();
+            user.changeProfileImage(KEY);
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+            MyInfoResponse response = userService.deleteProfileImage(1L);
+
+            assertThat(response.profileImageUrl()).isNull();
+            verify(fileStorage).delete(KEY);
         }
     }
 
