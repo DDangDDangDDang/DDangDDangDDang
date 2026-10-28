@@ -278,7 +278,7 @@ dev 데이터는 서버 디스크(Docker 볼륨)에만 있습니다. 배포해�
 | dev 데이터 초기화 | 서버에서 `docker compose down && docker volume rm ddang_mysql_data` 후 Actions → Deploy → Run workflow (branch: `dev`). `down -v`는 쓰지 마세요. Caddy 인증서 볼륨까지 지워져 매번 새로 발급받다가 Let's Encrypt 한도(7일에 5개)에 걸릴 수 있습니다 |
 | 잠시 끄기 (비용 절약) | `aws ec2 stop-instances --instance-ids <ID>` / 다시 켜기 `start-instances`. 켜면 컨테이너가 자동으로 다시 뜸 |
 | 완전히 없애기 | `dev_enabled = false` → `terraform apply`, GitHub 변수 `DEV_DEPLOY_ENABLED` 삭제 |
-| 완전히 없앤 뒤 다시 켜기 | 30일 안이면 `ddang-dev/app`이 삭제 예약 상태라 `terraform apply`가 같은 이름을 만들지 못합니다. `aws secretsmanager restore-secret --secret-id ddang-dev/app`으로 되살리고 `terraform import 'aws_secretsmanager_secret.dev_app[0]' ddang-dev/app` 후 "켜기"를 진행합니다. 값이 남아 있으므로 2단계는 건너뜁니다. (`ddang-dev/db`는 바로 지워지므로 그대로 다시 만들어집니다) |
+| 완전히 없앤 뒤 다시 켜기 | 30일 안이면 `ddang-dev/app`이 삭제 예약 상태라 `terraform apply`가 같은 이름을 만들지 못합니다. ① `infra/terraform.tfvars`에 `dev_enabled = true` (아직 apply하지 않음. 꺼진 상태에서는 `dev_app[0]`이 구성에 없어 import가 실패함) ② `aws secretsmanager restore-secret --secret-id ddang-dev/app`으로 되살리기 ③ `terraform import 'aws_secretsmanager_secret.dev_app[0]' ddang-dev/app` ④ `terraform apply` 후 "켜기" 3단계부터 진행합니다. 값이 남아 있으므로 2단계는 건너뜁니다. (`ddang-dev/db`는 바로 지워지므로 그대로 다시 만들어집니다) |
 
 ## 운영 중 자주 하는 일 (EC2 구성)
 
