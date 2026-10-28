@@ -245,8 +245,12 @@
       transform: rotate(5deg);
     }
     78%,
-    100% {
+    86% {
       transform: rotate(0deg);
+    }
+    /* 다음 바퀴 시작(0%)과 같은 각도로 다시 들어 올려, 반복할 때 망치가 튀지 않게 한다 */
+    100% {
+      transform: rotate(62deg);
     }
   }
   --animate-hammer-bolt: hammer-bolt 2.6s linear infinite;
