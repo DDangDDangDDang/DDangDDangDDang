@@ -7,9 +7,9 @@ import { useCallback, useSyncExternalStore } from 'react';
 
 /**
  * 선물 크기 단계. 효과음과 별 이펙트가 단계마다 다르다.
- * - small: 1,000P 미만 (최소 선물이 100P라 100P 미만은 없다)
- * - medium: 1,000P 이상
- * - large: 3,000P 이상
+ * - small: 1,000M 미만 (최소 선물이 100M이라 100M 미만은 없다)
+ * - medium: 1,000M 이상
+ * - large: 3,000M 이상
  */
 export type DonationTier = 'small' | 'medium' | 'large';
 export const MEDIUM_DONATION = 1_000;

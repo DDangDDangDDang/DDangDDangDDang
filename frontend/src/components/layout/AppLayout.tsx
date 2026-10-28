@@ -256,7 +256,7 @@ function DmLink() {
   );
 }
 
-/** 헤더의 도네이션 포인트 (선물할 수 있는 포인트). 누르면 도네이션 포인트 화면으로 간다. */
+/** 헤더의 도네이션 마일리지 (선물할 수 있는 마일리지). 누르면 도네이션 마일리지 화면으로 간다. 현금 포인트(P)와 헷갈리지 않게 단위는 M */
 function DonationPointLink() {
   const wallet = useQuery({
     queryKey: DONATION_WALLET_KEY,
@@ -270,14 +270,14 @@ function DonationPointLink() {
       className="flex h-10 items-center gap-2 rounded-full border border-neutral-100 px-3.5 font-semibold hover:bg-neutral-50"
       aria-label={
         wallet.data
-          ? `도네이션 포인트 ${formatNumber(balance)} P`
-          : "도네이션 포인트"
+          ? `도네이션 마일리지 ${formatNumber(balance)} M`
+          : "도네이션 마일리지"
       }
-      title="도네이션 포인트 (판매자에게 선물할 수 있는 포인트)"
+      title="도네이션 마일리지 (판매자에게 선물할 수 있어요)"
     >
       <Gift className="size-[18px] text-brand-500" aria-hidden="true" />
       <span className="num">{wallet.data ? formatNumber(balance) : "-"}</span>
-      <span className="text-neutral-500">P</span>
+      <span className="text-neutral-500">M</span>
     </Link>
   );
 }

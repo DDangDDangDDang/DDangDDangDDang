@@ -4,7 +4,7 @@ import { useSession, type ChatMessage, type RealtimeStatus } from '@/api';
 import { Badge, Notice } from '@/components/ui';
 import { bidIncreasePercent, bidTier } from '@/lib/auction-effects';
 import { cn } from '@/lib/cn';
-import { formatPoint } from '@/lib/format';
+import { formatMileage } from '@/lib/format';
 import { CHAT_MAX_LENGTH, isSendableChat } from '@/lib/live-room';
 
 type Props = {
@@ -199,7 +199,7 @@ function ChatLine({ message, isSeller, isMine, flagged }: { message: ChatMessage
   if (message.type === 'DONATION') {
     return (
       <li className="self-center rounded-full bg-brand-50 px-3 py-1 text-caption font-semibold text-brand-700">
-        {message.nickname || '알 수 없음'}님이 <span className="num">{formatPoint(message.amount ?? 0)}</span>를 선물했어요
+        {message.nickname || '알 수 없음'}님이 <span className="num">{formatMileage(message.amount ?? 0)}</span>을 선물했어요
         {message.content && <span className="font-normal text-neutral-700"> · {message.content}</span>}
       </li>
     );

@@ -6,17 +6,17 @@ import { Button, Dialog, Input, Notice, Skeleton, Textarea } from '@/components/
 import { formatAmountInput, parseAmount } from '@/lib/auction';
 import { cn } from '@/lib/cn';
 import { DONATION_HISTORY_KEY, DONATION_WALLET_KEY, donationStatusKey, giftPresets, newRequestKey, validateGift } from '@/lib/donation';
-import { formatNumber, formatPoint } from '@/lib/format';
+import { formatNumber, formatMileage } from '@/lib/format';
 
 const MESSAGE_MAX_LENGTH = 50;
 
 /**
- * 도네이션 선물 창: 방송 중인 판매자에게 도네이션 포인트를 선물한다. (시청 화면)
- * 선물하면 방송 화면에 "누구님이 몇 P를 선물했어요" 이펙트가 뜬다. (채팅 DONATION 메시지)
+ * 도네이션 선물 창: 방송 중인 판매자에게 도네이션 마일리지를 선물한다. (시청 화면)
+ * 선물하면 방송 화면에 "누구님이 몇 M을 선물했어요" 이펙트가 뜬다. (채팅 DONATION 메시지)
  */
 export function DonationDialog({ liveStreamId, sellerName, open, onClose }: { liveStreamId: number; sellerName: string; open: boolean; onClose: () => void }) {
   return (
-    <Dialog open={open} title={`${sellerName}님에게 선물하기`} description="도네이션 포인트로 방송을 응원해요. 선물은 취소할 수 없어요." onClose={onClose}>
+    <Dialog open={open} title={`${sellerName}님에게 선물하기`} description="도네이션 마일리지로 방송을 응원해요. 선물은 취소할 수 없어요." onClose={onClose}>
       {open && <DonationForm liveStreamId={liveStreamId} />}
     </Dialog>
   );
@@ -100,20 +100,20 @@ function DonationForm({ liveStreamId }: { liveStreamId: number }) {
     <form onSubmit={onSubmit} noValidate aria-label="선물" className="flex flex-col gap-4">
       <dl className="grid grid-cols-2 gap-2 rounded-md bg-neutral-25 px-4 py-3">
         <div className="flex flex-col">
-          <dt className="text-caption text-neutral-500">선물할 수 있는 포인트</dt>
-          <dd className="num text-title-md font-bold">{formatPoint(info.giftableBalance ?? 0)}</dd>
+          <dt className="text-caption text-neutral-500">선물할 수 있는 마일리지</dt>
+          <dd className="num text-title-md font-bold">{formatMileage(info.giftableBalance ?? 0)}</dd>
         </div>
         <div className="flex flex-col">
           <dt className="text-caption text-neutral-500">이 판매자에게 이번 달 남은 한도</dt>
-          <dd className="num text-title-md font-bold">{formatPoint(info.remainingThisMonth ?? 0)}</dd>
+          <dd className="num text-title-md font-bold">{formatMileage(info.remainingThisMonth ?? 0)}</dd>
         </div>
       </dl>
 
       {(info.giftableBalance ?? 0) < (info.minGift ?? 0) ? (
         <Notice>
-          아직 선물할 도네이션 포인트가 없어요. 구매를 확정하면 낙찰가의 일부가 도네이션 포인트로 쌓여요.{' '}
+          아직 선물할 도네이션 마일리지가 없어요. 구매를 확정하면 낙찰가의 일부가 도네이션 마일리지로 쌓여요.{' '}
           <Link to="/me/donation-points" target="_blank" rel="noreferrer" className="font-semibold underline">
-            도네이션 포인트 보기
+            도네이션 마일리지 보기
           </Link>
         </Notice>
       ) : (
@@ -135,13 +135,13 @@ function DonationForm({ liveStreamId }: { liveStreamId: number }) {
             ))}
           </div>
           <Input
-            label="선물할 포인트"
+            label="선물할 마일리지"
             inputMode="numeric"
-            suffix="P"
+            suffix="M"
             placeholder={formatNumber(info.minGift ?? 0)}
             value={formatAmountInput(amount)}
             error={error}
-            hint={`${formatPoint(info.minGift ?? 0)}부터 ${formatPoint(info.maxGift ?? 0)}까지 ${formatPoint(info.giftUnit ?? 0)} 단위로 선물할 수 있어요.`}
+            hint={`${formatMileage(info.minGift ?? 0)}부터 ${formatMileage(info.maxGift ?? 0)}까지 ${formatMileage(info.giftUnit ?? 0)} 단위로 선물할 수 있어요.`}
             onChange={(e) => changeAmount(e.target.value)}
           />
           <Textarea
@@ -156,9 +156,9 @@ function DonationForm({ liveStreamId }: { liveStreamId: number }) {
             }}
           />
           {gift.isError && <Notice tone="error">{errorMessage(gift.error)}</Notice>}
-          {sent !== undefined && <Notice tone="success">{formatPoint(sent)}를 선물했어요. 방송 화면에 선물 알림이 떠요.</Notice>}
+          {sent !== undefined && <Notice tone="success">{formatMileage(sent)}을 선물했어요. 방송 화면에 선물 알림이 떠요.</Notice>}
           <Button type="submit" size="lg" loading={gift.isPending}>
-            {value ? `${formatPoint(value)} 선물하기` : '선물하기'}
+            {value ? `${formatMileage(value)} 선물하기` : '선물하기'}
           </Button>
         </>
       )}
