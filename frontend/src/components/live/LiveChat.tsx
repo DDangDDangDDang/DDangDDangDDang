@@ -1,6 +1,7 @@
 import { Gavel, HandCoins, Megaphone, SendHorizontal, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { useSession, type ChatMessage, type RealtimeStatus } from '@/api';
+import { DecoratedNickname } from '@/components/badge/DecoratedNickname';
 import { Badge, Notice } from '@/components/ui';
 import { bidIncreasePercent, bidTier } from '@/lib/auction-effects';
 import { cn } from '@/lib/cn';
@@ -260,7 +261,7 @@ function ChatLine({ message, isSeller, isMine, flagged, showHiddenContent }: Cha
         </Badge>
       )}
       <strong className={cn('mr-1.5 text-label font-semibold', isSeller ? 'text-brand-700' : isMine ? 'text-info-700' : 'text-neutral-700')}>
-        {message.nickname || '알 수 없음'}
+        <DecoratedNickname nickname={message.nickname || '알 수 없음'} badge={message.badge} />
       </strong>
       {hiddenContent || <span>{message.content}</span>}
     </li>

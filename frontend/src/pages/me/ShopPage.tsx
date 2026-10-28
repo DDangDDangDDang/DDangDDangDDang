@@ -2,32 +2,50 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShoppingBag, UserPen, type LucideIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { api, call, errorMessage, replaceSession, type Schema } from '@/api';
+import { api, call, errorMessage, replaceSession, useSession, type Schema } from '@/api';
 import { myInfoQueryKey } from '@/components/account/my-info-query';
+import { DecoratedNickname } from '@/components/badge/DecoratedNickname';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Button, Card, CardBody, CardHeader, CardTitle, Dialog, ErrorState, Input, Notice, Skeleton } from '@/components/ui';
+import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Dialog, EmptyState, ErrorState, Input, Notice, Skeleton } from '@/components/ui';
 import { DONATION_HISTORY_KEY, DONATION_WALLET_KEY } from '@/lib/donation';
 import { formatMileage } from '@/lib/format';
+import { MY_BADGES_KEY, NICKNAME_BADGE_LABEL, type NicknameBadge } from '@/lib/nickname-badge';
 
 type ShopItem = Schema<'ShopItemResponse'>;
 type ShopItemType = NonNullable<ShopItem['item']>;
 
 const SHOP_ITEMS_KEY = ['shop', 'items'] as const;
 
-const ITEM_ICON: Record<ShopItemType, LucideIcon> = {
+// 뱃지 상품은 아이콘 대신 꾸민 닉네임 미리 보기를 보여 준다.
+const ITEM_ICON: Partial<Record<ShopItemType, LucideIcon>> = {
   NICKNAME_CHANGE: UserPen,
 };
 
 /**
  * 마일리지 상점: 도네이션 마일리지로 상품을 사면 바로 적용된다. (가격 고정, 되돌릴 수 없음)
  * - 닉네임 변경권: 변경 제한 기간(30일) 중에만 살 수 있고, 사면서 새 닉네임으로 바로 바꾼다.
+ * - 닉네임 뱃지: 라이브 채팅의 닉네임을 꾸민다. 영구로 가지고, 사면 바로 장착된다. 내 뱃지에서 바꿔 끼거나 뺀다.
  */
 export function ShopPage() {
+  const queryClient = useQueryClient();
+  const nickname = useSession()?.user.nickname ?? '내 닉네임';
   const wallet = useQuery({ queryKey: DONATION_WALLET_KEY, queryFn: () => call(api.GET('/api/v1/donation-points/wallet')) });
   const items = useQuery({ queryKey: SHOP_ITEMS_KEY, queryFn: () => call(api.GET('/api/v1/shop/items')) });
-  const [buying, setBuying] = useState<ShopItemType>();
+  const [buying, setBuying] = useState<ShopItem>();
   const [bought, setBought] = useState<string>();
   const balance = wallet.data?.balance ?? 0;
+
+  const buyBadge = useMutation({
+    mutationFn: (badge: NicknameBadge) => call(api.POST('/api/v1/shop/badges/{badge}', { params: { path: { badge } } })),
+    onSuccess: (badges, badge) => {
+      queryClient.setQueryData(MY_BADGES_KEY, badges);
+      void queryClient.invalidateQueries({ queryKey: DONATION_WALLET_KEY });
+      void queryClient.invalidateQueries({ queryKey: DONATION_HISTORY_KEY });
+      void queryClient.invalidateQueries({ queryKey: SHOP_ITEMS_KEY });
+      setBuying(undefined);
+      setBought(`${NICKNAME_BADGE_LABEL[badge]} 뱃지를 샀어요. 바로 장착했어요.`);
+    },
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -59,27 +77,48 @@ export function ShopPage() {
           ) : (
             <ul aria-label="상품" className="flex flex-col gap-3">
               {(items.data ?? []).map((item) => (
-                <ShopItemRow key={item.item} item={item} balance={balance} onBuy={() => item.item && setBuying(item.item)} />
+                <ShopItemRow key={item.item} item={item} nickname={nickname} balance={balance} onBuy={() => setBuying(item)} />
               ))}
             </ul>
           )}
         </CardBody>
       </Card>
 
+      <MyBadgesCard nickname={nickname} />
+
       <NicknameChangeDialog
-        open={buying === 'NICKNAME_CHANGE'}
-        item={items.data?.find((item) => item.item === 'NICKNAME_CHANGE')}
+        open={buying?.item === 'NICKNAME_CHANGE'}
+        item={buying}
         onClose={() => setBuying(undefined)}
-        onBought={(nickname) => {
+        onBought={(changed) => {
           setBuying(undefined);
-          setBought(`닉네임을 ‘${nickname}’(으)로 바꿨어요.`);
+          setBought(`닉네임을 ‘${changed}’(으)로 바꿨어요.`);
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(buying?.badge)}
+        title={`${buying?.name ?? ''}를 살까요?`}
+        description={
+          buyBadge.isError ? (
+            <span className="text-brand-700">{errorMessage(buyBadge.error)}</span>
+          ) : (
+            `도네이션 마일리지 ${formatMileage(buying?.price ?? 0)}이 빠지고 되돌릴 수 없어요. 영구로 가지고, 사면 바로 장착돼요.`
+          )
+        }
+        confirmLabel={`${formatMileage(buying?.price ?? 0)}으로 사기`}
+        loading={buyBadge.isPending}
+        onConfirm={() => buying?.badge && buyBadge.mutate(buying.badge)}
+        onCancel={() => {
+          setBuying(undefined);
+          buyBadge.reset();
         }}
       />
     </div>
   );
 }
 
-function ShopItemRow({ item, balance, onBuy }: { item: ShopItem; balance: number; onBuy: () => void }) {
+function ShopItemRow({ item, nickname, balance, onBuy }: { item: ShopItem; nickname: string; balance: number; onBuy: () => void }) {
   const Icon = (item.item && ITEM_ICON[item.item]) || ShoppingBag;
   const short = (item.price ?? 0) > balance;
   const reason = !item.available ? item.unavailableReason : short ? '마일리지가 부족해요' : undefined;
@@ -87,9 +126,15 @@ function ShopItemRow({ item, balance, onBuy }: { item: ShopItem; balance: number
   return (
     <li className="flex items-center justify-between gap-4 rounded-md border border-neutral-100 px-5 py-4">
       <div className="flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
-          <Icon className="size-5" aria-hidden="true" />
-        </span>
+        {item.badge ? (
+          <span aria-hidden="true" className="flex h-10 min-w-24 shrink-0 items-center justify-center rounded-md bg-neutral-25 px-3 text-label font-semibold text-neutral-700">
+            <DecoratedNickname nickname={nickname} badge={item.badge} />
+          </span>
+        ) : (
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+            <Icon className="size-5" aria-hidden="true" />
+          </span>
+        )}
         <div className="flex flex-col gap-1">
           <strong className="text-body-lg font-bold">{item.name}</strong>
           <span className="text-body text-neutral-700">{item.description}</span>
@@ -103,6 +148,70 @@ function ShopItemRow({ item, balance, onBuy }: { item: ShopItem; balance: number
         {reason && <span className="text-caption text-neutral-500">{reason}</span>}
       </div>
     </li>
+  );
+}
+
+/** 내 뱃지: 가진 뱃지 중 하나를 장착하거나 뺀다. 라이브 채팅에서 다음 메시지부터 바뀐다. */
+function MyBadgesCard({ nickname }: { nickname: string }) {
+  const queryClient = useQueryClient();
+  const badges = useQuery({ queryKey: MY_BADGES_KEY, queryFn: () => call(api.GET('/api/v1/users/me/badges')) });
+  const equip = useMutation({
+    mutationFn: (badge: NicknameBadge | null) => call(api.PUT('/api/v1/users/me/badge', { body: { badge: badge ?? undefined } })),
+    onSuccess: (data) => queryClient.setQueryData(MY_BADGES_KEY, data),
+  });
+  const owned = badges.data?.owned ?? [];
+  const equipped = badges.data?.equipped;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>내 뱃지</CardTitle>
+      </CardHeader>
+      <CardBody className="flex flex-col gap-3">
+        {badges.isPending ? (
+          <Skeleton className="h-16" />
+        ) : badges.isError ? (
+          <ErrorState message={errorMessage(badges.error)} onRetry={() => void badges.refetch()} />
+        ) : owned.length === 0 ? (
+          <EmptyState title="가진 뱃지가 없어요" description="닉네임 뱃지를 사면 라이브 채팅에서 내 닉네임이 꾸며져요." />
+        ) : (
+          <>
+            <ul aria-label="내 뱃지" className="flex flex-wrap gap-2">
+              {owned.map((badge) => {
+                const isEquipped = badge === equipped;
+                return (
+                  <li key={badge}>
+                    <button
+                      type="button"
+                      aria-pressed={isEquipped}
+                      aria-label={`${NICKNAME_BADGE_LABEL[badge]} 장착`}
+                      disabled={equip.isPending}
+                      onClick={() => !isEquipped && equip.mutate(badge)}
+                      className={
+                        isEquipped
+                          ? 'flex flex-col items-center gap-1 rounded-md border border-brand-500 bg-brand-50 px-4 py-2 text-label'
+                          : 'flex flex-col items-center gap-1 rounded-md border border-neutral-200 px-4 py-2 text-label hover:bg-neutral-50'
+                      }
+                    >
+                      <span className="font-semibold text-neutral-700">
+                        <DecoratedNickname nickname={nickname} badge={badge} />
+                      </span>
+                      <span className="text-caption text-neutral-500">{isEquipped ? '장착 중' : NICKNAME_BADGE_LABEL[badge]}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" disabled={!equipped || equip.isPending} onClick={() => equip.mutate(null)}>
+                뱃지 빼기
+              </Button>
+              {equip.isError && <span className="text-label text-brand-700">{errorMessage(equip.error)}</span>}
+            </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 

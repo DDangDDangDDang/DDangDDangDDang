@@ -247,7 +247,7 @@ class ChatModerationQueueTest {
     }
 
     private ChatMessageResponse chat(Long senderId, String nickname, String content) {
-        return ChatMessageResponse.chat(LIVE_STREAM_ID, senderId, nickname, content);
+        return ChatMessageResponse.chat(LIVE_STREAM_ID, senderId, nickname, null, content);
     }
 
     private LiveStreamResponse liveStream(ChatModerationMode mode) {

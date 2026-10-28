@@ -24,6 +24,7 @@ import { getAccessToken } from './session';
  * BID는 방송에 올라간 경매의 입찰: 입찰자(senderId·nickname), 입찰 금액(amount), 직전 현재가(previousAmount), 경매(auctionId·productName)
  * AUCTION_SOLD는 낙찰: 낙찰자(senderId·nickname), 낙찰가(amount), 경매(auctionId·productName)
  * BID·AUCTION_SOLD의 content는 채팅에 그대로 보여 줄 안내 문장이다.
+ * CHAT의 badge는 보낸 사람이 장착한 닉네임 뱃지 (없으면 null)
  * MESSAGE_HIDDEN·MESSAGE_RESTORED는 새 줄이 아니라, targetMessageId 채팅(또는 선물 한마디)을 AI 검토로 가리거나 판매자가 되돌린 것이다.
  */
 export type ChatMessage = {
@@ -41,6 +42,8 @@ export type ChatMessage = {
   /** BID·AUCTION_SOLD에만 있다 */
   auctionId?: number | null;
   productName?: string | null;
+  /** CHAT에만 있다. 보낸 사람이 장착한 닉네임 뱃지 */
+  badge?: 'ANGEL_WINGS' | 'DEVIL_WINGS' | 'HALO' | 'STAR' | null;
   /** MESSAGE_HIDDEN·MESSAGE_RESTORED에만 있다 */
   targetMessageId?: string | null;
   /** 서버가 보내지 않는 화면 전용 값: AI 검토로 가려진 메시지인지 (applyChatMessage가 채운다) */

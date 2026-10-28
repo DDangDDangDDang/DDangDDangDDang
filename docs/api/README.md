@@ -100,6 +100,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `previousAmount` | number \| null | `BID`에만 있음. 이 입찰 직전의 현재가 (첫 입찰이면 시작가). 오른 비율로 이펙트 크기를 정함 |
 | `auctionId` | number \| null | `BID`·`AUCTION_SOLD`에만 있음 |
 | `productName` | string \| null | `BID`·`AUCTION_SOLD`에만 있음 |
+| `badge` | `"ANGEL_WINGS"` \| `"DEVIL_WINGS"` \| `"HALO"` \| `"STAR"` \| null | `CHAT`에만 있음. 보낸 사람이 장착한 닉네임 뱃지 (없으면 null). 닉네임을 꾸며서 보여 줌 |
 | `targetMessageId` | string \| null | `MESSAGE_HIDDEN`·`MESSAGE_RESTORED`에만 있음. 가리거나 되돌릴 메시지의 `messageId` |
 
 - `DONATION`은 `POST /api/v1/live-streams/{id}/donations`가 커밋된 뒤에 옵니다. 방송 화면 한쪽에 "`nickname`님이 `amount` P를 선물했어요" 이펙트를 띄우고, 채팅에도 한 줄 남깁니다.

@@ -2,8 +2,10 @@ package com.example.ddangddangddang.domain.user.controller;
 
 import com.example.ddangddangddang.domain.auth.dto.CodeSentResponse;
 import com.example.ddangddangddang.domain.auth.dto.PhoneCodeRequest;
+import com.example.ddangddangddang.domain.user.dto.BadgeEquipRequest;
 import com.example.ddangddangddang.domain.user.dto.EmailChangeCodeRequest;
 import com.example.ddangddangddang.domain.user.dto.EmailChangeRequest;
+import com.example.ddangddangddang.domain.user.dto.MyBadgesResponse;
 import com.example.ddangddangddang.domain.user.dto.MyInfoResponse;
 import com.example.ddangddangddang.domain.user.dto.MyInfoUpdateRequest;
 import com.example.ddangddangddang.domain.user.dto.MyInfoUpdateResponse;
@@ -11,6 +13,7 @@ import com.example.ddangddangddang.domain.user.dto.PhoneNumberChangeRequest;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageChangeRequest;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadRequest;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadResponse;
+import com.example.ddangddangddang.domain.user.service.UserBadgeService;
 import com.example.ddangddangddang.domain.user.service.UserContactService;
 import com.example.ddangddangddang.domain.user.service.UserService;
 import com.example.ddangddangddang.global.common.ApiResponse;
@@ -35,6 +38,7 @@ public class UserController {
 
     private final UserService userService;
     private final UserContactService contactService;
+    private final UserBadgeService userBadgeService;
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<MyInfoResponse>> getMyInfo(@AuthenticationPrincipal AuthUser authUser) {
@@ -104,5 +108,18 @@ public class UserController {
             @Valid @RequestBody PhoneNumberChangeRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(
                 contactService.changePhoneNumber(authUser.id(), request.phoneNumber(), request.code())));
+    }
+
+    /** 내 닉네임 뱃지: 가진 뱃지와 장착한 뱃지 (뱃지는 마일리지 상점에서 산다) */
+    @GetMapping("/me/badges")
+    public ResponseEntity<ApiResponse<MyBadgesResponse>> getMyBadges(@AuthenticationPrincipal AuthUser authUser) {
+        return ResponseEntity.ok(ApiResponse.ok(userBadgeService.getMine(authUser.id())));
+    }
+
+    /** 가진 뱃지 중 하나를 장착한다. badge가 null이면 뺀다. */
+    @PutMapping("/me/badge")
+    public ResponseEntity<ApiResponse<MyBadgesResponse>> equipBadge(
+            @AuthenticationPrincipal AuthUser authUser, @RequestBody BadgeEquipRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(userBadgeService.equip(authUser.id(), request.badge())));
     }
 }

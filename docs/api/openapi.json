@@ -192,6 +192,54 @@
         }
       }
     },
+    "/api/v1/users/me/badge" : {
+      "put" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userEquipBadge",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BadgeEquipRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyBadgesResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sellers/{sellerId}/subscription" : {
       "put" : {
         "tags" : [ "seller-controller" ],
@@ -1018,6 +1066,53 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseMyInfoUpdateResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shop/badges/{badge}" : {
+      "post" : {
+        "tags" : [ "shop-controller" ],
+        "operationId" : "shopBuyBadge",
+        "parameters" : [ {
+          "name" : "badge",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyBadgesResponse"
                 }
               }
             }
@@ -4790,6 +4885,44 @@
         }
       }
     },
+    "/api/v1/users/me/badges" : {
+      "get" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userGetMyBadges",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyBadgesResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/me/auctions" : {
       "get" : {
         "tags" : [ "auction-controller" ],
@@ -6815,6 +6948,45 @@
           "expiresIn" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "BadgeEquipRequest" : {
+        "type" : "object",
+        "properties" : {
+          "badge" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+          }
+        }
+      },
+      "ApiResponseMyBadgesResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/MyBadgesResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "MyBadgesResponse" : {
+        "type" : "object",
+        "properties" : {
+          "owned" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+            }
+          },
+          "equipped" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
           }
         }
       },
@@ -9456,7 +9628,7 @@
         "properties" : {
           "item" : {
             "type" : "string",
-            "enum" : [ "NICKNAME_CHANGE" ]
+            "enum" : [ "NICKNAME_CHANGE", "BADGE_ANGEL_WINGS", "BADGE_DEVIL_WINGS", "BADGE_HALO", "BADGE_STAR" ]
           },
           "name" : {
             "type" : "string"
@@ -9467,6 +9639,10 @@
           "price" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "badge" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
           },
           "available" : {
             "type" : "boolean"
@@ -11457,6 +11633,14 @@
     "code" : "USER_013",
     "status" : 400,
     "message" : "지금 쓰고 있는 닉네임입니다."
+  }, {
+    "code" : "USER_014",
+    "status" : 409,
+    "message" : "이미 가지고 있는 뱃지입니다."
+  }, {
+    "code" : "USER_015",
+    "status" : 400,
+    "message" : "가지고 있지 않은 뱃지입니다."
   }, {
     "code" : "VERIFY_001",
     "status" : 400,

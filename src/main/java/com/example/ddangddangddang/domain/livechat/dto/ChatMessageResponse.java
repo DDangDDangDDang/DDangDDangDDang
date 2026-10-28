@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.livechat.dto;
 
+import com.example.ddangddangddang.domain.user.entity.NicknameBadge;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -14,6 +16,7 @@ import java.util.UUID;
  * amount는 DONATION·BID·AUCTION_SOLD, previousAmount는 BID, auctionId·productName은 BID·AUCTION_SOLD,
  * targetMessageId는 MESSAGE_HIDDEN·MESSAGE_RESTORED에만 있다. (나머지는 null)
  * messageId는 메시지를 가리킬 때 쓴다. (판매자 검토 알림 → 해당 메시지 찾기, 가림·되돌림 대상)
+ * badge는 CHAT 메시지를 보낸 사람이 장착한 닉네임 뱃지(없으면 null). 다른 종류의 메시지에는 없다.
  */
 public record ChatMessageResponse(
         String messageId,
@@ -27,39 +30,40 @@ public record ChatMessageResponse(
         Long previousAmount,
         Long auctionId,
         String productName,
+        NicknameBadge badge,
         String targetMessageId
 ) {
-    public static ChatMessageResponse chat(Long liveStreamId, Long senderId, String nickname, String content) {
-        return new ChatMessageResponse(newId(), ChatMessageType.CHAT, liveStreamId, senderId, nickname, content, LocalDateTime.now(), null, null, null, null, null);
+    public static ChatMessageResponse chat(Long liveStreamId, Long senderId, String nickname, NicknameBadge badge, String content) {
+        return new ChatMessageResponse(newId(), ChatMessageType.CHAT, liveStreamId, senderId, nickname, content, LocalDateTime.now(), null, null, null, null, badge, null);
     }
 
     public static ChatMessageResponse system(Long liveStreamId, String content) {
-        return new ChatMessageResponse(newId(), ChatMessageType.SYSTEM, liveStreamId, null, null, content, LocalDateTime.now(), null, null, null, null, null);
+        return new ChatMessageResponse(newId(), ChatMessageType.SYSTEM, liveStreamId, null, null, content, LocalDateTime.now(), null, null, null, null, null, null);
     }
 
     public static ChatMessageResponse donation(Long liveStreamId, Long senderId, String nickname, long amount, String message) {
-        return new ChatMessageResponse(newId(), ChatMessageType.DONATION, liveStreamId, senderId, nickname, message, LocalDateTime.now(), amount, null, null, null, null);
+        return new ChatMessageResponse(newId(), ChatMessageType.DONATION, liveStreamId, senderId, nickname, message, LocalDateTime.now(), amount, null, null, null, null, null);
     }
 
     public static ChatMessageResponse bid(Long liveStreamId, Long bidderId, String nickname, Long auctionId, String productName,
                                           long amount, long previousAmount) {
         String content = "%s님이 ‘%s’ 상품을 %,dP에 입찰했습니다.".formatted(nickname, productName, amount);
         return new ChatMessageResponse(newId(), ChatMessageType.BID, liveStreamId, bidderId, nickname, content, LocalDateTime.now(),
-                amount, previousAmount, auctionId, productName, null);
+                amount, previousAmount, auctionId, productName, null, null);
     }
 
     public static ChatMessageResponse auctionSold(Long liveStreamId, Long winnerId, String nickname, Long auctionId, String productName, long price) {
         String content = "‘%s’ 상품이 %s님에게 %,dP에 낙찰되었습니다.".formatted(productName, nickname, price);
         return new ChatMessageResponse(newId(), ChatMessageType.AUCTION_SOLD, liveStreamId, winnerId, nickname, content, LocalDateTime.now(),
-                price, null, auctionId, productName, null);
+                price, null, auctionId, productName, null, null);
     }
 
     public static ChatMessageResponse hidden(Long liveStreamId, String targetMessageId) {
-        return new ChatMessageResponse(newId(), ChatMessageType.MESSAGE_HIDDEN, liveStreamId, null, null, null, LocalDateTime.now(), null, null, null, null, targetMessageId);
+        return new ChatMessageResponse(newId(), ChatMessageType.MESSAGE_HIDDEN, liveStreamId, null, null, null, LocalDateTime.now(), null, null, null, null, null, targetMessageId);
     }
 
     public static ChatMessageResponse restored(Long liveStreamId, String targetMessageId) {
-        return new ChatMessageResponse(newId(), ChatMessageType.MESSAGE_RESTORED, liveStreamId, null, null, null, LocalDateTime.now(), null, null, null, null, targetMessageId);
+        return new ChatMessageResponse(newId(), ChatMessageType.MESSAGE_RESTORED, liveStreamId, null, null, null, LocalDateTime.now(), null, null, null, null, null, targetMessageId);
     }
 
     private static String newId() {
