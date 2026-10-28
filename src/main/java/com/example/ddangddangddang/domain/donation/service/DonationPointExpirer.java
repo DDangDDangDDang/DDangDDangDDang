@@ -119,9 +119,9 @@ public class DonationPointExpirer {
                 continue;
             }
             // 지갑 잔액은 묶음 합계의 캐시다. 혹시 어긋나 있어도 음수가 되지 않게 남은 만큼만 뺀다.
-            long deducted = Math.min(expired, wallet.getGiftableBalance());
+            long deducted = Math.min(expired, wallet.getBalance());
             if (deducted > 0) {
-                wallet.useGiftable(deducted);
+                wallet.deduct(deducted);
             }
             historyRepository.save(DonationPointHistory.of(wallet, DonationPointHistoryType.EXPIRE, expired, lot.getId()));
             total += expired;

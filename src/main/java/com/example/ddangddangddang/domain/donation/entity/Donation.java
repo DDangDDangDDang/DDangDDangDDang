@@ -26,7 +26,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Donation extends BaseTimeEntity {
 
-    public static final int MAX_MESSAGE_LENGTH = 50;
+    public static final int MAX_MESSAGE_LENGTH = 20;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
