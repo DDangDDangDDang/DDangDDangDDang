@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
 public class AuctionBoost extends BaseTimeEntity {
 
     public static final Duration DURATION = Duration.ofHours(3);
-    public static final int MAX_ACTIVE = 5;
+    public static final int MAX_ACTIVE = 10;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

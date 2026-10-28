@@ -67,7 +67,7 @@ public class ShopService {
 
     /**
      * 경매 위로 올리기: 내 시작 전·진행 중 경매를 3시간 동안 경매 목록(최신순) 맨 위에 올린다.
-     * 경매 하나는 한 번만, 동시에 올라가 있는 경매는 5개까지. 자리를 세고 저장하는 동안 상점 잠금 행을 잡아 6개가 되지 않게 한다.
+     * 경매 하나는 한 번만, 동시에 올라가 있는 경매는 10개까지. 자리를 세고 저장하는 동안 상점 잠금 행을 잡아 상한을 넘지 않게 한다.
      */
     public AuctionBoostResponse boostAuction(Long userId, Long auctionId) {
         shopLocks.prepare(ShopLock.AUCTION_BOOST);

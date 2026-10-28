@@ -6,7 +6,7 @@ import com.example.ddangddangddang.domain.user.entity.NicknameBadge;
  * 마일리지 상점 상품. 가격은 고정이다. (관리자가 바꾸지 않음)
  * 상품마다 효과가 다르므로, 구매 API도 상품 종류별로 둔다. (닉네임 변경권은 새 닉네임을 함께 받는다)
  * 닉네임 뱃지는 영구로 가지며, 사면 바로 장착된다. (badge가 있는 상품)
- * 경매 위로 올리기는 판매자가 내 경매를 골라 산다. (AuctionBoost: 3시간, 동시 5개, 경매당 한 번)
+ * 경매 위로 올리기는 판매자가 내 경매를 골라 산다. (AuctionBoost: 3시간, 동시 10개, 경매당 한 번)
  */
 public enum ShopItem {
 

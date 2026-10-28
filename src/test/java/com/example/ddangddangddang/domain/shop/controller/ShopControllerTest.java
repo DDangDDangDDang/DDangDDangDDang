@@ -43,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 마일리지 상점: 닉네임 변경권 (3,000M), 닉네임 뱃지 (각 5,000M), 경매 위로 올리기 (1,000M, 3시간, 동시 5개, 경매당 한 번)
+ * 마일리지 상점: 닉네임 변경권 (3,000M), 닉네임 뱃지 (각 5,000M), 경매 위로 올리기 (1,000M, 3시간, 동시 10개, 경매당 한 번)
  * 결제와 닉네임 변경은 한 트랜잭션이라, 변경이 실패하면 마일리지도 빠지지 않는다.
  */
 @SpringBootTest
@@ -228,7 +228,7 @@ class ShopControllerTest {
     }
 
     @Test
-    @DisplayName("이미 끝난 경매는 올릴 수 없고, 동시에 5개가 올라가 있으면 자리가 날 때까지 올릴 수 없다 (마일리지는 빠지지 않음)")
+    @DisplayName("이미 끝난 경매는 올릴 수 없고, 동시에 10개가 올라가 있으면 자리가 날 때까지 올릴 수 없다 (마일리지는 빠지지 않음)")
     void auctionBoostRules() throws Exception {
         Member seller = signupAndLogin();
         earn(seller, 3_000);
@@ -238,9 +238,9 @@ class ShopControllerTest {
         auctionRepository.save(auction);
         boost(seller, canceled).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("SHOP_001"));
 
-        // 다른 판매자들이 이미 5개를 올렸다. (가장 먼저 끝나는 것이 30분 뒤)
+        // 다른 판매자들이 이미 10개를 올렸다. (가장 먼저 끝나는 것이 30분 뒤)
         LocalDateTime now = LocalDateTime.now();
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < AuctionBoost.MAX_ACTIVE; i++) {
             boostRepository.save(AuctionBoost.start(-(i + 1L) - System.nanoTime() % 1_000_000, 0L, now.minusMinutes(150 - i)));
         }
         items(seller).andExpect(jsonPath("$.data[5].item").value("AUCTION_BOOST"))

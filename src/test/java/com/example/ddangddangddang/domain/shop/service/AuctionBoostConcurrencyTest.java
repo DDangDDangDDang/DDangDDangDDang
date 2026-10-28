@@ -11,6 +11,7 @@ import com.example.ddangddangddang.domain.donation.repository.DonationWalletRepo
 import com.example.ddangddangddang.domain.donation.service.DonationPointService;
 import com.example.ddangddangddang.domain.product.entity.Product;
 import com.example.ddangddangddang.domain.product.repository.ProductRepository;
+import com.example.ddangddangddang.domain.shop.entity.AuctionBoost;
 import com.example.ddangddangddang.domain.shop.exception.ShopErrorCode;
 import com.example.ddangddangddang.domain.shop.repository.AuctionBoostRepository;
 import com.example.ddangddangddang.domain.shop.repository.ShopLockRepository;
@@ -37,7 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 여러 판매자가 동시에 경매를 위로 올려도 동시에 올라가 있는 경매는 5개를 넘지 않는다.
+ * 여러 판매자가 동시에 경매를 위로 올려도 동시에 올라가 있는 경매는 10개를 넘지 않는다.
  * 자리를 세고 저장하는 사이에 끼어들지 않도록 상점 잠금 행을 잡는지 실제 MySQL에서 확인한다. (DonationConcurrencyTest와 같은 방식)
  */
 class AuctionBoostConcurrencyTest extends MySqlIntegrationTest {
@@ -99,9 +100,9 @@ class AuctionBoostConcurrencyTest extends MySqlIntegrationTest {
     }
 
     @Test
-    @DisplayName("판매자 8명이 동시에 경매를 올리면 5명만 올라가고, 나머지 3명은 SHOP_003이며 마일리지가 빠지지 않는다")
+    @DisplayName("판매자 13명이 동시에 경매를 올리면 10명만 올라가고, 나머지 3명은 SHOP_003이며 마일리지가 빠지지 않는다")
     void maxActive() throws Exception {
-        int sellers = 8;
+        int sellers = AuctionBoost.MAX_ACTIVE + 3;
         Category parent = categoryRepository.save(new Category(null, "동시성", 1));
         Category leaf = categoryRepository.save(new Category(parent, "카메라", 1));
         List<Long> sellerIds = new ArrayList<>();
@@ -140,13 +141,13 @@ class AuctionBoostConcurrencyTest extends MySqlIntegrationTest {
         }
         executor.shutdown();
 
-        assertThat(success.get()).isEqualTo(5);
+        assertThat(success.get()).isEqualTo(AuctionBoost.MAX_ACTIVE);
         assertThat(rejected).hasSize(3).containsOnly(ShopErrorCode.BOOST_SLOTS_FULL);
-        assertThat(boostRepository.findActive(LocalDateTime.now())).hasSize(5);
-        // 올린 5명은 1,000M이 빠지고, 못 올린 3명은 그대로
+        assertThat(boostRepository.findActive(LocalDateTime.now())).hasSize(AuctionBoost.MAX_ACTIVE);
+        // 올린 10명은 1,000M이 빠지고, 못 올린 3명은 그대로
         long paid = sellerIds.stream().filter(id -> walletRepository.findByUserId(id).orElseThrow().getBalance() == 0).count();
         long kept = sellerIds.stream().filter(id -> walletRepository.findByUserId(id).orElseThrow().getBalance() == 1_000).count();
-        assertThat(paid).isEqualTo(5);
+        assertThat(paid).isEqualTo(AuctionBoost.MAX_ACTIVE);
         assertThat(kept).isEqualTo(3);
     }
 }

@@ -43,7 +43,7 @@ public class ShopController {
         return ResponseEntity.ok(ApiResponse.ok(shopService.buyNicknameChange(authUser.id(), request.nickname())));
     }
 
-    /** 내 경매를 3시간 동안 경매 목록(최신순) 맨 위에 올린다. (1,000M, 경매당 한 번, 동시 5개) */
+    /** 내 경매를 3시간 동안 경매 목록(최신순) 맨 위에 올린다. (1,000M, 경매당 한 번, 동시 10개) */
     @PostMapping("/auction-boosts")
     public ResponseEntity<ApiResponse<AuctionBoostResponse>> boostAuction(
             @AuthenticationPrincipal AuthUser authUser, @Valid @RequestBody AuctionBoostRequest request) {
