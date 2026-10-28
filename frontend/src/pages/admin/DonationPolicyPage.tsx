@@ -193,7 +193,7 @@ function History() {
                   <td className="px-5 py-3 text-neutral-500">{row.changedAt ? formatDateTime(row.changedAt) : '-'}</td>
                   <td className="px-5 py-3">{row.memo || '-'}</td>
                   <td className="num px-5 py-3 text-right">
-                    {row.policy?.earnRatePercent ?? 0}% · 월 {formatNumber(row.policy?.monthlyEarnLimit ?? 0)}P
+                    {row.policy?.earnRatePercent ?? 0}% · 월 {formatNumber(row.policy?.monthlyEarnLimit ?? 0)}M
                   </td>
                   <td className="num px-5 py-3 text-right">{formatNumber(row.policy?.monthlyGiftLimitPerSeller ?? 0)}M</td>
                   <td className="num px-5 py-3 text-right">{formatNumber(row.policy?.pointValidDays ?? 0)}일</td>
