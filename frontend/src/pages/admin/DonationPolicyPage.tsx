@@ -17,8 +17,8 @@ const GROUPS: { title: string; fields: { key: PolicyKey; label: string; unit: st
     title: '적립 (구매 확정)',
     fields: [
       { key: 'earnRatePercent', label: '적립 비율', unit: '%', hint: '낙찰가의 몇 %를 적립할지' },
-      { key: 'maxEarnPerOrder', label: '주문당 최대 적립', unit: 'P' },
-      { key: 'monthlyEarnLimit', label: '한 달 적립 한도', unit: 'P', hint: '1일~말일' },
+      { key: 'maxEarnPerOrder', label: '주문당 최대 적립', unit: 'M' },
+      { key: 'monthlyEarnLimit', label: '한 달 적립 한도', unit: 'M', hint: '1일~말일' },
       { key: 'pointValidDays', label: '유효기간', unit: '일', hint: '적립한 날부터' },
       { key: 'expiringNoticeDays', label: '만료 알림', unit: '일 전', hint: '유효기간보다 짧게' },
     ],
@@ -26,17 +26,17 @@ const GROUPS: { title: string; fields: { key: PolicyKey; label: string; unit: st
   {
     title: '선물',
     fields: [
-      { key: 'minGift', label: '최소 선물', unit: 'P' },
-      { key: 'giftUnit', label: '선물 단위', unit: 'P' },
-      { key: 'maxGift', label: '최대 선물 (한 번)', unit: 'P' },
-      { key: 'monthlyGiftLimitPerSeller', label: '판매자 한 명에게 한 달 한도', unit: 'P', hint: '계정 하나 기준' },
+      { key: 'minGift', label: '최소 선물', unit: 'M' },
+      { key: 'giftUnit', label: '선물 단위', unit: 'M' },
+      { key: 'maxGift', label: '최대 선물 (한 번)', unit: 'M' },
+      { key: 'monthlyGiftLimitPerSeller', label: '판매자 한 명에게 한 달 한도', unit: 'M', hint: '계정 하나 기준' },
       { key: 'trustWindowDays', label: '응원 지표 기간', unit: '일', hint: '판매자 프로필의 응원한 사람 수' },
     ],
   },
   {
     title: '판매자 상점',
     fields: [
-      { key: 'powerSellerPrice', label: '파워 판매자 가격', unit: 'P' },
+      { key: 'powerSellerPrice', label: '파워 판매자 가격', unit: 'M' },
       { key: 'powerSellerDays', label: '파워 판매자 기간', unit: '일' },
       { key: 'promotedLiveSlots', label: '라이브 목록 맨 위 칸 수', unit: '개' },
     ],
@@ -44,8 +44,8 @@ const GROUPS: { title: string; fields: { key: PolicyKey; label: string; unit: st
 ];
 
 /**
- * 관리자: 도네이션 포인트 정책. 바꾸면 배포·재시작 없이 바로 모든 서버에 적용되고, 바꾼 기록이 남는다.
- * 이미 적립·선물한 포인트는 바뀌지 않는다.
+ * 관리자: 도네이션 마일리지 정책. 바꾸면 배포·재시작 없이 바로 모든 서버에 적용되고, 바꾼 기록이 남는다.
+ * 이미 적립·선물한 마일리지는 바뀌지 않는다.
  */
 export function DonationPolicyPage() {
   const session = useSession();
@@ -57,12 +57,12 @@ export function DonationPolicyPage() {
   });
 
   if (!isAdmin) {
-    return <EmptyState title="관리자만 쓸 수 있는 화면이에요" description="도네이션 포인트 정책은 관리자가 정해요." />;
+    return <EmptyState title="관리자만 쓸 수 있는 화면이에요" description="도네이션 마일리지 정책은 관리자가 정해요." />;
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="도네이션 정책" description="적립·선물·판매자 상점 규칙이에요. 바꾸면 바로 모든 서버에 적용되고, 이미 쌓인 포인트는 그대로예요." />
+      <PageHeader title="도네이션 정책" description="적립·선물·판매자 상점 규칙이에요. 바꾸면 바로 모든 서버에 적용되고, 이미 쌓인 마일리지는 그대로예요." />
       {current.isPending ? (
         <Skeleton className="h-96" />
       ) : current.isError || !current.data?.policy ? (
@@ -193,9 +193,9 @@ function History() {
                   <td className="px-5 py-3 text-neutral-500">{row.changedAt ? formatDateTime(row.changedAt) : '-'}</td>
                   <td className="px-5 py-3">{row.memo || '-'}</td>
                   <td className="num px-5 py-3 text-right">
-                    {row.policy?.earnRatePercent ?? 0}% · 월 {formatNumber(row.policy?.monthlyEarnLimit ?? 0)}P
+                    {row.policy?.earnRatePercent ?? 0}% · 월 {formatNumber(row.policy?.monthlyEarnLimit ?? 0)}M
                   </td>
-                  <td className="num px-5 py-3 text-right">{formatNumber(row.policy?.monthlyGiftLimitPerSeller ?? 0)}P</td>
+                  <td className="num px-5 py-3 text-right">{formatNumber(row.policy?.monthlyGiftLimitPerSeller ?? 0)}M</td>
                   <td className="num px-5 py-3 text-right">{formatNumber(row.policy?.pointValidDays ?? 0)}일</td>
                 </tr>
               ))}

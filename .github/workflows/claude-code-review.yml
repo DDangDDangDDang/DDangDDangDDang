@@ -1,0 +1,48 @@
+# PR이 열리면 Claude Code가 변경을 리뷰하고, 지적은 PR의 해당 줄에 댓글로 남긴다. (CodeRabbit 대신)
+# - 인증: 저장소 시크릿 CLAUDE_CODE_OAUTH_TOKEN (`claude setup-token`으로 만든 Claude 구독 토큰). 토큰을 만든 사람의 구독 사용량에서 차감된다.
+# - 리뷰 기준: 저장소 루트의 REVIEW.md. 리뷰는 한국어로 쓴다.
+# - 드래프트 PR과, 이미 Claude 댓글이 달린 PR은 리뷰 스킬이 건너뛴다. (푸시할 때마다 다시 리뷰하지 않음)
+name: Claude 코드 리뷰
+
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, synchronize, ready_for_review, reopened]
+
+# 같은 PR에 새 커밋이 올라오면 진행 중인 리뷰는 취소한다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: 코드 리뷰
+    # 드래프트는 건너뛴다. 포크에서 온 PR은 시크릿을 받지 못하므로 같은 저장소 브랜치의 PR만 리뷰한다.
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      # claude-code-action이 Claude GitHub App으로 인증할 때 쓴다. (댓글은 앱 권한으로 남긴다)
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          # --comment: 지적을 PR의 해당 줄에 댓글로 남긴다. 없으면 실행 로그에만 남는다.
+          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          # 줄 댓글 도구는 --allowedTools에 적어야 켜진다. 리뷰 언어와 기준은 시스템 프롬프트에 덧붙인다.
+          # 리뷰 스킬은 여러 하위 에이전트가 나눠 살펴보므로, 같은 기준을 하위 에이전트 프롬프트에도 붙인다.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment"
+            --append-system-prompt "PR 댓글과 요약은 모두 한국어로 쓴다. 저장소 루트의 REVIEW.md를 먼저 읽고 그 기준으로 리뷰한다. 프론트엔드(frontend/) 변경은 frontend/CLAUDE.md 규칙도 기준으로 삼는다."
+            --append-subagent-system-prompt "결과는 한국어로 쓴다. 저장소 루트의 REVIEW.md를 먼저 읽고 그 기준으로 리뷰한다. 프론트엔드(frontend/) 변경은 frontend/CLAUDE.md 규칙도 기준으로 삼는다."

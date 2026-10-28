@@ -139,7 +139,7 @@ class DonationControllerTest {
                 eventPublisher.publishEvent(new OrderConfirmedEvent(orderId, buyer.id(), seller.id(), 35_000L)));
         verify(stompBroadcaster, timeout(5000)).sendToUser(eq(buyer.id()), eq("/queue/notifications"), argThat(message ->
                 message instanceof NotificationResponse n && n.type() == NotificationType.DONATION_POINT_EARNED
-                        && n.title().equals("도네이션 포인트 350P가 적립됐어요") && n.link().equals("/lives")));
+                        && n.title().equals("도네이션 마일리지 350M이 적립됐어요") && n.link().equals("/lives")));
         wallet(buyer).andExpect(jsonPath("$.data.giftableBalance").value(350))
                 .andExpect(jsonPath("$.data.earnedThisMonth").value(350))
                 .andExpect(jsonPath("$.data.monthlyEarnLimit").value(10_000))
@@ -261,7 +261,7 @@ class DonationControllerTest {
         gift(viewer, live, 4_500, null, UUID.randomUUID().toString()).andExpect(status().isCreated());
         gift(viewer, live, 100, null, UUID.randomUUID().toString())
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("DONATION_003"))
-                .andExpect(jsonPath("$.error.message").value("이 판매자에게 이번 달 선물할 수 있는 포인트는 0P 남았습니다."));
+                .andExpect(jsonPath("$.error.message").value("이 판매자에게 이번 달 선물할 수 있는 마일리지는 0M 남았습니다."));
         // 남은 2,000P는 다른 판매자에게 선물할 수 있다.
         mockMvc.perform(get("/api/v1/live-streams/{id}/donations/me", live).header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
                 .andExpect(jsonPath("$.data.giftableBalance").value(2_000))
@@ -290,7 +290,7 @@ class DonationControllerTest {
         expirer.notifyExpiring();
         verify(stompBroadcaster, after(500).times(1)).sendToUser(eq(viewer.id()), eq("/queue/notifications"), argThat(message ->
                 message instanceof NotificationResponse n && n.type() == NotificationType.DONATION_POINT_EXPIRING
-                        && n.title().equals("도네이션 포인트 600P가 곧 사라져요")));
+                        && n.title().equals("도네이션 마일리지 600M이 곧 사라져요")));
     }
 
     @Test

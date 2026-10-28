@@ -157,7 +157,7 @@ public class DonationService {
         long remaining = policy.monthlyGiftLimitPerSeller() - given;
         if (amount > remaining) {
             throw new BusinessException(DonationErrorCode.MONTHLY_GIFT_LIMIT_EXCEEDED,
-                    "이 판매자에게 이번 달 선물할 수 있는 포인트는 %,dP 남았습니다.".formatted(Math.max(0, remaining)));
+                    "이 판매자에게 이번 달 선물할 수 있는 마일리지는 %,dM 남았습니다.".formatted(Math.max(0, remaining)));
         }
 
         List<DonationPointLot> lots = lotRepository.findUsable(giverId, now);
@@ -201,7 +201,7 @@ public class DonationService {
     private void validateAmount(long amount, DonationPolicy policy) {
         if (amount < policy.minGift() || amount > policy.maxGift() || amount % policy.giftUnit() != 0) {
             throw new BusinessException(DonationErrorCode.INVALID_GIFT_AMOUNT,
-                    "선물은 %,dP부터 %,dP까지 %,dP 단위로 할 수 있습니다.".formatted(policy.minGift(), policy.maxGift(), policy.giftUnit()));
+                    "선물은 %,dM부터 %,dM까지 %,dM 단위로 할 수 있습니다.".formatted(policy.minGift(), policy.maxGift(), policy.giftUnit()));
         }
     }
 

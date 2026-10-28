@@ -14,7 +14,7 @@ import jakarta.validation.constraints.Size;
  *   같은 값으로 다른 선물(금액·방송이 다름)을 보내면 DONATION_010으로 거부한다.
  */
 public record DonationRequest(
-        @NotNull(message = "선물할 포인트를 입력해 주세요.")
+        @NotNull(message = "선물할 마일리지를 입력해 주세요.")
         Long amount,
 
         @Size(max = Donation.MAX_MESSAGE_LENGTH, message = "선물 메시지는 50자 이하입니다.")

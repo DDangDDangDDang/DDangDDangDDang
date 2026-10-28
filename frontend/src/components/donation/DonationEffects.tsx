@@ -3,13 +3,13 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import type { ChatMessage } from '@/api';
 import { cn } from '@/lib/cn';
 import { donationTier, playDonationChime, type DonationTier } from '@/lib/donation-sound';
-import { formatPoint } from '@/lib/format';
+import { formatMileage } from '@/lib/format';
 import { useDonationEffects, type DonationEffect } from '@/lib/use-donation-effects';
 
 /**
- * 방송 화면 위 선물 이펙트: "누구님이 몇 P를 선물했어요" (+ 함께 보낸 한마디)
+ * 방송 화면 위 선물 이펙트: "누구님이 몇 M을 선물했어요" (+ 함께 보낸 한마디)
  * 시청 화면·판매자 스튜디오·작은 방송 창에서 그 화면의 채팅 메시지를 넘겨 쓴다. 여러 개면 차례로 보여 준다.
- * 안내가 나타날 때 별이 사방으로 튀어나온다. 선물이 클수록(1,000P·3,000P 이상) 별이 많고 멀리 퍼지며 효과음도 화려하다.
+ * 안내가 나타날 때 별이 사방으로 튀어나온다. 선물이 클수록(1,000M·3,000M 이상) 별이 많고 멀리 퍼지며 효과음도 화려하다.
  * 움직임을 줄이도록 설정한 사용자에게는 별을 보여 주지 않는다.
  */
 export function DonationEffects({
@@ -52,7 +52,7 @@ export function DonationNotice({ effect, compact = false }: { effect: DonationEf
       className={cn(
         'animate-donation-pop relative flex items-center gap-3 rounded-lg bg-brand-500 text-white shadow-md',
         compact ? 'px-3 py-2' : 'max-w-[420px] px-4 py-3',
-        // 1,000P 이상은 테두리, 3,000P 이상은 금색 테두리가 두 번 반짝인다.
+        // 1,000M 이상은 테두리, 3,000M 이상은 금색 테두리가 두 번 반짝인다.
         tier === 'medium' && 'ring-1 ring-brand-300',
         tier === 'large' && 'animate-donation-glow ring-2 ring-gold-300',
       )}
@@ -63,7 +63,7 @@ export function DonationNotice({ effect, compact = false }: { effect: DonationEf
       </span>
       <span className="relative z-10 flex min-w-0 flex-col">
         <span className={cn('font-bold', compact ? 'text-label' : 'text-body-lg')}>
-          {effect.nickname}님이 <span className="num">{formatPoint(effect.amount)}</span>를 선물했어요
+          {effect.nickname}님이 <span className="num">{formatMileage(effect.amount)}</span>을 선물했어요
           {tier === 'large' && <Sparkles className="ml-1 inline size-4 align-[-2px] text-gold-300" aria-hidden="true" />}
         </span>
         {effect.message && !compact && <span className="truncate text-body text-white/90">{effect.message}</span>}
@@ -76,7 +76,7 @@ type Particle = { shape: 'star' | 'sparkle'; size: string; color: string };
 const FALLBACK_PARTICLE: Particle = { shape: 'star', size: 'size-3', color: 'text-white' };
 
 /**
- * 단계별 별 이펙트. 선물이 클수록 많고·크고·멀리·오래 퍼지고, 3,000P 이상은 금색 별이 두 번 터진다.
+ * 단계별 별 이펙트. 선물이 클수록 많고·크고·멀리·오래 퍼지고, 3,000M 이상은 금색 별이 두 번 터진다.
  * - waves: 터지는 횟수 (두 번째는 조금 늦게, 더 멀리)
  * - count: 한 번에 튀어나오는 수, distance: 퍼지는 거리(px), duration: 한 개가 날아가는 시간(ms)
  * - particles: 모양·크기·색을 차례로 돌려 쓴다

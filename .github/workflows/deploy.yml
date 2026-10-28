@@ -1,20 +1,24 @@
-# main에 머지되면 테스트 → Docker 이미지 빌드·ECR 푸시 → 배포를 한다.
-# 배포 대상은 저장소 변수 DEPLOY_TARGET으로 고른다.
-#   ec2: EC2 한 대(Docker Compose)에 SSM Run Command로 배포 (개발 중)
-#   ecs: ECS Fargate 롤링 배포 (운영)
-#   (비어 있음): AWS를 아직 만들지 않은 상태. 테스트만 하고 빌드·배포는 건너뛴다.
-# AWS 리소스는 infra/(Terraform)로 만들고, 나머지 변수는 GitHub Environment "production"에 등록한다. (docs/deploy.md)
+# 브랜치에 푸시되면 테스트 → Docker 이미지 빌드·ECR 푸시 → 배포를 한다.
+#   main → 운영 (GitHub Environment "production", ddangddangddang.com)
+#     배포 대상은 저장소 변수 DEPLOY_TARGET으로 고른다.
+#       ec2: EC2 한 대(Docker Compose)에 SSM Run Command로 배포
+#       ecs: ECS Fargate 롤링 배포
+#       (비어 있음): AWS를 아직 만들지 않은 상태. 테스트만 하고 빌드·배포는 건너뛴다.
+#   dev → dev 사이트 (GitHub Environment "development", dev.ddangddangddang.com, infra/dev.tf)
+#     저장소 변수 DEV_DEPLOY_ENABLED가 true일 때만 배포한다. 아니면 테스트만 한다.
+# 두 환경은 AWS 배포 역할·이미지 저장소·서버가 따로라, dev 배포가 운영에 닿을 수 없다.
+# AWS 리소스는 infra/(Terraform)로 만들고, 나머지 변수는 각 GitHub Environment에 등록한다. (docs/deploy.md)
 name: Deploy
 
 on:
   push:
-    branches: [main]
-  # Actions 탭에서 수동으로 다시 배포할 때 (첫 배포, 환경변수 변경 반영 등)
+    branches: [main, dev]
+  # Actions 탭에서 수동으로 다시 배포할 때 (첫 배포, 환경변수 변경 반영 등). 고른 브랜치에 맞는 환경으로 배포한다.
   workflow_dispatch:
 
-# 배포는 한 번에 하나씩, 진행 중인 배포를 취소하지 않고 순서대로 한다.
+# 같은 환경의 배포는 한 번에 하나씩, 진행 중인 배포를 취소하지 않고 순서대로 한다.
 concurrency:
-  group: deploy-production
+  group: deploy-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -26,24 +30,44 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       target: ${{ steps.target.outputs.target }}
+      environment: ${{ steps.target.outputs.environment }}
     steps:
-      - name: DEPLOY_TARGET 확인
+      - name: 배포 환경·대상 확인
         id: target
         env:
+          BRANCH: ${{ github.ref_name }}
           DEPLOY_TARGET: ${{ vars.DEPLOY_TARGET }}
+          DEV_DEPLOY_ENABLED: ${{ vars.DEV_DEPLOY_ENABLED }}
         run: |
-          case "$DEPLOY_TARGET" in
-            ec2|ecs)
-              echo "배포 대상: $DEPLOY_TARGET" ;;
-            "")
-              echo "::notice::저장소 변수 DEPLOY_TARGET이 없어 테스트만 하고 배포는 건너뜁니다. (docs/deploy.md 3단계)" ;;
+          case "$BRANCH" in
+            main)
+              environment=production
+              target="$DEPLOY_TARGET"
+              case "$target" in
+                ec2|ecs) echo "운영 배포 대상: $target" ;;
+                "") echo "::notice::저장소 변수 DEPLOY_TARGET이 없어 테스트만 하고 배포는 건너뜁니다. (docs/deploy.md 3단계)" ;;
+                *)
+                  echo "::error::DEPLOY_TARGET은 ec2 또는 ecs여야 합니다. (현재: '${target}')"
+                  exit 1 ;;
+              esac ;;
+            dev)
+              environment=development
+              if [ "$DEV_DEPLOY_ENABLED" = "true" ]; then
+                target=ec2
+                echo "dev 사이트 배포"
+              else
+                target=""
+                echo "::notice::저장소 변수 DEV_DEPLOY_ENABLED가 true가 아니라 테스트만 하고 dev 배포는 건너뜁니다. (docs/deploy.md \"dev 사이트\")"
+              fi ;;
             *)
-              echo "::error::DEPLOY_TARGET은 ec2 또는 ecs여야 합니다. (현재: '${DEPLOY_TARGET}')"
-              exit 1 ;;
+              environment=""
+              target=""
+              echo "::notice::main·dev 외의 브랜치는 배포하지 않습니다. (현재: '${BRANCH}')" ;;
           esac
-          echo "target=$DEPLOY_TARGET" >> "$GITHUB_OUTPUT"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "environment=$environment" >> "$GITHUB_OUTPUT"
 
-  # main의 테스트는 배포 대상과 관계없이 항상 돈다. (ci.yml은 main 푸시에서 돌지 않음)
+  # 테스트는 배포 대상과 관계없이 항상 돈다. (ci.yml은 브랜치 푸시에서 돌지 않고 여기서 불린다)
   test:
     name: 테스트
     uses: ./.github/workflows/ci.yml
@@ -54,7 +78,7 @@ jobs:
     if: needs.check.outputs.target != ''
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: production
+    environment: ${{ needs.check.outputs.environment }}
 
     permissions:
       contents: read
@@ -78,7 +102,7 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      # 커밋 SHA 태그로 어떤 커밋이 배포됐는지 추적하고, latest는 ECS 첫 작업 정의가 가리킨다.
+      # 커밋 SHA 태그로 어떤 커밋이 배포됐는지 추적하고, latest는 ECS 첫 작업 정의가 가리킨다. (운영만)
       - name: 이미지 빌드 · 푸시
         uses: docker/build-push-action@v6
         with:
@@ -86,9 +110,9 @@ jobs:
           push: true
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
-            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:latest
-          cache-from: type=gha,scope=app
-          cache-to: type=gha,mode=max,scope=app
+            ${{ needs.check.outputs.environment == 'production' && format('{0}/{1}:latest', steps.ecr.outputs.registry, vars.ECR_REPOSITORY) || '' }}
+          cache-from: type=gha,scope=app-${{ needs.check.outputs.environment }}
+          cache-to: type=gha,mode=max,scope=app-${{ needs.check.outputs.environment }}
 
       # EC2 구성의 웹 이미지: 프론트엔드 빌드 + Caddy(HTTPS, /api·/ws 프록시). ECS 구성은 아직 쓰지 않는다.
       # VITE_* 는 브라우저에 그대로 노출되는 공개 값이라 GitHub 변수(vars)로 넣는다.
@@ -106,8 +130,8 @@ jobs:
             VITE_PORTONE_CHANNEL_KEY=${{ vars.VITE_PORTONE_CHANNEL_KEY }}
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_WEB_REPOSITORY }}:${{ github.sha }}
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
+          cache-from: type=gha,scope=web-${{ needs.check.outputs.environment }}
+          cache-to: type=gha,mode=max,scope=web-${{ needs.check.outputs.environment }}
 
   deploy-ec2:
     name: EC2 배포
@@ -115,7 +139,7 @@ jobs:
     if: needs.check.outputs.target == 'ec2'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: production
+    environment: ${{ needs.check.outputs.environment }}
 
     permissions:
       contents: read

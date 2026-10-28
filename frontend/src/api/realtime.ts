@@ -20,7 +20,7 @@ import { getAccessToken } from './session';
 
 /**
  * 방송 채팅 (`/topic/live-streams/{id}/chat`). SYSTEM은 서버 안내(방송 종료 등)로 senderId, nickname이 null
- * DONATION은 도네이션 포인트 선물: 선물한 사람(senderId·nickname), 포인트(amount), 함께 보낸 한마디(content, 없으면 null)
+ * DONATION은 도네이션 마일리지 선물: 선물한 사람(senderId·nickname), 마일리지(amount), 함께 보낸 한마디(content, 없으면 null)
  * BID는 방송에 올라간 경매의 입찰: 입찰자(senderId·nickname), 입찰 금액(amount), 직전 현재가(previousAmount), 경매(auctionId·productName)
  * AUCTION_SOLD는 낙찰: 낙찰자(senderId·nickname), 낙찰가(amount), 경매(auctionId·productName)
  * BID·AUCTION_SOLD의 content는 채팅에 그대로 보여 줄 안내 문장이다.

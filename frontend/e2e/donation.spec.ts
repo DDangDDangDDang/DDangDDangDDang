@@ -1,10 +1,10 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 /*
- * 도네이션 포인트
- * 1. 시청자가 방송 중 경매를 즉시 구매하고 → 판매자가 발송하고 → 시청자가 구매 확정하면 도네이션 포인트가 적립된다. (헤더·도네이션 포인트 화면)
- * 2. 시청자가 방송 화면에서 [선물하기]로 선물하면, 시청 화면과 판매자 스튜디오 영상 위에 "누구님이 몇 P를 선물했어요"가 뜬다.
- * 3. 판매자 프로필에 응원 지표가, 판매자 상점에 선물받은 포인트가 보인다. 관리자는 도네이션 정책 화면을 본다.
+ * 도네이션 마일리지
+ * 1. 시청자가 방송 중 경매를 즉시 구매하고 → 판매자가 발송하고 → 시청자가 구매 확정하면 도네이션 마일리지가 적립된다. (헤더·도네이션 마일리지 화면)
+ * 2. 시청자가 방송 화면에서 [선물하기]로 선물하면, 시청 화면과 판매자 스튜디오 영상 위에 "누구님이 몇 M을 선물했어요"가 뜬다.
+ * 3. 판매자 프로필에 응원 지표가, 판매자 상점에 선물받은 마일리지가 보인다. 관리자는 도네이션 정책 화면을 본다.
  *
  * 로컬 백엔드(MySQL·Redis·LiveKit)가 떠 있어야 한다. 시청자 계정에 현금 포인트가 10,000P 이상 있어야 한다. (즉시 구매)
  * 계정: E2E_EMAIL / E2E_PASSWORD (시청자), E2E_SELLER_EMAIL / E2E_SELLER_PASSWORD (판매자), E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD (관리자, 선택)
@@ -19,10 +19,10 @@ const BUY_NOW_PRICE = 10_000;
 type Envelope<T> = { success?: boolean; data?: T; error?: { code?: string; message?: string } };
 type Category = { id: number; children?: Category[] };
 
-test.describe('도네이션 포인트', () => {
+test.describe('도네이션 마일리지', () => {
   test.skip(!viewer.email || !seller.email, 'E2E_EMAIL, E2E_SELLER_EMAIL 환경변수가 필요합니다.');
 
-  test('구매 확정으로 포인트를 받아 방송 중인 판매자에게 선물하면 방송 화면에 선물 이펙트가 뜬다', async ({ browser, request }) => {
+  test('구매 확정으로 도네이션 마일리지를 받아 방송 중인 판매자에게 선물하면 방송 화면에 선물 이펙트가 뜬다', async ({ browser, request }) => {
     test.setTimeout(150_000);
     // 화면 로그인 전에 API로 준비한다. (같은 계정으로 다시 로그인하면 이전 로그인이 끊긴다)
     const sellerToken = await apiLogin(request, seller);
@@ -77,33 +77,33 @@ test.describe('도네이션 포인트', () => {
       await studio.goto('/studio');
       await expect(studio.getByText('LIVE 송출 중')).toBeVisible({ timeout: 20_000 });
 
-      // 시청자: 헤더에 도네이션 포인트, 방송 화면의 [선물하기]
+      // 시청자: 헤더에 도네이션 마일리지, 방송 화면의 [선물하기]
       await loginOnPage(watch, viewer);
-      await expect(watch.getByRole('link', { name: `도네이션 포인트 ${(before + 100).toLocaleString('ko-KR')} P` })).toBeVisible();
+      await expect(watch.getByRole('link', { name: `도네이션 마일리지 ${(before + 100).toLocaleString('ko-KR')} M` })).toBeVisible();
       await watch.goto(`/lives/${liveStreamId}`);
       await watch.getByRole('button', { name: '선물하기' }).click();
       const dialog = watch.getByRole('dialog', { name: /님에게 선물하기$/ });
-      await expect(dialog.getByText('선물할 수 있는 포인트')).toBeVisible();
+      await expect(dialog.getByText('선물할 수 있는 마일리지')).toBeVisible();
       await dialog.getByRole('button', { name: '100', exact: true }).click();
       await dialog.getByLabel('함께 보낼 한마디 (선택)').fill('E2E 응원합니다');
       await test.info().attach('선물 창', { body: await watch.screenshot(), contentType: 'image/png' });
-      await dialog.getByRole('button', { name: '100 P 선물하기' }).click();
-      await expect(dialog.getByText('100 P를 선물했어요. 방송 화면에 선물 알림이 떠요.')).toBeVisible();
+      await dialog.getByRole('button', { name: '100 M 선물하기' }).click();
+      await expect(dialog.getByText('100 M을 선물했어요. 방송 화면에 선물 알림이 떠요.')).toBeVisible();
       await dialog.getByRole('button', { name: '닫기' }).click();
 
       // 시청 화면·판매자 스튜디오 영상 위 선물 이펙트, 채팅 한 줄
-      const effect = (page: Page) => page.getByRole('status').filter({ hasText: /님이 100 P를 선물했어요/ });
+      const effect = (page: Page) => page.getByRole('status').filter({ hasText: /님이 100 M을 선물했어요/ });
       await expect(effect(watch)).toBeVisible({ timeout: 10_000 });
       await expect(effect(watch)).toContainText('E2E 응원합니다');
       await test.info().attach('시청 화면 선물 이펙트', { body: await watch.screenshot(), contentType: 'image/png' });
       await expect(effect(studio)).toBeVisible({ timeout: 10_000 });
       await test.info().attach('스튜디오 선물 이펙트', { body: await studio.screenshot(), contentType: 'image/png' });
-      await expect(watch.getByRole('list', { name: '채팅 메시지' }).getByText(/님이 100 P를 선물했어요/)).toBeVisible();
+      await expect(watch.getByRole('list', { name: '채팅 메시지' }).getByText(/님이 100 M을 선물했어요/)).toBeVisible();
 
-      // 도네이션 포인트 화면: 선물한 내역
+      // 도네이션 마일리지 화면: 선물한 내역
       await watch.goto('/me/donation-points');
       await expect(watch.getByRole('cell', { name: '선물함' }).first()).toBeVisible();
-      await test.info().attach('도네이션 포인트 화면', { body: await watch.screenshot(), contentType: 'image/png' });
+      await test.info().attach('도네이션 마일리지 화면', { body: await watch.screenshot(), contentType: 'image/png' });
 
       // 판매자 프로필: 응원 지표
       await watch.goto(`/lives/${liveStreamId}`);
@@ -113,9 +113,9 @@ test.describe('도네이션 포인트', () => {
       await expect(profile.getByText(/받음$/)).toBeVisible();
       await test.info().attach('판매자 프로필 응원 지표', { body: await watch.screenshot(), contentType: 'image/png' });
 
-      // 판매자 상점: 선물받은 포인트
+      // 판매자 상점: 선물받은 마일리지
       await studio.goto('/me/donation-shop');
-      await expect(studio.getByText('선물받은 포인트').first()).toBeVisible();
+      await expect(studio.getByText('선물받은 마일리지').first()).toBeVisible();
       await expect(studio.getByText('파워 판매자', { exact: true }).first()).toBeVisible();
       await test.info().attach('판매자 상점', { body: await studio.screenshot(), contentType: 'image/png' });
     } finally {
