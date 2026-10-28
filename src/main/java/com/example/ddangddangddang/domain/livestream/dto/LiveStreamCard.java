@@ -11,7 +11,7 @@ import java.util.List;
  * scheduledStartAt: 방송 시작 예정 시간 (정하지 않았으면 null), startedAt·endedAt: 실제 시작·종료 시간
  * sellerNickname: 탈퇴 등으로 회원을 찾지 못하면 null
  * recorded: 카메라 대신 미리 녹화한 영상을 내보내는 방송 (카드에 "녹화 영상" 표시)
- * powerSeller: 판매자가 파워 판매자 기간 중 (카드에 파워 판매자 배지. 방송 중 목록에서는 맨 위에 올라간다)
+ * powerSeller: 판매자가 파워 판매자 (카드에 파워 판매자 배지)
  */
 public record LiveStreamCard(
         Long liveStreamId,

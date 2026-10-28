@@ -1045,6 +1045,44 @@
         }
       }
     },
+    "/api/v1/shop/power-seller" : {
+      "post" : {
+        "tags" : [ "shop-controller" ],
+        "operationId" : "shopBuyPowerSeller",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/shop/nickname-change" : {
       "post" : {
         "tags" : [ "shop-controller" ],
@@ -1161,54 +1199,6 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseAuctionBoostResponse"
-                }
-              }
-            }
-          },
-          "4XX" : {
-            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "5XX" : {
-            "description" : "서버 오류",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/seller-perks" : {
-      "post" : {
-        "tags" : [ "seller-perk-controller" ],
-        "operationId" : "sellerPerkPurchase",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/SellerPerkPurchaseRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "201" : {
-            "description" : "Created",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseSellerPerkResponse"
                 }
               }
             }
@@ -5188,82 +5178,6 @@
         "security" : [ ]
       }
     },
-    "/api/v1/seller-perks/shop" : {
-      "get" : {
-        "tags" : [ "seller-perk-controller" ],
-        "operationId" : "sellerPerkGetShop",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListSellerShopItemResponse"
-                }
-              }
-            }
-          },
-          "4XX" : {
-            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "5XX" : {
-            "description" : "서버 오류",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/seller-perks/me" : {
-      "get" : {
-        "tags" : [ "seller-perk-controller" ],
-        "operationId" : "sellerPerkGetMine",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListSellerPerkResponse"
-                }
-              }
-            }
-          },
-          "4XX" : {
-            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "5XX" : {
-            "description" : "서버 오류",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/seller-applications/me" : {
       "get" : {
         "tags" : [ "seller-application-controller" ],
@@ -7249,25 +7163,13 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "powerSellerPrice" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "powerSellerDays" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "promotedLiveSlots" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "memo" : {
             "type" : "string",
             "maxLength" : 200,
             "minLength" : 0
           }
         },
-        "required" : [ "earnRatePercent", "expiringNoticeDays", "giftUnit", "maxEarnPerOrder", "maxGift", "minGift", "monthlyEarnLimit", "monthlyGiftLimitPerSeller", "pointValidDays", "powerSellerDays", "powerSellerPrice", "promotedLiveSlots", "trustWindowDays" ]
+        "required" : [ "earnRatePercent", "expiringNoticeDays", "giftUnit", "maxEarnPerOrder", "maxGift", "minGift", "monthlyEarnLimit", "monthlyGiftLimitPerSeller", "pointValidDays", "trustWindowDays" ]
       },
       "ApiResponseDonationPolicyResponse" : {
         "type" : "object",
@@ -7323,18 +7225,6 @@
             "format" : "int64"
           },
           "trustWindowDays" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "powerSellerPrice" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "powerSellerDays" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "promotedLiveSlots" : {
             "type" : "integer",
             "format" : "int32"
           }
@@ -7456,6 +7346,18 @@
         },
         "required" : [ "email" ]
       },
+      "ApiResponseVoid" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : { },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
       "NicknameChangeTicketRequest" : {
         "type" : "object",
         "properties" : {
@@ -7495,55 +7397,6 @@
         "type" : "object",
         "properties" : {
           "auctionId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "startsAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "endsAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
-      "SellerPerkPurchaseRequest" : {
-        "type" : "object",
-        "properties" : {
-          "type" : {
-            "type" : "string",
-            "enum" : [ "POWER_SELLER" ]
-          }
-        },
-        "required" : [ "type" ]
-      },
-      "ApiResponseSellerPerkResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/SellerPerkResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "SellerPerkResponse" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "type" : {
-            "type" : "string",
-            "enum" : [ "POWER_SELLER" ]
-          },
-          "price" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -7598,18 +7451,6 @@
           }
         },
         "required" : [ "auth", "endpoint", "p256dh" ]
-      },
-      "ApiResponseVoid" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : { },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
       },
       "ProductRequest" : {
         "type" : "object",
@@ -9538,7 +9379,7 @@
         "properties" : {
           "item" : {
             "type" : "string",
-            "enum" : [ "NICKNAME_CHANGE", "BADGE_ANGEL_WINGS", "BADGE_DEVIL_WINGS", "BADGE_HALO", "BADGE_STAR", "AUCTION_BOOST" ]
+            "enum" : [ "NICKNAME_CHANGE", "BADGE_ANGEL_WINGS", "BADGE_DEVIL_WINGS", "BADGE_HALO", "BADGE_STAR", "AUCTION_BOOST", "POWER_SELLER" ]
           },
           "name" : {
             "type" : "string"
@@ -9749,63 +9590,6 @@
           "liveStreamId" : {
             "type" : "integer",
             "format" : "int64"
-          }
-        }
-      },
-      "ApiResponseListSellerShopItemResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/SellerShopItemResponse"
-            }
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "SellerShopItemResponse" : {
-        "type" : "object",
-        "properties" : {
-          "type" : {
-            "type" : "string",
-            "enum" : [ "POWER_SELLER" ]
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "description" : {
-            "type" : "string"
-          },
-          "price" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "periodDays" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
-      "ApiResponseListSellerPerkResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/SellerPerkResponse"
-            }
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
@@ -11425,6 +11209,14 @@
     "code" : "SHOP_004",
     "status" : 403,
     "message" : "내 경매만 위로 올릴 수 있습니다."
+  }, {
+    "code" : "SHOP_005",
+    "status" : 400,
+    "message" : "판매 확정 20건 이상인 판매자만 파워 판매자가 될 수 있습니다."
+  }, {
+    "code" : "SHOP_006",
+    "status" : 409,
+    "message" : "이미 파워 판매자입니다."
   }, {
     "code" : "USER_001",
     "status" : 409,

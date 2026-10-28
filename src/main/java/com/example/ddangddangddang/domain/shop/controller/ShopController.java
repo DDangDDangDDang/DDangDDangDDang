@@ -50,6 +50,13 @@ public class ShopController {
         return ResponseEntity.ok(ApiResponse.ok(shopService.boostAuction(authUser.id(), request.auctionId())));
     }
 
+    /** 파워 판매자가 된다. (20,000M, 영구, 판매 확정 20건 이상인 인증 판매자) */
+    @PostMapping("/power-seller")
+    public ResponseEntity<ApiResponse<Void>> buyPowerSeller(@AuthenticationPrincipal AuthUser authUser) {
+        shopService.buyPowerSeller(authUser.id());
+        return ResponseEntity.ok(ApiResponse.ok());
+    }
+
     /** 닉네임 뱃지를 산다. 영구로 가지고 바로 장착된다. 응답은 내 뱃지 (가진 뱃지·장착한 뱃지) */
     @PostMapping("/badges/{badge}")
     public ResponseEntity<ApiResponse<MyBadgesResponse>> buyBadge(

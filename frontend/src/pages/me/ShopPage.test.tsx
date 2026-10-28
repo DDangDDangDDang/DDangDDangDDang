@@ -21,6 +21,7 @@ const server = vi.hoisted(() => ({
   replaceSession: vi.fn(),
   badges: { owned: [] as string[], equipped: undefined as string | undefined },
   boostError: undefined as undefined | { code: string; message: string; status: number },
+  powerSellerReason: undefined as string | undefined,
 }));
 vi.mock('@/api', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/api')>();
@@ -57,7 +58,19 @@ vi.mock('@/api', async (importOriginal) => {
             unavailableReason: server.badges.owned.includes('STAR') ? '이미 가지고 있어요. 내 뱃지에서 장착할 수 있어요.' : undefined,
           },
           { item: 'AUCTION_BOOST', name: '경매 위로 올리기', description: '3시간 동안 맨 위에 올려요.', price: 1_000, available: true },
+          {
+            item: 'POWER_SELLER',
+            name: '파워 판매자',
+            description: '프로필과 방송 카드에 파워 표시가 영구로 붙어요.',
+            price: 20_000,
+            available: !server.powerSellerReason,
+            unavailableReason: server.powerSellerReason,
+          },
         ];
+      if (r.path === '/api/v1/shop/power-seller') {
+        server.posts.push(r);
+        return undefined;
+      }
       if (r.path === '/api/v1/users/me/badges') return server.badges;
       if (r.path === '/api/v1/users/me/auctions')
         return [
@@ -110,6 +123,7 @@ describe('ShopPage', () => {
     server.replaceSession.mockReset();
     server.badges = { owned: [], equipped: undefined };
     server.boostError = undefined;
+    server.powerSellerReason = undefined;
     // jsdom에는 <dialog>의 showModal·close가 없다.
     HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
       this.open = true;
@@ -144,7 +158,7 @@ describe('ShopPage', () => {
     server.balance = 2_000;
     renderPage();
 
-    expect(await screen.findAllByText('마일리지가 부족해요')).toHaveLength(2);
+    expect(await screen.findAllByText('마일리지가 부족해요')).toHaveLength(3);
     expect(screen.getByRole('button', { name: '닉네임 변경권 사기' })).toBeDisabled();
   });
 
@@ -214,5 +228,23 @@ describe('ShopPage', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: '1,000 M으로 올리기' }));
 
     expect(await within(dialog).findByText('지금은 위로 올릴 자리가 없어요. 약 30분 뒤에 올릴 수 있어요.')).toBeInTheDocument();
+  });
+
+  it('파워 판매자는 조건이 안 되면 사기 버튼을 끄고 이유를 보여 준다', async () => {
+    server.powerSellerReason = '판매 확정 20건 이상부터 살 수 있어요. (지금 19건)';
+    renderPage();
+    expect(await screen.findByText('판매 확정 20건 이상부터 살 수 있어요. (지금 19건)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '파워 판매자 사기' })).toBeDisabled();
+  });
+
+  it('파워 판매자를 사면 성공을 알린다', async () => {
+    server.balance = 30_000;
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '파워 판매자 사기' }));
+    await userEvent.click(screen.getByRole('button', { name: '20,000 M으로 사기' }));
+
+    expect(await screen.findByText("파워 판매자가 되었어요. 판매자 프로필과 방송 카드에 '파워'가 붙어요.")).toBeInTheDocument();
+    expect(server.posts[0]?.path).toBe('/api/v1/shop/power-seller');
   });
 });

@@ -11,7 +11,7 @@ import java.time.Duration;
  * - minGift / giftUnit / maxGift: 한 번에 선물할 수 있는 최소·단위·최대
  * - monthlyGiftLimitPerSeller: 한 계정이 판매자 한 명에게 한 달에 선물할 수 있는 최대
  * - trustWindowDays: 판매자 프로필의 응원 지표를 세는 기간(일)
- * - powerSellerPrice / powerSellerDays: 파워 판매자 가격(마일리지)·기간(일), promotedLiveSlots: 라이브 목록 맨 위에 올리는 방송 수
+ * 파워 판매자는 마일리지 상점의 고정 가격 상품이라 여기에 없다. (ShopItem.POWER_SELLER)
  */
 public record DonationPolicy(
         int earnRatePercent,
@@ -23,10 +23,7 @@ public record DonationPolicy(
         long giftUnit,
         long maxGift,
         long monthlyGiftLimitPerSeller,
-        int trustWindowDays,
-        long powerSellerPrice,
-        int powerSellerDays,
-        int promotedLiveSlots
+        int trustWindowDays
 ) {
 
     /** 낙찰가에 대한 적립 포인트 (한 달 한도는 따로 본다). 1P 미만은 버린다. */
@@ -44,9 +41,5 @@ public record DonationPolicy(
 
     public Duration trustWindow() {
         return Duration.ofDays(trustWindowDays);
-    }
-
-    public Duration powerSellerPeriod() {
-        return Duration.ofDays(powerSellerDays);
     }
 }

@@ -1,20 +1,19 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Gift, Hourglass, Store } from 'lucide-react';
+import { Gift, Hourglass } from 'lucide-react';
 import { Link } from 'react-router';
-import { api, call, errorMessage, useSession } from '@/api';
+import { api, call, errorMessage } from '@/api';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { buttonVariants, Card, CardBody, CardHeader, CardTitle, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { Card, CardBody, CardHeader, CardTitle, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { DONATION_HISTORY_INCREASES, DONATION_HISTORY_KEY, DONATION_HISTORY_LABEL, DONATION_WALLET_KEY } from '@/lib/donation';
 import { formatDate, formatDateTime, formatMileage } from '@/lib/format';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
-import { useSellerProfile } from '@/lib/use-seller';
 
 const PAGE_SIZE = 20;
 
 /**
  * 도네이션 마일리지: 구매·판매 확정으로 적립하고 라이브 방송 선물·상점에 쓰는 마일리지 (현금 포인트와 따로, 환전할 수 없음)
- * - 내 마일리지(적립·선물받은 것 구분 없음)·곧 사라질 마일리지·이번 달 구매/판매 적립, 인증 판매자는 판매자 상점 바로가기
+ * - 내 마일리지(적립·선물받은 것 구분 없음)·곧 사라질 마일리지·이번 달 구매/판매 적립, 마일리지 상점 바로가기
  * - 내역: 구매 적립·판매 적립·선물·선물받음·만료·상점 구매
  */
 export function DonationPointsPage() {
@@ -31,8 +30,6 @@ export function DonationPointsPage() {
 }
 
 function Summary() {
-  const session = useSession();
-  const verifiedSeller = useSellerProfile(session?.user.userId).data?.verifiedSeller ?? false;
   const wallet = useQuery({
     queryKey: DONATION_WALLET_KEY,
     queryFn: () => call(api.GET('/api/v1/donation-points/wallet')),
@@ -88,21 +85,6 @@ function Summary() {
           </div>
         </dl>
       </Card>
-
-      {verifiedSeller && (
-        <Card>
-          <div className="flex items-center justify-between gap-4 px-6 py-5">
-            <div className="flex flex-col gap-1">
-              <span className="text-label font-semibold">판매자 상점</span>
-              <span className="text-caption text-neutral-500">판매 적립과 시청자에게 받은 응원을 모아 파워 판매자 등을 살 수 있어요.</span>
-            </div>
-            <Link to="/me/donation-shop" className={buttonVariants({ variant: 'outline' })}>
-              <Store className="size-4" aria-hidden="true" />
-              판매자 상점
-            </Link>
-          </div>
-        </Card>
-      )}
 
       <Notice>
         구매·판매를 확정하면 낙찰가의 일부가, 선물을 받으면 받은 만큼이 쌓여요. 쌓인 날부터 유효기간이 지나면 사라지고, 먼저 사라지는 마일리지부터 쓰여요.
