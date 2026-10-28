@@ -33,3 +33,6 @@ app_environment = {
 # certificate_arn = "arn:aws:acm:ap-northeast-2:<계정 ID>:certificate/<ID>"
 # 서버(컨테이너) 수
 # app_desired_count = 2
+
+# 팀원 DB 접속(Session Manager 포트 포워딩)을 쓸 IAM 사용자 (docs/deploy.md "팀원 DB 접속")
+# developer_iam_users = ["teammate1", "teammate2"]

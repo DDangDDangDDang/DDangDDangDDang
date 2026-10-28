@@ -255,3 +255,9 @@ variable "github_dev_environment" {
   type        = string
   default     = "development"
 }
+
+variable "developer_iam_users" {
+  description = "DB 터널(Session Manager 포트 포워딩)을 쓸 팀원 IAM 사용자 이름. ddang-developers 그룹에 넣는다. 액세스 키는 콘솔에서 만든다. (infra/team_access.tf)"
+  type        = list(string)
+  default     = []
+}
