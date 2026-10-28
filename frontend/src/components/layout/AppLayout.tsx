@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Gavel, Gift, Menu, MessageCircle, Search, Wallet } from "lucide-react";
+import { Gift, Menu, MessageCircle, Search, Wallet } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import {
   Link,
@@ -13,6 +13,7 @@ import { BroadcastProvider } from "@/components/broadcast/BroadcastProvider";
 import { MiniBroadcast } from "@/components/broadcast/MiniBroadcast";
 import { MyInfoDialog } from "@/components/account/MyInfoDialog";
 import { DmRealtime } from "@/components/dm/DmRealtime";
+import { BrandMark } from "@/components/layout/BrandMark";
 import { SideNav } from "@/components/layout/SideNav";
 import { LiveStartToasts } from "@/components/notification/LiveStartToasts";
 import { NotificationBell } from "@/components/notification/NotificationBell";
@@ -126,10 +127,8 @@ function AppHeader({
             </button>
           )}
           <Link to="/" className="flex items-center gap-2.5 px-1">
-            <span className="flex size-8 items-center justify-center rounded-md bg-brand-500 text-white">
-              <Gavel className="size-[18px]" aria-hidden="true" />
-            </span>
-            <span className="text-logo font-bold tracking-tight">땅땅땅</span>
+            <BrandMark />
+            <span className="text-logo font-bold tracking-tight text-brand-500">땅땅땅</span>
           </Link>
         </div>
 
@@ -247,7 +246,7 @@ function DmLink() {
       {count > 0 && (
         <span
           aria-hidden="true"
-          className="num absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1 text-caption font-bold text-white"
+          className="num absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-caption font-bold text-white"
         >
           {count > 99 ? "99+" : count}
         </span>
@@ -256,13 +255,13 @@ function DmLink() {
   );
 }
 
-/** 헤더의 도네이션 마일리지 (선물할 수 있는 마일리지). 누르면 도네이션 마일리지 화면으로 간다. 현금 포인트(P)와 헷갈리지 않게 단위는 M */
+/** 헤더의 도네이션 마일리지 (쓸 수 있는 마일리지). 누르면 도네이션 마일리지 화면으로 간다. 현금 포인트(P)와 헷갈리지 않게 단위는 M */
 function DonationPointLink() {
   const wallet = useQuery({
     queryKey: DONATION_WALLET_KEY,
     queryFn: () => call(api.GET("/api/v1/donation-points/wallet")),
   });
-  const balance = wallet.data?.giftableBalance ?? 0;
+  const balance = wallet.data?.balance ?? 0;
 
   return (
     <Link

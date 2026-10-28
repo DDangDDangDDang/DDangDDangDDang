@@ -8,7 +8,7 @@ import { cn } from '@/lib/cn';
 import { DONATION_HISTORY_KEY, DONATION_WALLET_KEY, donationStatusKey, giftPresets, newRequestKey, validateGift } from '@/lib/donation';
 import { formatNumber, formatMileage } from '@/lib/format';
 
-const MESSAGE_MAX_LENGTH = 50;
+const MESSAGE_MAX_LENGTH = 20;
 
 /**
  * 도네이션 선물 창: 방송 중인 판매자에게 도네이션 마일리지를 선물한다. (시청 화면)
@@ -100,8 +100,8 @@ function DonationForm({ liveStreamId }: { liveStreamId: number }) {
     <form onSubmit={onSubmit} noValidate aria-label="선물" className="flex flex-col gap-4">
       <dl className="grid grid-cols-2 gap-2 rounded-md bg-neutral-25 px-4 py-3">
         <div className="flex flex-col">
-          <dt className="text-caption text-neutral-500">선물할 수 있는 마일리지</dt>
-          <dd className="num text-title-md font-bold">{formatMileage(info.giftableBalance ?? 0)}</dd>
+          <dt className="text-caption text-neutral-500">내 마일리지</dt>
+          <dd className="num text-title-md font-bold">{formatMileage(info.balance ?? 0)}</dd>
         </div>
         <div className="flex flex-col">
           <dt className="text-caption text-neutral-500">이 판매자에게 이번 달 남은 한도</dt>
@@ -109,9 +109,9 @@ function DonationForm({ liveStreamId }: { liveStreamId: number }) {
         </div>
       </dl>
 
-      {(info.giftableBalance ?? 0) < (info.minGift ?? 0) ? (
+      {(info.balance ?? 0) < (info.minGift ?? 0) ? (
         <Notice>
-          아직 선물할 도네이션 마일리지가 없어요. 구매를 확정하면 낙찰가의 일부가 도네이션 마일리지로 쌓여요.{' '}
+          아직 선물할 도네이션 마일리지가 없어요. 구매·판매를 확정하면 낙찰가의 일부가 도네이션 마일리지로 쌓여요.{' '}
           <Link to="/me/donation-points" target="_blank" rel="noreferrer" className="font-semibold underline">
             도네이션 마일리지 보기
           </Link>

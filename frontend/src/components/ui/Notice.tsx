@@ -6,7 +6,7 @@ const STYLES = {
   /** 처리 결과 성공 (인증 완료, 저장 완료) */
   success: { box: 'bg-info-50 text-info-700', Icon: CheckCircle2 },
   /** 오류·주의 (서버 오류 문구) */
-  error: { box: 'bg-brand-50 text-brand-700', Icon: AlertCircle },
+  error: { box: 'bg-red-50 text-red-300', Icon: AlertCircle },
   /** 일반 안내 (메일을 보냈습니다, 대기 중 등) */
   info: { box: 'bg-neutral-50 text-neutral-700', Icon: Info },
 } as const;

@@ -20,6 +20,7 @@ import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRep
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
+import com.example.ddangddangddang.domain.user.service.UserService;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,7 @@ public class SellerProfileService {
     static final int MAX_AUCTION_PAGE_SIZE = 30;
 
     private final UserRepository userRepository;
+    private final UserService userService;
     private final SellerApplicationRepository applicationRepository;
     private final SubscriptionService subscriptionService;
     private final LiveStreamRepository liveStreamRepository;
@@ -69,6 +71,8 @@ public class SellerProfileService {
         return new SellerProfileResponse(
                 sellerId,
                 seller.getNickname(),
+                seller.getBio(),
+                userService.profileImageUrl(seller),
                 approved != null,
                 approved != null && approved.isApprovedBusiness(),
                 powerSellers.is(sellerId),

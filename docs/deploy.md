@@ -275,9 +275,10 @@ dev 데이터는 서버 디스크(Docker 볼륨)에만 있습니다. 배포해�
 | 서버 접속 | `aws ssm start-session --target "$(terraform output -json github_variables_dev \| jq -r .EC2_INSTANCE_ID)"` → `sudo -i; cd /opt/ddang` |
 | 인증번호 확인 (문자·메일 꺼짐) | 서버에서 `docker compose logs app \| grep -i 인증` |
 | dev DB 접속 | 서버에서 `docker compose exec mysql sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" ddang'` |
-| dev 데이터 초기화 | 서버에서 `docker compose down -v` 후 Actions → Deploy → Run workflow (branch: `dev`) |
+| dev 데이터 초기화 | 서버에서 `docker compose down && docker volume rm ddang_mysql_data` 후 Actions → Deploy → Run workflow (branch: `dev`). `down -v`는 쓰지 마세요. Caddy 인증서 볼륨까지 지워져 매번 새로 발급받다가 Let's Encrypt 한도(7일에 5개)에 걸릴 수 있습니다 |
 | 잠시 끄기 (비용 절약) | `aws ec2 stop-instances --instance-ids <ID>` / 다시 켜기 `start-instances`. 켜면 컨테이너가 자동으로 다시 뜸 |
 | 완전히 없애기 | `dev_enabled = false` → `terraform apply`, GitHub 변수 `DEV_DEPLOY_ENABLED` 삭제 |
+| 완전히 없앤 뒤 다시 켜기 | 30일 안이면 `ddang-dev/app`이 삭제 예약 상태라 `terraform apply`가 같은 이름을 만들지 못합니다. ① `infra/terraform.tfvars`에 `dev_enabled = true` (아직 apply하지 않음. 꺼진 상태에서는 `dev_app[0]`이 구성에 없어 import가 실패함) ② `aws secretsmanager restore-secret --secret-id ddang-dev/app`으로 되살리기 ③ `terraform import 'aws_secretsmanager_secret.dev_app[0]' ddang-dev/app` ④ `terraform apply` 후 "켜기" 3단계부터 진행합니다. 값이 남아 있으므로 2단계는 건너뜁니다. (`ddang-dev/db`는 바로 지워지므로 그대로 다시 만들어집니다) |
 
 ## 운영 중 자주 하는 일 (EC2 구성)
 
@@ -424,6 +425,7 @@ GitHub의 `EC2_INSTANCE_ID`, `ECR_WEB_REPOSITORY` 변수는 지워도 됩니다.
 - **WebSocket 허용 출처**: 지금은 모든 출처를 허용합니다(`WebSocketConfig`). 프론트 도메인이 정해지면 좁히세요.
 - **EC2 서버 교체**: 서버 디스크에는 데이터가 없어 EC2를 다시 만들어도 잃는 것이 없습니다. 다만 Terraform은 apply할 때마다 서버가 바뀌어 접속이 끊기지 않도록, AMI·부팅 스크립트가 바뀌어도 서버를 교체하지 않습니다. 새로 만들려면 위 "서버를 새로 만들기"를 따르세요.
 - **RDS 삭제 방지**: RDS는 `db_deletion_protection = true`(기본값)라 실수로 `terraform destroy`해도 지워지지 않습니다.
+- **업로드 파일(프로필 사진)**: `infra/storage.tf`가 운영 `ddang-uploads-<계정 ID>`, dev `ddang-dev-uploads-<계정 ID>` 버킷을 만들고 앱 환경변수(`APP_STORAGE_TYPE=s3`, `APP_STORAGE_S3_BUCKET`)를 넣습니다. 브라우저가 사이트 주소에서 버킷으로 직접 올리고(CORS PUT), `profile-images/` 아래만 공개로 읽힙니다. apply 뒤에는 앱을 다시 배포해야 새 환경변수가 반영됩니다. CloudFront를 붙이면 tfvars의 `app_environment`에 `APP_STORAGE_S3_PUBLIC_BASE_URL`을 넣습니다. 버킷에 파일이 있으면 `terraform destroy`가 버킷을 지우지 못하니 먼저 비우세요.
 
 ## 정리 (전부 지우기)
 

@@ -40,7 +40,9 @@ public class SecurityConfig {
             // 포트원 결제 웹훅. 토큰 대신 웹훅 서명으로 검증한다.
             "/api/v1/points/charges/webhook",
             // 방송 시청 입장. 로그인하지 않으면 손님으로 입장한다. (LiveStreamService.joinAsGuest)
-            "/api/v1/live-streams/{liveStreamId}/join"
+            "/api/v1/live-streams/{liveStreamId}/join",
+            // 홈 방송 카드 미리보기. 숨은 참가자로 입장해 시청자 수에 들어가지 않는다. (LiveStreamService.preview)
+            "/api/v1/live-streams/{liveStreamId}/preview"
     };
 
     /**
@@ -88,6 +90,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
                         // API 명세와 Swagger UI. 운영(prod)에서는 springdoc 설정으로 꺼져 있어 404가 된다.
                         .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
+                        // 로컬 저장소(app.storage.type=local)의 업로드·이미지. S3처럼 업로드 URL의 무작위 토큰으로 막는다. (LocalStorageController)
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/local-storage/uploads/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/local-storage/files/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 );

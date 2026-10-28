@@ -13,16 +13,16 @@ import { useSellerProfile } from '@/lib/use-seller';
 const PAGE_SIZE = 20;
 
 /**
- * 도네이션 마일리지: 구매 확정으로 적립해 라이브 방송 중인 판매자에게 선물하는 마일리지 (현금 포인트와 따로, 환전할 수 없음)
- * - 선물할 마일리지·곧 사라질 마일리지·이번 달 적립, 판매자는 선물받은 마일리지(판매자 상점용)
- * - 내역: 적립·선물·선물받음·만료·상점 구매
+ * 도네이션 마일리지: 구매·판매 확정으로 적립하고 라이브 방송 선물·상점에 쓰는 마일리지 (현금 포인트와 따로, 환전할 수 없음)
+ * - 내 마일리지(적립·선물받은 것 구분 없음)·곧 사라질 마일리지·이번 달 구매/판매 적립, 인증 판매자는 판매자 상점 바로가기
+ * - 내역: 구매 적립·판매 적립·선물·선물받음·만료·상점 구매
  */
 export function DonationPointsPage() {
   return (
     <div>
       <PageHeader
         title="도네이션 마일리지"
-        description="구매를 확정하면 쌓이고, 응원하는 판매자의 라이브 방송에서 선물할 수 있어요. 현금으로 바꿀 수는 없어요."
+        description="구매·판매를 확정하거나 선물을 받으면 쌓이고, 라이브 방송 선물과 상점에 쓸 수 있어요. 현금으로 바꿀 수는 없어요."
       />
       <Summary />
       <History />
@@ -48,12 +48,16 @@ function Summary() {
           <div className="flex flex-col gap-1 px-6 py-5">
             <dt className="flex items-center gap-1.5 text-label text-neutral-500">
               <Gift className="size-4" aria-hidden="true" />
-              선물할 수 있는 마일리지
+              내 마일리지
             </dt>
-            <dd className="num text-price-lg font-bold">{wallet.isPending ? <Skeleton className="h-8 w-32" /> : formatMileage(data?.giftableBalance ?? 0)}</dd>
+            <dd className="num text-price-lg font-bold">{wallet.isPending ? <Skeleton className="h-8 w-32" /> : formatMileage(data?.balance ?? 0)}</dd>
             <dd className="text-caption text-neutral-500">
               <Link to="/lives" className="font-semibold text-brand-700 underline">
                 라이브 방송 보러 가기
+              </Link>
+              {' · '}
+              <Link to="/shop" className="font-semibold text-brand-700 underline">
+                마일리지 상점
               </Link>
             </dd>
           </div>
@@ -70,38 +74,38 @@ function Summary() {
           </div>
           <div className="flex flex-col gap-1 px-6 py-5">
             <dt className="text-label text-neutral-500">이번 달 적립</dt>
-            <dd className="num text-title-md font-bold">
-              {wallet.isPending ? (
+            {wallet.isPending ? (
+              <dd>
                 <Skeleton className="h-7 w-24" />
-              ) : (
-                `${formatMileage(data?.earnedThisMonth ?? 0)} / ${formatMileage(data?.monthlyEarnLimit ?? 0)}`
-              )}
-            </dd>
-            <dd className="text-caption text-neutral-500">한 달에 적립할 수 있는 마일리지에 한도가 있어요.</dd>
+              </dd>
+            ) : (
+              <>
+                <dd className="num text-body font-bold">구매 {`${formatMileage(data?.earnedThisMonth ?? 0)} / ${formatMileage(data?.monthlyEarnLimit ?? 0)}`}</dd>
+                <dd className="num text-body font-bold">판매 {`${formatMileage(data?.saleEarnedThisMonth ?? 0)} / ${formatMileage(data?.monthlyEarnLimit ?? 0)}`}</dd>
+              </>
+            )}
+            <dd className="text-caption text-neutral-500">구매·판매 적립은 한 달 한도가 따로 있어요.</dd>
           </div>
         </dl>
       </Card>
 
-      {(verifiedSeller || (data?.receivedBalance ?? 0) > 0) && (
+      {verifiedSeller && (
         <Card>
           <div className="flex items-center justify-between gap-4 px-6 py-5">
             <div className="flex flex-col gap-1">
-              <span className="text-label text-neutral-500">선물받은 마일리지 (판매자)</span>
-              <strong className="num text-title-md font-bold">{formatMileage(data?.receivedBalance ?? 0)}</strong>
-              <span className="text-caption text-neutral-500">시청자에게 받은 응원이에요. 판매자 상점에서 파워 판매자 등을 살 수 있어요.</span>
+              <span className="text-label font-semibold">판매자 상점</span>
+              <span className="text-caption text-neutral-500">판매 적립과 시청자에게 받은 응원을 모아 파워 판매자 등을 살 수 있어요.</span>
             </div>
-            {verifiedSeller && (
-              <Link to="/me/donation-shop" className={buttonVariants({ variant: 'outline' })}>
-                <Store className="size-4" aria-hidden="true" />
-                판매자 상점
-              </Link>
-            )}
+            <Link to="/me/donation-shop" className={buttonVariants({ variant: 'outline' })}>
+              <Store className="size-4" aria-hidden="true" />
+              판매자 상점
+            </Link>
           </div>
         </Card>
       )}
 
       <Notice>
-        도네이션 마일리지는 구매를 확정할 때 낙찰가의 일부가 쌓이고, 쌓인 날부터 유효기간이 지나면 사라져요. 먼저 사라지는 마일리지부터 선물에 쓰여요.
+        구매·판매를 확정하면 낙찰가의 일부가, 선물을 받으면 받은 만큼이 쌓여요. 쌓인 날부터 유효기간이 지나면 사라지고, 먼저 사라지는 마일리지부터 쓰여요.
       </Notice>
     </div>
   );
@@ -132,7 +136,7 @@ function History() {
         ) : query.isError ? (
           <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />
         ) : rows.length === 0 ? (
-          <EmptyState title="도네이션 마일리지 내역이 없어요" description="구매를 확정하면 도네이션 마일리지가 쌓이고 여기에 기록돼요." />
+          <EmptyState title="도네이션 마일리지 내역이 없어요" description="구매·판매를 확정하면 도네이션 마일리지가 쌓이고 여기에 기록돼요." />
         ) : (
           <table className="w-full text-body">
             <thead className="border-y border-neutral-100 bg-neutral-25 text-label text-neutral-500">
@@ -147,10 +151,7 @@ function History() {
                   변동
                 </th>
                 <th scope="col" className="px-5 py-2.5 text-right font-semibold">
-                  선물할 마일리지
-                </th>
-                <th scope="col" className="px-5 py-2.5 text-right font-semibold">
-                  선물받은 마일리지
+                  잔액
                 </th>
               </tr>
             </thead>
@@ -165,8 +166,7 @@ function History() {
                       {increases ? '+' : '−'}
                       {formatMileage(row.amount ?? 0)}
                     </td>
-                    <td className="num px-5 py-3 text-right text-neutral-700">{formatMileage(row.giftableAfter ?? 0)}</td>
-                    <td className="num px-5 py-3 text-right text-neutral-700">{formatMileage(row.receivedAfter ?? 0)}</td>
+                    <td className="num px-5 py-3 text-right text-neutral-700">{formatMileage(row.balanceAfter ?? 0)}</td>
                   </tr>
                 );
               })}

@@ -14,12 +14,12 @@ const HISTORY_KEY = ['admin', 'donation-policy', 'history'] as const;
 /** 정책 항목: 화면 문구와 단위. 순서대로 묶음별로 보여 준다. */
 const GROUPS: { title: string; fields: { key: PolicyKey; label: string; unit: string; hint?: string }[] }[] = [
   {
-    title: '적립 (구매 확정)',
+    title: '적립 (구매 확정 시 구매자·판매자 각각)',
     fields: [
-      { key: 'earnRatePercent', label: '적립 비율', unit: '%', hint: '낙찰가의 몇 %를 적립할지' },
+      { key: 'earnRatePercent', label: '적립 비율', unit: '%', hint: '낙찰가의 몇 %를 구매자·판매자에게 각각 적립할지' },
       { key: 'maxEarnPerOrder', label: '주문당 최대 적립', unit: 'M' },
-      { key: 'monthlyEarnLimit', label: '한 달 적립 한도', unit: 'M', hint: '1일~말일' },
-      { key: 'pointValidDays', label: '유효기간', unit: '일', hint: '적립한 날부터' },
+      { key: 'monthlyEarnLimit', label: '한 달 적립 한도', unit: 'M', hint: '1일~말일, 구매·판매 적립 각각' },
+      { key: 'pointValidDays', label: '유효기간', unit: '일', hint: '적립·선물받은 날부터' },
       { key: 'expiringNoticeDays', label: '만료 알림', unit: '일 전', hint: '유효기간보다 짧게' },
     ],
   },

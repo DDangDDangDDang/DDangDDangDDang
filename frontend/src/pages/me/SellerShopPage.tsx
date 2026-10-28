@@ -42,15 +42,15 @@ export function SellerShopPage() {
     },
   });
 
-  const balance = wallet.data?.receivedBalance ?? 0;
+  const balance = wallet.data?.balance ?? 0;
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="판매자 상점" description="시청자에게 선물받은 도네이션 마일리지로 방송을 알리는 혜택을 살 수 있어요." />
+      <PageHeader title="판매자 상점" description="도네이션 마일리지로 방송을 알리는 혜택을 살 수 있어요. 판매 적립과 시청자에게 받은 응원을 함께 쓸 수 있어요." />
 
       <Card>
         <div className="flex flex-col gap-1 px-6 py-5">
-          <span className="text-label text-neutral-500">선물받은 마일리지</span>
+          <span className="text-label text-neutral-500">내 마일리지</span>
           <strong className="num text-price-lg font-bold">{wallet.isPending ? <Skeleton className="h-8 w-32" /> : formatMileage(balance)}</strong>
         </div>
       </Card>
@@ -88,7 +88,7 @@ export function SellerShopPage() {
                       <Button disabled={short} onClick={() => setBuying(item)}>
                         사기
                       </Button>
-                      {short && <span className="text-caption text-neutral-500">선물받은 마일리지가 부족해요</span>}
+                      {short && <span className="text-caption text-neutral-500">마일리지가 부족해요</span>}
                     </div>
                   </li>
                 );
@@ -137,7 +137,7 @@ export function SellerShopPage() {
           purchase.isError ? (
             <span className="text-brand-700">{errorMessage(purchase.error)}</span>
           ) : (
-            `선물받은 마일리지 ${formatMileage(buying?.price ?? 0)}이 빠지고 되돌릴 수 없어요. 이미 진행 중이면 끝나는 날부터 ${formatNumber(buying?.periodDays ?? 0)}일 이어져요.`
+            `도네이션 마일리지 ${formatMileage(buying?.price ?? 0)}이 빠지고 되돌릴 수 없어요. 이미 진행 중이면 끝나는 날부터 ${formatNumber(buying?.periodDays ?? 0)}일 이어져요.`
           )
         }
         confirmLabel={`${formatMileage(buying?.price ?? 0)}으로 사기`}

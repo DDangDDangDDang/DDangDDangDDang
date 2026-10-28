@@ -12,7 +12,7 @@ locals {
   dev_origin       = local.dev_https ? "https://${local.dev_domain}" : "http://${local.dev_public_ip}"
 
   # 앱 환경변수 중 비밀이 아닌 것. DB·Redis는 같은 서버의 컨테이너(docker-compose.dev.yml)를 쓴다.
-  dev_app_environment = merge(var.dev_app_environment, {
+  dev_app_environment = merge(local.dev_storage_environment, var.dev_app_environment, {
     SPRING_PROFILES_ACTIVE = "prod"
     DDL_AUTO               = "update"
     LIVEKIT_API_URL        = replace(local.dev_livekit_url, "wss://", "https://")
@@ -58,6 +58,8 @@ resource "aws_ecr_lifecycle_policy" "dev" {
 # ---------- 비밀값 ----------
 
 # 앱 비밀값: 키 목록은 운영(ddang/app)과 같다. 값은 직접 넣는다. (운영 값을 그대로 쓰지 말 것, 특히 JWT_SECRET)
+# 사람이 넣은 값이라 Terraform이 다시 만들 수 없어 삭제 복구 기간(기본 30일)을 둔다.
+# 그 기간에 다시 켜려면 복구 후 import한다. (docs/deploy.md "dev 사이트" → 완전히 없앤 뒤 다시 켜기)
 resource "aws_secretsmanager_secret" "dev_app" {
   count       = var.dev_enabled ? 1 : 0
   name        = "${var.project}-dev/app"
@@ -75,6 +77,8 @@ resource "aws_secretsmanager_secret" "dev_db" {
   count       = var.dev_enabled ? 1 : 0
   name        = "${var.project}-dev/db"
   description = "dev 서버 MySQL 컨테이너 접속 정보 (Terraform이 관리)"
+  # Terraform이 만든 값이라 잃을 것이 없다. 바로 지워서 dev를 껐다 다시 켤 때 같은 이름으로 만들 수 있게 한다.
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "dev_db" {
@@ -233,6 +237,8 @@ resource "aws_instance" "dev" {
 
   metadata_options {
     http_tokens = "required"
+    # 2: 서버 안 컨테이너(앱)도 서버 역할 자격 증명을 받아 S3를 쓸 수 있게 한다. (1이면 컨테이너에서 막힌다)
+    http_put_response_hop_limit = 2
   }
 
   root_block_device {

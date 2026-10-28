@@ -9,7 +9,7 @@ import { MyInfoContent } from './MyInfoContent';
 // 내 정보 조회·수정 응답을 테스트마다 정한다
 const server = vi.hoisted(() => ({
   me: (): unknown => undefined,
-  update: ((): unknown => undefined) as (nickname: string) => unknown,
+  update: ((): unknown => undefined) as (body: { nickname?: string; bio?: string }) => unknown,
 }));
 vi.mock('@/api', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/api')>();
@@ -17,10 +17,10 @@ vi.mock('@/api', async (importOriginal) => {
     ...original,
     api: {
       GET: () => ({ kind: 'me' }),
-      PATCH: (_path: string, init: { body: { nickname: string } }) => ({ kind: 'update', nickname: init.body.nickname }),
+      PATCH: (_path: string, init: { body: { nickname?: string; bio?: string } }) => ({ kind: 'update', body: init.body }),
     },
-    call: async (request: { kind: string; nickname?: string }) =>
-      request.kind === 'me' ? server.me() : server.update(request.nickname ?? ''),
+    call: async (request: { kind: string; body?: { nickname?: string; bio?: string } }) =>
+      request.kind === 'me' ? server.me() : server.update(request.body ?? {}),
     replaceSession: vi.fn(),
   };
 });
@@ -58,10 +58,12 @@ describe('MyInfoContent 닉네임 변경', () => {
 
     expect(await screen.findByRole('button', { name: '변경' })).toBeDisabled();
     expect(screen.getByText(/부터 다시 바꿀 수 있어요/)).toHaveTextContent('11월 26일');
+    // 그동안은 마일리지 상점의 닉네임 변경권으로 바로 바꿀 수 있다.
+    expect(screen.getByRole('link', { name: '닉네임 변경권으로 지금 바꾸기' })).toHaveAttribute('href', '/shop');
   });
 
   it('바꾸고 나면 성공 안내와 다음 변경 가능 시각을 보여준다', async () => {
-    server.update = (nickname) => ({
+    server.update = ({ nickname }) => ({
       user: { ...me, nickname, nicknameChangeAvailableAt: '2026-11-26T15:00:00' },
       accessToken: 'new-token',
       expiresIn: 1800,
@@ -90,5 +92,45 @@ describe('MyInfoContent 닉네임 변경', () => {
     await userEvent.click(screen.getByRole('button', { name: '저장' }));
 
     expect(await screen.findByText('닉네임은 한 번 바꾸면 30일 동안 다시 바꿀 수 없어요.')).toBeInTheDocument();
+  });
+});
+
+describe('MyInfoContent 소개·프로필 사진', () => {
+  beforeEach(() => {
+    server.me = () => me;
+    server.update = () => undefined;
+  });
+
+  it('소개를 적어 저장하면 소개만 보내고, 저장한 소개를 보여준다', async () => {
+    const sent: unknown[] = [];
+    server.update = (body) => {
+      sent.push(body);
+      return { user: { ...me, bio: body.bio }, accessToken: 'new-token', expiresIn: 1800 };
+    };
+    renderContent();
+
+    await userEvent.click(await screen.findByRole('button', { name: '작성' }));
+    await userEvent.type(screen.getByLabelText('자기소개'), '  빈티지 카메라를 모아요 ');
+    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(await screen.findByText('소개를 저장했어요.')).toBeInTheDocument();
+    expect(screen.getByText('빈티지 카메라를 모아요')).toBeInTheDocument();
+    expect(sent).toEqual([{ bio: '빈티지 카메라를 모아요' }]);
+  });
+
+  it('올릴 수 없는 형식의 사진을 고르면 서버에 보내지 않고 안내한다', async () => {
+    renderContent();
+
+    const input = await screen.findByLabelText('프로필 사진 파일');
+    await userEvent.upload(input, new File(['<svg/>'], 'a.svg', { type: 'image/svg+xml' }), { applyAccept: false });
+
+    expect(await screen.findByText('JPG, PNG, WEBP, GIF 이미지만 올릴 수 있어요.')).toBeInTheDocument();
+  });
+
+  it('이메일·휴대폰 번호 옆에 변경 버튼이 있다', async () => {
+    renderContent();
+
+    expect(await screen.findByRole('button', { name: '이메일 변경' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '휴대폰 번호 변경' })).toBeInTheDocument();
   });
 });

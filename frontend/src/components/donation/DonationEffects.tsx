@@ -50,7 +50,7 @@ export function DonationNotice({ effect, compact = false }: { effect: DonationEf
     <div
       role="status"
       className={cn(
-        'animate-donation-pop relative flex items-center gap-3 rounded-lg bg-brand-500 text-white shadow-md',
+        'animate-donation-pop relative flex items-center gap-3 rounded-lg bg-brand-800 text-white shadow-md',
         compact ? 'px-3 py-2' : 'max-w-[420px] px-4 py-3',
         // 1,000M 이상은 테두리, 3,000M 이상은 금색 테두리가 두 번 반짝인다.
         tier === 'medium' && 'ring-1 ring-brand-300',

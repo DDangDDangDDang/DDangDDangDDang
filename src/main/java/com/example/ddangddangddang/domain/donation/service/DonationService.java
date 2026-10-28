@@ -6,14 +6,13 @@ import com.example.ddangddangddang.domain.donation.dto.DonationRequest;
 import com.example.ddangddangddang.domain.donation.dto.DonationResponse;
 import com.example.ddangddangddang.domain.donation.dto.DonationStatusResponse;
 import com.example.ddangddangddang.domain.donation.entity.Donation;
-import com.example.ddangddangddang.domain.donation.entity.DonationLotUsage;
+import com.example.ddangddangddang.domain.donation.entity.DonationLotUsageType;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointHistory;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointHistoryType;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointLot;
 import com.example.ddangddangddang.domain.donation.entity.DonationWallet;
 import com.example.ddangddangddang.domain.donation.event.DonationSentEvent;
 import com.example.ddangddangddang.domain.donation.exception.DonationErrorCode;
-import com.example.ddangddangddang.domain.donation.repository.DonationLotUsageRepository;
 import com.example.ddangddangddang.domain.donation.repository.DonationPointHistoryRepository;
 import com.example.ddangddangddang.domain.donation.repository.DonationPointLotRepository;
 import com.example.ddangddangddang.domain.donation.repository.DonationRepository;
@@ -41,7 +40,8 @@ import java.util.Optional;
  * - 방송 중(LIVE)인 방송의 판매자에게만, 내 방송이 아닐 때만 선물할 수 있다.
  * - 한 번에 minGift ~ maxGift, giftUnit 단위로 선물한다.
  * - 한 계정이 판매자 한 명에게 한 달(1일~말일)에 선물할 수 있는 포인트에 한도가 있다. (어뷰징 방지)
- * - 유효기간이 먼저 끝나는 적립 묶음부터 쓴다.
+ * - 유효기간이 먼저 끝나는 적립 묶음부터 쓴다. (구매·판매 적립과 선물받은 마일리지를 구분하지 않음, DonationLotSpender)
+ * - 판매자는 받은 만큼을 새 적립 묶음(선물받음)으로 쌓는다. 유효기간은 적립과 같다.
  *
  * 동시성
  * - 보낸 사람·판매자 지갑을 userId 순으로 잠근 뒤 한도를 센다. 같은 사람의 선물은 한 줄로 처리되어 한도를 넘지 않는다.
@@ -53,7 +53,7 @@ public class DonationService {
 
     private final DonationRepository donationRepository;
     private final DonationPointLotRepository lotRepository;
-    private final DonationLotUsageRepository usageRepository;
+    private final DonationLotSpender lotSpender;
     private final DonationPointHistoryRepository historyRepository;
     private final DonationWalletLocker walletLocker;
     private final LiveStreamRepository liveStreamRepository;
@@ -65,22 +65,22 @@ public class DonationService {
 
     @Autowired
     public DonationService(DonationRepository donationRepository, DonationPointLotRepository lotRepository,
-                           DonationLotUsageRepository usageRepository, DonationPointHistoryRepository historyRepository,
+                           DonationLotSpender lotSpender, DonationPointHistoryRepository historyRepository,
                            DonationWalletLocker walletLocker,
                            LiveStreamRepository liveStreamRepository, ChatContentFilter contentFilter,
                            ApplicationEventPublisher eventPublisher, DonationTransactions transactions, DonationPolicies policies) {
-        this(donationRepository, lotRepository, usageRepository, historyRepository, walletLocker,
+        this(donationRepository, lotRepository, lotSpender, historyRepository, walletLocker,
                 liveStreamRepository, contentFilter, eventPublisher, transactions, policies, Clock.systemDefaultZone());
     }
 
     DonationService(DonationRepository donationRepository, DonationPointLotRepository lotRepository,
-                    DonationLotUsageRepository usageRepository, DonationPointHistoryRepository historyRepository,
+                    DonationLotSpender lotSpender, DonationPointHistoryRepository historyRepository,
                     DonationWalletLocker walletLocker,
                     LiveStreamRepository liveStreamRepository, ChatContentFilter contentFilter,
                     ApplicationEventPublisher eventPublisher, DonationTransactions transactions, DonationPolicies policies, Clock clock) {
         this.donationRepository = donationRepository;
         this.lotRepository = lotRepository;
-        this.usageRepository = usageRepository;
+        this.lotSpender = lotSpender;
         this.historyRepository = historyRepository;
         this.walletLocker = walletLocker;
         this.liveStreamRepository = liveStreamRepository;
@@ -160,27 +160,14 @@ public class DonationService {
                     "이 판매자에게 이번 달 선물할 수 있는 마일리지는 %,dM 남았습니다.".formatted(Math.max(0, remaining)));
         }
 
-        List<DonationPointLot> lots = lotRepository.findUsable(giverId, now);
-        long usable = lots.stream().mapToLong(DonationPointLot::getRemaining).sum();
-        if (usable < amount) {
-            throw new BusinessException(DonationErrorCode.INSUFFICIENT_BALANCE);
-        }
+        List<DonationPointLot> lots = lotSpender.reserve(giverId, amount, now);
 
         Donation donation = donationRepository.saveAndFlush(
                 Donation.of(giverId, sellerId, liveStreamId, amount, message, requestKey));
-        long left = amount;
-        for (DonationPointLot lot : lots) {
-            if (left == 0) {
-                break;
-            }
-            long used = lot.use(left);
-            if (used > 0) {
-                usageRepository.save(new DonationLotUsage(donation.getId(), lot.getId(), used));
-                left -= used;
-            }
-        }
-        giverWallet.useGiftable(amount);
-        sellerWallet.receive(amount);
+        lotSpender.spend(giverWallet, lots, amount, DonationLotUsageType.GIFT, donation.getId());
+        // 받은 마일리지도 적립과 같은 유효기간의 묶음으로 쌓는다. (어디서 왔든 같은 마일리지로 쓰고 같은 규칙으로 사라진다)
+        lotRepository.save(DonationPointLot.received(sellerId, donation.getId(), amount, now, now.plus(policy.pointValidFor())));
+        sellerWallet.add(amount);
         historyRepository.save(DonationPointHistory.of(giverWallet, DonationPointHistoryType.GIFT, amount, donation.getId()));
         historyRepository.save(DonationPointHistory.of(sellerWallet, DonationPointHistoryType.RECEIVE, amount, donation.getId()));
 
@@ -189,7 +176,7 @@ public class DonationService {
     }
 
     private DonationResponse response(Donation donation, DonationWallet giverWallet, long givenThisMonth, DonationPolicy policy) {
-        return new DonationResponse(donation.getId(), donation.getAmount(), giverWallet.getGiftableBalance(),
+        return new DonationResponse(donation.getId(), donation.getAmount(), giverWallet.getBalance(),
                 Math.max(0, policy.monthlyGiftLimitPerSeller() - givenThisMonth));
     }
 

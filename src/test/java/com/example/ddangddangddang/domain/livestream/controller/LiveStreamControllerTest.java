@@ -295,6 +295,44 @@ class LiveStreamControllerTest {
     }
 
     @Test
+    @DisplayName("홈 미리보기는 로그인과 상관없이 시청자 수에 들어가지 않는 preview- 숨은 참가자 토큰을 주고, 방송 중이 아니면 409, IP당 1분 60회를 넘으면 429다")
+    void preview() throws Exception {
+        Member seller = signupAndLogin();
+        Long liveStreamId = longValue(create(seller, "미리보기 방송"), "$.data.id");
+        given(mediaServerClient.createPublisherToken(anyString(), anyString(), anyString())).willReturn("token");
+        given(mediaServerClient.createPreviewToken(anyString(), anyString())).willReturn("preview-token");
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
+
+        // 시작 전에는 미리볼 수 없다.
+        mockMvc.perform(post("/api/v1/live-streams/" + liveStreamId + "/preview"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("LIVESTREAM_004"));
+
+        liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
+
+        // 손님도, 회원도 viewer-가 아닌 preview- identity로 받는다. (시청자 수에 안 잡힘)
+        mockMvc.perform(post("/api/v1/live-streams/" + liveStreamId + "/preview"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").value("preview-token"));
+        Member viewer = signupAndLogin();
+        mockMvc.perform(post("/api/v1/live-streams/" + liveStreamId + "/preview").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(status().isOk());
+        verify(mediaServerClient, times(2)).createPreviewToken(anyString(), startsWith("preview-"));
+        verify(mediaServerClient, times(0)).createViewerToken(anyString(), anyString(), anyString());
+        // 미리보기는 손님 입장 횟수와 따로 센다.
+        verify(guestJoinRateLimitRepository, times(3)).increasePreview(anyString(), any());
+        verify(guestJoinRateLimitRepository, times(0)).increase(anyString(), any());
+
+        given(guestJoinRateLimitRepository.increasePreview(anyString(), any())).willReturn(61L);
+        mockMvc.perform(post("/api/v1/live-streams/" + liveStreamId + "/preview").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error.code").value("LIVESTREAM_018"));
+        verify(mediaServerClient, times(2)).createPreviewToken(anyString(), anyString());
+
+        liveStreamService.end(liveStreamId, seller.id());
+    }
+
+    @Test
     @DisplayName("송출이 없어 자동 종료하면(endForIdle) 방송이 끝나고, 판매자가 새 방송을 만들 수 있다")
     void endForIdle() throws Exception {
         Member seller = signupAndLogin();

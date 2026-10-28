@@ -72,7 +72,7 @@ export function SellerProfileDialog({ sellerId, onClose }: { sellerId?: number; 
 function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; sellerId: number; onNavigate: () => void }) {
   return (
     <div className="flex items-start gap-4">
-      <SellerAvatar name={profile.nickname} verified={profile.verifiedSeller} size="lg" />
+      <SellerAvatar name={profile.nickname} imageUrl={profile.profileImageUrl} verified={profile.verifiedSeller} size="lg" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <strong className="text-title-md font-bold">{profile.nickname || '판매자'}</strong>
@@ -103,6 +103,7 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
           구독자 <span className="num font-semibold text-neutral-900">{formatNumber(profile.subscriberCount ?? 0)}</span>명
         </span>
         {profile.introduction && <p className="mt-1 text-body whitespace-pre-line text-neutral-700">{profile.introduction}</p>}
+        {profile.bio && <p className="mt-1 text-body whitespace-pre-line text-neutral-500">{profile.bio}</p>}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <SubscribeButton sellerId={sellerId} subscribed={profile.subscribed ?? false} />

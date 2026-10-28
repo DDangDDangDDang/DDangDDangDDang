@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 /**
  * 판매자 프로필 (프로필 창 기본 탭). 로그인하지 않아도 볼 수 있다.
  *
+ * - bio: 회원 자기소개, profileImageUrl: 프로필 이미지 주소 (없으면 null)
  * - businessSeller: 사업자등록번호로 승인받은 사업자 판매자 (판매자 인증 배지 옆에 사업자 배지)
  * - verifiedSeller: 관리자가 판매자 신청을 승인한 회원. storeName·introduction·verifiedAt은 인증 회원만 있다. (아니면 null)
  * - subscribed: 내가 구독 중인지. 로그인하지 않았으면 false
@@ -16,6 +17,8 @@ import java.time.LocalDateTime;
 public record SellerProfileResponse(
         Long sellerId,
         String nickname,
+        String bio,
+        String profileImageUrl,
         boolean verifiedSeller,
         boolean businessSeller,
         boolean powerSeller,
