@@ -24,6 +24,7 @@ import { getAccessToken } from './session';
  * BID는 방송에 올라간 경매의 입찰: 입찰자(senderId·nickname), 입찰 금액(amount), 직전 현재가(previousAmount), 경매(auctionId·productName)
  * AUCTION_SOLD는 낙찰: 낙찰자(senderId·nickname), 낙찰가(amount), 경매(auctionId·productName)
  * BID·AUCTION_SOLD의 content는 채팅에 그대로 보여 줄 안내 문장이다.
+ * CHAT의 badge는 보낸 사람이 장착한 닉네임 뱃지 (없으면 null)
  */
 export type ChatMessage = {
   messageId: string;
@@ -40,6 +41,8 @@ export type ChatMessage = {
   /** BID·AUCTION_SOLD에만 있다 */
   auctionId?: number | null;
   productName?: string | null;
+  /** CHAT에만 있다. 보낸 사람이 장착한 닉네임 뱃지 */
+  badge?: 'ANGEL_WINGS' | 'DEVIL_WINGS' | 'HALO' | 'STAR' | null;
 };
 
 /** 방송 정보 변경 (`/topic/live-streams/{id}`). 바뀐 값만이 아니라 전체 정보 */
