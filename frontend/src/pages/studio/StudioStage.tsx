@@ -463,7 +463,7 @@ function StageToggle({
       onClick={onClick}
       className={cn(
         "flex size-11 items-center justify-center rounded-md text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-        on ? "bg-stage/70 hover:bg-stage" : "bg-brand-500 hover:bg-brand-600",
+        on ? "bg-stage/70 hover:bg-stage" : "bg-brand-800 hover:bg-brand-900",
       )}
     >
       {children}

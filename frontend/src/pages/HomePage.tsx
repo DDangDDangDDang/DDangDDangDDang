@@ -28,6 +28,7 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { HomeHero } from "@/pages/home/HomeHero";
 import { useHoverIntent } from "@/lib/use-hover-intent";
 import { usePrefersReducedMotion } from "@/lib/use-reduced-motion";
 
@@ -37,12 +38,13 @@ type Card = Schema<"LiveStreamCard">;
 const SECTION_SIZE = 8;
 
 /**
- * 홈: 대표 라이브 · 배너 광고 · 인기 라이브 · 시청자 급상승 · 방송 예정 · 인기 경매.
+ * 홈: 브랜드 배너 · 대표 라이브 · 배너 광고 · 인기 라이브 · 시청자 급상승 · 방송 예정 · 인기 경매.
  * 로그인하지 않아도 방송·경매를 둘러볼 수 있다. (로그인·회원가입은 헤더 오른쪽 위)
  */
 export function HomePage() {
   return (
     <div className="flex flex-col gap-12">
+      <HomeHero />
       <LiveHome />
       <PopularAuctions />
     </div>

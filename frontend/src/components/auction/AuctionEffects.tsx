@@ -67,8 +67,8 @@ export function AuctionEffects({
 const BID_LOOK: Record<BidTier, { wave: number; coins: number; card: string }> = {
   normal: { wave: 560, coins: 0, card: 'bg-stage/85 ring-1 ring-neutral-200' },
   up10: { wave: 440, coins: 6, card: 'bg-stage/85 ring-2 ring-brand-500' },
-  up30: { wave: 340, coins: 10, card: 'bg-brand-500 ring-2 ring-gold-300' },
-  up50: { wave: 260, coins: 16, card: 'animate-donation-glow bg-brand-500 ring-2 ring-gold-300' },
+  up30: { wave: 340, coins: 10, card: 'bg-brand-800 ring-2 ring-gold-300' },
+  up50: { wave: 260, coins: 16, card: 'animate-donation-glow bg-brand-800 ring-2 ring-gold-300' },
 };
 
 export function BidNotice({ effect, compact }: { effect: Extract<AuctionEffect, { kind: 'BID' }>; compact: boolean }) {

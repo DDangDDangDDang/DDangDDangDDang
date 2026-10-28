@@ -6,7 +6,7 @@ const badgeVariants = cva('inline-flex h-5.5 items-center gap-1.5 rounded-sm px-
   variants: {
     variant: {
       /** LIVE, 진행 중 경매 */
-      live: 'bg-brand-500 text-white',
+      live: 'bg-red-500 text-white',
       /** 나의 상태: 내가 최고 입찰 */
       info: 'bg-info-50 text-info-700',
       /** 주의: 상위 입찰 있음, 오류 안내 */
