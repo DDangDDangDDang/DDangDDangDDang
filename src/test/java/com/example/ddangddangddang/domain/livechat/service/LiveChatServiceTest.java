@@ -12,6 +12,9 @@ import com.example.ddangddangddang.domain.user.entity.UserRole;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.AuthUser;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
+import com.example.ddangddangddang.domain.user.entity.NicknameBadge;
+import com.example.ddangddangddang.domain.user.service.EquippedBadge;
+import com.example.ddangddangddang.domain.user.service.NicknameBadges;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,11 +60,15 @@ class LiveChatServiceTest {
     @Mock
     private ChatModerationQueue chatModerationQueue;
 
+    @Mock
+    private NicknameBadges nicknameBadges;
+
     @Test
     @DisplayName("방송 중이고 제한 횟수 이내면 앞뒤 공백을 지운 메시지를 방송 채팅 토픽으로 보내고, 같은 메시지를 AI 검토 대기열에 넣는다")
     void send() {
         given(chatRateLimitRepository.increment(SENDER.id(), LiveChatService.RATE_LIMIT_WINDOW))
                 .willReturn((long) LiveChatService.RATE_LIMIT_MAX_MESSAGES);
+        given(nicknameBadges.equipped(SENDER.id())).willReturn(new EquippedBadge(null));
 
         liveChatService.send(LIVE_STREAM_ID, SENDER, "  안녕하세요  ");
 
@@ -75,6 +82,19 @@ class LiveChatServiceTest {
         assertThat(message.content()).isEqualTo("안녕하세요");
         then(chatContentFilter).should().validate("안녕하세요");
         then(chatModerationQueue).should().enqueue(message);
+    }
+
+    @Test
+    @DisplayName("보낸 사람이 장착한 닉네임 뱃지를 채팅 메시지에 담는다")
+    void sendWithBadge() {
+        given(chatRateLimitRepository.increment(SENDER.id(), LiveChatService.RATE_LIMIT_WINDOW)).willReturn(1L);
+        given(nicknameBadges.equipped(SENDER.id())).willReturn(new EquippedBadge(NicknameBadge.ANGEL_WINGS));
+
+        liveChatService.send(LIVE_STREAM_ID, SENDER, "안녕하세요");
+
+        ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
+        then(stompBroadcaster).should().broadcast(eq("/topic/live-streams/10/chat"), captor.capture());
+        assertThat(captor.getValue().badge()).isEqualTo(NicknameBadge.ANGEL_WINGS);
     }
 
     @Test
@@ -140,6 +160,7 @@ class LiveChatServiceTest {
     void withinLimitNotMuted() {
         given(chatRateLimitRepository.increment(SENDER.id(), LiveChatService.RATE_LIMIT_WINDOW))
                 .willReturn((long) LiveChatService.RATE_LIMIT_MAX_MESSAGES);
+        given(nicknameBadges.equipped(SENDER.id())).willReturn(new EquippedBadge(null));
 
         liveChatService.send(LIVE_STREAM_ID, SENDER, "안녕하세요");
 

@@ -26,11 +26,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 마일리지 상점: 닉네임 변경권 (3,000M)
+ * 마일리지 상점: 닉네임 변경권 (3,000M), 닉네임 뱃지 (각 5,000M)
  * 결제와 닉네임 변경은 한 트랜잭션이라, 변경이 실패하면 마일리지도 빠지지 않는다.
  */
 @SpringBootTest
@@ -120,6 +121,60 @@ class ShopControllerTest {
         wallet("Bearer " + token).andExpect(jsonPath("$.data.balance").value(3_000));
         mockMvc.perform(get("/api/v1/users/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(jsonPath("$.data.nickname").value("무료" + member.seq()));
+    }
+
+    @Test
+    @DisplayName("닉네임 뱃지는 사면 영구로 가지고 바로 장착된다. 같은 뱃지는 다시 살 수 없고, 가진 뱃지끼리 바꿔 끼거나 뺄 수 있다")
+    void badges() throws Exception {
+        Member member = signupAndLogin();
+        items(member).andExpect(jsonPath("$.data.length()").value(5))
+                .andExpect(jsonPath("$.data[4].item").value("BADGE_STAR"))
+                .andExpect(jsonPath("$.data[4].badge").value("STAR"))
+                .andExpect(jsonPath("$.data[4].price").value(5_000))
+                .andExpect(jsonPath("$.data[4].available").value(true));
+
+        // 마일리지가 모자라면 갖지 못한다.
+        buyBadge(member, "STAR").andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("DONATION_002"));
+        myBadges(member).andExpect(jsonPath("$.data.owned.length()").value(0))
+                .andExpect(jsonPath("$.data.equipped").doesNotExist());
+
+        earn(member, 10_000);
+        buyBadge(member, "STAR").andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.owned[0]").value("STAR"))
+                .andExpect(jsonPath("$.data.equipped").value("STAR"));
+        // 이미 가진 뱃지는 다시 살 수 없고 마일리지도 빠지지 않는다.
+        buyBadge(member, "STAR").andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("USER_014"));
+        wallet(member.bearer()).andExpect(jsonPath("$.data.balance").value(5_000));
+        items(member).andExpect(jsonPath("$.data[4].available").value(false))
+                .andExpect(jsonPath("$.data[4].unavailableReason").value("이미 가지고 있어요. 내 뱃지에서 장착할 수 있어요."));
+
+        buyBadge(member, "HALO").andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.owned.length()").value(2))
+                .andExpect(jsonPath("$.data.equipped").value("HALO"));
+        wallet(member.bearer()).andExpect(jsonPath("$.data.balance").value(0));
+        mockMvc.perform(get("/api/v1/donation-points/histories").header(HttpHeaders.AUTHORIZATION, member.bearer()))
+                .andExpect(jsonPath("$.data.content[0].type").value("SHOP"))
+                .andExpect(jsonPath("$.data.content[0].amount").value(5_000));
+
+        // 가진 뱃지끼리 바꿔 끼기, 갖지 않은 뱃지는 안 됨, null이면 빼기
+        equip(member, "\"STAR\"").andExpect(status().isOk()).andExpect(jsonPath("$.data.equipped").value("STAR"));
+        equip(member, "\"DEVIL_WINGS\"").andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("USER_015"));
+        equip(member, "null").andExpect(status().isOk()).andExpect(jsonPath("$.data.equipped").doesNotExist());
+        myBadges(member).andExpect(jsonPath("$.data.owned.length()").value(2))
+                .andExpect(jsonPath("$.data.equipped").doesNotExist());
+    }
+
+    private ResultActions buyBadge(Member member, String badge) throws Exception {
+        return mockMvc.perform(post("/api/v1/shop/badges/{badge}", badge).header(HttpHeaders.AUTHORIZATION, member.bearer()));
+    }
+
+    private ResultActions myBadges(Member member) throws Exception {
+        return mockMvc.perform(get("/api/v1/users/me/badges").header(HttpHeaders.AUTHORIZATION, member.bearer())).andExpect(status().isOk());
+    }
+
+    private ResultActions equip(Member member, String badgeJson) throws Exception {
+        return mockMvc.perform(put("/api/v1/users/me/badge").header(HttpHeaders.AUTHORIZATION, member.bearer())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"badge\": " + badgeJson + "}"));
     }
 
     private String changeNicknameFree(Member member, String nickname) throws Exception {
