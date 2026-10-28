@@ -46,6 +46,8 @@ public class LiveStreamService {
     // 로그인하지 않은 시청자. viewer-로 시작하므로 시청자 수에 함께 센다.
     static final String GUEST_IDENTITY_PREFIX = VIEWER_IDENTITY_PREFIX + "guest-";
     static final String GUEST_DISPLAY_NAME = "손님";
+    // 홈 미리보기. viewer-로 시작하지 않으므로 시청자 수에 들어가지 않는다.
+    static final String PREVIEW_IDENTITY_PREFIX = "preview-";
 
     // 판매자당 종료되지 않은 방송 하나 규칙의 유니크 제약 (LiveStream 엔티티의 @UniqueConstraint 이름)
     static final String ACTIVE_SELLER_CONSTRAINT = "uk_live_stream_active_seller";
@@ -327,6 +329,20 @@ public class LiveStreamService {
 
         String identity = GUEST_IDENTITY_PREFIX + UUID.randomUUID();
         String token = mediaServerClient.createViewerToken(liveStream.getRoomName(), identity, GUEST_DISPLAY_NAME);
+
+        return new LiveStreamTokenResponse(
+                liveStream.getId(), liveStream.getRoomName(), mediaServerClient.getWsUrl(), token);
+    }
+
+    /**
+     * 홈 방송 카드 미리보기(소리 없이 잠깐 보기). 로그인과 상관없이 접속마다 다른 identity("preview-{무작위}")로 숨은 참가자 토큰을 만든다.
+     * 시청자 수는 VIEWER_IDENTITY_PREFIX로 세므로 미리보기는 시청자 수·시청자 급증 순위에 들어가지 않는다.
+     */
+    public LiveStreamTokenResponse preview(Long liveStreamId) {
+        LiveStream liveStream = findById(liveStreamId);
+        liveStream.validateJoinable();
+
+        String token = mediaServerClient.createPreviewToken(liveStream.getRoomName(), PREVIEW_IDENTITY_PREFIX + UUID.randomUUID());
 
         return new LiveStreamTokenResponse(
                 liveStream.getId(), liveStream.getRoomName(), mediaServerClient.getWsUrl(), token);

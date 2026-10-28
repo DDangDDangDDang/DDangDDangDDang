@@ -169,6 +169,15 @@ public class LiveStreamController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    /**
+     * 홈 방송 카드 미리보기 토큰. 다른 참가자에게 보이지 않고 시청자 수에도 들어가지 않는다. 로그인하지 않아도 된다. (SecurityConfig.PUBLIC_POST_APIS)
+     * IP당 1분에 60회로 제한한다. (PreviewRateLimitInterceptor)
+     */
+    @PostMapping("/{liveStreamId}/preview")
+    public ResponseEntity<ApiResponse<LiveStreamTokenResponse>> preview(@PathVariable Long liveStreamId) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.preview(liveStreamId)));
+    }
+
     @PostMapping("/{liveStreamId}/end")
     public ResponseEntity<ApiResponse<LiveStreamResponse>> end(
             @AuthenticationPrincipal AuthUser authUser,

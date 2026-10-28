@@ -25,7 +25,8 @@ public enum LiveStreamErrorCode implements ErrorCode {
     FEATURED_AUCTION_NOT_AVAILABLE(HttpStatus.CONFLICT, "LIVESTREAM_014", "이 방송에 올라간 시작 전·진행 중 경매만 영상 위에 띄울 수 있습니다."),
     INVALID_HASHTAG(HttpStatus.BAD_REQUEST, "LIVESTREAM_015", "해시태그는 한글·영문·숫자·밑줄(_)로 20자까지 쓸 수 있습니다."),
     NOT_VERIFIED_SELLER(HttpStatus.FORBIDDEN, "LIVESTREAM_016", "판매자 인증을 받은 회원만 방송을 만들고 시작할 수 있습니다."),
-    FEATURED_AUCTION_LIMIT(HttpStatus.CONFLICT, "LIVESTREAM_017", "영상 위에는 경매를 2개까지 띄울 수 있습니다. 띄운 경매 하나를 내린 뒤 다시 시도해 주세요.");
+    FEATURED_AUCTION_LIMIT(HttpStatus.CONFLICT, "LIVESTREAM_017", "영상 위에는 경매를 2개까지 띄울 수 있습니다. 띄운 경매 하나를 내린 뒤 다시 시도해 주세요."),
+    TOO_MANY_PREVIEWS(HttpStatus.TOO_MANY_REQUESTS, "LIVESTREAM_018", "미리보기 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.");
 
     private final HttpStatus status;
     private final String code;

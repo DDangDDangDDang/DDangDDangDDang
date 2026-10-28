@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Eye } from "lucide-react";
-import type { ReactNode } from "react";
+import { ChevronRight, Eye, Volume2, VolumeX } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { api, call, errorMessage, type Schema } from "@/api";
 import { AdBanner } from "@/components/ad/AdBanner";
@@ -14,7 +14,10 @@ import {
   LiveStreamCardSkeleton,
   LiveThumbnail,
 } from "@/components/live/LiveStreamCard";
+import { PreviewVideo } from "@/components/live/PreviewVideo";
 import { RecordedBadge } from "@/components/live/RecordedBadge";
+import { useStreamPreview } from "@/components/live/use-live-preview";
+import { TrackAudio } from "@/components/watch/tracks";
 import { SellerAvatar } from "@/components/seller/SellerAvatar";
 import {
   Badge,
@@ -24,6 +27,8 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { useHoverIntent } from "@/lib/use-hover-intent";
+import { usePrefersReducedMotion } from "@/lib/use-reduced-motion";
 
 type Card = Schema<"LiveStreamCard">;
 
@@ -149,33 +154,78 @@ function LiveHome() {
   );
 }
 
-/** 맨 위 대표 라이브: 가장 많이 보는 방송을 크게, 그다음 방송들은 아래 작은 썸네일로 */
+/**
+ * 맨 위 대표 라이브: 가장 많이 보는 방송을 크게, 그다음 방송들은 아래 작은 썸네일로.
+ * 치지직처럼 대표 방송은 홈에 들어오면 소리 없이 바로 미리보기를 틀고, [소리 켜기]로 소리를 들을 수 있다.
+ * 운영체제에서 "동작 줄이기"를 켰으면 자동으로 틀지 않고 마우스를 올렸을 때만 보여 준다.
+ */
 function FeaturedLive({ card, others }: { card: Card; others: Card[] }) {
   const seller = card.sellerNickname || "판매자";
   const to = `/lives/${card.liveStreamId}`;
+  const reducedMotion = usePrefersReducedMotion();
+  const { hovered, onMouseEnter, onMouseLeave } = useHoverIntent();
+  const [soundOn, setSoundOn] = useState(false);
+  const preview = useStreamPreview(
+    card.liveStreamId ?? 0,
+    card.liveStreamId !== undefined && (!reducedMotion || hovered),
+    soundOn,
+  );
+  // 작은 플레이어로 보고 있는 방송이면 소리는 작은 플레이어에서 켜고 끈다.
+  const canToggleSound = !!preview.videoTrack && !preview.shared;
+
+  const toggleSound = () => {
+    // 소리를 켤 때는 사용자가 누른 순간에 재생을 허용한다.
+    if (!soundOn) void preview.startAudio();
+    setSoundOn(!soundOn);
+  };
+
   return (
     <section aria-label="대표 라이브" className="flex flex-col gap-3">
       <div className="flex overflow-hidden rounded-lg border border-neutral-100 bg-neutral-0">
-        <Link
-          to={to}
-          state={{ sellerNickname: card.sellerNickname }}
-          aria-label={`${card.title || "제목 없는 방송"} 방송 보기`}
-          className="min-w-0 flex-[3]"
+        <div
+          className="relative min-w-0 flex-[3]"
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
         >
-          <LiveThumbnail name={seller} className="rounded-none">
-            <div className="absolute top-4 left-4 flex gap-1.5">
-              <Badge variant="live">LIVE</Badge>
-              <Badge className="bg-stage/70 font-semibold text-white">
-                <Eye className="size-3.5" aria-hidden="true" />
-                <span className="num">
-                  {formatNumber(card.viewerCount ?? 0)}
-                </span>
-                <span>명 시청</span>
-              </Badge>
-              {card.recorded && <RecordedBadge />}
-            </div>
-          </LiveThumbnail>
-        </Link>
+          <Link
+            to={to}
+            state={{ sellerNickname: card.sellerNickname }}
+            aria-label={`${card.title || "제목 없는 방송"} 방송 보기`}
+            className="block"
+          >
+            <LiveThumbnail name={seller} className="rounded-none">
+              <PreviewVideo track={preview.videoTrack} />
+              <div className="absolute top-4 left-4 flex gap-1.5">
+                <Badge variant="live">LIVE</Badge>
+                <Badge className="bg-stage/70 font-semibold text-white">
+                  <Eye className="size-3.5" aria-hidden="true" />
+                  <span className="num">
+                    {formatNumber(card.viewerCount ?? 0)}
+                  </span>
+                  <span>명 시청</span>
+                </Badge>
+                {card.recorded && <RecordedBadge />}
+              </div>
+            </LiveThumbnail>
+          </Link>
+          {canToggleSound && (
+            <button
+              type="button"
+              onClick={toggleSound}
+              className="absolute right-4 bottom-4 flex items-center gap-1.5 rounded-md bg-stage/70 px-3 py-2 text-label font-semibold text-white hover:bg-stage/90"
+            >
+              {soundOn ? (
+                <Volume2 className="size-4" aria-hidden="true" />
+              ) : (
+                <VolumeX className="size-4" aria-hidden="true" />
+              )}
+              {soundOn ? "소리 끄기" : "소리 켜기"}
+            </button>
+          )}
+          {soundOn && preview.audioTrack && (
+            <TrackAudio track={preview.audioTrack} muted={false} />
+          )}
+        </div>
         <div className="flex min-w-[320px] flex-1 flex-col gap-4 p-6">
           <div className="flex items-center gap-3">
             <SellerAvatar name={seller} size="md" live />

@@ -8,24 +8,37 @@ import { cn } from '@/lib/cn';
 import { formatDateTime, formatNumber, formatRemaining } from '@/lib/format';
 import { LIVE_STREAM_STATUS_LABEL } from '@/lib/labels';
 import { useNow } from '@/lib/use-now';
+import { useHoverIntent } from '@/lib/use-hover-intent';
 import { Hashtags } from './Hashtags';
+import { PreviewVideo } from './PreviewVideo';
 import { RecordedBadge } from './RecordedBadge';
+import { useStreamPreview } from './use-live-preview';
 import { PowerSellerBadge } from '@/components/donation/PowerSellerBadge';
 
 type Card = Schema<'LiveStreamCard'>;
 
 /**
- * 방송 카드 (홈, 방송 목록). 누르면 방송 시청 화면으로 간다.
+ * 방송 카드 (홈, 방송 목록). 누르면 방송 시청 화면으로 간다. 방송 중이면 마우스를 올려 두는 동안 미리보기 영상을 보여 준다.
  * 썸네일 위에 LIVE·시청자 수·방송 시간을 겹쳐 보여 주고, 아래에 판매자 프로필·제목·해시태그를 둔다.
  * 방송 썸네일은 아직 API에 없어 판매자 이름 첫 글자를 크게 그린다.
  */
 export function LiveStreamCard({ card, showIncrease = false }: { card: Card; showIncrease?: boolean }) {
   const isLive = card.status === 'LIVE';
   const seller = card.sellerNickname || '판매자';
+  // 방송 중인 카드에 마우스를 잠시 올려 두면 썸네일 자리에서 소리 없이 미리 보여 준다. (치지직처럼) 떠나면 바로 끊는다.
+  const { hovered, onMouseEnter, onMouseLeave } = useHoverIntent();
+  const { videoTrack } = useStreamPreview(card.liveStreamId ?? 0, isLive && card.liveStreamId !== undefined && hovered);
 
   return (
-    <Link to={`/lives/${card.liveStreamId}`} state={{ sellerNickname: card.sellerNickname }} className="group flex min-w-0 flex-col gap-3 rounded-lg">
+    <Link
+      to={`/lives/${card.liveStreamId}`}
+      state={{ sellerNickname: card.sellerNickname }}
+      className="group flex min-w-0 flex-col gap-3 rounded-lg"
+      onMouseEnter={isLive ? onMouseEnter : undefined}
+      onMouseLeave={onMouseLeave}
+    >
       <LiveThumbnail name={seller} className="transition-shadow group-hover:ring-2 group-hover:ring-brand-500 group-hover:ring-offset-2 group-hover:ring-offset-neutral-25">
+        <PreviewVideo track={videoTrack} />
         <div className="absolute top-2.5 left-2.5 flex gap-1.5">
           {isLive ? (
             <Badge variant="live">LIVE</Badge>

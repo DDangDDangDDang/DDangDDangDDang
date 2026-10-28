@@ -40,7 +40,9 @@ public class SecurityConfig {
             // 포트원 결제 웹훅. 토큰 대신 웹훅 서명으로 검증한다.
             "/api/v1/points/charges/webhook",
             // 방송 시청 입장. 로그인하지 않으면 손님으로 입장한다. (LiveStreamService.joinAsGuest)
-            "/api/v1/live-streams/{liveStreamId}/join"
+            "/api/v1/live-streams/{liveStreamId}/join",
+            // 홈 방송 카드 미리보기. 숨은 참가자로 입장해 시청자 수에 들어가지 않는다. (LiveStreamService.preview)
+            "/api/v1/live-streams/{liveStreamId}/preview"
     };
 
     /**
