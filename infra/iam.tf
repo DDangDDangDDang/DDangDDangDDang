@@ -39,7 +39,7 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
 }
 
 # ---------- 작업 역할: 실행 중인 앱이 AWS API를 부를 때 쓴다 ----------
-# 지금 앱은 AWS API를 쓰지 않으므로 ECS Exec(컨테이너 접속)에 필요한 권한만 준다.
+# ECS Exec(컨테이너 접속) 권한. 업로드 버킷 권한은 storage.tf에서 붙인다.
 
 resource "aws_iam_role" "ecs_task" {
   count              = var.ecs_enabled ? 1 : 0
