@@ -36,9 +36,6 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # 임시: 리뷰가 2초 만에 is_error로 끝나는 원인을 보려고 Claude 출력을 실행 로그에 남긴다. 원인을 확인하면 지운다.
-          # (공개 저장소라 로그도 공개된다. 시크릿은 GitHub가 ***로 가린다)
-          show_full_output: true
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
           plugins: "code-review@claude-code-plugins"
           # --comment: 지적을 PR의 해당 줄에 댓글로 남긴다. 없으면 실행 로그에만 남는다.
