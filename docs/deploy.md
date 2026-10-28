@@ -137,7 +137,7 @@ DNS가 연결된 뒤 첫 배포를 하면 Caddy가 Let's Encrypt 인증서를 �
 | `PORTONE_API_SECRET` / `PORTONE_WEBHOOK_SECRET` | 포트원 콘솔 | 결제 사용 시 |
 | `MAIL_USERNAME` / `MAIL_APP_PASSWORD` | Gmail 주소 / 앱 비밀번호 | `MAIL_ENABLED=true`일 때 |
 | `SOLAPI_API_KEY` / `SOLAPI_API_SECRET` / `SOLAPI_SENDER` | SOLAPI 콘솔 / 등록한 발신번호 | `SMS_ENABLED=true`일 때 |
-| `ANTHROPIC_API_KEY` | Claude API 키 | `CHAT_MODERATION_AI_ENABLED=true`일 때 |
+| `ANTHROPIC_API_KEY` | Claude API 키 (Claude Console → API Keys). 채팅·선물 한마디·1:1 메시지 AI 검토에 씀. 비어 있으면 AI 검토만 꺼지고 서버는 뜸. dev는 기본으로 AI 검토가 켜져 있으니(`dev_app_environment`) `ddang-dev/app`에 넣으면 바로 동작 | `CHAT_MODERATION_AI_ENABLED=true`일 때 |
 | `WEB_PUSH_PUBLIC_KEY` / `WEB_PUSH_PRIVATE_KEY` | 브라우저 알림(웹 푸시) VAPID 키. `npx web-push generate-vapid-keys`의 Public Key / Private Key. 한 번 정하면 바꾸지 않음 (바꾸면 모든 회원이 다시 구독해야 함) | ✅ |
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET` | 카카오디벨로퍼스 → [앱] → [플랫폼 키] → REST API 키 / 그 키의 클라이언트 시크릿 | 카카오 로그인 사용 시 |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud 콘솔 → OAuth 클라이언트(웹 애플리케이션) | 구글 로그인 사용 시 |

@@ -290,7 +290,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
 
         <aside aria-label="경매 현황과 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
           <LiveAuctionStatus auctions={liveAuctions} />
-          <ModerationPanel alerts={alerts} onDismiss={dismissAlert} />
+          <ModerationPanel liveStream={liveStream} alerts={alerts} onDismiss={dismissAlert} onSaved={onChange} />
           <ChatNoticeEditor liveStream={liveStream} onSaved={onChange} />
           <LiveChat
             messages={chat.messages}
@@ -300,6 +300,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             status={chat.status}
             error={chat.error}
             flaggedIds={flaggedIds}
+            showHiddenContent
             onSend={chat.send}
           />
         </aside>

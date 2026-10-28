@@ -81,6 +81,12 @@ public class LiveStream extends BaseTimeEntity {
     @Column(nullable = false)
     private boolean recorded;
 
+    // 채팅 AI 검토 결과를 어떻게 처리할지 (ChatModerationMode). 이미 있는 방송과 SQL로 직접 넣는 행은 알림만(ALERT)으로 본다.
+    @Enumerated(EnumType.STRING)
+    @ColumnDefault("'ALERT'")
+    @Column(name = "chat_moderation_mode", nullable = false, length = 20)
+    private ChatModerationMode chatModerationMode = ChatModerationMode.ALERT;
+
     // LiveKit 방 이름. 외부에 노출되므로 순번 ID 대신 UUID 사용
     @Column(name = "room_name", nullable = false, unique = true, length = 64)
     private String roomName;
@@ -213,6 +219,19 @@ public class LiveStream extends BaseTimeEntity {
             return false;
         }
         this.recorded = recorded;
+        return true;
+    }
+
+    /**
+     * 채팅 AI 검토 처리 방식을 바꾼다. 방송 정보 수정(update)으로 주인·종료 여부를 확인한 뒤 호출한다.
+     *
+     * @return 실제로 바뀌었으면 true
+     */
+    public boolean changeChatModerationMode(ChatModerationMode mode) {
+        if (this.chatModerationMode == mode) {
+            return false;
+        }
+        this.chatModerationMode = mode;
         return true;
     }
 

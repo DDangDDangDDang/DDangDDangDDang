@@ -150,6 +150,9 @@ public class LiveStreamService {
         if (request.recorded() != null) {
             changed = liveStream.changeRecorded(request.recorded()) || changed;
         }
+        if (request.chatModerationMode() != null) {
+            changed = liveStream.changeChatModerationMode(request.chatModerationMode()) || changed;
+        }
         if (!changed) {
             return LiveStreamResponse.from(liveStream);
         }

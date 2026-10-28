@@ -2379,6 +2379,60 @@
         }
       }
     },
+    "/api/v1/live-streams/{liveStreamId}/chat/messages/{messageId}/restore" : {
+      "post" : {
+        "tags" : [ "live-chat-moderation-controller" ],
+        "operationId" : "liveChatModerationRestore",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "messageId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/dm/rooms" : {
       "get" : {
         "tags" : [ "direct-message-controller" ],
@@ -6502,6 +6556,126 @@
         }
       }
     },
+    "/api/v1/admin/dm/moderation-flags" : {
+      "get" : {
+        "tags" : [ "admin-dm-moderation-controller" ],
+        "operationId" : "adminDmModerationGetFlags",
+        "parameters" : [ {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseDmModerationFlagResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/dm/moderation-flags/{flagId}/messages" : {
+      "get" : {
+        "tags" : [ "admin-dm-moderation-controller" ],
+        "operationId" : "adminDmModerationGetFlaggedRoomMessages",
+        "parameters" : [ {
+          "name" : "flagId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseDmMessageResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live-streams/{liveStreamId}/featured-auction/{auctionId}" : {
       "delete" : {
         "tags" : [ "live-stream-controller" ],
@@ -7044,6 +7218,10 @@
           },
           "recorded" : {
             "type" : "boolean"
+          },
+          "chatModerationMode" : {
+            "type" : "string",
+            "enum" : [ "OFF", "ALERT", "AUTO_HIDE" ]
           },
           "status" : {
             "type" : "string",
@@ -9118,6 +9296,10 @@
           },
           "recorded" : {
             "type" : "boolean"
+          },
+          "chatModerationMode" : {
+            "type" : "string",
+            "enum" : [ "OFF", "ALERT", "AUTO_HIDE" ]
           }
         }
       },
@@ -10594,6 +10776,76 @@
           }
         }
       },
+      "ApiResponseCursorResponseDmModerationFlagResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseDmModerationFlagResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CursorResponseDmModerationFlagResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DmModerationFlagResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "DmModerationFlagResponse" : {
+        "type" : "object",
+        "properties" : {
+          "flagId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "roomId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "messageId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "senderId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "category" : {
+            "type" : "string",
+            "enum" : [ "EXTERNAL_TRADE", "SCAM", "HARASSMENT", "HATE", "SEXUAL", "SPAM", "PERSONAL_INFO" ]
+          },
+          "categoryLabel" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "content" : {
+            "type" : "string"
+          },
+          "flaggedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "ApiErrorResponse" : {
         "type" : "object",
         "description" : "실패 응답. error.code로 원인을 구분한다. (x-error-codes 참고)",
@@ -10842,6 +11094,10 @@
     "status" : 404,
     "message" : "신고를 찾을 수 없습니다."
   }, {
+    "code" : "DM_014",
+    "status" : 404,
+    "message" : "AI 검토 기록을 찾을 수 없습니다."
+  }, {
     "code" : "DONATION_001",
     "status" : 400,
     "message" : "선물할 수 없는 마일리지입니다."
@@ -10889,6 +11145,14 @@
     "code" : "LIVECHAT_003",
     "status" : 400,
     "message" : "보낼 수 없는 내용이 포함되어 있습니다."
+  }, {
+    "code" : "LIVECHAT_004",
+    "status" : 400,
+    "message" : "같은 내용을 짧은 시간에 반복해서 보낼 수 없습니다."
+  }, {
+    "code" : "LIVECHAT_005",
+    "status" : 403,
+    "message" : "내 방송의 채팅만 관리할 수 있습니다."
   }, {
     "code" : "LIVESTREAM_001",
     "status" : 404,

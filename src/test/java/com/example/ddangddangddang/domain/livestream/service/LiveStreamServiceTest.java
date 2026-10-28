@@ -12,6 +12,7 @@ import com.example.ddangddangddang.domain.livestream.dto.OverlayLayoutRequest;
 import com.example.ddangddangddang.domain.livestream.dto.OverlayPosition;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamUpdatedEvent;
+import com.example.ddangddangddang.domain.livestream.entity.ChatModerationMode;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
@@ -271,6 +272,24 @@ class LiveStreamServiceTest {
                     new LiveStreamUpdateRequest(null, null, null, null, null, false));
             assertThat(camera.recorded()).isFalse();
             then(eventPublisher).should(org.mockito.Mockito.times(3)).publishEvent(any(LiveStreamUpdatedEvent.class));
+        }
+
+        @Test
+        @DisplayName("채팅 AI 검토 방식은 기본 알림(ALERT)이고, 보내면 바꾸며 같은 값이면 알리지 않는다")
+        void chatModerationMode() {
+            LiveStream liveStream = liveStream(true);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+            assertThat(LiveStreamResponse.from(liveStream).chatModerationMode()).isEqualTo(ChatModerationMode.ALERT);
+
+            LiveStreamResponse autoHide = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest(null, null, null, null, null, null, ChatModerationMode.AUTO_HIDE));
+            assertThat(autoHide.chatModerationMode()).isEqualTo(ChatModerationMode.AUTO_HIDE);
+
+            liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
+                    new LiveStreamUpdateRequest(null, null, null, null, null, null, ChatModerationMode.AUTO_HIDE));
+            LiveStreamResponse kept = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID, new LiveStreamUpdateRequest("새 제목", null));
+            assertThat(kept.chatModerationMode()).isEqualTo(ChatModerationMode.AUTO_HIDE);
+            then(eventPublisher).should(org.mockito.Mockito.times(2)).publishEvent(any(LiveStreamUpdatedEvent.class));
         }
 
         @Test

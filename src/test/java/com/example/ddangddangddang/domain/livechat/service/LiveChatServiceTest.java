@@ -6,10 +6,14 @@ import com.example.ddangddangddang.domain.livechat.exception.LiveChatErrorCode;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatModerationQueue;
 import com.example.ddangddangddang.domain.livechat.repository.ChatRateLimitRepository;
+import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
+import com.example.ddangddangddang.domain.livestream.entity.ChatModerationMode;
+import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.domain.user.entity.UserRole;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import com.example.ddangddangddang.global.security.AuthUser;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
 import com.example.ddangddangddang.domain.user.entity.NicknameBadge;
@@ -24,6 +28,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,6 +47,7 @@ import static org.mockito.Mockito.never;
 class LiveChatServiceTest {
 
     private static final Long LIVE_STREAM_ID = 10L;
+    private static final Long SELLER_ID = 99L;
     private static final AuthUser SENDER = new AuthUser(1L, "user1@test.com", "회원1", UserRole.USER);
 
     @InjectMocks
@@ -179,6 +187,77 @@ class LiveChatServiceTest {
                 .isEqualTo(LiveStreamErrorCode.NOT_LIVE);
 
         then(stompBroadcaster).should(never()).broadcast(anyString(), any());
+    }
+
+    @Test
+    @DisplayName("같은 내용을 연달아 2번 넘게 보내면 LIVECHAT_004, 띄어쓰기·대소문자만 다른 문장도 같은 내용으로 센다")
+    void repeatedMessage() {
+        given(chatRateLimitRepository.increment(SENDER.id(), LiveChatService.RATE_LIMIT_WINDOW)).willReturn(1L);
+        given(chatRateLimitRepository.countRepeated(SENDER.id(), "ㅋㅋㅋㅋok", LiveChatService.REPEAT_WINDOW))
+                .willReturn(LiveChatService.MAX_REPEATED_MESSAGES + 1L);
+
+        // 탭·줄바꿈도 띄어쓰기로 보고 지운다.
+        assertThatThrownBy(() -> liveChatService.send(LIVE_STREAM_ID, SENDER, "ㅋㅋ\tㅋㅋ\n OK"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(LiveChatErrorCode.REPEATED_MESSAGE);
+
+        then(liveStreamService).should(never()).validateLive(any());
+        then(stompBroadcaster).should(never()).broadcast(anyString(), any());
+    }
+
+    @Test
+    @DisplayName("선물 안내는 방송 채팅 토픽으로 보내고, 한마디를 AI 검토 대기열에 넣는다")
+    void sendDonationMessage() {
+        liveChatService.sendDonationMessage(LIVE_STREAM_ID, 1L, "회원1", 1000, "응원해요");
+
+        ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
+        then(stompBroadcaster).should().broadcast(eq("/topic/live-streams/10/chat"), captor.capture());
+        assertThat(captor.getValue().type()).isEqualTo(ChatMessageType.DONATION);
+        then(chatModerationQueue).should().enqueue(captor.getValue());
+    }
+
+    @Test
+    @DisplayName("판매자가 가려진 메시지를 되돌리면 시청자에게 MESSAGE_RESTORED를 보낸다")
+    void restoreHiddenMessage() {
+        given(liveStreamService.get(LIVE_STREAM_ID)).willReturn(liveStream(SELLER_ID));
+        String messageId = UUID.randomUUID().toString();
+
+        liveChatService.restoreHiddenMessage(LIVE_STREAM_ID, SELLER_ID, messageId);
+
+        ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
+        then(stompBroadcaster).should().broadcast(eq("/topic/live-streams/10/chat"), captor.capture());
+        assertThat(captor.getValue().type()).isEqualTo(ChatMessageType.MESSAGE_RESTORED);
+        assertThat(captor.getValue().targetMessageId()).isEqualTo(messageId);
+    }
+
+    @Test
+    @DisplayName("다른 판매자의 방송이면 LIVECHAT_005, 되돌림을 보내지 않는다")
+    void restoreNotOwner() {
+        given(liveStreamService.get(LIVE_STREAM_ID)).willReturn(liveStream(SELLER_ID));
+
+        assertThatThrownBy(() -> liveChatService.restoreHiddenMessage(LIVE_STREAM_ID, 999L, UUID.randomUUID().toString()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(LiveChatErrorCode.NOT_STREAM_OWNER);
+
+        then(stompBroadcaster).should(never()).broadcast(anyString(), any());
+    }
+
+    @Test
+    @DisplayName("메시지 ID가 UUID 형식이 아니면 COMMON_001, 방송을 조회하지 않는다")
+    void restoreInvalidMessageId() {
+        assertThatThrownBy(() -> liveChatService.restoreHiddenMessage(LIVE_STREAM_ID, SELLER_ID, "<script>"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(CommonErrorCode.INVALID_INPUT);
+
+        then(liveStreamService).should(never()).get(any());
+    }
+
+    private LiveStreamResponse liveStream(Long sellerId) {
+        return new LiveStreamResponse(LIVE_STREAM_ID, sellerId, "테스트 방송", null, List.of(), null, List.of(), null, false,
+                ChatModerationMode.AUTO_HIDE, LiveStreamStatus.LIVE, LocalDateTime.now(), null, LocalDateTime.now(), null);
     }
 
     @Test

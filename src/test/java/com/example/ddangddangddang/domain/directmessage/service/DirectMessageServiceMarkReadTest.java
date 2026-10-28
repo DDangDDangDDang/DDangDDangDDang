@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import com.example.ddangddangddang.domain.directmessage.repository.DmBlockRepository;
 import com.example.ddangddangddang.domain.directmessage.repository.DmMessageRepository;
 import com.example.ddangddangddang.domain.directmessage.repository.DmRateLimitRepository;
+import com.example.ddangddangddang.domain.directmessage.moderation.DmModerationQueue;
 import com.example.ddangddangddang.domain.directmessage.repository.DmRoomRepository;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
@@ -63,12 +64,15 @@ class DirectMessageServiceMarkReadTest {
     @Mock
     private SellerVerification sellerVerification;
 
+    @Mock
+    private DmModerationQueue dmModerationQueue;
+
     private DirectMessageService service;
 
     @BeforeEach
     void setUp() {
         service = new DirectMessageService(dmRoomRepository, dmMessageRepository, dmBlockRepository,
-                dmRateLimitRepository, userRepository, contentFilter, stompBroadcaster, transactionTemplate, sellerVerification);
+                dmRateLimitRepository, userRepository, contentFilter, stompBroadcaster, transactionTemplate, sellerVerification, dmModerationQueue);
         // 트랜잭션 없이 콜백만 실행한다.
         given(transactionTemplate.execute(any())).willAnswer(invocation ->
                 invocation.<TransactionCallback<?>>getArgument(0).doInTransaction(null));

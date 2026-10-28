@@ -2,7 +2,7 @@ import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, api, call, errorMessage, useSession, type ChatMessage, type ModerationAlert } from '@/api';
 import { readBroadcastOwner, writeBroadcastOwner } from '@/lib/broadcast-owner';
-import { appendChatMessage, prependModerationAlert } from '@/lib/live-room';
+import { applyChatMessage, prependModerationAlert } from '@/lib/live-room';
 import { useLiveRealtime } from '@/lib/use-live-realtime';
 import { ACTIVE_STREAM_KEY, BroadcastContext, START_STREAM_KEY, type ActiveLiveStream, type Broadcast, type VideoSource } from './broadcast-context';
 import { useLocalMedia } from './use-local-media';
@@ -131,7 +131,7 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   const realtimeStreamId = liveStreamId !== undefined && (ownerId === liveStreamId || studioOpen) ? liveStreamId : graceStreamId;
   const realtime = useLiveRealtime(realtimeStreamId, {
     onChat: (message) => {
-      setMessages((list) => appendChatMessage(list, message));
+      setMessages((list) => applyChatMessage(list, message));
       if (message.type === 'CHAT' && !studioOpenRef.current) setUnseen((prev) => ({ ...prev, chats: prev.chats + 1 }));
       // 서버 안내(방송 시작·종료 등)가 오면 방송 상태가 바뀌었을 수 있으므로 다시 불러온다.
       if (message.type === 'SYSTEM') reload();

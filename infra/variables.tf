@@ -241,12 +241,12 @@ variable "dev_livekit_url" {
 }
 
 variable "dev_app_environment" {
-  description = "dev 사이트의 비밀이 아닌 추가 환경변수. 문자·메일은 기본으로 끄고 서버 로그로 확인한다."
+  description = "dev 사이트의 비밀이 아닌 추가 환경변수. 문자·메일은 기본으로 끄고 서버 로그로 확인한다. AI 채팅 검토는 dev에서 먼저 켜 본다. (ddang-dev/app의 ANTHROPIC_API_KEY가 비어 있으면 서버가 알아서 끈다)"
   type        = map(string)
   default = {
     MAIL_ENABLED               = "false"
     SMS_ENABLED                = "false"
-    CHAT_MODERATION_AI_ENABLED = "false"
+    CHAT_MODERATION_AI_ENABLED = "true"
   }
 }
 
