@@ -90,7 +90,7 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | `messageId` | string | 메시지 ID (UUID). 검토 알림이 가리키는 메시지를 찾을 때 씀 |
-| `type` | `"CHAT"` \| `"SYSTEM"` \| `"DONATION"` \| `"BID"` \| `"AUCTION_SOLD"` | `SYSTEM`은 서버 안내(방송 시작·종료 등). 이때 `senderId`, `nickname`은 null. `DONATION`은 도네이션 포인트 선물, `BID`는 방송에 올라간 경매의 입찰, `AUCTION_SOLD`는 낙찰 |
+| `type` | `"CHAT"` \| `"SYSTEM"` \| `"DONATION"` \| `"BID"` \| `"AUCTION_SOLD"` \| `"MESSAGE_HIDDEN"` \| `"MESSAGE_RESTORED"` | `SYSTEM`은 서버 안내(방송 시작·종료 등). 이때 `senderId`, `nickname`은 null. `DONATION`은 도네이션 포인트 선물, `BID`는 방송에 올라간 경매의 입찰, `AUCTION_SOLD`는 낙찰. `MESSAGE_HIDDEN`·`MESSAGE_RESTORED`는 아래 "채팅 가림" 참고 |
 | `liveStreamId` | number | |
 | `senderId` | number \| null | `DONATION`이면 선물한 사람, `BID`면 입찰한 사람, `AUCTION_SOLD`면 낙찰받은 사람 |
 | `nickname` | string \| null | `senderId`의 닉네임 |
@@ -100,8 +100,10 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `previousAmount` | number \| null | `BID`에만 있음. 이 입찰 직전의 현재가 (첫 입찰이면 시작가). 오른 비율로 이펙트 크기를 정함 |
 | `auctionId` | number \| null | `BID`·`AUCTION_SOLD`에만 있음 |
 | `productName` | string \| null | `BID`·`AUCTION_SOLD`에만 있음 |
+| `targetMessageId` | string \| null | `MESSAGE_HIDDEN`·`MESSAGE_RESTORED`에만 있음. 가리거나 되돌릴 메시지의 `messageId` |
 
 - `DONATION`은 `POST /api/v1/live-streams/{id}/donations`가 커밋된 뒤에 옵니다. 방송 화면 한쪽에 "`nickname`님이 `amount` P를 선물했어요" 이펙트를 띄우고, 채팅에도 한 줄 남깁니다.
+- **채팅 가림**: 방송 설정 `chatModerationMode`가 `AUTO_HIDE`이고 AI 검토가 명백한 위반이라고 보면, 채팅(또는 선물 한마디)을 보낸 몇 초 뒤 `MESSAGE_HIDDEN`이 옵니다. 새 줄을 붙이지 않고 `targetMessageId` 메시지의 내용을 "가려진 메시지"로 바꿉니다. 판매자가 `POST /api/v1/live-streams/{id}/chat/messages/{messageId}/restore`로 되돌리면 `MESSAGE_RESTORED`가 오고 원래 내용을 다시 보여 줍니다. 채팅은 서버에 저장하지 않으므로 나중에 들어온 시청자에게는 오지 않습니다.
 - `BID`는 방송에 올라간 경매에 입찰이 커밋된 뒤, `AUCTION_SOLD`는 그 경매가 마감 때 낙찰되거나 즉시 구매로 팔린 뒤에 옵니다. 방송 화면에 이펙트를 띄우고 채팅에도 한 줄 남깁니다. (유찰·취소는 오지 않음)
 
 **LiveStreamUpdatedMessage**: `{ "type": "UPDATED", "liveStream": LiveStreamResponse }`
@@ -129,13 +131,18 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 |---|---|---|
 | `liveStreamId` | number | |
 | `messageId` | string | 문제의 채팅 `messageId` |
+| `messageType` | `"CHAT"` \| `"DONATION"` | 채팅인지 선물 한마디인지 |
 | `senderId` | number | |
 | `nickname` | string | |
 | `content` | string | |
 | `category` | `"EXTERNAL_TRADE"` \| `"SCAM"` \| `"HARASSMENT"` \| `"HATE"` \| `"SEXUAL"` \| `"SPAM"` \| `"PERSONAL_INFO"` | |
 | `categoryLabel` | string | 화면에 보여줄 분류 이름 |
 | `reason` | string | 판단 이유 |
+| `autoHidden` | boolean | 방송 설정(`AUTO_HIDE`)에 따라 이미 시청자 화면에서 가렸는지. 가렸으면 판매자가 되돌릴 수 있음 |
 | `detectedAt` | string | |
+
+- AI 검토는 서버에서 켰을 때만(`CHAT_MODERATION_AI_ENABLED=true` + `ANTHROPIC_API_KEY`) 동작하고, 방송 설정 `chatModerationMode`가 `OFF`면 그 방송은 검토하지 않습니다. `ALERT`(기본)는 알림만, `AUTO_HIDE`는 명백한 위반을 가리고 알립니다.
+- 1:1 메시지도 같은 AI가 검토하지만 가리지 않고, 관리자 확인 목록(`GET /api/v1/admin/dm/moderation-flags`)에만 남깁니다.
 
 **LiveStreamIdleMessage**: 방송 중(LIVE)인데 판매자 송출(영상·소리, 카메라·마이크를 모두 끈 상태 포함)이 30분 동안 없으면 서버가 방송을 종료합니다. 송출이 없던 시간은 마지막 송출부터, 한 번도 송출하지 않았으면 방송 시작부터 셉니다. (1분마다 확인)
 

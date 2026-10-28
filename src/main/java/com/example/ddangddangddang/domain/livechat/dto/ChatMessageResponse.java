@@ -10,8 +10,10 @@ import java.util.UUID;
  * BID 메시지는 입찰한 사람(senderId·nickname), 입찰 금액(amount), 직전 현재가(previousAmount, 첫 입찰이면 시작가), 경매(auctionId·productName)를 담는다.
  * AUCTION_SOLD 메시지는 낙찰받은 사람(senderId·nickname), 낙찰가(amount), 경매(auctionId·productName)를 담는다.
  * BID·AUCTION_SOLD의 content는 채팅에 그대로 보여 줄 안내 문장이다.
- * amount는 DONATION·BID·AUCTION_SOLD, previousAmount는 BID, auctionId·productName은 BID·AUCTION_SOLD에만 있다. (나머지는 null)
- * messageId는 메시지를 가리킬 때 쓴다. (판매자 검토 알림 → 해당 메시지 찾기)
+ * MESSAGE_HIDDEN·MESSAGE_RESTORED는 채팅 목록에 새 줄을 더하지 않고, targetMessageId 메시지를 가리거나 되돌린다. (content는 null)
+ * amount는 DONATION·BID·AUCTION_SOLD, previousAmount는 BID, auctionId·productName은 BID·AUCTION_SOLD,
+ * targetMessageId는 MESSAGE_HIDDEN·MESSAGE_RESTORED에만 있다. (나머지는 null)
+ * messageId는 메시지를 가리킬 때 쓴다. (판매자 검토 알림 → 해당 메시지 찾기, 가림·되돌림 대상)
  */
 public record ChatMessageResponse(
         String messageId,
@@ -24,31 +26,40 @@ public record ChatMessageResponse(
         Long amount,
         Long previousAmount,
         Long auctionId,
-        String productName
+        String productName,
+        String targetMessageId
 ) {
     public static ChatMessageResponse chat(Long liveStreamId, Long senderId, String nickname, String content) {
-        return new ChatMessageResponse(newId(), ChatMessageType.CHAT, liveStreamId, senderId, nickname, content, LocalDateTime.now(), null, null, null, null);
+        return new ChatMessageResponse(newId(), ChatMessageType.CHAT, liveStreamId, senderId, nickname, content, LocalDateTime.now(), null, null, null, null, null);
     }
 
     public static ChatMessageResponse system(Long liveStreamId, String content) {
-        return new ChatMessageResponse(newId(), ChatMessageType.SYSTEM, liveStreamId, null, null, content, LocalDateTime.now(), null, null, null, null);
+        return new ChatMessageResponse(newId(), ChatMessageType.SYSTEM, liveStreamId, null, null, content, LocalDateTime.now(), null, null, null, null, null);
     }
 
     public static ChatMessageResponse donation(Long liveStreamId, Long senderId, String nickname, long amount, String message) {
-        return new ChatMessageResponse(newId(), ChatMessageType.DONATION, liveStreamId, senderId, nickname, message, LocalDateTime.now(), amount, null, null, null);
+        return new ChatMessageResponse(newId(), ChatMessageType.DONATION, liveStreamId, senderId, nickname, message, LocalDateTime.now(), amount, null, null, null, null);
     }
 
     public static ChatMessageResponse bid(Long liveStreamId, Long bidderId, String nickname, Long auctionId, String productName,
                                           long amount, long previousAmount) {
         String content = "%s님이 ‘%s’ 상품을 %,dP에 입찰했습니다.".formatted(nickname, productName, amount);
         return new ChatMessageResponse(newId(), ChatMessageType.BID, liveStreamId, bidderId, nickname, content, LocalDateTime.now(),
-                amount, previousAmount, auctionId, productName);
+                amount, previousAmount, auctionId, productName, null);
     }
 
     public static ChatMessageResponse auctionSold(Long liveStreamId, Long winnerId, String nickname, Long auctionId, String productName, long price) {
         String content = "‘%s’ 상품이 %s님에게 %,dP에 낙찰되었습니다.".formatted(productName, nickname, price);
         return new ChatMessageResponse(newId(), ChatMessageType.AUCTION_SOLD, liveStreamId, winnerId, nickname, content, LocalDateTime.now(),
-                price, null, auctionId, productName);
+                price, null, auctionId, productName, null);
+    }
+
+    public static ChatMessageResponse hidden(Long liveStreamId, String targetMessageId) {
+        return new ChatMessageResponse(newId(), ChatMessageType.MESSAGE_HIDDEN, liveStreamId, null, null, null, LocalDateTime.now(), null, null, null, null, targetMessageId);
+    }
+
+    public static ChatMessageResponse restored(Long liveStreamId, String targetMessageId) {
+        return new ChatMessageResponse(newId(), ChatMessageType.MESSAGE_RESTORED, liveStreamId, null, null, null, LocalDateTime.now(), null, null, null, null, targetMessageId);
     }
 
     private static String newId() {

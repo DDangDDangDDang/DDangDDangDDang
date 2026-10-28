@@ -14,6 +14,7 @@ import com.example.ddangddangddang.domain.directmessage.repository.DmMessageRepo
 import com.example.ddangddangddang.domain.directmessage.repository.DmMessageRepository.RoomUnreadCount;
 import com.example.ddangddangddang.domain.directmessage.repository.DmRateLimitRepository;
 import com.example.ddangddangddang.domain.directmessage.repository.DmRoomRepository;
+import com.example.ddangddangddang.domain.directmessage.moderation.DmModerationQueue;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import com.example.ddangddangddang.domain.user.entity.User;
@@ -66,6 +67,7 @@ public class DirectMessageService {
     private final StompBroadcaster stompBroadcaster;
     private final TransactionTemplate transactionTemplate;
     private final SellerVerification sellerVerification;
+    private final DmModerationQueue dmModerationQueue;
 
     /**
      * 상대와의 대화방을 가져온다. 없으면 만든다. 차단한 상대여도 방은 열 수 있다. (이전 대화 보기, 차단 해제)
@@ -200,6 +202,8 @@ public class DirectMessageService {
             deliver(otherUserId, read);
             deliver(userId, read);
         }
+        // 규칙 검사를 통과한 애매한 내용은 AI가 따로 검토해 관리자 확인 목록에 남긴다. (AI를 끈 상태면 아무것도 하지 않음)
+        dmModerationQueue.enqueue(response);
         return response;
     }
 

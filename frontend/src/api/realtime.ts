@@ -24,10 +24,11 @@ import { getAccessToken } from './session';
  * BID는 방송에 올라간 경매의 입찰: 입찰자(senderId·nickname), 입찰 금액(amount), 직전 현재가(previousAmount), 경매(auctionId·productName)
  * AUCTION_SOLD는 낙찰: 낙찰자(senderId·nickname), 낙찰가(amount), 경매(auctionId·productName)
  * BID·AUCTION_SOLD의 content는 채팅에 그대로 보여 줄 안내 문장이다.
+ * MESSAGE_HIDDEN·MESSAGE_RESTORED는 새 줄이 아니라, targetMessageId 채팅(또는 선물 한마디)을 AI 검토로 가리거나 판매자가 되돌린 것이다.
  */
 export type ChatMessage = {
   messageId: string;
-  type: 'CHAT' | 'SYSTEM' | 'DONATION' | 'BID' | 'AUCTION_SOLD';
+  type: 'CHAT' | 'SYSTEM' | 'DONATION' | 'BID' | 'AUCTION_SOLD' | 'MESSAGE_HIDDEN' | 'MESSAGE_RESTORED';
   liveStreamId: number;
   senderId: number | null;
   nickname: string | null;
@@ -40,6 +41,10 @@ export type ChatMessage = {
   /** BID·AUCTION_SOLD에만 있다 */
   auctionId?: number | null;
   productName?: string | null;
+  /** MESSAGE_HIDDEN·MESSAGE_RESTORED에만 있다 */
+  targetMessageId?: string | null;
+  /** 서버가 보내지 않는 화면 전용 값: AI 검토로 가려진 메시지인지 (applyChatMessage가 채운다) */
+  hidden?: boolean;
 };
 
 /** 방송 정보 변경 (`/topic/live-streams/{id}`). 바뀐 값만이 아니라 전체 정보 */
@@ -64,11 +69,16 @@ export type AuctionRealtimeMessage =
   | { auctionId: number; bidderNickname: string; amount: number; bidCount: number; endAt: string; extended: boolean }
   | { auctionId: number; result: 'ENDED' | 'FAILED'; finalPrice: number | null; productName: string };
 
-/** AI가 확인이 필요하다고 본 채팅 (`/user/queue/moderation`). 방송 판매자에게만 온다. */
+/**
+ * AI가 확인이 필요하다고 본 채팅·선물 한마디 (`/user/queue/moderation`). 방송 판매자에게만 온다.
+ * autoHidden이면 방송 설정(자동 가림)에 따라 이미 시청자 화면에서 가려졌다. 판매자는 되돌릴 수 있다.
+ */
 export type ModerationAlert = {
   liveStreamId: number;
   /** 문제의 채팅 messageId */
   messageId: string;
+  /** CHAT(채팅) 또는 DONATION(선물 한마디) */
+  messageType: 'CHAT' | 'DONATION';
   senderId: number;
   nickname: string;
   content: string;
@@ -77,6 +87,7 @@ export type ModerationAlert = {
   categoryLabel: string;
   /** 판단 이유 */
   reason: string;
+  autoHidden: boolean;
   detectedAt: string;
 };
 
