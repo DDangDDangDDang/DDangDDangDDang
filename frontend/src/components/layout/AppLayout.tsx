@@ -256,13 +256,13 @@ function DmLink() {
   );
 }
 
-/** 헤더의 도네이션 마일리지 (선물할 수 있는 마일리지). 누르면 도네이션 마일리지 화면으로 간다. 현금 포인트(P)와 헷갈리지 않게 단위는 M */
+/** 헤더의 도네이션 마일리지 (쓸 수 있는 마일리지). 누르면 도네이션 마일리지 화면으로 간다. 현금 포인트(P)와 헷갈리지 않게 단위는 M */
 function DonationPointLink() {
   const wallet = useQuery({
     queryKey: DONATION_WALLET_KEY,
     queryFn: () => call(api.GET("/api/v1/donation-points/wallet")),
   });
-  const balance = wallet.data?.giftableBalance ?? 0;
+  const balance = wallet.data?.balance ?? 0;
 
   return (
     <Link

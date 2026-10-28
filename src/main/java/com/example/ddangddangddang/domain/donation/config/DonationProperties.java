@@ -10,17 +10,17 @@ import java.time.Duration;
  * (DonationPolicies.current) 모든 값에 기본값이 있어 application.yml에 적지 않아도 동작한다.
  *
  * <pre>
- * donation.earn-rate-percent              구매 확정 시 낙찰가의 몇 %를 적립할지. 기본 1 (%)
+ * donation.earn-rate-percent              구매 확정 시 낙찰가의 몇 %를 구매자·판매자에게 각각 적립할지. 기본 1 (%)
  * donation.max-earn-per-order             주문 한 건으로 적립할 수 있는 최대 포인트. 기본 1,000
- * donation.monthly-earn-limit             한 달(1일~말일)에 적립할 수 있는 최대 포인트. 기본 10,000
- * donation.point-valid-for                적립한 포인트의 유효기간. 기본 90일
+ * donation.monthly-earn-limit             한 달(1일~말일)에 적립할 수 있는 최대 포인트 (구매 적립·판매 적립 각각). 기본 10,000
+ * donation.point-valid-for                적립·선물받은 포인트의 유효기간. 기본 90일
  * donation.expiring-notice-before         유효기간이 이만큼 남으면 곧 사라진다고 알린다. 기본 7일
  * donation.min-gift                       한 번에 선물할 수 있는 최소 포인트. 기본 100
  * donation.gift-unit                      선물 단위 (이 단위로만 선물). 기본 100
  * donation.max-gift                       한 번에 선물할 수 있는 최대 포인트. 기본 5,000
  * donation.monthly-gift-limit-per-seller  한 계정이 판매자 한 명에게 한 달에 선물할 수 있는 최대 포인트. 기본 5,000
  * donation.trust-window                   판매자 프로필의 "응원" 지표를 세는 기간. 기본 90일
- * donation.power-seller-price             파워 판매자 가격 (받은 포인트). 기본 30,000
+ * donation.power-seller-price             파워 판매자 가격 (마일리지). 기본 30,000
  * donation.power-seller-period            파워 판매자 기간. 기본 30일
  * donation.promoted-live-slots            라이브 목록 맨 위에 올리는 파워 판매자 방송 수. 기본 4
  * </pre>

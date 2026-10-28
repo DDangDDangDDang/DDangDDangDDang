@@ -7,7 +7,7 @@ import { DonationDialog } from './DonationDialog';
 
 type Request = { path: string; method: 'GET' | 'POST'; init?: { body?: { amount?: number; message?: string; requestKey?: string } } };
 
-// 선물할 수 있는 마일리지 2,000M, 이 판매자에게 이번 달 남은 한도 1,000M
+// 내 마일리지 2,000M, 이 판매자에게 이번 달 남은 한도 1,000M
 const state = vi.hoisted(() => ({ giftFails: false, posts: [] as { amount?: number; message?: string; requestKey?: string }[] }));
 vi.mock('@/api', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/api')>();
@@ -21,11 +21,11 @@ vi.mock('@/api', async (importOriginal) => {
       if (r.method === 'POST') {
         state.posts.push({ ...r.init?.body });
         if (state.giftFails) throw new original.ApiError('DONATION_003', '이 판매자에게 이번 달 선물할 수 있는 마일리지는 0M 남았습니다.', 400);
-        return { donationId: 1, amount: r.init?.body?.amount, giftableBalance: 1_500, remainingThisMonth: 500 };
+        return { donationId: 1, amount: r.init?.body?.amount, balance: 1_500, remainingThisMonth: 500 };
       }
       return {
         sellerId: 2,
-        giftableBalance: 2_000,
+        balance: 2_000,
         monthlyLimit: 5_000,
         givenThisMonth: 4_000,
         remainingThisMonth: 1_000,

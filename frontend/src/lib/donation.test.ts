@@ -3,7 +3,7 @@ import { giftPresets, validateGift, type DonationStatus } from './donation';
 
 const status: DonationStatus = {
   sellerId: 2,
-  giftableBalance: 2_000,
+  balance: 2_000,
   monthlyLimit: 5_000,
   givenThisMonth: 4_000,
   remainingThisMonth: 1_000,
@@ -18,7 +18,7 @@ describe('donation', () => {
     expect(validateGift(150, status)).toBe('100 M부터 5,000 M까지 100 M 단위로 선물할 수 있어요.');
     expect(validateGift(5_100, status)).toContain('단위로 선물할 수 있어요');
     expect(validateGift(1_500, status)).toBe('이 판매자에게는 이번 달 1,000 M까지 더 선물할 수 있어요.');
-    expect(validateGift(1_000, { ...status, giftableBalance: 500 })).toBe('선물할 마일리지가 부족해요. 구매를 확정하면 도네이션 마일리지가 쌓여요.');
+    expect(validateGift(1_000, { ...status, balance: 500 })).toBe('마일리지가 부족해요. 구매·판매를 확정하면 도네이션 마일리지가 쌓여요.');
     expect(validateGift(1_000, status)).toBeUndefined();
   });
 
