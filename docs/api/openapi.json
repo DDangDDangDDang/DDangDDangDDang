@@ -12,6 +12,186 @@
     "bearerAuth" : [ ]
   } ],
   "paths" : {
+    "/api/v1/users/me/profile-image" : {
+      "put" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userChangeProfileImage",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProfileImageChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyInfoResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userDeleteProfileImage",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyInfoResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/phone-number" : {
+      "put" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userChangePhoneNumber",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PhoneNumberChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyInfoResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/email" : {
+      "put" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userChangeEmail",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmailChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyInfoUpdateResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sellers/{sellerId}/subscription" : {
       "put" : {
         "tags" : [ "seller-controller" ],
@@ -77,6 +257,54 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseSubscriptionResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/seller-applications/me/store" : {
+      "put" : {
+        "tags" : [ "seller-application-controller" ],
+        "operationId" : "sellerApplicationUpdateStore",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SellerStoreUpdateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSellerApplicationResponse"
                 }
               }
             }
@@ -598,6 +826,150 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseDonationPolicyResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/profile-image/upload-url" : {
+      "post" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userCreateProfileImageUploadUrl",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProfileImageUploadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProfileImageUploadResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/phone-number/code" : {
+      "post" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userSendPhoneNumberChangeCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PhoneCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCodeSentResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/email/code" : {
+      "post" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userSendEmailChangeCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmailChangeCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCodeSentResponse"
                 }
               }
             }
@@ -6006,14 +6378,24 @@
   },
   "components" : {
     "schemas" : {
-      "ApiResponseSubscriptionResponse" : {
+      "ProfileImageChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "imageKey" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "imageKey" ]
+      },
+      "ApiResponseMyInfoResponse" : {
         "type" : "object",
         "properties" : {
           "success" : {
             "type" : "boolean"
           },
           "data" : {
-            "$ref" : "#/components/schemas/SubscriptionResponse"
+            "$ref" : "#/components/schemas/MyInfoResponse"
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
@@ -6030,6 +6412,118 @@
           }
         }
       },
+      "MyInfoResponse" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "phoneNumber" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "USER", "ADMIN" ]
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "nicknameChangeAvailableAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "bio" : {
+            "type" : "string"
+          },
+          "profileImageUrl" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PhoneNumberChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "phoneNumber" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^01[016789]\\d{7,8}$"
+          },
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^\\d{6}$"
+          }
+        },
+        "required" : [ "code", "phoneNumber" ]
+      },
+      "EmailChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^\\d{6}$"
+          }
+        },
+        "required" : [ "code", "email" ]
+      },
+      "ApiResponseMyInfoUpdateResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/MyInfoUpdateResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "MyInfoUpdateResponse" : {
+        "type" : "object",
+        "properties" : {
+          "user" : {
+            "$ref" : "#/components/schemas/MyInfoResponse"
+          },
+          "accessToken" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ApiResponseSubscriptionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SubscriptionResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
       "SubscriptionResponse" : {
         "type" : "object",
         "properties" : {
@@ -6043,6 +6537,79 @@
           "subscriberCount" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "SellerStoreUpdateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "storeName" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "introduction" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "introduction", "storeName" ]
+      },
+      "ApiResponseSellerApplicationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SellerApplicationResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "SellerApplicationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "storeName" : {
+            "type" : "string"
+          },
+          "introduction" : {
+            "type" : "string"
+          },
+          "businessNumber" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "APPROVED", "REJECTED" ]
+          },
+          "rejectReason" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reviewedAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -6445,6 +7012,96 @@
           }
         }
       },
+      "ProfileImageUploadRequest" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "contentLength" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        },
+        "required" : [ "contentLength", "contentType" ]
+      },
+      "ApiResponseProfileImageUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/ProfileImageUploadResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "ProfileImageUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "uploadUrl" : {
+            "type" : "string"
+          },
+          "imageKey" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PhoneCodeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "phoneNumber" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^01[016789]\\d{7,8}$"
+          }
+        },
+        "required" : [ "phoneNumber" ]
+      },
+      "ApiResponseCodeSentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CodeSentResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CodeSentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "EmailChangeCodeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email" ]
+      },
       "SellerPerkPurchaseRequest" : {
         "type" : "object",
         "properties" : {
@@ -6514,63 +7171,6 @@
           }
         },
         "required" : [ "introduction", "storeName" ]
-      },
-      "ApiResponseSellerApplicationResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/SellerApplicationResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "SellerApplicationResponse" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "userId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "nickname" : {
-            "type" : "string"
-          },
-          "email" : {
-            "type" : "string"
-          },
-          "storeName" : {
-            "type" : "string"
-          },
-          "introduction" : {
-            "type" : "string"
-          },
-          "businessNumber" : {
-            "type" : "string"
-          },
-          "status" : {
-            "type" : "string",
-            "enum" : [ "PENDING", "APPROVED", "REJECTED" ]
-          },
-          "rejectReason" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "reviewedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
       },
       "PushSubscriptionRequest" : {
         "type" : "object",
@@ -7564,40 +8164,6 @@
           }
         }
       },
-      "PhoneCodeRequest" : {
-        "type" : "object",
-        "properties" : {
-          "phoneNumber" : {
-            "type" : "string",
-            "minLength" : 1,
-            "pattern" : "^01[016789]\\d{7,8}$"
-          }
-        },
-        "required" : [ "phoneNumber" ]
-      },
-      "ApiResponseCodeSentResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/CodeSentResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "CodeSentResponse" : {
-        "type" : "object",
-        "properties" : {
-          "expiresIn" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
       "ApiResponseLoginResponse" : {
         "type" : "object",
         "properties" : {
@@ -8123,67 +8689,13 @@
           "nickname" : {
             "type" : "string",
             "maxLength" : 10,
-            "minLength" : 2
-          }
-        },
-        "required" : [ "nickname" ]
-      },
-      "ApiResponseMyInfoUpdateResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
+            "minLength" : 2,
+            "pattern" : ".*\\S.*"
           },
-          "data" : {
-            "$ref" : "#/components/schemas/MyInfoUpdateResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "MyInfoResponse" : {
-        "type" : "object",
-        "properties" : {
-          "userId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "email" : {
-            "type" : "string"
-          },
-          "nickname" : {
-            "type" : "string"
-          },
-          "phoneNumber" : {
-            "type" : "string"
-          },
-          "role" : {
+          "bio" : {
             "type" : "string",
-            "enum" : [ "USER", "ADMIN" ]
-          },
-          "createdAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "nicknameChangeAvailableAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
-      "MyInfoUpdateResponse" : {
-        "type" : "object",
-        "properties" : {
-          "user" : {
-            "$ref" : "#/components/schemas/MyInfoResponse"
-          },
-          "accessToken" : {
-            "type" : "string"
-          },
-          "expiresIn" : {
-            "type" : "integer",
-            "format" : "int64"
+            "maxLength" : 150,
+            "minLength" : 0
           }
         }
       },
@@ -8359,20 +8871,6 @@
           },
           "recorded" : {
             "type" : "boolean"
-          }
-        }
-      },
-      "ApiResponseMyInfoResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/MyInfoResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
@@ -8631,6 +9129,12 @@
             "format" : "int64"
           },
           "nickname" : {
+            "type" : "string"
+          },
+          "bio" : {
+            "type" : "string"
+          },
+          "profileImageUrl" : {
             "type" : "string"
           },
           "verifiedSeller" : {
@@ -10451,6 +10955,10 @@
     "status" : 400,
     "message" : "사업자등록번호 10자리를 다시 확인해 주세요."
   }, {
+    "code" : "SELLER_008",
+    "status" : 403,
+    "message" : "판매자 인증을 받은 회원만 상점 정보를 바꿀 수 있습니다."
+  }, {
     "code" : "USER_001",
     "status" : 409,
     "message" : "이미 사용 중인 이메일입니다."
@@ -10470,6 +10978,30 @@
     "code" : "USER_005",
     "status" : 429,
     "message" : "닉네임을 바꾼 뒤 일정 기간이 지나야 다시 바꿀 수 있습니다."
+  }, {
+    "code" : "USER_006",
+    "status" : 400,
+    "message" : "소개에 사용할 수 없는 내용이 포함되어 있습니다."
+  }, {
+    "code" : "USER_007",
+    "status" : 400,
+    "message" : "프로필 이미지는 JPG, PNG, WEBP, GIF만 올릴 수 있습니다."
+  }, {
+    "code" : "USER_008",
+    "status" : 400,
+    "message" : "프로필 이미지는 5MB 이하만 올릴 수 있습니다."
+  }, {
+    "code" : "USER_009",
+    "status" : 400,
+    "message" : "올린 이미지를 찾을 수 없습니다. 다시 올려 주세요."
+  }, {
+    "code" : "USER_010",
+    "status" : 400,
+    "message" : "지금 쓰고 있는 이메일입니다."
+  }, {
+    "code" : "USER_011",
+    "status" : 400,
+    "message" : "지금 쓰고 있는 휴대폰 번호입니다."
   }, {
     "code" : "VERIFY_001",
     "status" : 400,

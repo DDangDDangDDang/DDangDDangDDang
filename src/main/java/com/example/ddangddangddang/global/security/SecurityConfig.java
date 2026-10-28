@@ -88,6 +88,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
                         // API 명세와 Swagger UI. 운영(prod)에서는 springdoc 설정으로 꺼져 있어 404가 된다.
                         .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
+                        // 로컬 저장소(app.storage.type=local)의 업로드·이미지. S3처럼 업로드 URL의 무작위 토큰으로 막는다. (LocalStorageController)
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/local-storage/uploads/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/local-storage/files/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 );

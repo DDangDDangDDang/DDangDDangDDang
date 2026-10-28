@@ -3,6 +3,7 @@ export { api, call } from './client';
 export { ApiError, errorMessage, isErrorCode } from './errors';
 export { login, logout, restoreSession, replaceSession, clearSession, socialLogin, socialSignup, type SocialProviderName } from './auth';
 export { currentPushSubscription, PushSaveBlocked, runPushSave } from './push';
+export { uploadToSignedUrl } from './upload';
 export { useSession, getSession, subscribeSession, type Session, type UserInfo } from './session';
 export type { components, paths, operations } from './generated/schema';
 export type { ErrorCode } from './generated/error-codes';
