@@ -94,5 +94,7 @@ output "team_db_access" {
     dev_instance_id      = join("", aws_instance.dev[*].id)
     dev_db_secret        = join("", aws_secretsmanager_secret.dev_db[*].name)
     developers_iam_group = aws_iam_group.developers.name
+    prod_tunnel_document = aws_ssm_document.db_tunnel_prod.name
+    dev_tunnel_document  = join("", aws_ssm_document.db_tunnel_dev[*].name)
   }
 }

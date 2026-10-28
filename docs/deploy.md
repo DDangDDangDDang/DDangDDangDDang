@@ -368,7 +368,7 @@ DB는 밖에서 바로 붙을 수 없습니다. 운영 RDS는 프라이빗 서�
 ### 준비 (관리자, 한 번)
 
 1. **팀원 IAM 사용자**: `infra/terraform.tfvars`에 `developer_iam_users = ["이름1", "이름2"]` → `terraform apply`. `ddang-developers` 그룹에 들어갑니다.
-   - 그룹 권한은 두 서버로 **포트 포워딩 세션만** 여는 것입니다. 서버 셸 접속은 할 수 없습니다.
+   - 그룹 권한은 두 서버로 **DB 터널 세션만** 여는 것입니다. 터널 대상은 세션 문서(`ddang-db-tunnel-prod`, `ddang-db-tunnel-dev`)에 DB로 고정돼 있어 다른 호스트·포트로는 열 수 없고, 서버 셸 접속도 할 수 없습니다.
    - DB 비밀번호 두 개(`ddang/db-readonly`, `ddang-dev/db`)를 읽을 수 있고, 본인 액세스 키·MFA를 스스로 관리할 수 있습니다.
    - 액세스 키는 IAM 콘솔 → 사용자 → 보안 자격 증명에서 만들어 본인에게 전달합니다. (Terraform으로 만들면 상태 파일에 키가 남습니다)
 2. **운영 읽기 전용 계정 만들기**: 비밀번호는 `terraform apply`가 `ddang/db-readonly`에 만들어 둡니다. MySQL 계정은 운영 서버에서 한 번 만듭니다. 비밀번호는 서버에서 바로 읽어 명령 기록에 남지 않습니다.
@@ -403,12 +403,12 @@ aws secretsmanager get-secret-value --secret-id ddang-dev/db --query SecretStrin
 
 **운영 DB 터널** (창을 켜 둔 동안만 열립니다. 끝나면 Ctrl+C)
 ```bash
-aws ssm start-session --target i-04fc05c14987651e6 --document-name AWS-StartPortForwardingSessionToRemoteHost --parameters host=ddang-mysql.cd0eqomq20jd.ap-northeast-2.rds.amazonaws.com,portNumber=3306,localPortNumber=13306
+aws ssm start-session --target i-04fc05c14987651e6 --document-name ddang-db-tunnel-prod --parameters localPortNumber=13306
 ```
 
 **dev DB 터널**
 ```bash
-aws ssm start-session --target i-0a73afb7c5407ee41 --document-name AWS-StartPortForwardingSession --parameters portNumber=3306,localPortNumber=13307
+aws ssm start-session --target i-0a73afb7c5407ee41 --document-name ddang-db-tunnel-dev --parameters localPortNumber=13307
 ```
 
 macOS 터미널, Git Bash, Windows PowerShell 모두 같은 명령을 한 줄로 씁니다.

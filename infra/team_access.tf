@@ -1,6 +1,7 @@
 # 팀원 DB 접속: 팀원은 SSH·공개 포트 없이 Session Manager 포트 포워딩으로만 DB에 붙는다. (docs/deploy.md "팀원 DB 접속")
-# - 운영: EC2를 거쳐 RDS로 터널(AWS-StartPortForwardingSessionToRemoteHost). 계정은 SELECT만 되는 읽기 전용 계정(ddang_ro).
-# - dev: dev 서버의 MySQL 컨테이너(127.0.0.1:3306에만 열림)로 터널(AWS-StartPortForwardingSession). 계정은 dev 앱 계정.
+# - 운영: EC2를 거쳐 RDS로 터널(ddang-db-tunnel-prod 문서). 계정은 SELECT만 되는 읽기 전용 계정(ddang_ro).
+# - dev: dev 서버의 MySQL 컨테이너(127.0.0.1:3306에만 열림)로 터널(ddang-db-tunnel-dev 문서). 계정은 dev 앱 계정.
+# - 터널 대상은 문서에 고정한다. 팀원은 내 PC 포트만 고른다. (아래 "DB 터널 전용 세션 문서")
 # - 서버 셸 접속(SSM-SessionManagerRunShell)은 주지 않는다. 문서를 고르지 않고 접속하면 셸이 열리므로 문서 지정을 강제한다.
 # - 팀원 IAM 사용자는 developer_iam_users에 이름을 넣으면 만든다. 액세스 키는 각자(또는 관리자가) 콘솔에서 만든다.
 #   (Terraform으로 키를 만들면 상태 파일에 키가 남는다)
@@ -57,15 +58,69 @@ resource "aws_iam_group" "developers" {
   name = "${var.project}-developers"
 }
 
+# ---------- DB 터널 전용 세션 문서 ----------
+# AWS 기본 문서(AWS-StartPortForwardingSession*)는 접속할 호스트·포트를 호출하는 사람이 정한다.
+# 그러면 서버의 메타데이터(169.254.169.254, 인스턴스 역할 자격 증명)나 다른 포트로도 터널을 열 수 있으므로,
+# 대상을 DB로 고정하고 내 PC 포트만 고를 수 있는 문서를 따로 만든다.
+
+locals {
+  local_port_parameter = {
+    localPortNumber = {
+      type           = "String"
+      description    = "내 PC에서 열 포트"
+      allowedPattern = "^([1-9][0-9]{0,4})$"
+      default        = "13306"
+    }
+  }
+}
+
+resource "aws_ssm_document" "db_tunnel_prod" {
+  name            = "${var.project}-db-tunnel-prod"
+  document_type   = "Session"
+  document_format = "JSON"
+  content = jsonencode({
+    schemaVersion = "1.0"
+    description   = "운영 RDS(3306)로 가는 터널. 대상은 고정이고 내 PC 포트만 고른다."
+    sessionType   = "Port"
+    parameters    = local.local_port_parameter
+    properties = {
+      type            = "LocalPortForwarding"
+      host            = aws_db_instance.main.address
+      portNumber      = "3306"
+      localPortNumber = "{{ localPortNumber }}"
+    }
+  })
+}
+
+resource "aws_ssm_document" "db_tunnel_dev" {
+  count           = var.dev_enabled ? 1 : 0
+  name            = "${var.project}-db-tunnel-dev"
+  document_type   = "Session"
+  document_format = "JSON"
+  content = jsonencode({
+    schemaVersion = "1.0"
+    description   = "dev 서버 안 MySQL(127.0.0.1:3306)로 가는 터널. 대상은 고정이고 내 PC 포트만 고른다."
+    sessionType   = "Port"
+    parameters    = merge(local.local_port_parameter, { localPortNumber = merge(local.local_port_parameter.localPortNumber, { default = "13307" }) })
+    properties = {
+      type            = "LocalPortForwarding"
+      portNumber      = "3306"
+      localPortNumber = "{{ localPortNumber }}"
+    }
+  })
+}
+
 data "aws_iam_policy_document" "developers" {
-  # 포트 포워딩 문서로만 세션을 연다. (문서를 지정하지 않으면 셸이 열리므로 SessionDocumentAccessCheck로 막는다)
+  # DB 터널 문서로만 세션을 연다. (문서를 지정하지 않으면 셸이 열리므로 SessionDocumentAccessCheck로 막는다)
+  # 운영 문서를 dev 서버에서 쓰거나 그 반대로 써도 대상이 DB로 고정돼 있어 닿는 곳이 없다.
   statement {
-    sid     = "TunnelToServers"
+    sid     = "TunnelToDatabases"
     actions = ["ssm:StartSession"]
-    resources = concat(local.team_tunnel_instance_arns, [
-      "arn:aws:ssm:${var.region}::document/AWS-StartPortForwardingSessionToRemoteHost",
-      "arn:aws:ssm:${var.region}::document/AWS-StartPortForwardingSession",
-    ])
+    resources = concat(
+      local.team_tunnel_instance_arns,
+      [aws_ssm_document.db_tunnel_prod.arn],
+      [for d in aws_ssm_document.db_tunnel_dev : d.arn],
+    )
     condition {
       test     = "BoolIfExists"
       variable = "ssm:SessionDocumentAccessCheck"
@@ -73,10 +128,10 @@ data "aws_iam_policy_document" "developers" {
     }
   }
 
-  # 내가 연 세션만 끝내거나 다시 이을 수 있다.
+  # 내가 연 세션만 끝내거나 다시 잇고, 그 세션의 데이터 채널을 연다. (Session Manager 플러그인이 터널 데이터를 주고받을 때 필요)
   statement {
     sid       = "ManageOwnSessions"
-    actions   = ["ssm:TerminateSession", "ssm:ResumeSession"]
+    actions   = ["ssm:TerminateSession", "ssm:ResumeSession", "ssmmessages:OpenDataChannel"]
     resources = ["arn:aws:ssm:*:*:session/$${aws:username}-*"]
   }
 
