@@ -16,6 +16,7 @@ public record AuctionListResponse(
         AuctionStatus status,
         LocalDateTime startAt,
         LocalDateTime endAt,
-        boolean live //라이브 경매 여부
+        boolean live, //라이브 경매 여부
+        boolean promoted //경매 위로 올리기(마일리지 상점)로 지금 올라가 있는지. 목록에 '홍보'로 표시
 ) {
 }

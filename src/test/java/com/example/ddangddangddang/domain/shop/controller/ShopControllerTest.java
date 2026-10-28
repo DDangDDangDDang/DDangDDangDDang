@@ -7,6 +7,16 @@ import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
+import com.example.ddangddangddang.domain.auction.entity.Auction;
+import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
+import com.example.ddangddangddang.domain.category.entity.Category;
+import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
+import com.example.ddangddangddang.domain.product.entity.Product;
+import com.example.ddangddangddang.domain.product.repository.ProductRepository;
+import com.example.ddangddangddang.domain.shop.entity.AuctionBoost;
+import com.example.ddangddangddang.domain.shop.repository.AuctionBoostRepository;
+import com.example.ddangddangddang.domain.user.repository.UserRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +28,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 마일리지 상점: 닉네임 변경권 (3,000M), 닉네임 뱃지 (각 5,000M)
+ * 마일리지 상점: 닉네임 변경권 (3,000M), 닉네임 뱃지 (각 5,000M), 경매 위로 올리기 (1,000M, 3시간, 동시 10개, 경매당 한 번)
  * 결제와 닉네임 변경은 한 트랜잭션이라, 변경이 실패하면 마일리지도 빠지지 않는다.
  */
 @SpringBootTest
@@ -59,6 +71,27 @@ class ShopControllerTest {
 
     @MockitoBean
     private VerificationService verificationService;
+
+    @Autowired
+    private CategoryRepository categoryRepository;
+
+    @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private AuctionRepository auctionRepository;
+
+    @Autowired
+    private AuctionBoostRepository boostRepository;
+
+    // 위로 올린 경매가 남아 있으면 다른 테스트의 경매 목록 순서가 바뀌므로 지운다.
+    @AfterEach
+    void clearBoosts() {
+        boostRepository.deleteAllInBatch();
+    }
 
     @Test
     @DisplayName("닉네임 변경권은 변경 제한 기간 중에만 살 수 있고, 사면 바로 닉네임이 바뀌며 30일 제한이 다시 시작된다")
@@ -127,7 +160,7 @@ class ShopControllerTest {
     @DisplayName("닉네임 뱃지는 사면 영구로 가지고 바로 장착된다. 같은 뱃지는 다시 살 수 없고, 가진 뱃지끼리 바꿔 끼거나 뺄 수 있다")
     void badges() throws Exception {
         Member member = signupAndLogin();
-        items(member).andExpect(jsonPath("$.data.length()").value(5))
+        items(member).andExpect(jsonPath("$.data.length()").value(6))
                 .andExpect(jsonPath("$.data[4].item").value("BADGE_STAR"))
                 .andExpect(jsonPath("$.data[4].badge").value("STAR"))
                 .andExpect(jsonPath("$.data[4].price").value(5_000))
@@ -162,6 +195,75 @@ class ShopControllerTest {
         equip(member, "null").andExpect(status().isOk()).andExpect(jsonPath("$.data.equipped").doesNotExist());
         myBadges(member).andExpect(jsonPath("$.data.owned.length()").value(2))
                 .andExpect(jsonPath("$.data.equipped").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("경매 위로 올리기: 내 시작 전·진행 중 경매만, 경매당 한 번. 올리면 3시간 동안 최신순 목록 맨 위에 '홍보'로 보인다")
+    void auctionBoost() throws Exception {
+        Member seller = signupAndLogin();
+        Member other = signupAndLogin();
+        Long boosted = auction(seller, "올릴 경매");
+        Long newer = auction(other, "더 최근 경매");
+        earn(seller, 3_000);
+
+        boost(seller, newer).andExpect(status().isForbidden()).andExpect(jsonPath("$.error.code").value("SHOP_004"));
+        boost(seller, 999_999_999L).andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("AUCTION_001"));
+
+        String response = boost(seller, boosted).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.auctionId").value(boosted))
+                .andReturn().getResponse().getContentAsString();
+        LocalDateTime startsAt = LocalDateTime.parse(JsonPath.read(response, "$.data.startsAt"));
+        LocalDateTime endsAt = LocalDateTime.parse(JsonPath.read(response, "$.data.endsAt"));
+        assertThat(Duration.between(startsAt, endsAt)).isEqualTo(Duration.ofHours(3));
+        // 경매 하나는 한 번만 (마일리지는 빠지지 않음)
+        boost(seller, boosted).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SHOP_002"));
+        wallet(seller.bearer()).andExpect(jsonPath("$.data.balance").value(2_000));
+
+        // 더 늦게 만든 경매보다 위에, '홍보'로 (최신순)
+        mockMvc.perform(get("/api/v1/auctions"))
+                .andExpect(jsonPath("$.data.content[0].auctionId").value(boosted))
+                .andExpect(jsonPath("$.data.content[0].promoted").value(true))
+                .andExpect(jsonPath("$.data.content[1].auctionId").value(newer))
+                .andExpect(jsonPath("$.data.content[1].promoted").value(false));
+    }
+
+    @Test
+    @DisplayName("이미 끝난 경매는 올릴 수 없고, 동시에 10개가 올라가 있으면 자리가 날 때까지 올릴 수 없다 (마일리지는 빠지지 않음)")
+    void auctionBoostRules() throws Exception {
+        Member seller = signupAndLogin();
+        earn(seller, 3_000);
+        Long canceled = auction(seller, "취소한 경매");
+        Auction auction = auctionRepository.findById(canceled).orElseThrow();
+        auction.cancel();
+        auctionRepository.save(auction);
+        boost(seller, canceled).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("SHOP_001"));
+
+        // 다른 판매자들이 이미 10개를 올렸다. (가장 먼저 끝나는 것이 30분 뒤)
+        LocalDateTime now = LocalDateTime.now();
+        for (int i = 0; i < AuctionBoost.MAX_ACTIVE; i++) {
+            boostRepository.save(AuctionBoost.start(-(i + 1L) - System.nanoTime() % 1_000_000, 0L, now.minusMinutes(150 - i)));
+        }
+        items(seller).andExpect(jsonPath("$.data[5].item").value("AUCTION_BOOST"))
+                .andExpect(jsonPath("$.data[5].available").value(false))
+                .andExpect(jsonPath("$.data[5].unavailableReason").value("지금은 위로 올릴 자리가 없어요. 약 30분 뒤에 올릴 수 있어요."));
+        boost(seller, auction(seller, "자리 없는 경매"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SHOP_003"))
+                .andExpect(jsonPath("$.error.message").value("지금은 위로 올릴 자리가 없어요. 약 30분 뒤에 올릴 수 있어요."));
+        wallet(seller.bearer()).andExpect(jsonPath("$.data.balance").value(3_000));
+    }
+
+    private ResultActions boost(Member member, Long auctionId) throws Exception {
+        return mockMvc.perform(post("/api/v1/shop/auction-boosts").header(HttpHeaders.AUTHORIZATION, member.bearer())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"auctionId\": " + auctionId + "}"));
+    }
+
+    /** 시작 전 경매 (내일 시작) */
+    private Long auction(Member seller, String name) {
+        Category parent = categoryRepository.save(new Category(null, "상점" + UUID.randomUUID().toString().substring(0, 6), 1));
+        Category leaf = categoryRepository.save(new Category(parent, "카메라", 1));
+        Product product = productRepository.save(new Product(userRepository.findById(seller.id()).orElseThrow(), leaf, name, "테스트 상품"));
+        LocalDateTime startAt = LocalDateTime.now().plusDays(1).withNano(0);
+        return auctionRepository.save(new Auction(product, null, 10_000L, 1_000L, null, startAt, startAt.plusDays(1))).getId();
     }
 
     private ResultActions buyBadge(Member member, String badge) throws Exception {
