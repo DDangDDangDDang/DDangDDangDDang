@@ -56,6 +56,14 @@ class DmModerationQueueTest {
     }
 
     @Test
+    @DisplayName("AI가 쓴 이유가 길면 컬럼 길이(500자)에 맞게 잘라 저장한다")
+    void truncateLongReason() {
+        DmModerationFlag flag = DmModerationFlag.create(ROOM_ID, 1L, 10L, ModerationCategory.SPAM, "가".repeat(600));
+
+        assertThat(flag.getReason()).hasSize(500);
+    }
+
+    @Test
     @DisplayName("이미 표시된 메시지는 다시 저장하지 않는다")
     void skipAlreadyFlagged() {
         DmModerationQueue queue = queue(new FakeModerator(true, "직거래"), 50, 500);

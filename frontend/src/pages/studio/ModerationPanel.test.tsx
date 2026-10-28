@@ -99,6 +99,9 @@ describe('ModerationPanel', () => {
 
     expect(screen.getByText('선물 한마디')).toBeInTheDocument();
     expect(screen.getByText('자동으로 가렸어요')).toBeInTheDocument();
+    // 되돌리기 전에는 알림을 지울 수 없다. (지우면 되돌릴 방법이 없어짐)
+    const dismiss = screen.getByRole('button', { name: '사진찍는곰님 채팅 알림 확인' });
+    expect(dismiss).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: '사진찍는곰님 메시지 되돌리기' }));
 
     expect(state.requests[0]).toMatchObject({
@@ -107,5 +110,6 @@ describe('ModerationPanel', () => {
       init: { params: { path: { liveStreamId: 1, messageId: 'm-1' } } },
     });
     expect(await screen.findByText('시청자에게 다시 보여요')).toBeInTheDocument();
+    expect(dismiss).toBeEnabled();
   });
 });

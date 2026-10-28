@@ -84,6 +84,8 @@ export function ModerationPanel({ liveStream, alerts, onDismiss, onSaved }: Prop
           ) : (
             alerts.map((alert) => {
               const restored = restoredIds.has(alert.messageId);
+              // 자동으로 가린 알림을 지우면 [되돌리기]도 사라져 잘못 가린 채팅을 되돌릴 수 없으므로, 되돌리기 전까지는 지우지 못하게 한다.
+              const keepForRestore = alert.autoHidden && !restored;
               return (
                 <li key={alert.messageId} className="flex flex-col gap-1.5 rounded-md border border-brand-100 bg-brand-50 px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2">
@@ -96,9 +98,10 @@ export function ModerationPanel({ liveStream, alerts, onDismiss, onSaved }: Prop
                     <button
                       type="button"
                       aria-label={`${alert.nickname || '알 수 없음'}님 채팅 알림 확인`}
-                      title="확인"
+                      title={keepForRestore ? '자동으로 가린 채팅은 되돌릴 수 있도록 목록에 남겨 둬요' : '확인'}
+                      disabled={keepForRestore}
                       onClick={() => onDismiss(alert.messageId)}
-                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-brand-100 hover:text-neutral-900"
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-brand-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                     >
                       <X className="size-4" aria-hidden="true" />
                     </button>

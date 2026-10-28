@@ -40,8 +40,10 @@ public class DmModerationFlag extends BaseTimeEntity {
     @Column(nullable = false, length = 30)
     private ModerationCategory category;
 
-    // AI가 적은 이유 (관리자가 읽는 한 문장)
-    @Column(length = 500)
+    // AI가 적은 이유 (관리자가 읽는 한 문장). 모델이 길게 쓰면 저장이 실패하지 않도록 잘라 둔다.
+    static final int REASON_MAX_LENGTH = 500;
+
+    @Column(length = REASON_MAX_LENGTH)
     private String reason;
 
     private DmModerationFlag(Long roomId, Long messageId, Long senderId, ModerationCategory category, String reason) {
@@ -49,7 +51,7 @@ public class DmModerationFlag extends BaseTimeEntity {
         this.messageId = messageId;
         this.senderId = senderId;
         this.category = category;
-        this.reason = reason;
+        this.reason = reason == null || reason.length() <= REASON_MAX_LENGTH ? reason : reason.substring(0, REASON_MAX_LENGTH);
     }
 
     public static DmModerationFlag create(Long roomId, Long messageId, Long senderId, ModerationCategory category, String reason) {

@@ -35,7 +35,7 @@ public class LiveChatService {
     // 같은 문장 반복 방지: 직전 메시지와 같은 내용은 연달아 2번까지. 마지막으로 보낸 지 30초가 지나면 다시 센다.
     static final int MAX_REPEATED_MESSAGES = 2;
     static final Duration REPEAT_WINDOW = Duration.ofSeconds(30);
-    private static final Pattern WHITESPACE = Pattern.compile("\s+");
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
     private final StompBroadcaster stompBroadcaster;
     private final ChatRateLimitRepository chatRateLimitRepository;

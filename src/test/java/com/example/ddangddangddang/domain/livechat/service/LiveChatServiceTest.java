@@ -196,7 +196,8 @@ class LiveChatServiceTest {
         given(chatRateLimitRepository.countRepeated(SENDER.id(), "ㅋㅋㅋㅋok", LiveChatService.REPEAT_WINDOW))
                 .willReturn(LiveChatService.MAX_REPEATED_MESSAGES + 1L);
 
-        assertThatThrownBy(() -> liveChatService.send(LIVE_STREAM_ID, SENDER, "ㅋㅋ ㅋㅋ OK"))
+        // 탭·줄바꿈도 띄어쓰기로 보고 지운다.
+        assertThatThrownBy(() -> liveChatService.send(LIVE_STREAM_ID, SENDER, "ㅋㅋ\tㅋㅋ\n OK"))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(LiveChatErrorCode.REPEATED_MESSAGE);

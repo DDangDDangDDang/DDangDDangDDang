@@ -11,6 +11,7 @@ import com.anthropic.models.beta.messages.StructuredMessage;
 import com.anthropic.models.beta.messages.StructuredMessageCreateParams;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -73,6 +74,8 @@ public class ClaudeChatModerator implements ChatModerator {
     private final AnthropicClient client;
     private final ChatModerationProperties.Ai settings;
 
+    // 생성자가 둘이라 스프링이 쓸 생성자를 지정한다. (없으면 기본 생성자를 찾다 서버가 뜨지 않음)
+    @Autowired
     public ClaudeChatModerator(ChatModerationProperties properties) {
         this(properties, System.getenv(API_KEY_ENV));
     }

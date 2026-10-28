@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.livechat.moderation.ChatModerator.Mode
 import com.example.ddangddangddang.domain.livechat.moderation.ClaudeChatModerator.ModerationOutput;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import java.time.Duration;
 import java.util.List;
@@ -70,6 +71,16 @@ class ClaudeChatModeratorTest {
         ClaudeChatModerator withKey = new ClaudeChatModerator(properties, "test-key");
         assertThat(withKey.isEnabled()).isTrue();
         withKey.close();
+    }
+
+    @Test
+    @DisplayName("스프링이 공개 생성자로 만들 수 있다 (생성자가 둘이라 지정이 필요)")
+    void createdBySpring() {
+        new ApplicationContextRunner()
+                .withPropertyValues("chat.moderation.ai.enabled=true")
+                .withBean(ChatModerationProperties.class, () -> new ChatModerationProperties(null, null))
+                .withBean(ClaudeChatModerator.class)
+                .run(context -> assertThat(context).hasNotFailed().hasSingleBean(ClaudeChatModerator.class));
     }
 
     @Test
