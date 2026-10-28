@@ -27,7 +27,7 @@ export function Select({ label, hideLabel = false, options, error, id, className
           aria-describedby={error ? `${selectId}-error` : undefined}
           className={cn(
             'h-11 w-full appearance-none rounded-md border border-neutral-400 bg-neutral-0 pr-10 pl-3.5 text-body text-neutral-900',
-            error && 'border-brand-500',
+            error && 'border-red-500',
             className,
           )}
           {...props}
@@ -41,7 +41,7 @@ export function Select({ label, hideLabel = false, options, error, id, className
         <ChevronDown aria-hidden="true" className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-neutral-500" />
       </div>
       {error && (
-        <p id={`${selectId}-error`} className="text-caption text-brand-700">
+        <p id={`${selectId}-error`} className="text-caption text-red-300">
           {error}
         </p>
       )}

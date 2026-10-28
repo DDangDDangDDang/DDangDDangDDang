@@ -33,7 +33,7 @@ export function SellerAvatar({
         aria-hidden="true"
         className={cn(
           'flex items-center justify-center overflow-hidden rounded-full bg-brand-100 font-bold text-brand-700',
-          live && 'ring-2 ring-brand-500 ring-offset-2 ring-offset-neutral-25',
+          live && 'ring-2 ring-red-500 ring-offset-2 ring-offset-neutral-25',
           s.box,
         )}
       >

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Gavel, Gift, Menu, MessageCircle, Search, Wallet } from "lucide-react";
+import { Gift, Menu, MessageCircle, Search, Wallet } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import {
   Link,
@@ -13,6 +13,7 @@ import { BroadcastProvider } from "@/components/broadcast/BroadcastProvider";
 import { MiniBroadcast } from "@/components/broadcast/MiniBroadcast";
 import { MyInfoDialog } from "@/components/account/MyInfoDialog";
 import { DmRealtime } from "@/components/dm/DmRealtime";
+import { BrandMark } from "@/components/layout/BrandMark";
 import { SideNav } from "@/components/layout/SideNav";
 import { LiveStartToasts } from "@/components/notification/LiveStartToasts";
 import { NotificationBell } from "@/components/notification/NotificationBell";
@@ -126,10 +127,8 @@ function AppHeader({
             </button>
           )}
           <Link to="/" className="flex items-center gap-2.5 px-1">
-            <span className="flex size-8 items-center justify-center rounded-md bg-brand-500 text-white">
-              <Gavel className="size-[18px]" aria-hidden="true" />
-            </span>
-            <span className="text-logo font-bold tracking-tight">땅땅땅</span>
+            <BrandMark />
+            <span className="text-logo font-bold tracking-tight text-brand-500">땅땅땅</span>
           </Link>
         </div>
 
@@ -247,7 +246,7 @@ function DmLink() {
       {count > 0 && (
         <span
           aria-hidden="true"
-          className="num absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1 text-caption font-bold text-white"
+          className="num absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-caption font-bold text-white"
         >
           {count > 99 ? "99+" : count}
         </span>

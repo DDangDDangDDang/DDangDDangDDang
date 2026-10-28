@@ -22,16 +22,35 @@
    * 그래서 화면 코드는 그대로 두고 값만 어두운 쪽으로 바꿨다.
    */
 
-  /* 브랜드 · 땅땅 오렌지: 주요 버튼, LIVE, 마감 임박. 흰 글자(text-white)는 500 이상에만 */
-  --color-brand-50: #2b2018; /* 경고 배경 (어두운 주황) */
-  --color-brand-100: #3a2a20; /* 아바타 배경 */
-  --color-brand-200: #5a3420; /* 경고 상자 선, 지금 진행 중 강조 선 */
-  --color-brand-300: #ffb596; /* 어두운 배경 위 강조 */
-  --color-brand-500: #d63f0e; /* 주요 버튼 (흰 글자 4.6:1) */
-  --color-brand-600: #b8340a; /* hover */
-  --color-brand-700: #ff9b73; /* 경고 글자, 해시태그, 남은 시간 (어두운 배경 위 7:1) */
+  /*
+   * 브랜드 · 땅땅 옐로: 주요 버튼, 마감 임박, 강조. 눈이 덜 피로하게 채도를 낮춘 머스터드 노랑.
+   * 500·600 바탕 위 글자는 흰색이 아니라 on-brand(아주 어두운 갈색)를 쓴다.
+   * 흰 글자를 꼭 올려야 하는 바탕(영상 위 도네이션·입찰 안내, 송출 버튼)은 800·900을 쓴다.
+   */
+  --color-brand-50: #2a2414; /* 경고 배경 (어두운 노랑) */
+  --color-brand-100: #3a3322; /* 아바타 배경 */
+  --color-brand-200: #4a4126; /* 경고 상자 선, 지금 진행 중 강조 선 */
+  --color-brand-300: #ffe08a; /* 어두운 배경 위 강조 */
+  --color-brand-500: #f5c84c; /* 주요 버튼 (on-brand 글자 11:1) */
+  --color-brand-600: #e3b43a; /* hover */
+  --color-brand-700: #f7cf5e; /* 경고 글자, 해시태그, 남은 시간 (어두운 배경 위 11:1) */
+  --color-brand-800: #8a5a00; /* 흰 글자를 올리는 노랑 바탕 (흰 글자 5.9:1) */
+  --color-brand-900: #744b00; /* 800의 hover */
+  --color-on-brand: #1c1700; /* brand-500·600 바탕 위 글자 */
+  /* 빨강 · LIVE 표시, 읽지 않은 수, 입력 오류. 노랑과 구분되게 따로 둔다 (흰 글자는 500에만, 4.6:1) */
+  --color-red-50: #2e1a1b; /* 오류 안내 배경 */
+  --color-red-300: #ff8a8e; /* 어두운 배경 위 오류 글자, LIVE 글자 */
+  --color-red-500: #d4363c; /* LIVE 배지, 읽지 않은 수, 오류 선 */
   /* 금색 · 3,000P 이상 도네이션 선물의 별과 테두리 (영상 위 어두운 배경에서만 쓴다) */
   --color-gold-300: #ffd76a;
+  /* 홈 배너 망치 그림(HomeHero) 전용: 나무 자루와 강철 머리. 그림 밖에서는 쓰지 않는다 */
+  --color-hammer-wood: #5b4228;
+  --color-hammer-wood-dark: #3a2914; /* 자루에 감은 가죽끈 */
+  --color-hammer-steel: #9c9a94;
+  --color-hammer-steel-light: #b9b7b0; /* 빛 받는 윗면 */
+  --color-hammer-steel-dark: #7d7b75; /* 바닥을 찍는 끝면 */
+  --color-hammer-metal: #8e8a80; /* 자루 끝 쇠붙이 */
+  --color-hammer-etch: #6a6862; /* 머리에 새긴 문양 */
   /* 카카오 로그인 버튼. 카카오 디자인 가이드가 정한 색이라 브랜드 색과 따로 둔다 (노란 바탕, 검은 글자) */
   --color-kakao: #fee500;
   --color-kakao-hover: #f5dc00;
@@ -205,6 +224,108 @@
     }
     72% {
       transform: translateY(-2px);
+    }
+  }
+  /*
+   * 홈 배너 망치(HomeHero): 옆으로 들어 올린 망치가 바닥을 내리치고, 닿은 자리에서 번개·금·충격파가 터진다.
+   * 모두 2.6초 한 바퀴로 맞춰 70% 지점에서 망치가 바닥에 닿는다.
+   */
+  --animate-hammer-swing: hammer-swing 2.6s cubic-bezier(0.55, 0, 0.35, 1) infinite;
+  @keyframes hammer-swing {
+    0% {
+      transform: rotate(62deg);
+    }
+    50% {
+      transform: rotate(72deg);
+    }
+    70% {
+      transform: rotate(0deg);
+    }
+    74% {
+      transform: rotate(5deg);
+    }
+    78%,
+    100% {
+      transform: rotate(0deg);
+    }
+  }
+  --animate-hammer-bolt: hammer-bolt 2.6s linear infinite;
+  @keyframes hammer-bolt {
+    0%,
+    70% {
+      opacity: 0;
+    }
+    71% {
+      opacity: 1;
+    }
+    74% {
+      opacity: 0.2;
+    }
+    76% {
+      opacity: 1;
+    }
+    86% {
+      opacity: 0.8;
+    }
+    92%,
+    100% {
+      opacity: 0;
+    }
+  }
+  /* 바닥 금이 닿은 자리에서 양옆으로 그어진다 (선 길이 160 기준) */
+  --animate-hammer-crack: hammer-crack 2.6s ease-out infinite;
+  @keyframes hammer-crack {
+    0%,
+    69% {
+      opacity: 0;
+      stroke-dashoffset: 160;
+    }
+    71% {
+      opacity: 1;
+    }
+    82% {
+      opacity: 1;
+      stroke-dashoffset: 0;
+    }
+    100% {
+      opacity: 0;
+      stroke-dashoffset: 0;
+    }
+  }
+  --animate-hammer-wave: hammer-wave 2.6s ease-out infinite;
+  @keyframes hammer-wave {
+    0%,
+    69% {
+      opacity: 0;
+      transform: scale(0.2);
+    }
+    71% {
+      opacity: 0.9;
+    }
+    95%,
+    100% {
+      opacity: 0;
+      transform: scale(1.6);
+    }
+  }
+  /* "땅!" 글자가 튀어나왔다 사라진다 */
+  --animate-hammer-ding: hammer-ding 2.6s ease-out infinite;
+  @keyframes hammer-ding {
+    0%,
+    70% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    74% {
+      opacity: 1;
+      transform: scale(1.08);
+    }
+    90% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
     }
   }
   @keyframes donation-pop {
