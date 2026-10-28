@@ -58,6 +58,8 @@ describe('MyInfoContent 닉네임 변경', () => {
 
     expect(await screen.findByRole('button', { name: '변경' })).toBeDisabled();
     expect(screen.getByText(/부터 다시 바꿀 수 있어요/)).toHaveTextContent('11월 26일');
+    // 그동안은 마일리지 상점의 닉네임 변경권으로 바로 바꿀 수 있다.
+    expect(screen.getByRole('link', { name: '닉네임 변경권으로 지금 바꾸기' })).toHaveAttribute('href', '/shop');
   });
 
   it('바꾸고 나면 성공 안내와 다음 변경 가능 시각을 보여준다', async () => {

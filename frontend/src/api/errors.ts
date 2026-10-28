@@ -43,6 +43,8 @@ const USER_MESSAGES: Partial<Record<ErrorCode, string>> = {
   CATEGORY_005: '이 카테고리에 등록된 상품이 있어 삭제할 수 없어요.',
   CATEGORY_006: '상품이 등록된 카테고리에는 하위 카테고리를 만들 수 없어요.',
   USER_005: '닉네임은 한 번 바꾸면 30일 동안 다시 바꿀 수 없어요.',
+  USER_012: '지금은 변경권 없이 내 정보에서 닉네임을 바꿀 수 있어요.',
+  USER_013: '지금 쓰고 있는 닉네임이에요.',
 };
 
 const NETWORK_ERROR = 'NETWORK_ERROR';

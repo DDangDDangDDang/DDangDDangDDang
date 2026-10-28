@@ -1,4 +1,4 @@
-import { Banknote, FolderTree, Flag, Gavel, Gift, House, Package, ReceiptText, Tv, UserCheck, Video, type LucideIcon } from 'lucide-react';
+import { Banknote, FolderTree, Flag, Gavel, Gift, House, Package, ReceiptText, ShoppingBag, Tv, UserCheck, Video, type LucideIcon } from 'lucide-react';
 import { NavLink } from 'react-router';
 import { useSession } from '@/api';
 import { AdBanner } from '@/components/ad/AdBanner';
@@ -32,6 +32,7 @@ export function SideNav({ collapsed }: { collapsed: boolean }) {
             {verifiedSeller && <Item to="/studio" icon={Video} label="방송하기" collapsed={collapsed} />}
             {verifiedSeller && <Item to="/me/products" icon={Package} label="내 상품" collapsed={collapsed} />}
             <Item to="/orders" icon={ReceiptText} label="주문 내역" collapsed={collapsed} />
+            <Item to="/shop" icon={ShoppingBag} label="마일리지 상점" collapsed={collapsed} />
             {session.user.role === 'ADMIN' && (
               <>
                 <Divider collapsed={collapsed} />

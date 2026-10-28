@@ -50,7 +50,7 @@ export function MyInfoContent({ onNavigate }: { onNavigate?: () => void }) {
               <dl className="grid grid-cols-[120px_1fr] items-start gap-y-4 text-body">
                 <dt className="pt-1.5 text-neutral-500">닉네임</dt>
                 <dd>
-                  <NicknameEditor current={me?.nickname ?? ''} availableAt={me?.nicknameChangeAvailableAt} />
+                  <NicknameEditor current={me?.nickname ?? ''} availableAt={me?.nicknameChangeAvailableAt} onNavigate={onNavigate} />
                 </dd>
                 <dt className="pt-1.5 text-neutral-500">소개</dt>
                 <dd>
@@ -106,8 +106,8 @@ export function MyInfoContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-/** availableAt: 다음에 닉네임을 바꿀 수 있는 시각. 없으면 지금 바꿀 수 있다 */
-function NicknameEditor({ current, availableAt }: { current: string; availableAt?: string }) {
+/** availableAt: 다음에 닉네임을 바꿀 수 있는 시각. 없으면 지금 바꿀 수 있다. 그동안은 마일리지 상점의 닉네임 변경권으로 바로 바꿀 수 있다 */
+function NicknameEditor({ current, availableAt, onNavigate }: { current: string; availableAt?: string; onNavigate?: () => void }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [nickname, setNickname] = useState(current);
@@ -143,7 +143,14 @@ function NicknameEditor({ current, availableAt }: { current: string; availableAt
             변경
           </Button>
         </div>
-        {availableAt && <p className="text-caption text-neutral-500">{formatDateTime(availableAt)}부터 다시 바꿀 수 있어요.</p>}
+        {availableAt && (
+          <p className="text-caption text-neutral-500">
+            {formatDateTime(availableAt)}부터 다시 바꿀 수 있어요.{' '}
+            <Link to="/shop" onClick={onNavigate} className="font-semibold text-brand-700 underline">
+              닉네임 변경권으로 지금 바꾸기
+            </Link>
+          </p>
+        )}
         {done && <Notice tone="success">닉네임을 변경했어요.</Notice>}
       </div>
     );

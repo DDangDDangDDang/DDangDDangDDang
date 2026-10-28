@@ -221,6 +221,61 @@ class UserServiceTest {
     }
 
     @Nested
+    @DisplayName("닉네임 변경권")
+    class NicknameTicket {
+
+        @Test
+        @DisplayName("변경 제한 기간 중에도 바로 바꾸고, 바꾼 시각부터 다시 30일 제한이 시작된다")
+        void changeWithinInterval() {
+            User user = user();
+            user.changeNickname("바꾼닉네임", NOW.minusDays(1));
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(userRepository.existsByNickname("새닉네임")).willReturn(false);
+            given(jwtProvider.createAccessToken(user)).willReturn("new-access-token");
+            given(jwtProvider.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
+
+            MyInfoUpdateResponse response = userService.changeNicknameWithTicket(1L, "새닉네임");
+
+            assertThat(user.getNickname()).isEqualTo("새닉네임");
+            assertThat(user.getNicknameChangedAt()).isEqualTo(NOW);
+            assertThat(response.user().nicknameChangeAvailableAt()).isEqualTo(NOW.plus(INTERVAL));
+            assertThat(response.accessToken()).isEqualTo("new-access-token");
+        }
+
+        @Test
+        @DisplayName("변경 제한 기간이 아니면(무료로 바꿀 수 있음) 변경권을 쓰지 않게 USER_012")
+        void notNeeded() {
+            given(userRepository.findById(1L)).willReturn(Optional.of(user()));
+
+            assertThatThrownBy(() -> userService.changeNicknameWithTicket(1L, "새닉네임"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.NICKNAME_TICKET_NOT_NEEDED);
+            verify(userRepository, never()).existsByNickname(anyString());
+        }
+
+        @Test
+        @DisplayName("지금과 같은 닉네임이면 USER_013, 다른 회원이 쓰는 닉네임이면 USER_002. 둘 다 바꾸지 않는다")
+        void sameOrDuplicate() {
+            User user = user();
+            user.changeNickname("바꾼닉네임", NOW.minusDays(1));
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(userRepository.existsByNickname("남의닉네임")).willReturn(true);
+
+            assertThatThrownBy(() -> userService.changeNicknameWithTicket(1L, "바꾼닉네임"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.SAME_NICKNAME);
+            assertThatThrownBy(() -> userService.changeNicknameWithTicket(1L, "남의닉네임"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.DUPLICATE_NICKNAME);
+            assertThat(user.getNickname()).isEqualTo("바꾼닉네임");
+            assertThat(user.getNicknameChangedAt()).isEqualTo(NOW.minusDays(1));
+        }
+    }
+
+    @Nested
     @DisplayName("소개 수정")
     class UpdateBio {
 
