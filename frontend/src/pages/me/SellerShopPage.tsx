@@ -5,7 +5,7 @@ import { api, call, errorMessage, type Schema } from '@/api';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { DONATION_HISTORY_KEY, DONATION_WALLET_KEY } from '@/lib/donation';
-import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
+import { formatDateTime, formatNumber, formatMileage } from '@/lib/format';
 
 type ShopItem = Schema<'SellerShopItemResponse'>;
 
@@ -17,7 +17,7 @@ const PERK_LABEL: Record<NonNullable<ShopItem['type']>, string> = {
 };
 
 /**
- * 판매자 상점: 시청자에게 선물받은 도네이션 포인트로 혜택을 산다. (인증 판매자만)
+ * 판매자 상점: 시청자에게 선물받은 도네이션 마일리지로 혜택을 산다. (인증 판매자만)
  * 파워 판매자: 기간 동안 라이브 목록 맨 위에 방송이 올라가고, 프로필·방송 카드에 파워 판매자 배지가 붙는다.
  * 진행 중일 때 또 사면 끝나는 날부터 이어 붙는다.
  */
@@ -46,12 +46,12 @@ export function SellerShopPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="판매자 상점" description="시청자에게 선물받은 도네이션 포인트로 방송을 알리는 혜택을 살 수 있어요." />
+      <PageHeader title="판매자 상점" description="시청자에게 선물받은 도네이션 마일리지로 방송을 알리는 혜택을 살 수 있어요." />
 
       <Card>
         <div className="flex flex-col gap-1 px-6 py-5">
-          <span className="text-label text-neutral-500">선물받은 포인트</span>
-          <strong className="num text-price-lg font-bold">{wallet.isPending ? <Skeleton className="h-8 w-32" /> : formatPoint(balance)}</strong>
+          <span className="text-label text-neutral-500">선물받은 마일리지</span>
+          <strong className="num text-price-lg font-bold">{wallet.isPending ? <Skeleton className="h-8 w-32" /> : formatMileage(balance)}</strong>
         </div>
       </Card>
 
@@ -80,7 +80,7 @@ export function SellerShopPage() {
                         <strong className="text-body-lg font-bold">{item.name}</strong>
                         <span className="text-body text-neutral-700">{item.description}</span>
                         <span className="text-label text-neutral-500">
-                          <span className="num font-semibold text-neutral-900">{formatPoint(item.price ?? 0)}</span> · {formatNumber(item.periodDays ?? 0)}일
+                          <span className="num font-semibold text-neutral-900">{formatMileage(item.price ?? 0)}</span> · {formatNumber(item.periodDays ?? 0)}일
                         </span>
                       </div>
                     </div>
@@ -88,7 +88,7 @@ export function SellerShopPage() {
                       <Button disabled={short} onClick={() => setBuying(item)}>
                         사기
                       </Button>
-                      {short && <span className="text-caption text-neutral-500">선물받은 포인트가 부족해요</span>}
+                      {short && <span className="text-caption text-neutral-500">선물받은 마일리지가 부족해요</span>}
                     </div>
                   </li>
                 );
@@ -137,10 +137,10 @@ export function SellerShopPage() {
           purchase.isError ? (
             <span className="text-brand-700">{errorMessage(purchase.error)}</span>
           ) : (
-            `선물받은 포인트 ${formatPoint(buying?.price ?? 0)}가 빠지고 되돌릴 수 없어요. 이미 진행 중이면 끝나는 날부터 ${formatNumber(buying?.periodDays ?? 0)}일 이어져요.`
+            `선물받은 마일리지 ${formatMileage(buying?.price ?? 0)}이 빠지고 되돌릴 수 없어요. 이미 진행 중이면 끝나는 날부터 ${formatNumber(buying?.periodDays ?? 0)}일 이어져요.`
           )
         }
-        confirmLabel={`${formatPoint(buying?.price ?? 0)}로 사기`}
+        confirmLabel={`${formatMileage(buying?.price ?? 0)}으로 사기`}
         loading={purchase.isPending}
         onConfirm={() => buying && purchase.mutate(buying)}
         onCancel={() => {

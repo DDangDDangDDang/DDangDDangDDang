@@ -10105,15 +10105,15 @@
   }, {
     "code" : "DONATION_001",
     "status" : 400,
-    "message" : "선물할 수 없는 포인트입니다."
+    "message" : "선물할 수 없는 마일리지입니다."
   }, {
     "code" : "DONATION_002",
     "status" : 400,
-    "message" : "선물할 수 있는 도네이션 포인트가 부족합니다."
+    "message" : "선물할 수 있는 도네이션 마일리지가 부족합니다."
   }, {
     "code" : "DONATION_003",
     "status" : 400,
-    "message" : "이 판매자에게 이번 달 선물할 수 있는 포인트를 넘었습니다."
+    "message" : "이 판매자에게 이번 달 선물할 수 있는 마일리지를 넘었습니다."
   }, {
     "code" : "DONATION_004",
     "status" : 400,
@@ -10129,7 +10129,7 @@
   }, {
     "code" : "DONATION_008",
     "status" : 400,
-    "message" : "받은 도네이션 포인트가 부족합니다."
+    "message" : "받은 도네이션 마일리지가 부족합니다."
   }, {
     "code" : "DONATION_009",
     "status" : 403,
@@ -10141,7 +10141,7 @@
   }, {
     "code" : "DONATION_011",
     "status" : 400,
-    "message" : "도네이션 포인트 정책 값이 올바르지 않습니다."
+    "message" : "도네이션 마일리지 정책 값이 올바르지 않습니다."
   }, {
     "code" : "LIVECHAT_001",
     "status" : 429,
