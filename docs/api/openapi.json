@@ -1140,6 +1140,54 @@
         }
       }
     },
+    "/api/v1/shop/auction-boosts" : {
+      "post" : {
+        "tags" : [ "shop-controller" ],
+        "operationId" : "shopBoostAuction",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AuctionBoostRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAuctionBoostResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/seller-perks" : {
       "post" : {
         "tags" : [ "seller-perk-controller" ],
@@ -7419,6 +7467,47 @@
         },
         "required" : [ "nickname" ]
       },
+      "AuctionBoostRequest" : {
+        "type" : "object",
+        "properties" : {
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "auctionId" ]
+      },
+      "ApiResponseAuctionBoostResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/AuctionBoostResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "AuctionBoostResponse" : {
+        "type" : "object",
+        "properties" : {
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "startsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "SellerPerkPurchaseRequest" : {
         "type" : "object",
         "properties" : {
@@ -9403,6 +9492,9 @@
           },
           "live" : {
             "type" : "boolean"
+          },
+          "promoted" : {
+            "type" : "boolean"
           }
         }
       },
@@ -9446,7 +9538,7 @@
         "properties" : {
           "item" : {
             "type" : "string",
-            "enum" : [ "NICKNAME_CHANGE", "BADGE_ANGEL_WINGS", "BADGE_DEVIL_WINGS", "BADGE_HALO", "BADGE_STAR" ]
+            "enum" : [ "NICKNAME_CHANGE", "BADGE_ANGEL_WINGS", "BADGE_DEVIL_WINGS", "BADGE_HALO", "BADGE_STAR", "AUCTION_BOOST" ]
           },
           "name" : {
             "type" : "string"
@@ -11317,6 +11409,22 @@
     "code" : "SELLER_008",
     "status" : 403,
     "message" : "판매자 인증을 받은 회원만 상점 정보를 바꿀 수 있습니다."
+  }, {
+    "code" : "SHOP_001",
+    "status" : 400,
+    "message" : "시작 전이거나 진행 중인 경매만 위로 올릴 수 있습니다."
+  }, {
+    "code" : "SHOP_002",
+    "status" : 409,
+    "message" : "이미 위로 올린 경매입니다. 경매 하나는 한 번만 올릴 수 있습니다."
+  }, {
+    "code" : "SHOP_003",
+    "status" : 409,
+    "message" : "지금은 위로 올릴 자리가 없습니다. 잠시 후 다시 시도해 주세요."
+  }, {
+    "code" : "SHOP_004",
+    "status" : 403,
+    "message" : "내 경매만 위로 올릴 수 있습니다."
   }, {
     "code" : "USER_001",
     "status" : 409,

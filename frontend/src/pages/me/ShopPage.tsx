@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ShoppingBag, UserPen, type LucideIcon } from 'lucide-react';
+import { Megaphone, ShoppingBag, UserPen, type LucideIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, replaceSession, useSession, type Schema } from '@/api';
@@ -8,7 +8,7 @@ import { DecoratedNickname } from '@/components/badge/DecoratedNickname';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Dialog, EmptyState, ErrorState, Input, Notice, Skeleton } from '@/components/ui';
 import { DONATION_HISTORY_KEY, DONATION_WALLET_KEY } from '@/lib/donation';
-import { formatMileage } from '@/lib/format';
+import { formatDateTime, formatMileage } from '@/lib/format';
 import { MY_BADGES_KEY, NICKNAME_BADGE_LABEL, type NicknameBadge } from '@/lib/nickname-badge';
 
 type ShopItem = Schema<'ShopItemResponse'>;
@@ -19,12 +19,14 @@ const SHOP_ITEMS_KEY = ['shop', 'items'] as const;
 // 뱃지 상품은 아이콘 대신 꾸민 닉네임 미리 보기를 보여 준다.
 const ITEM_ICON: Partial<Record<ShopItemType, LucideIcon>> = {
   NICKNAME_CHANGE: UserPen,
+  AUCTION_BOOST: Megaphone,
 };
 
 /**
  * 마일리지 상점: 도네이션 마일리지로 상품을 사면 바로 적용된다. (가격 고정, 되돌릴 수 없음)
  * - 닉네임 변경권: 변경 제한 기간(30일) 중에만 살 수 있고, 사면서 새 닉네임으로 바로 바꾼다.
  * - 닉네임 뱃지: 라이브 채팅의 닉네임을 꾸민다. 영구로 가지고, 사면 바로 장착된다. 내 뱃지에서 바꿔 끼거나 뺀다.
+ * - 경매 위로 올리기: 내 시작 전·진행 중 경매를 골라 3시간 동안 경매 목록(최신순) 맨 위에 '홍보'로 올린다. (경매당 한 번, 동시 5개)
  */
 export function ShopPage() {
   const queryClient = useQueryClient();
@@ -96,6 +98,16 @@ export function ShopPage() {
         }}
       />
 
+      <AuctionBoostDialog
+        open={buying?.item === 'AUCTION_BOOST'}
+        item={buying}
+        onClose={() => setBuying(undefined)}
+        onBoosted={(productName, endsAt) => {
+          setBuying(undefined);
+          setBought(`‘${productName}’ 경매를 ${formatDateTime(endsAt)}까지 경매 목록 맨 위에 올렸어요.`);
+        }}
+      />
+
       <ConfirmDialog
         open={Boolean(buying?.badge)}
         title={`${buying?.name ?? ''}를 살까요?`}
@@ -148,6 +160,100 @@ function ShopItemRow({ item, nickname, balance, onBuy }: { item: ShopItem; nickn
         {reason && <span className="text-caption text-neutral-500">{reason}</span>}
       </div>
     </li>
+  );
+}
+
+/** 경매 위로 올리기: 내 시작 전·진행 중 경매 중 하나를 골라 올린다. 실패하면(이미 올림, 자리 없음) 마일리지는 빠지지 않는다. */
+function AuctionBoostDialog({
+  open,
+  item,
+  onClose,
+  onBoosted,
+}: {
+  open: boolean;
+  item?: ShopItem;
+  onClose: () => void;
+  onBoosted: (productName: string, endsAt: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [auctionId, setAuctionId] = useState<number>();
+  const auctions = useQuery({
+    queryKey: ['auctions', 'mine', 'open'],
+    queryFn: () => call(api.GET('/api/v1/users/me/auctions')),
+    enabled: open,
+  });
+  const boost = useMutation({
+    mutationFn: (id: number) => call(api.POST('/api/v1/shop/auction-boosts', { body: { auctionId: id } })),
+    onSuccess: (data, id) => {
+      void queryClient.invalidateQueries({ queryKey: DONATION_WALLET_KEY });
+      void queryClient.invalidateQueries({ queryKey: DONATION_HISTORY_KEY });
+      void queryClient.invalidateQueries({ queryKey: SHOP_ITEMS_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['auctions'] });
+      const name = auctions.data?.find((auction) => auction.id === id)?.productName ?? '내';
+      setAuctionId(undefined);
+      onBoosted(name, data?.endsAt ?? '');
+    },
+  });
+  const mine = auctions.data ?? [];
+
+  function close() {
+    setAuctionId(undefined);
+    boost.reset();
+    onClose();
+  }
+
+  return (
+    <Dialog
+      open={open}
+      title="경매 위로 올리기"
+      description={`${formatMileage(item?.price ?? 0)}이 빠지고 되돌릴 수 없어요. 3시간 동안 경매 목록(최신순) 맨 위에 '홍보'로 보이고, 경매 하나는 한 번만 올릴 수 있어요.`}
+      onClose={close}
+      closeDisabled={boost.isPending}
+    >
+      <div className="flex flex-col gap-4">
+        {auctions.isPending ? (
+          <Skeleton className="h-24" />
+        ) : auctions.isError ? (
+          <ErrorState message={errorMessage(auctions.error)} onRetry={() => void auctions.refetch()} />
+        ) : mine.length === 0 ? (
+          <EmptyState title="올릴 수 있는 경매가 없어요" description="시작 전이거나 진행 중인 내 경매만 올릴 수 있어요." />
+        ) : (
+          <fieldset className="flex max-h-72 flex-col gap-2 overflow-y-auto">
+            <legend className="sr-only">올릴 경매</legend>
+            {mine.map((auction) => (
+              <label
+                key={auction.id}
+                className="flex cursor-pointer items-center gap-3 rounded-md border border-neutral-100 px-4 py-3 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50"
+              >
+                <input
+                  type="radio"
+                  name="boost-auction"
+                  value={auction.id}
+                  checked={auctionId === auction.id}
+                  onChange={() => setAuctionId(auction.id)}
+                  className="accent-brand-500"
+                />
+                <span className="flex flex-col">
+                  <span className="text-body font-semibold">{auction.productName}</span>
+                  <span className="text-caption text-neutral-500">
+                    {auction.status === 'ONGOING' ? '진행 중' : '시작 전'} · {auction.endAt ? `${formatDateTime(auction.endAt)} 마감` : ''}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {boost.isError && <Notice tone="error">{errorMessage(boost.error)}</Notice>}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={close} disabled={boost.isPending}>
+            취소
+          </Button>
+          <Button loading={boost.isPending} disabled={auctionId === undefined} onClick={() => auctionId !== undefined && boost.mutate(auctionId)}>
+            {formatMileage(item?.price ?? 0)}으로 올리기
+          </Button>
+        </div>
+      </div>
+    </Dialog>
   );
 }
 

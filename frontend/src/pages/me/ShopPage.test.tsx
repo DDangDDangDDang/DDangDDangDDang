@@ -5,7 +5,12 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ShopPage } from './ShopPage';
 
-type Request = { method: string; path: string; body?: { nickname?: string; badge?: string }; params?: { path?: { badge?: string } } };
+type Request = {
+  method: string;
+  path: string;
+  body?: { nickname?: string; badge?: string; auctionId?: number };
+  params?: { path?: { badge?: string } };
+};
 
 // api.GET/POST는 요청 내용만 돌려주고, call()이 경로별로 정해 둔 응답을 준다.
 const server = vi.hoisted(() => ({
@@ -15,6 +20,7 @@ const server = vi.hoisted(() => ({
   buyError: undefined as undefined | { code: string; message: string; status: number },
   replaceSession: vi.fn(),
   badges: { owned: [] as string[], equipped: undefined as string | undefined },
+  boostError: undefined as undefined | { code: string; message: string; status: number },
 }));
 vi.mock('@/api', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/api')>();
@@ -50,8 +56,19 @@ vi.mock('@/api', async (importOriginal) => {
             available: !server.badges.owned.includes('STAR'),
             unavailableReason: server.badges.owned.includes('STAR') ? '이미 가지고 있어요. 내 뱃지에서 장착할 수 있어요.' : undefined,
           },
+          { item: 'AUCTION_BOOST', name: '경매 위로 올리기', description: '3시간 동안 맨 위에 올려요.', price: 1_000, available: true },
         ];
       if (r.path === '/api/v1/users/me/badges') return server.badges;
+      if (r.path === '/api/v1/users/me/auctions')
+        return [
+          { id: 11, productName: '빈티지 카메라', status: 'ONGOING', endAt: '2026-10-29T20:00:00' },
+          { id: 12, productName: '레코드판', status: 'READY', endAt: '2026-10-30T20:00:00' },
+        ];
+      if (r.path === '/api/v1/shop/auction-boosts') {
+        server.posts.push(r);
+        if (server.boostError) throw new original.ApiError(server.boostError.code, server.boostError.message, server.boostError.status);
+        return { auctionId: r.body?.auctionId, startsAt: '2026-10-28T15:00:00', endsAt: '2026-10-28T18:00:00' };
+      }
       if (r.path === '/api/v1/shop/badges/{badge}') {
         server.posts.push(r);
         const badge = r.params?.path?.badge ?? '';
@@ -92,6 +109,7 @@ describe('ShopPage', () => {
     server.buyError = undefined;
     server.replaceSession.mockReset();
     server.badges = { owned: [], equipped: undefined };
+    server.boostError = undefined;
     // jsdom에는 <dialog>의 showModal·close가 없다.
     HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
       this.open = true;
@@ -170,5 +188,31 @@ describe('ShopPage', () => {
 
     expect(await within(dialog).findByText('이미 사용 중인 닉네임입니다.')).toBeInTheDocument();
     expect(server.replaceSession).not.toHaveBeenCalled();
+  });
+
+  it('경매 위로 올리기는 내 경매를 골라 올리고, 언제까지 올라가는지 알려 준다', async () => {
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '경매 위로 올리기 사기' }));
+    const dialog = screen.getByRole('dialog', { name: '경매 위로 올리기' });
+    const submit = within(dialog).getByRole('button', { name: '1,000 M으로 올리기' });
+    expect(submit).toBeDisabled();
+    await userEvent.click(await within(dialog).findByRole('radio', { name: /레코드판/ }));
+    await userEvent.click(submit);
+
+    expect(await screen.findByText(/‘레코드판’ 경매를 .*까지 경매 목록 맨 위에 올렸어요\./)).toBeInTheDocument();
+    expect(server.posts[0]?.body).toEqual({ auctionId: 12 });
+  });
+
+  it('자리가 없으면(SHOP_003) 창 안에 서버 안내를 그대로 보여 준다', async () => {
+    server.boostError = { code: 'SHOP_003', message: '지금은 위로 올릴 자리가 없어요. 약 30분 뒤에 올릴 수 있어요.', status: 409 };
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '경매 위로 올리기 사기' }));
+    const dialog = screen.getByRole('dialog', { name: '경매 위로 올리기' });
+    await userEvent.click(await within(dialog).findByRole('radio', { name: /빈티지 카메라/ }));
+    await userEvent.click(within(dialog).getByRole('button', { name: '1,000 M으로 올리기' }));
+
+    expect(await within(dialog).findByText('지금은 위로 올릴 자리가 없어요. 약 30분 뒤에 올릴 수 있어요.')).toBeInTheDocument();
   });
 });

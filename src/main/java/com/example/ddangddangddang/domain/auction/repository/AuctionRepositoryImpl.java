@@ -9,6 +9,7 @@ import com.example.ddangddangddang.domain.category.entity.QCategory;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.entity.QLiveStream;
 import com.example.ddangddangddang.domain.product.entity.QProduct;
+import com.example.ddangddangddang.domain.shop.entity.QAuctionBoost;
 import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Projections;
@@ -23,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.support.PageableExecutionUtils;
 
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 
@@ -38,16 +40,18 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         QProduct product = QProduct.product;
         QCategory category = QCategory.category;
         QLiveStream liveStream = QLiveStream.liveStream;
+        QAuctionBoost boost = QAuctionBoost.auctionBoost;
 
         //목록 조회 : 입력한 조건에 맞게 정렬후 한페이지 만큼 가져오기
         List<AuctionListResponse> content =queryFactory
                 .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,
                         auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,
-                        onLive(liveStream)))
+                        onLive(liveStream), promoted(boost)))
                 .from(auction)
                 .join(auction.product,product)
                 .join(product.category,category)
                 .leftJoin(auction.liveStream, liveStream)
+                .leftJoin(boost).on(activeBoost(auction, boost))
                 //검색 조건
                 .where(
                         productNameContains(product, condition.productName()),
@@ -55,7 +59,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
                         priceGoe(auction, condition.minPrice()),
                         priceLoe(auction, condition.maxPrice()),
                         statusEq(auction,condition.status()))
-                .orderBy(orderBy(auction,condition.sortType()))
+                .orderBy(orderBy(auction, boost, condition.sortType()))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
@@ -87,17 +91,29 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         QProduct product = QProduct.product;
         QCategory category = QCategory.category;
         QLiveStream liveStream = QLiveStream.liveStream;
+        QAuctionBoost boost = QAuctionBoost.auctionBoost;
 
         return queryFactory
-                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,onLive(liveStream))).
+                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,onLive(liveStream),promoted(boost))).
                 from(auction)
                 .join(auction.product, product)
                 .join(product.category,category)
                 .leftJoin(auction.liveStream, liveStream)
+                .leftJoin(boost).on(activeBoost(auction, boost))
                 .where(auction.status.eq(AuctionStatus.ONGOING))
                 .orderBy(auction.bidCount.desc(),auction.id.desc()) //입찰 횟수 많은 수 -> 같은면 최근 생성순
                 .limit(limit)
                 .fetch();
+    }
+
+    //경매 위로 올리기(마일리지 상점) : 지금 올라가 있는 홍보만 붙인다. 경매 하나에 홍보는 하나라 목록 행이 늘지 않는다
+    private BooleanExpression activeBoost(QAuction auction, QAuctionBoost boost){
+        return boost.auctionId.eq(auction.id).and(boost.endsAt.gt(LocalDateTime.now()));
+    }
+
+    //홍보 중 여부 : 지금 위로 올라가 있으면 true (목록에 '홍보'로 표시)
+    private Expression<Boolean> promoted(QAuctionBoost boost){
+        return new CaseBuilder().when(boost.id.isNotNull()).then(true).otherwise(false);
     }
 
     //방송 중 경매 여부 : 올라간 방송이 지금 방송 중일 때만 true(방송이 끝났거나 방송에 올라가지 않은 경매는 false)
@@ -139,12 +155,15 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
     }
 
     //정렬 : 안보낼시 기본 최신순,값이 같을 경우 id 순으로,인기순은 입찰 횟수 많은순
-    private OrderSpecifier<?>[] orderBy(QAuction auction, AuctionSort sort){
+    //최신순은 위로 올린(홍보) 경매를 맨 위에 둔다. 홍보끼리는 최근에 올린 순. 다른 정렬은 정렬 기준이 틀려 보이지 않게 그대로 둔다
+    private OrderSpecifier<?>[] orderBy(QAuction auction, QAuctionBoost boost, AuctionSort sort){
         if (sort ==null){
             sort = AuctionSort.LATEST;
         }
         return switch (sort){
-            case LATEST -> new OrderSpecifier<?>[]{auction.createdAt.desc(),auction.id.desc()};
+            case LATEST -> new OrderSpecifier<?>[]{
+                    new CaseBuilder().when(boost.id.isNotNull()).then(1).otherwise(0).desc(),
+                    boost.startsAt.desc(), auction.createdAt.desc(), auction.id.desc()};
             case PRICE_ASC -> new OrderSpecifier<?>[]{auction.currentPrice.asc(),auction.id.desc()};
             case PRICE_DESC -> new OrderSpecifier<?>[]{auction.currentPrice.desc(),auction.id.desc()};
             case ENDING_SOON -> new OrderSpecifier<?>[]{auction.endAt.asc(),auction.id.desc()};
