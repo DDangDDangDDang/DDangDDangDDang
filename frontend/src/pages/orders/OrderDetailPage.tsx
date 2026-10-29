@@ -8,6 +8,7 @@ import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorStat
 import { formatDateTime, formatPhone, formatPoint, onlyDigits } from '@/lib/format';
 import { COURIER_LABEL, type Courier } from '@/lib/labels';
 import { orderRoleOf, orderStage, requireOrderId } from '@/lib/order-view';
+import { OrderReviewSection } from './OrderReviewSection';
 import { TrackingCard } from './TrackingCard';
 
 type Order = Schema<'OrderResponse'>;
@@ -89,6 +90,8 @@ function OrderSummary({ order }: { order: Order }) {
 function BuyerPanel({ order }: { order: Order }) {
   const stage = orderStage(order);
   const [editingAddress, setEditingAddress] = useState(false);
+  // 이 화면에서 방금 구매 확정했으면 리뷰 창을 바로 띄운다.
+  const [justConfirmed, setJustConfirmed] = useState(false);
 
   if (stage === 'NEED_ADDRESS' || (stage === 'WAITING_SHIPMENT' && editingAddress)) {
     return (
@@ -120,7 +123,7 @@ function BuyerPanel({ order }: { order: Order }) {
     );
   }
 
-  if (stage === 'SHIPPING') return <BuyerShippingPanel order={order} />;
+  if (stage === 'SHIPPING') return <BuyerShippingPanel order={order} onConfirmed={() => setJustConfirmed(true)} />;
 
   return (
     <Card>
@@ -130,17 +133,19 @@ function BuyerPanel({ order }: { order: Order }) {
       <CardBody className="flex flex-col gap-4">
         <ShipmentView order={order} />
         <Notice tone="success">구매 확정 완료</Notice>
+        <OrderReviewSection order={order} prompted={justConfirmed} />
       </CardBody>
     </Card>
   );
 }
 
-function BuyerShippingPanel({ order }: { order: Order }) {
+function BuyerShippingPanel({ order, onConfirmed }: { order: Order; onConfirmed: () => void }) {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const mutation = useMutation({
     mutationFn: () => call(api.PATCH('/api/v1/orders/{orderId}/confirm', { params: { path: { orderId: requireOrderId(order) } } })),
     onSuccess: (data) => {
+      onConfirmed();
       queryClient.setQueryData(['orders', 'detail', order.orderId], data);
       void queryClient.invalidateQueries({ queryKey: ['orders'] });
       setConfirming(false);
