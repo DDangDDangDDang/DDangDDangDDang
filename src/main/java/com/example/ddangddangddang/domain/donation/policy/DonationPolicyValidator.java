@@ -22,9 +22,6 @@ final class DonationPolicyValidator {
         check(p.maxGift() >= p.minGift() && p.maxGift() % p.giftUnit() == 0, "최대 선물은 최소 선물 이상이고 선물 단위로 나누어떨어져야 합니다.");
         check(p.monthlyGiftLimitPerSeller() >= 0, "판매자 한 명에게 한 달 선물 한도는 0 이상이어야 합니다.");
         check(p.trustWindowDays() >= 1 && p.trustWindowDays() <= 3650, "응원 지표 기간은 1~3650일이어야 합니다.");
-        check(p.powerSellerPrice() >= 1, "파워 판매자 가격은 1 이상이어야 합니다.");
-        check(p.powerSellerDays() >= 1 && p.powerSellerDays() <= 365, "파워 판매자 기간은 1~365일이어야 합니다.");
-        check(p.promotedLiveSlots() >= 0 && p.promotedLiveSlots() <= 20, "라이브 목록 맨 위 칸 수는 0~20이어야 합니다.");
     }
 
     private static void check(boolean ok, String message) {

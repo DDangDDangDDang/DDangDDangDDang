@@ -12,7 +12,7 @@ import {
   Skeleton,
   Textarea,
 } from '@/components/ui';
-import { formatPoint, formatRemaining } from '@/lib/format';
+import { formatMileage, formatPoint, formatRemaining } from '@/lib/format';
 import type { ChatMessage } from '@/api';
 import { AuctionEffects } from '@/components/auction/AuctionEffects';
 import { DonationEffects } from '@/components/donation/DonationEffects';
@@ -182,7 +182,7 @@ function DonationEffectPreview() {
         <div className="flex gap-2">
           {[300, 1_000, 3_000].map((amount) => (
             <Button key={amount} variant="outline" onClick={() => send(amount)}>
-              <span className="num">{formatPoint(amount)}</span> 선물
+              <span className="num">{formatMileage(amount)}</span> 선물
             </Button>
           ))}
         </div>

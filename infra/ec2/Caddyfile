@@ -1,0 +1,51 @@
+# EC2 구성의 웹 서버. 웹 이미지(frontend/Dockerfile)에 들어가 앱 컨테이너 앞에서 모든 요청을 받는다.
+# - SITE_ADDRESS가 도메인이면 Let's Encrypt 인증서를 자동으로 받아 HTTPS로 서비스하고, HTTP 요청은 HTTPS로 넘긴다.
+#   인증서는 compose의 caddy_data 볼륨에 저장되어 배포해도 다시 받지 않는다.
+# - SITE_ADDRESS가 없으면(:80) 도메인 없이 HTTP로만 서비스한다. (DNS 연결 전 확인용)
+# - /api, /ws는 앱으로 넘기고, 나머지 경로는 프론트엔드 화면(SPA)을 준다.
+
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# 앱으로 넘길 때 Caddy가 X-Forwarded-For(실제 접속 IP)·X-Forwarded-Proto를 새로 붙인다.
+	# 클라이언트가 보낸 X-Forwarded-For는 믿지 않고 버리므로 IP를 속일 수 없다.
+	# 앱의 /actuator 등 다른 경로는 밖으로 내보내지 않는다.
+	handle /api/* {
+		reverse_proxy app:8080
+	}
+
+	# 채팅·경매 실시간(STOMP over WebSocket)
+	handle /ws {
+		reverse_proxy app:8080
+	}
+
+	# 파일 이름에 내용 해시가 붙은 빌드 결과물은 오래 캐시한다.
+	# 새로 배포해 지워진 파일(이전 탭이 요청)은 index.html로 바꾸지 않고 캐시되지 않는 404로 응답한다.
+	handle /assets/* {
+		root * /srv
+		@exists file
+		header @exists Cache-Control "public, max-age=31536000, immutable"
+		@missing not file
+		header @missing Cache-Control "no-store"
+		file_server
+	}
+
+	handle {
+		root * /srv
+		# index.html, sw.js 등은 매번 새 버전을 확인한다.
+		header Cache-Control "no-cache"
+
+		# 화면 경로(/auctions/1 등)는 파일이 없으므로 index.html을 주고 라우팅은 브라우저(React Router)가 한다.
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		# HTTPS로만 접속하게 한다. (HTTP로 서비스할 때는 브라우저가 무시한다)
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		-Server
+	}
+}

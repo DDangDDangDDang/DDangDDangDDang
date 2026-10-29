@@ -112,8 +112,7 @@ function NoActiveStream({ endedTitle, onCreated, onActiveExists }: { endedTitle?
         <Notice tone="error">‘{idle.autoEnded}’ 방송은 송출이 30분 동안 없어 자동으로 종료됐어요. 진행 중인 경매는 그대로 이어져요.</Notice>
       )}
       <Card>
-        <EmptyState title="진행 중이거나 예정된 방송이 없어요" description="새 방송을 만들면 여기서 미리보기를 확인하고 방송을 시작할 수 있어요. 방송은 한 번에 하나만 열 수 있어요." />
-        <CardBody className="border-t border-neutral-100 pt-5">
+        <CardBody className="pt-5">
           <h2 className="mb-4 text-title-md font-bold">새 방송 만들기</h2>
           <StreamForm mode="create" onSaved={onCreated} onActiveExists={onActiveExists} />
         </CardBody>
@@ -233,6 +232,8 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
                 <OverlayLayoutEditor
                   layout={layoutEditing.draft}
                   onChange={layoutEditing.setDraft}
+                  selected={layoutEditing.selected}
+                  onSelect={layoutEditing.select}
                   featured={featuredAuctions(liveStream.featuredAuctionIds, liveAuctions.auctions, new Date())}
                 />
               ) : (
@@ -291,7 +292,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
 
         <aside aria-label="경매 현황과 채팅" className="flex w-[380px] shrink-0 flex-col gap-4">
           <LiveAuctionStatus auctions={liveAuctions} />
-          <ModerationPanel alerts={alerts} onDismiss={dismissAlert} />
+          <ModerationPanel liveStream={liveStream} alerts={alerts} onDismiss={dismissAlert} onSaved={onChange} />
           <ChatNoticeEditor liveStream={liveStream} onSaved={onChange} />
           <LiveChat
             messages={chat.messages}
@@ -301,6 +302,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
             status={chat.status}
             error={chat.error}
             flaggedIds={flaggedIds}
+            showHiddenContent
             onSend={chat.send}
           />
         </aside>

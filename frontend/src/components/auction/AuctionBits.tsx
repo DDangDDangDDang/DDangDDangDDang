@@ -1,4 +1,4 @@
-import { Clock, Radio } from 'lucide-react';
+import { Clock, Megaphone, Radio } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Schema } from '@/api';
 import { ProductImage } from '@/components/order/OrderBits';
@@ -46,7 +46,10 @@ export function AuctionTime({ status, startAt, endAt }: { status?: Schema<'Aucti
 
 type ListItem = Schema<'AuctionListResponse'>;
 
-/** 경매 카드 (경매 목록, 홈 인기 경매). 누르면 경매 상세로 간다. 상품 이미지는 아직 API에 없어 자리만 그린다. */
+/**
+ * 경매 카드 (경매 목록, 홈 인기 경매). 누르면 경매 상세로 간다. 상품 이미지는 아직 API에 없어 자리만 그린다.
+ * 판매자가 마일리지 상점에서 위로 올린 경매는 '홍보'를 붙인다. (최신순 목록 맨 위, 3시간)
+ */
 export function AuctionCard({ auction }: { auction: ListItem }) {
   const now = useNow(auction.status === 'ONGOING' ? 1000 : null);
   const phase = auctionPhase(auction, now);
@@ -60,6 +63,12 @@ export function AuctionCard({ auction }: { auction: ListItem }) {
         <ProductImage alt={auction.productName ?? '상품'} className="aspect-square w-full rounded-md" />
         <div className="absolute top-3 left-3 flex gap-1.5">
           <AuctionPhaseBadge phase={phase} />
+          {auction.promoted && (
+            <Badge variant="promo">
+              <Megaphone className="size-3.5" aria-hidden="true" />
+              홍보
+            </Badge>
+          )}
           {auction.live && (
             <Badge className="bg-stage/70 font-semibold text-white">
               <Radio className="size-3.5" aria-hidden="true" />

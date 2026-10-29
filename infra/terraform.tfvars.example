@@ -7,6 +7,24 @@ livekit_url = "wss://<프로젝트>.livekit.cloud"
 ec2_enabled = true
 ecs_enabled = false
 
+# 서비스 도메인. 넣으면 EC2가 HTTPS(Let's Encrypt 자동 발급)로 서비스한다. 비우면 Elastic IP의 HTTP로만 서비스한다.
+domain_name = "ddangddangddang.com"
+# 도메인을 Route 53에서 샀으면 true: 도메인 → EC2 고정 IP A 레코드를 Terraform이 만든다. 다른 곳에서 샀으면 false로 두고 직접 등록한다.
+manage_dns_record = true
+
+# 비밀이 아닌 앱 환경변수 (EC2·ECS 공통). 이 값을 쓰면 기본값 전체를 대신하므로 기능 스위치를 모두 적는다.
+app_environment = {
+  MAIL_ENABLED               = "true"
+  SMS_ENABLED                = "true"
+  CHAT_MODERATION_AI_ENABLED = "false"
+  # 포트원 콘솔의 상점 ID (결제를 쓰지 않으면 빈 문자열)
+  PORTONE_STORE_ID = ""
+}
+
+# dev 사이트(dev.<도메인>): dev 브랜치에 푸시하면 배포되는 별도 서버. 월 약 $20 (docs/deploy.md "dev 사이트")
+# dev_enabled     = true
+# dev_livekit_url = "wss://<dev 프로젝트>.livekit.cloud"   # 비우면 운영 LiveKit 프로젝트를 같이 쓴다
+
 # 이 AWS 계정에 GitHub OIDC 공급자가 이미 있으면 false
 # create_github_oidc_provider = false
 
@@ -15,3 +33,8 @@ ecs_enabled = false
 # certificate_arn = "arn:aws:acm:ap-northeast-2:<계정 ID>:certificate/<ID>"
 # 서버(컨테이너) 수
 # app_desired_count = 2
+
+# 팀원 DB 접속(Session Manager 포트 포워딩)을 쓸 IAM 사용자 (docs/deploy.md "팀원 DB 접속")
+# developer_iam_users = ["teammate1", "teammate2"]
+# 그중 운영 DB 데이터를 고칠 수 있는 사람 (수정용 계정 ddang_rw)
+# db_writer_iam_users = ["teammate1"]

@@ -50,14 +50,7 @@ public class DonationPolicyVersion extends BaseTimeEntity {
     @Column(name = "trust_window_days", nullable = false)
     private int trustWindowDays;
 
-    @Column(name = "power_seller_price", nullable = false)
-    private long powerSellerPrice;
 
-    @Column(name = "power_seller_days", nullable = false)
-    private int powerSellerDays;
-
-    @Column(name = "promoted_live_slots", nullable = false)
-    private int promotedLiveSlots;
 
     // 바꾼 관리자
     @Column(name = "changed_by", nullable = false)
@@ -78,9 +71,6 @@ public class DonationPolicyVersion extends BaseTimeEntity {
         this.maxGift = policy.maxGift();
         this.monthlyGiftLimitPerSeller = policy.monthlyGiftLimitPerSeller();
         this.trustWindowDays = policy.trustWindowDays();
-        this.powerSellerPrice = policy.powerSellerPrice();
-        this.powerSellerDays = policy.powerSellerDays();
-        this.promotedLiveSlots = policy.promotedLiveSlots();
         this.changedBy = changedBy;
         this.memo = memo;
     }
@@ -91,7 +81,6 @@ public class DonationPolicyVersion extends BaseTimeEntity {
 
     public DonationPolicy toPolicy() {
         return new DonationPolicy(earnRatePercent, maxEarnPerOrder, monthlyEarnLimit, pointValidDays, expiringNoticeDays,
-                minGift, giftUnit, maxGift, monthlyGiftLimitPerSeller, trustWindowDays, powerSellerPrice, powerSellerDays,
-                promotedLiveSlots);
+                minGift, giftUnit, maxGift, monthlyGiftLimitPerSeller, trustWindowDays);
     }
 }

@@ -1,16 +1,31 @@
-# EC2 구성: 퍼블릭 서브넷의 EC2 한 대에서 앱만 Docker Compose로 실행하고, DB·Redis는 RDS·ElastiCache를 쓴다. (data_stores.tf)
-# - 80 포트만 열고 SSH는 열지 않는다. 서버 접속과 배포는 SSM(Session Manager, Run Command)으로 한다.
+# EC2 구성: 퍼블릭 서브넷의 EC2 한 대에서 웹(Caddy + 프론트엔드)과 앱을 Docker Compose로 실행하고,
+# DB·Redis는 RDS·ElastiCache를 쓴다. (data_stores.tf)
+# - 80·443 포트만 열고 SSH는 열지 않는다. 서버 접속과 배포는 SSM(Session Manager, Run Command)으로 한다.
+# - domain_name을 넣으면 Caddy가 인증서를 자동으로 받아 HTTPS로 서비스한다. (infra/ec2/Caddyfile)
 # - 서버 디스크에는 데이터가 없어 서버를 다시 만들어도 잃는 것이 없다. DB 백업은 RDS 자동 백업이 맡는다.
+#   (인증서는 서버 디스크에 있지만 새 서버에서 다시 발급받는다)
 # - 배포 중 앱이 다시 뜨는 동안(약 30초) 접속이 끊긴다.
 
 locals {
   ec2_param_prefix = "/${var.project}/ec2"
+  ec2_https        = var.domain_name != ""
+  ec2_public_ip    = join("", aws_eip.ec2[*].public_ip)
 
   # 앱 환경변수 중 비밀이 아닌 것 (DB·Redis 주소 포함)
   ec2_app_environment = merge(local.common_app_environment, {
-    # EC2 구성은 HTTP로만 서비스하므로 쿠키에 Secure를 붙이지 않는다.
-    JWT_COOKIE_SECURE = "false"
+    # HTTPS로 서비스할 때만 쿠키에 Secure를 붙인다. (HTTP에서 붙이면 브라우저가 쿠키를 저장하지 않는다)
+    JWT_COOKIE_SECURE = tostring(local.ec2_https)
+    }, local.ec2_https ? {} : {
+    # 도메인이 없으면 프론트가 고정 IP 주소의 콜백을 쓰므로 백엔드도 같은 값을 쓴다. (도메인이 있으면 ecr.tf의 공통 값)
+    # 구글은 IP·HTTP 주소를 redirect URI로 받지 않아 구글 로그인은 도메인을 연결해야 동작한다.
+    KAKAO_REDIRECT_URI  = "http://${local.ec2_public_ip}/oauth/kakao/callback"
+    GOOGLE_REDIRECT_URI = "http://${local.ec2_public_ip}/oauth/google/callback"
   })
+
+  # 웹(Caddy) 환경변수. 도메인이 없으면 :80(모든 주소, HTTP)으로 서비스한다.
+  ec2_web_environment = {
+    SITE_ADDRESS = local.ec2_https ? var.domain_name : ":80"
+  }
 }
 
 data "aws_ssm_parameter" "al2023_ami" {
@@ -20,10 +35,11 @@ data "aws_ssm_parameter" "al2023_ami" {
 resource "aws_security_group" "ec2" {
   count       = var.ec2_enabled ? 1 : 0
   name        = "${var.project}-ec2"
-  description = "EC2 app server: allow HTTP from the internet"
+  description = "EC2 app server: allow HTTP/HTTPS from the internet"
   vpc_id      = aws_vpc.main.id
 }
 
+# 80: HTTP → HTTPS 이동, Let's Encrypt 도메인 확인 / 443 TCP: HTTPS / 443 UDP: HTTP/3
 resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
   count             = var.ec2_enabled ? 1 : 0
   security_group_id = aws_security_group.ec2[0].id
@@ -31,6 +47,15 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
   ip_protocol       = "tcp"
   from_port         = 80
   to_port           = 80
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ec2_https" {
+  for_each          = var.ec2_enabled ? toset(["tcp", "udp"]) : toset([])
+  security_group_id = aws_security_group.ec2[0].id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = each.key
+  from_port         = 443
+  to_port           = 443
 }
 
 resource "aws_vpc_security_group_egress_rule" "ec2_all" {
@@ -42,6 +67,7 @@ resource "aws_vpc_security_group_egress_rule" "ec2_all" {
 
 # ---------- 배포 스크립트·설정 (SSM 파라미터) ----------
 # deploy.sh가 배포할 때마다 최신 값을 받아 쓰므로, 이 값들을 바꾼 뒤 apply하고 다시 배포하면 반영된다.
+# SSM은 값에 이중 중괄호가 있으면 다른 파라미터 참조로 보고 거부한다. apply 도중 실패하지 않게 plan에서 먼저 막는다.
 
 resource "aws_ssm_parameter" "ec2_compose" {
   count = var.ec2_enabled ? 1 : 0
@@ -49,6 +75,13 @@ resource "aws_ssm_parameter" "ec2_compose" {
   type  = "String"
   tier  = "Intelligent-Tiering"
   value = file("${path.module}/ec2/docker-compose.yml")
+
+  lifecycle {
+    precondition {
+      condition     = !strcontains(file("${path.module}/ec2/docker-compose.yml"), "{{")
+      error_message = "infra/ec2/docker-compose.yml에 이중 중괄호를 쓸 수 없습니다. (SSM 파라미터 제한)"
+    }
+  }
 }
 
 resource "aws_ssm_parameter" "ec2_deploy_script" {
@@ -57,6 +90,13 @@ resource "aws_ssm_parameter" "ec2_deploy_script" {
   type  = "String"
   tier  = "Intelligent-Tiering"
   value = file("${path.module}/ec2/deploy.sh")
+
+  lifecycle {
+    precondition {
+      condition     = !strcontains(file("${path.module}/ec2/deploy.sh"), "{{")
+      error_message = "infra/ec2/deploy.sh에 이중 중괄호를 쓸 수 없습니다. (SSM 파라미터 제한, docker --format 대신 --format json + jq)"
+    }
+  }
 }
 
 resource "aws_ssm_parameter" "ec2_app_env" {
@@ -65,6 +105,14 @@ resource "aws_ssm_parameter" "ec2_app_env" {
   type  = "String"
   tier  = "Intelligent-Tiering"
   value = jsonencode(local.ec2_app_environment)
+}
+
+resource "aws_ssm_parameter" "ec2_web_env" {
+  count = var.ec2_enabled ? 1 : 0
+  name  = "${local.ec2_param_prefix}/web-env"
+  type  = "String"
+  tier  = "Intelligent-Tiering"
+  value = jsonencode(local.ec2_web_environment)
 }
 
 # ---------- 서버 역할 ----------
@@ -151,6 +199,8 @@ resource "aws_instance" "app" {
   # IMDSv2만 허용
   metadata_options {
     http_tokens = "required"
+    # 2: 서버 안 컨테이너(앱)도 서버 역할 자격 증명을 받아 S3를 쓸 수 있게 한다. (1이면 컨테이너에서 막힌다)
+    http_put_response_hop_limit = 2
   }
 
   root_block_device {

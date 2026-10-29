@@ -51,7 +51,7 @@ describe('LiveChat 고정 공지', () => {
 });
 
 describe('LiveChat 도네이션 선물', () => {
-  it('선물 메시지는 "누구님이 몇 P를 선물했어요"로 한 줄 남기고, 한마디가 있으면 함께 보여 준다', () => {
+  it('선물 메시지는 "누구님이 몇 M을 선물했어요"로 한 줄 남기고, 한마디가 있으면 함께 보여 준다', () => {
     const base = { liveStreamId: 1, senderId: 3, nickname: '필름팬', sentAt: '2026-10-23T12:00:00' };
     render(
       <LiveChat
@@ -65,7 +65,29 @@ describe('LiveChat 도네이션 선물', () => {
       />,
     );
     const [withMessage, plain] = screen.getAllByRole('listitem');
-    expect(withMessage).toHaveTextContent('필름팬님이 1,000 P를 선물했어요 · 오늘 방송 최고예요');
-    expect(plain).toHaveTextContent(/^필름팬님이 300 P를 선물했어요$/);
+    expect(withMessage).toHaveTextContent('필름팬님이 1,000 M을 선물했어요 · 오늘 방송 최고예요');
+    expect(plain).toHaveTextContent(/^필름팬님이 300 M을 선물했어요$/);
+  });
+});
+
+describe('LiveChat 닉네임 뱃지', () => {
+  it('보낸 사람이 장착한 뱃지로 닉네임을 꾸미고, 뱃지가 없으면 닉네임만 보여 준다', () => {
+    const base = { liveStreamId: 1, type: 'CHAT' as const, sentAt: '2026-10-23T12:00:00', content: '안녕하세요' };
+    render(
+      <LiveChat
+        messages={[
+          { ...base, messageId: 'a', senderId: 3, nickname: '천사팬', badge: 'ANGEL_WINGS' },
+          { ...base, messageId: 'b', senderId: 4, nickname: '보통팬', badge: null },
+        ]}
+        canChat
+        status="connected"
+        onSend={() => true}
+      />,
+    );
+    const [decorated, plain] = screen.getAllByRole('listitem');
+    expect(decorated?.querySelector('[data-badge="ANGEL_WINGS"]')).not.toBeNull();
+    expect(decorated).toHaveTextContent('천사팬(천사 날개 뱃지)안녕하세요');
+    expect(plain?.querySelector('[data-badge]')).toBeNull();
+    expect(plain).toHaveTextContent(/^보통팬안녕하세요$/);
   });
 });

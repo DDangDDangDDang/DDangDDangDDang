@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.donation.repository;
 
+import com.example.ddangddangddang.domain.donation.entity.DonationLotSource;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointLot;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import org.springframework.data.domain.Pageable;
@@ -14,10 +15,10 @@ import java.util.List;
 
 public interface DonationPointLotRepository extends JpaRepository<DonationPointLot, Long> {
 
-    boolean existsByOrderId(Long orderId);
+    boolean existsByOrderIdAndSource(Long orderId, DonationLotSource source);
 
     /**
-     * 적립 보정: from ~ to 사이에 구매 확정했는데 적립 묶음이 없는 주문. (적립 이벤트 처리가 실패한 주문) afterId보다 큰 주문을 ID 순으로
+     * 적립 보정: from ~ to 사이에 구매 확정했는데 이 source(구매·판매)의 적립 묶음이 없는 주문. (적립 이벤트 처리가 실패한 주문) afterId보다 큰 주문을 ID 순으로
      * 주문 도메인을 읽기만 한다.
      */
     @Query("""
@@ -25,20 +26,22 @@ public interface DonationPointLotRepository extends JpaRepository<DonationPointL
             where o.status = com.example.ddangddangddang.domain.order.entity.OrderStatus.COMPLETED
               and o.completedAt >= :from and o.completedAt < :to
               and o.id > :afterId
-              and not exists (select 1 from DonationPointLot l where l.orderId = o.id)
+              and not exists (select 1 from DonationPointLot l where l.orderId = o.id and l.source = :source)
             order by o.id asc
             """)
-    List<Order> findConfirmedWithoutLot(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+    List<Order> findConfirmedWithoutLot(@Param("source") DonationLotSource source,
+                                        @Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
                                         @Param("afterId") Long afterId, Pageable pageable);
 
-    /** from ~ to(제외) 사이에 적립한 합계 (한 달 적립 한도) */
+    /** from ~ to(제외) 사이에 이 source(구매·판매)로 적립한 합계 (한 달 적립 한도는 구매·판매 따로) */
     @Query("""
             select coalesce(sum(l.amount), 0) from DonationPointLot l
-            where l.userId = :userId and l.earnedAt >= :from and l.earnedAt < :to
+            where l.userId = :userId and l.source = :source and l.earnedAt >= :from and l.earnedAt < :to
             """)
-    long sumEarnedBetween(@Param("userId") Long userId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+    long sumEarnedBetween(@Param("userId") Long userId, @Param("source") DonationLotSource source,
+                          @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
-    /** 선물할 때 쓸 수 있는 묶음: 남아 있고 유효기간이 지나지 않은 것. 유효기간이 먼저 끝나는 것부터 쓴다. */
+    /** 선물·상점 구매에 쓸 수 있는 묶음: 남아 있고 유효기간이 지나지 않은 것. 유효기간이 먼저 끝나는 것부터 쓴다. */
     @Query("""
             select l from DonationPointLot l
             where l.userId = :userId and l.remaining > 0 and l.expiresAt > :now
@@ -46,7 +49,7 @@ public interface DonationPointLotRepository extends JpaRepository<DonationPointL
             """)
     List<DonationPointLot> findUsable(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
-    /** 지금 선물할 수 있는 포인트 합계 (유효기간이 지난 것은 빼고) */
+    /** 지금 쓸 수 있는 마일리지 합계 (유효기간이 지난 것은 빼고) */
     @Query("""
             select coalesce(sum(l.remaining), 0) from DonationPointLot l
             where l.userId = :userId and l.remaining > 0 and l.expiresAt > :now

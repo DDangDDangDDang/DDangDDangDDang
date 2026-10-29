@@ -54,6 +54,13 @@ mock_provider "aws" {
     }
   }
 
+  mock_resource "aws_eip" {
+    override_during = plan
+    defaults = {
+      public_ip = "203.0.113.10"
+    }
+  }
+
   mock_resource "aws_elasticache_cluster" {
     override_during = plan
     defaults = {
@@ -77,7 +84,7 @@ run "ec2_only" {
   }
 
   assert {
-    condition     = length(aws_instance.app) == 1 && length(aws_nat_gateway.main) == 0 && length(aws_lb.main) == 0 && length(aws_ecs_service.app) == 0
+    condition     = length(aws_instance.app) == 1 && length(aws_nat_gateway.main) == 0 && length(aws_lb.main) == 0 && length(aws_ecs_service.app) == 0 && length(aws_instance.dev) == 0
     error_message = "EC2 구성에서는 EC2를 만들고 NAT·ALB·ECS는 만들지 않아야 합니다."
   }
 
@@ -93,11 +100,111 @@ run "ec2_only" {
 
   assert {
     condition = (
+      jsondecode(aws_ssm_parameter.ec2_web_env[0].value)["SITE_ADDRESS"] == ":80" &&
+      jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["JWT_COOKIE_SECURE"] == "false" &&
+      jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["KAKAO_REDIRECT_URI"] == "http://203.0.113.10/oauth/kakao/callback" &&
+      length(aws_route53_record.main) == 0
+    )
+    error_message = "도메인이 없으면 HTTP(:80)로 서비스하고 쿠키에 Secure를 붙이지 않아야 합니다."
+  }
+
+  assert {
+    condition = (
       startswith(jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["DB_URL"], "jdbc:mysql://rds.mock:3306/ddang?") &&
       jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["REDIS_HOST"] == "redis.mock"
     )
     error_message = "EC2 앱이 RDS·ElastiCache 주소를 받아야 합니다."
   }
+}
+
+run "ec2_with_domain" {
+  command = plan
+
+  variables {
+    ec2_enabled       = true
+    ecs_enabled       = false
+    domain_name       = "example.com"
+    manage_dns_record = true
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_ssm_parameter.ec2_web_env[0].value)["SITE_ADDRESS"] == "example.com" &&
+      jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["JWT_COOKIE_SECURE"] == "true"
+    )
+    error_message = "도메인이 있으면 Caddy가 그 도메인으로 HTTPS를 서비스하고 쿠키에 Secure를 붙여야 합니다."
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["KAKAO_REDIRECT_URI"] == "https://example.com/oauth/kakao/callback" &&
+      jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["GOOGLE_REDIRECT_URI"] == "https://example.com/oauth/google/callback"
+    )
+    error_message = "소셜 로그인 redirect URI가 도메인의 콜백 주소여야 합니다."
+  }
+
+  assert {
+    condition     = length(aws_route53_record.main) == 1 && length(aws_vpc_security_group_ingress_rule.ec2_https) == 2
+    error_message = "도메인 A 레코드를 만들고 443(TCP·UDP)을 열어야 합니다."
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["APP_STORAGE_TYPE"] == "s3" &&
+      jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["APP_STORAGE_S3_BUCKET"] == "ddang-uploads-123456789012" &&
+      length(aws_iam_role_policy.ec2_uploads) == 1
+    )
+    error_message = "운영 앱은 업로드 버킷(S3)을 쓰고, 서버 역할에 그 버킷 권한이 있어야 합니다."
+  }
+
+  assert {
+    condition = (
+      one(aws_s3_bucket_cors_configuration.uploads["main"].cors_rule).allowed_origins == toset(["https://example.com"]) &&
+      aws_s3_bucket_public_access_block.uploads["main"].block_public_acls
+    )
+    error_message = "업로드 버킷은 사이트 주소의 PUT만 CORS로 허용하고, 공개 ACL은 막아야 합니다."
+  }
+}
+
+run "dns_moves_to_alb_before_ec2_off" {
+  command = plan
+
+  variables {
+    ec2_enabled       = true
+    ecs_enabled       = true
+    domain_name       = "example.com"
+    manage_dns_record = true
+    dns_target        = "ecs"
+  }
+
+  assert {
+    condition     = length(aws_route53_record.main[0].alias) == 1 && aws_route53_record.main[0].records == null
+    error_message = "dns_target = ecs면 같은 A 레코드가 ALB 별칭을 가리켜야 합니다."
+  }
+}
+
+run "dns_target_must_be_enabled" {
+  command = plan
+
+  variables {
+    ec2_enabled       = false
+    ecs_enabled       = true
+    domain_name       = "example.com"
+    manage_dns_record = true
+    dns_target        = "ec2"
+  }
+
+  expect_failures = [aws_route53_record.main]
+}
+
+run "domain_must_be_bare" {
+  command = plan
+
+  variables {
+    domain_name = "https://example.com"
+  }
+
+  expect_failures = [var.domain_name]
 }
 
 run "migrating" {
@@ -125,5 +232,51 @@ run "ecs_only" {
   assert {
     condition     = length(aws_instance.app) == 0 && length(aws_ecs_service.app) == 1 && length(aws_nat_gateway.main) == 1 && length(aws_vpc_security_group_ingress_rule.db_from_ec2) == 0
     error_message = "ECS 구성에서는 EC2 없이 ECS·NAT를 만들고, EC2용 DB 접속 규칙은 없어야 합니다."
+  }
+}
+
+run "dev_site" {
+  command = plan
+
+  variables {
+    ec2_enabled       = true
+    ecs_enabled       = false
+    domain_name       = "example.com"
+    manage_dns_record = true
+    dev_enabled       = true
+  }
+
+  assert {
+    condition = (
+      length(aws_instance.dev) == 1 && length(aws_route53_record.dev) == 1 &&
+      aws_route53_record.dev[0].name == "dev.example.com" &&
+      length(aws_ecr_repository.dev) == 2 && length(aws_iam_role.github_deploy_dev) == 1
+    )
+    error_message = "dev 사이트는 서버·dev 도메인 레코드·전용 이미지 저장소·전용 배포 역할을 따로 가져야 합니다."
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_ssm_parameter.dev_web_env[0].value)["SITE_ADDRESS"] == "dev.example.com" &&
+      startswith(jsondecode(aws_ssm_parameter.dev_app_env[0].value)["DB_URL"], "jdbc:mysql://mysql:3306/ddang?") &&
+      jsondecode(aws_ssm_parameter.dev_app_env[0].value)["REDIS_HOST"] == "redis" &&
+      jsondecode(aws_ssm_parameter.dev_app_env[0].value)["KAKAO_REDIRECT_URI"] == "https://dev.example.com/oauth/kakao/callback" &&
+      jsondecode(aws_ssm_parameter.dev_app_env[0].value)["SMS_ENABLED"] == "false"
+    )
+    error_message = "dev 앱은 같은 서버의 MySQL·Redis 컨테이너와 dev 도메인을 쓰고, 문자 발송은 꺼져 있어야 합니다."
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_ssm_parameter.dev_app_env[0].value)["APP_STORAGE_S3_BUCKET"] == "ddang-dev-uploads-123456789012" &&
+      length(aws_iam_role_policy.dev_uploads) == 1 &&
+      one(aws_s3_bucket_cors_configuration.uploads["dev"].cors_rule).allowed_origins == toset(["https://dev.example.com"])
+    )
+    error_message = "dev 앱은 운영과 다른 dev 업로드 버킷을 쓰고, dev 사이트 주소의 PUT만 허용해야 합니다."
+  }
+
+  assert {
+    condition     = jsondecode(aws_ssm_parameter.ec2_app_env[0].value)["KAKAO_REDIRECT_URI"] == "https://example.com/oauth/kakao/callback"
+    error_message = "dev 사이트를 켜도 운영 설정은 그대로여야 합니다."
   }
 }

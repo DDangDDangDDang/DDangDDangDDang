@@ -8,7 +8,7 @@ import { PowerSellerBadge } from '@/components/donation/PowerSellerBadge';
 import { Badge, buttonVariants, Dialog, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { cn } from '@/lib/cn';
-import { formatDate, formatDateTime, formatDotDate, formatNumber, formatPoint } from '@/lib/format';
+import { formatDate, formatDateTime, formatDotDate, formatMileage, formatNumber, formatPoint } from '@/lib/format';
 import {
   formatBroadcastDuration,
   formatShippingTime,
@@ -72,7 +72,7 @@ export function SellerProfileDialog({ sellerId, onClose }: { sellerId?: number; 
 function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; sellerId: number; onNavigate: () => void }) {
   return (
     <div className="flex items-start gap-4">
-      <SellerAvatar name={profile.nickname} verified={profile.verifiedSeller} size="lg" />
+      <SellerAvatar name={profile.nickname} imageUrl={profile.profileImageUrl} verified={profile.verifiedSeller} size="lg" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <strong className="text-title-md font-bold">{profile.nickname || '판매자'}</strong>
@@ -89,7 +89,7 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
               사업자
             </Badge>
           )}
-          {/* 받은 도네이션 포인트로 파워 판매자를 산 판매자 */}
+          {/* 받은 도네이션 마일리지로 파워 판매자를 산 판매자 */}
           {profile.powerSeller && <PowerSellerBadge />}
           {profile.liveStreamId ? (
             <Badge variant="live">
@@ -103,6 +103,7 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
           구독자 <span className="num font-semibold text-neutral-900">{formatNumber(profile.subscriberCount ?? 0)}</span>명
         </span>
         {profile.introduction && <p className="mt-1 text-body whitespace-pre-line text-neutral-700">{profile.introduction}</p>}
+        {profile.bio && <p className="mt-1 text-body whitespace-pre-line text-neutral-500">{profile.bio}</p>}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <SubscribeButton sellerId={sellerId} subscribed={profile.subscribed ?? false} />
@@ -173,12 +174,12 @@ function InfoTab({ profile }: { profile: Profile }) {
             value={profile.verifiedSeller ? (profile.verifiedAt ? `${formatDotDate(profile.verifiedAt)} 인증` : '인증') : '인증 전'}
             hint={profile.joinedAt ? `${formatDate(profile.joinedAt)} 가입` : undefined}
           />
-          {/* 시청자가 방송에서 도네이션 포인트로 응원한 기록. 구매 확정한 회원만 포인트가 있어, 실제로 거래한 사람들의 응원이다. */}
+          {/* 시청자가 방송에서 도네이션 마일리지로 응원한 기록. 구매 확정한 회원만 마일리지가 있어, 실제로 거래한 사람들의 응원이다. */}
           <Stat
             icon={<Gift className="size-4" aria-hidden="true" />}
             label="응원"
             value={`${formatNumber(trust?.donorCount ?? 0)}명`}
-            hint={`최근 ${formatNumber(trust?.donationWindowDays ?? 0)}일 · ${formatPoint(trust?.receivedDonationPoints ?? 0)} 받음`}
+            hint={`최근 ${formatNumber(trust?.donationWindowDays ?? 0)}일 · ${formatMileage(trust?.receivedDonationPoints ?? 0)} 받음`}
           />
         </dl>
       </section>

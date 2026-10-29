@@ -42,6 +42,34 @@ class SellerApplicationTest {
     }
 
     @Test
+    @DisplayName("인증받은 판매자는 다시 심사받지 않고 상점 이름·소개를 바꾼다")
+    void updateStore() {
+        SellerApplication application = SellerApplication.create(1L, "상점", "소개", "1234567890");
+        application.approve(NOW);
+
+        application.updateStore("새 상점", "새 소개");
+
+        assertThat(application.getStoreName()).isEqualTo("새 상점");
+        assertThat(application.getIntroduction()).isEqualTo("새 소개");
+        assertThat(application.isApproved()).isTrue();
+        assertThat(application.getBusinessNumber()).isEqualTo("1234567890");
+    }
+
+    @Test
+    @DisplayName("심사 중이거나 반려된 신청은 상점 정보를 바꿀 수 없다 (SELLER_008)")
+    void cannotUpdateStoreBeforeApproval() {
+        SellerApplication pending = SellerApplication.create(1L, "상점", "소개");
+        SellerApplication rejected = SellerApplication.create(2L, "상점", "소개");
+        rejected.reject("사유", NOW);
+
+        assertThatThrownBy(() -> pending.updateStore("새 상점", "새 소개"))
+                .extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(SellerErrorCode.NOT_VERIFIED_SELLER);
+        assertThatThrownBy(() -> rejected.updateStore("새 상점", "새 소개"))
+                .extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(SellerErrorCode.NOT_VERIFIED_SELLER);
+        assertThat(pending.getStoreName()).isEqualTo("상점");
+    }
+
+    @Test
     @DisplayName("이미 심사한 신청은 다시 승인·반려할 수 없다 (SELLER_004)")
     void reviewOnce() {
         SellerApplication application = SellerApplication.create(1L, "상점", "소개");

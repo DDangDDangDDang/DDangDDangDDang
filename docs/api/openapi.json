@@ -12,6 +12,234 @@
     "bearerAuth" : [ ]
   } ],
   "paths" : {
+    "/api/v1/users/me/profile-image" : {
+      "put" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userChangeProfileImage",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProfileImageChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyInfoResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userDeleteProfileImage",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyInfoResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/phone-number" : {
+      "put" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userChangePhoneNumber",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PhoneNumberChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyInfoResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/email" : {
+      "put" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userChangeEmail",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmailChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyInfoUpdateResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/badge" : {
+      "put" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userEquipBadge",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BadgeEquipRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyBadgesResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sellers/{sellerId}/subscription" : {
       "put" : {
         "tags" : [ "seller-controller" ],
@@ -77,6 +305,54 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseSubscriptionResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/seller-applications/me/store" : {
+      "put" : {
+        "tags" : [ "seller-application-controller" ],
+        "operationId" : "sellerApplicationUpdateStore",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SellerStoreUpdateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSellerApplicationResponse"
                 }
               }
             }
@@ -720,27 +996,304 @@
         }
       }
     },
-    "/api/v1/seller-perks" : {
+    "/api/v1/users/me/profile-image/upload-url" : {
       "post" : {
-        "tags" : [ "seller-perk-controller" ],
-        "operationId" : "sellerPerkPurchase",
+        "tags" : [ "user-controller" ],
+        "operationId" : "userCreateProfileImageUploadUrl",
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/SellerPerkPurchaseRequest"
+                "$ref" : "#/components/schemas/ProfileImageUploadRequest"
               }
             }
           },
           "required" : true
         },
         "responses" : {
-          "201" : {
-            "description" : "Created",
+          "200" : {
+            "description" : "OK",
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseSellerPerkResponse"
+                  "$ref" : "#/components/schemas/ApiResponseProfileImageUploadResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/phone-number/code" : {
+      "post" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userSendPhoneNumberChangeCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PhoneCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCodeSentResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/email/code" : {
+      "post" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userSendEmailChangeCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmailChangeCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCodeSentResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shop/power-seller" : {
+      "post" : {
+        "tags" : [ "shop-controller" ],
+        "operationId" : "shopBuyPowerSeller",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shop/nickname-change" : {
+      "post" : {
+        "tags" : [ "shop-controller" ],
+        "operationId" : "shopBuyNicknameChange",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NicknameChangeTicketRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyInfoUpdateResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shop/badges/{badge}" : {
+      "post" : {
+        "tags" : [ "shop-controller" ],
+        "operationId" : "shopBuyBadge",
+        "parameters" : [ {
+          "name" : "badge",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyBadgesResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shop/auction-boosts" : {
+      "post" : {
+        "tags" : [ "shop-controller" ],
+        "operationId" : "shopBoostAuction",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AuctionBoostRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAuctionBoostResponse"
                 }
               }
             }
@@ -1832,6 +2385,111 @@
         }
       }
     },
+    "/api/v1/live-streams/{liveStreamId}/preview" : {
+      "post" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamPreview",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveStreamTokenResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/v1/live-streams/{liveStreamId}/overlay-images" : {
+      "post" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamCreateOverlayImageUpload",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OverlayImageUploadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOverlayImageUploadResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live-streams/{liveStreamId}/join" : {
       "post" : {
         "tags" : [ "live-stream-controller" ],
@@ -1957,6 +2615,60 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseDonationResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/live-streams/{liveStreamId}/chat/messages/{messageId}/restore" : {
+      "post" : {
+        "tags" : [ "live-chat-moderation-controller" ],
+        "operationId" : "liveChatModerationRestore",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "messageId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
                 }
               }
             }
@@ -4569,6 +5281,44 @@
         }
       }
     },
+    "/api/v1/users/me/badges" : {
+      "get" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userGetMyBadges",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyBadgesResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/me/auctions" : {
       "get" : {
         "tags" : [ "auction-controller" ],
@@ -4645,6 +5395,44 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseCursorResponseAuctionListResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shop/items" : {
+      "get" : {
+        "tags" : [ "shop-controller" ],
+        "operationId" : "shopGetItems",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListShopItemResponse"
                 }
               }
             }
@@ -4800,82 +5588,6 @@
           }
         },
         "security" : [ ]
-      }
-    },
-    "/api/v1/seller-perks/shop" : {
-      "get" : {
-        "tags" : [ "seller-perk-controller" ],
-        "operationId" : "sellerPerkGetShop",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListSellerShopItemResponse"
-                }
-              }
-            }
-          },
-          "4XX" : {
-            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "5XX" : {
-            "description" : "서버 오류",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/seller-perks/me" : {
-      "get" : {
-        "tags" : [ "seller-perk-controller" ],
-        "operationId" : "sellerPerkGetMine",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListSellerPerkResponse"
-                }
-              }
-            }
-          },
-          "4XX" : {
-            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "5XX" : {
-            "description" : "서버 오류",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/v1/seller-applications/me" : {
@@ -6202,6 +6914,126 @@
         }
       }
     },
+    "/api/v1/admin/dm/moderation-flags" : {
+      "get" : {
+        "tags" : [ "admin-dm-moderation-controller" ],
+        "operationId" : "adminDmModerationGetFlags",
+        "parameters" : [ {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseDmModerationFlagResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/dm/moderation-flags/{flagId}/messages" : {
+      "get" : {
+        "tags" : [ "admin-dm-moderation-controller" ],
+        "operationId" : "adminDmModerationGetFlaggedRoomMessages",
+        "parameters" : [ {
+          "name" : "flagId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseDmMessageResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live-streams/{liveStreamId}/featured-auction/{auctionId}" : {
       "delete" : {
         "tags" : [ "live-stream-controller" ],
@@ -6307,14 +7139,24 @@
   },
   "components" : {
     "schemas" : {
-      "ApiResponseSubscriptionResponse" : {
+      "ProfileImageChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "imageKey" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "imageKey" ]
+      },
+      "ApiResponseMyInfoResponse" : {
         "type" : "object",
         "properties" : {
           "success" : {
             "type" : "boolean"
           },
           "data" : {
-            "$ref" : "#/components/schemas/SubscriptionResponse"
+            "$ref" : "#/components/schemas/MyInfoResponse"
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
@@ -6331,6 +7173,157 @@
           }
         }
       },
+      "MyInfoResponse" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "phoneNumber" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "USER", "ADMIN" ]
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "nicknameChangeAvailableAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "bio" : {
+            "type" : "string"
+          },
+          "profileImageUrl" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PhoneNumberChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "phoneNumber" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^01[016789]\\d{7,8}$"
+          },
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^\\d{6}$"
+          }
+        },
+        "required" : [ "code", "phoneNumber" ]
+      },
+      "EmailChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^\\d{6}$"
+          }
+        },
+        "required" : [ "code", "email" ]
+      },
+      "ApiResponseMyInfoUpdateResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/MyInfoUpdateResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "MyInfoUpdateResponse" : {
+        "type" : "object",
+        "properties" : {
+          "user" : {
+            "$ref" : "#/components/schemas/MyInfoResponse"
+          },
+          "accessToken" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "BadgeEquipRequest" : {
+        "type" : "object",
+        "properties" : {
+          "badge" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+          }
+        }
+      },
+      "ApiResponseMyBadgesResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/MyBadgesResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "MyBadgesResponse" : {
+        "type" : "object",
+        "properties" : {
+          "owned" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+            }
+          },
+          "equipped" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+          }
+        }
+      },
+      "ApiResponseSubscriptionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SubscriptionResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
       "SubscriptionResponse" : {
         "type" : "object",
         "properties" : {
@@ -6344,6 +7337,79 @@
           "subscriberCount" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "SellerStoreUpdateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "storeName" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "introduction" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "introduction", "storeName" ]
+      },
+      "ApiResponseSellerApplicationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SellerApplicationResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "SellerApplicationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "storeName" : {
+            "type" : "string"
+          },
+          "introduction" : {
+            "type" : "string"
+          },
+          "businessNumber" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "APPROVED", "REJECTED" ]
+          },
+          "rejectReason" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reviewedAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -6489,6 +7555,52 @@
           }
         }
       },
+      "OverlayBoxRequest" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "TEXT", "IMAGE" ]
+          },
+          "x" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 0
+          },
+          "y" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 0
+          },
+          "text" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "textStyle" : {
+            "type" : "string",
+            "enum" : [ "PLAIN", "HIGHLIGHT", "DARK" ]
+          },
+          "textSize" : {
+            "type" : "string",
+            "enum" : [ "SMALL", "MEDIUM", "LARGE" ]
+          },
+          "imageKey" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 60,
+            "minimum" : 10
+          }
+        },
+        "required" : [ "type", "x", "y" ]
+      },
       "OverlayLayoutRequest" : {
         "type" : "object",
         "properties" : {
@@ -6503,6 +7615,14 @@
           },
           "sold" : {
             "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "boxes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OverlayBoxRequest"
+            },
+            "maxItems" : 10,
+            "minItems" : 0
           }
         },
         "required" : [ "bid", "donation", "featured", "sold" ]
@@ -6521,6 +7641,9 @@
             "format" : "int32",
             "maximum" : 100,
             "minimum" : 0
+          },
+          "hidden" : {
+            "type" : "boolean"
           }
         },
         "required" : [ "x", "y" ]
@@ -6578,6 +7701,10 @@
           "recorded" : {
             "type" : "boolean"
           },
+          "chatModerationMode" : {
+            "type" : "string",
+            "enum" : [ "OFF", "ALERT", "AUTO_HIDE" ]
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "SCHEDULED", "LIVE", "ENDED" ]
@@ -6600,6 +7727,44 @@
           }
         }
       },
+      "OverlayBox" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "TEXT", "IMAGE" ]
+          },
+          "x" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "y" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "text" : {
+            "type" : "string"
+          },
+          "textStyle" : {
+            "type" : "string",
+            "enum" : [ "PLAIN", "HIGHLIGHT", "DARK" ]
+          },
+          "textSize" : {
+            "type" : "string",
+            "enum" : [ "SMALL", "MEDIUM", "LARGE" ]
+          },
+          "imageKey" : {
+            "type" : "string"
+          },
+          "imageUrl" : {
+            "type" : "string"
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "OverlayLayoutResponse" : {
         "type" : "object",
         "properties" : {
@@ -6614,6 +7779,12 @@
           },
           "sold" : {
             "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "boxes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OverlayBox"
+            }
           }
         }
       },
@@ -6696,25 +7867,13 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "powerSellerPrice" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "powerSellerDays" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "promotedLiveSlots" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "memo" : {
             "type" : "string",
             "maxLength" : 200,
             "minLength" : 0
           }
         },
-        "required" : [ "earnRatePercent", "expiringNoticeDays", "giftUnit", "maxEarnPerOrder", "maxGift", "minGift", "monthlyEarnLimit", "monthlyGiftLimitPerSeller", "pointValidDays", "powerSellerDays", "powerSellerPrice", "promotedLiveSlots", "trustWindowDays" ]
+        "required" : [ "earnRatePercent", "expiringNoticeDays", "giftUnit", "maxEarnPerOrder", "maxGift", "minGift", "monthlyEarnLimit", "monthlyGiftLimitPerSeller", "pointValidDays", "trustWindowDays" ]
       },
       "ApiResponseDonationPolicyResponse" : {
         "type" : "object",
@@ -6772,18 +7931,6 @@
           "trustWindowDays" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "powerSellerPrice" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "powerSellerDays" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "promotedLiveSlots" : {
-            "type" : "integer",
-            "format" : "int32"
           }
         }
       },
@@ -6813,42 +7960,147 @@
           }
         }
       },
-      "SellerPerkPurchaseRequest" : {
+      "ProfileImageUploadRequest" : {
         "type" : "object",
         "properties" : {
-          "type" : {
+          "contentType" : {
             "type" : "string",
-            "enum" : [ "POWER_SELLER" ]
+            "minLength" : 1
+          },
+          "contentLength" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
           }
         },
-        "required" : [ "type" ]
+        "required" : [ "contentLength", "contentType" ]
       },
-      "ApiResponseSellerPerkResponse" : {
+      "ApiResponseProfileImageUploadResponse" : {
         "type" : "object",
         "properties" : {
           "success" : {
             "type" : "boolean"
           },
           "data" : {
-            "$ref" : "#/components/schemas/SellerPerkResponse"
+            "$ref" : "#/components/schemas/ProfileImageUploadResponse"
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
-      "SellerPerkResponse" : {
+      "ProfileImageUploadResponse" : {
         "type" : "object",
         "properties" : {
-          "id" : {
+          "uploadUrl" : {
+            "type" : "string"
+          },
+          "imageKey" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
             "type" : "integer",
             "format" : "int64"
-          },
-          "type" : {
+          }
+        }
+      },
+      "PhoneCodeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "phoneNumber" : {
             "type" : "string",
-            "enum" : [ "POWER_SELLER" ]
+            "minLength" : 1,
+            "pattern" : "^01[016789]\\d{7,8}$"
+          }
+        },
+        "required" : [ "phoneNumber" ]
+      },
+      "ApiResponseCodeSentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
           },
-          "price" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CodeSentResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CodeSentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "EmailChangeCodeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email" ]
+      },
+      "ApiResponseVoid" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : { },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "NicknameChangeTicketRequest" : {
+        "type" : "object",
+        "properties" : {
+          "nickname" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 2
+          }
+        },
+        "required" : [ "nickname" ]
+      },
+      "AuctionBoostRequest" : {
+        "type" : "object",
+        "properties" : {
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "auctionId" ]
+      },
+      "ApiResponseAuctionBoostResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/AuctionBoostResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "AuctionBoostResponse" : {
+        "type" : "object",
+        "properties" : {
+          "auctionId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -6882,63 +8134,6 @@
           }
         },
         "required" : [ "introduction", "storeName" ]
-      },
-      "ApiResponseSellerApplicationResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/SellerApplicationResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "SellerApplicationResponse" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "userId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "nickname" : {
-            "type" : "string"
-          },
-          "email" : {
-            "type" : "string"
-          },
-          "storeName" : {
-            "type" : "string"
-          },
-          "introduction" : {
-            "type" : "string"
-          },
-          "businessNumber" : {
-            "type" : "string"
-          },
-          "status" : {
-            "type" : "string",
-            "enum" : [ "PENDING", "APPROVED", "REJECTED" ]
-          },
-          "rejectReason" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "reviewedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
       },
       "ReviewCreateRequest" : {
         "type" : "object",
@@ -6981,18 +8176,6 @@
           }
         },
         "required" : [ "auth", "endpoint", "p256dh" ]
-      },
-      "ApiResponseVoid" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : { },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
       },
       "ProductRequest" : {
         "type" : "object",
@@ -7515,6 +8698,53 @@
           }
         }
       },
+      "OverlayImageUploadRequest" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "contentLength" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        },
+        "required" : [ "contentLength", "contentType" ]
+      },
+      "ApiResponseOverlayImageUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/OverlayImageUploadResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "OverlayImageUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "uploadUrl" : {
+            "type" : "string"
+          },
+          "imageKey" : {
+            "type" : "string"
+          },
+          "imageUrl" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "DonationRequest" : {
         "type" : "object",
         "properties" : {
@@ -7524,7 +8754,7 @@
           },
           "message" : {
             "type" : "string",
-            "maxLength" : 50,
+            "maxLength" : 20,
             "minLength" : 0
           },
           "requestKey" : {
@@ -7560,7 +8790,7 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "giftableBalance" : {
+          "balance" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -7950,40 +9180,6 @@
         "properties" : {
           "verificationToken" : {
             "type" : "string"
-          }
-        }
-      },
-      "PhoneCodeRequest" : {
-        "type" : "object",
-        "properties" : {
-          "phoneNumber" : {
-            "type" : "string",
-            "minLength" : 1,
-            "pattern" : "^01[016789]\\d{7,8}$"
-          }
-        },
-        "required" : [ "phoneNumber" ]
-      },
-      "ApiResponseCodeSentResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/CodeSentResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "CodeSentResponse" : {
-        "type" : "object",
-        "properties" : {
-          "expiresIn" : {
-            "type" : "integer",
-            "format" : "int64"
           }
         }
       },
@@ -8512,63 +9708,13 @@
           "nickname" : {
             "type" : "string",
             "maxLength" : 10,
-            "minLength" : 2
-          }
-        },
-        "required" : [ "nickname" ]
-      },
-      "ApiResponseMyInfoUpdateResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
+            "minLength" : 2,
+            "pattern" : ".*\\S.*"
           },
-          "data" : {
-            "$ref" : "#/components/schemas/MyInfoUpdateResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "MyInfoResponse" : {
-        "type" : "object",
-        "properties" : {
-          "userId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "email" : {
-            "type" : "string"
-          },
-          "nickname" : {
-            "type" : "string"
-          },
-          "phoneNumber" : {
-            "type" : "string"
-          },
-          "role" : {
+          "bio" : {
             "type" : "string",
-            "enum" : [ "USER", "ADMIN" ]
-          },
-          "createdAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
-      "MyInfoUpdateResponse" : {
-        "type" : "object",
-        "properties" : {
-          "user" : {
-            "$ref" : "#/components/schemas/MyInfoResponse"
-          },
-          "accessToken" : {
-            "type" : "string"
-          },
-          "expiresIn" : {
-            "type" : "integer",
-            "format" : "int64"
+            "maxLength" : 150,
+            "minLength" : 0
           }
         }
       },
@@ -8761,20 +9907,10 @@
           },
           "recorded" : {
             "type" : "boolean"
-          }
-        }
-      },
-      "ApiResponseMyInfoResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
           },
-          "data" : {
-            "$ref" : "#/components/schemas/MyInfoResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
+          "chatModerationMode" : {
+            "type" : "string",
+            "enum" : [ "OFF", "ALERT", "AUTO_HIDE" ]
           }
         }
       },
@@ -8990,6 +10126,9 @@
           },
           "live" : {
             "type" : "boolean"
+          },
+          "promoted" : {
+            "type" : "boolean"
           }
         }
       },
@@ -9008,6 +10147,52 @@
           },
           "hasNext" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "ApiResponseListShopItemResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ShopItemResponse"
+            }
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "ShopItemResponse" : {
+        "type" : "object",
+        "properties" : {
+          "item" : {
+            "type" : "string",
+            "enum" : [ "NICKNAME_CHANGE", "BADGE_ANGEL_WINGS", "BADGE_DEVIL_WINGS", "BADGE_HALO", "BADGE_STAR", "AUCTION_BOOST", "POWER_SELLER" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "price" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "badge" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+          },
+          "available" : {
+            "type" : "boolean"
+          },
+          "unavailableReason" : {
+            "type" : "string"
           }
         }
       },
@@ -9033,6 +10218,12 @@
             "format" : "int64"
           },
           "nickname" : {
+            "type" : "string"
+          },
+          "bio" : {
+            "type" : "string"
+          },
+          "profileImageUrl" : {
             "type" : "string"
           },
           "verifiedSeller" : {
@@ -9192,63 +10383,6 @@
           "liveStreamId" : {
             "type" : "integer",
             "format" : "int64"
-          }
-        }
-      },
-      "ApiResponseListSellerShopItemResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/SellerShopItemResponse"
-            }
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "SellerShopItemResponse" : {
-        "type" : "object",
-        "properties" : {
-          "type" : {
-            "type" : "string",
-            "enum" : [ "POWER_SELLER" ]
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "description" : {
-            "type" : "string"
-          },
-          "price" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "periodDays" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
-      "ApiResponseListSellerPerkResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/SellerPerkResponse"
-            }
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
@@ -9698,7 +10832,7 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "giftableBalance" : {
+          "balance" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -9782,11 +10916,7 @@
       "DonationWalletResponse" : {
         "type" : "object",
         "properties" : {
-          "giftableBalance" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "receivedBalance" : {
+          "balance" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -9799,6 +10929,10 @@
             "format" : "date-time"
           },
           "earnedThisMonth" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "saleEarnedThisMonth" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -9849,17 +10983,13 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "EARN", "GIFT", "RECEIVE", "EXPIRE", "SPEND" ]
+            "enum" : [ "EARN", "SALE", "GIFT", "RECEIVE", "EXPIRE", "SPEND", "SHOP" ]
           },
           "amount" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "giftableAfter" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "receivedAfter" : {
+          "balanceAfter" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -10289,6 +11419,76 @@
           }
         }
       },
+      "ApiResponseCursorResponseDmModerationFlagResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseDmModerationFlagResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CursorResponseDmModerationFlagResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DmModerationFlagResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "DmModerationFlagResponse" : {
+        "type" : "object",
+        "properties" : {
+          "flagId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "roomId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "messageId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "senderId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "category" : {
+            "type" : "string",
+            "enum" : [ "EXTERNAL_TRADE", "SCAM", "HARASSMENT", "HATE", "SEXUAL", "SPAM", "PERSONAL_INFO" ]
+          },
+          "categoryLabel" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "content" : {
+            "type" : "string"
+          },
+          "flaggedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "ApiErrorResponse" : {
         "type" : "object",
         "description" : "실패 응답. error.code로 원인을 구분한다. (x-error-codes 참고)",
@@ -10537,17 +11737,21 @@
     "status" : 404,
     "message" : "신고를 찾을 수 없습니다."
   }, {
+    "code" : "DM_014",
+    "status" : 404,
+    "message" : "AI 검토 기록을 찾을 수 없습니다."
+  }, {
     "code" : "DONATION_001",
     "status" : 400,
-    "message" : "선물할 수 없는 포인트입니다."
+    "message" : "선물할 수 없는 마일리지입니다."
   }, {
     "code" : "DONATION_002",
     "status" : 400,
-    "message" : "선물할 수 있는 도네이션 포인트가 부족합니다."
+    "message" : "도네이션 마일리지가 부족합니다."
   }, {
     "code" : "DONATION_003",
     "status" : 400,
-    "message" : "이 판매자에게 이번 달 선물할 수 있는 포인트를 넘었습니다."
+    "message" : "이 판매자에게 이번 달 선물할 수 있는 마일리지를 넘었습니다."
   }, {
     "code" : "DONATION_004",
     "status" : 400,
@@ -10561,10 +11765,6 @@
     "status" : 400,
     "message" : "선물 메시지에 넣을 수 없는 내용이 있습니다."
   }, {
-    "code" : "DONATION_008",
-    "status" : 400,
-    "message" : "받은 도네이션 포인트가 부족합니다."
-  }, {
     "code" : "DONATION_009",
     "status" : 403,
     "message" : "판매자 인증을 받은 회원만 구매할 수 있습니다."
@@ -10575,7 +11775,7 @@
   }, {
     "code" : "DONATION_011",
     "status" : 400,
-    "message" : "도네이션 포인트 정책 값이 올바르지 않습니다."
+    "message" : "도네이션 마일리지 정책 값이 올바르지 않습니다."
   }, {
     "code" : "LIVECHAT_001",
     "status" : 429,
@@ -10588,6 +11788,14 @@
     "code" : "LIVECHAT_003",
     "status" : 400,
     "message" : "보낼 수 없는 내용이 포함되어 있습니다."
+  }, {
+    "code" : "LIVECHAT_004",
+    "status" : 400,
+    "message" : "같은 내용을 짧은 시간에 반복해서 보낼 수 없습니다."
+  }, {
+    "code" : "LIVECHAT_005",
+    "status" : 403,
+    "message" : "내 방송의 채팅만 관리할 수 있습니다."
   }, {
     "code" : "LIVESTREAM_001",
     "status" : 404,
@@ -10656,6 +11864,26 @@
     "code" : "LIVESTREAM_017",
     "status" : 409,
     "message" : "영상 위에는 경매를 2개까지 띄울 수 있습니다. 띄운 경매 하나를 내린 뒤 다시 시도해 주세요."
+  }, {
+    "code" : "LIVESTREAM_018",
+    "status" : 429,
+    "message" : "미리보기 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
+  }, {
+    "code" : "LIVESTREAM_019",
+    "status" : 400,
+    "message" : "텍스트 박스에 넣을 글자를 입력해 주세요."
+  }, {
+    "code" : "LIVESTREAM_020",
+    "status" : 400,
+    "message" : "이미지가 올라가지 않았습니다. 이미지를 다시 올려 주세요."
+  }, {
+    "code" : "LIVESTREAM_021",
+    "status" : 400,
+    "message" : "이미지는 JPG, PNG, WEBP, GIF 파일만 올릴 수 있습니다."
+  }, {
+    "code" : "LIVESTREAM_022",
+    "status" : 400,
+    "message" : "이미지는 5MB까지 올릴 수 있습니다."
   }, {
     "code" : "NOTIFICATION_001",
     "status" : 404,
@@ -10913,6 +12141,34 @@
     "status" : 400,
     "message" : "사업자등록번호 10자리를 다시 확인해 주세요."
   }, {
+    "code" : "SELLER_008",
+    "status" : 403,
+    "message" : "판매자 인증을 받은 회원만 상점 정보를 바꿀 수 있습니다."
+  }, {
+    "code" : "SHOP_001",
+    "status" : 400,
+    "message" : "시작 전이거나 진행 중인 경매만 위로 올릴 수 있습니다."
+  }, {
+    "code" : "SHOP_002",
+    "status" : 409,
+    "message" : "이미 위로 올린 경매입니다. 경매 하나는 한 번만 올릴 수 있습니다."
+  }, {
+    "code" : "SHOP_003",
+    "status" : 409,
+    "message" : "지금은 위로 올릴 자리가 없습니다. 잠시 후 다시 시도해 주세요."
+  }, {
+    "code" : "SHOP_004",
+    "status" : 403,
+    "message" : "내 경매만 위로 올릴 수 있습니다."
+  }, {
+    "code" : "SHOP_005",
+    "status" : 400,
+    "message" : "판매 확정 20건 이상인 판매자만 파워 판매자가 될 수 있습니다."
+  }, {
+    "code" : "SHOP_006",
+    "status" : 409,
+    "message" : "이미 파워 판매자입니다."
+  }, {
     "code" : "USER_001",
     "status" : 409,
     "message" : "이미 사용 중인 이메일입니다."
@@ -10928,6 +12184,50 @@
     "code" : "USER_004",
     "status" : 409,
     "message" : "이미 가입된 휴대폰 번호입니다."
+  }, {
+    "code" : "USER_005",
+    "status" : 429,
+    "message" : "닉네임을 바꾼 뒤 일정 기간이 지나야 다시 바꿀 수 있습니다."
+  }, {
+    "code" : "USER_006",
+    "status" : 400,
+    "message" : "소개에 사용할 수 없는 내용이 포함되어 있습니다."
+  }, {
+    "code" : "USER_007",
+    "status" : 400,
+    "message" : "프로필 이미지는 JPG, PNG, WEBP, GIF만 올릴 수 있습니다."
+  }, {
+    "code" : "USER_008",
+    "status" : 400,
+    "message" : "프로필 이미지는 5MB 이하만 올릴 수 있습니다."
+  }, {
+    "code" : "USER_009",
+    "status" : 400,
+    "message" : "올린 이미지를 찾을 수 없습니다. 다시 올려 주세요."
+  }, {
+    "code" : "USER_010",
+    "status" : 400,
+    "message" : "지금 쓰고 있는 이메일입니다."
+  }, {
+    "code" : "USER_011",
+    "status" : 400,
+    "message" : "지금 쓰고 있는 휴대폰 번호입니다."
+  }, {
+    "code" : "USER_012",
+    "status" : 400,
+    "message" : "지금은 변경권 없이 닉네임을 바꿀 수 있습니다."
+  }, {
+    "code" : "USER_013",
+    "status" : 400,
+    "message" : "지금 쓰고 있는 닉네임입니다."
+  }, {
+    "code" : "USER_014",
+    "status" : 409,
+    "message" : "이미 가지고 있는 뱃지입니다."
+  }, {
+    "code" : "USER_015",
+    "status" : 400,
+    "message" : "가지고 있지 않은 뱃지입니다."
   }, {
     "code" : "VERIFY_001",
     "status" : 400,

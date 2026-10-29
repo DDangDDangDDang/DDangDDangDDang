@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.livestream.dto;
 
+import com.example.ddangddangddang.domain.livestream.entity.ChatModerationMode;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -10,6 +11,7 @@ import java.util.List;
  * 방송 정보 수정. 보낸 값만 바꾸고, 보내지 않은(null) 값은 그대로 둔다.
  * description, notice를 빈 문자열("")로 보내면 지운다. hashtags는 빈 목록([])으로 보내면 지운다.
  * recorded는 판매자 스튜디오가 영상 소스(카메라·녹화 영상)를 바꿀 때 보낸다.
+ * chatModerationMode는 판매자 스튜디오의 채팅 AI 검토 설정에서 보낸다.
  */
 public record LiveStreamUpdateRequest(
         // null은 통과하고, 값을 보냈다면 공백만으로 이뤄질 수 없다. (?U)로 전각 공백 같은 유니코드 공백도 공백으로 본다.
@@ -32,8 +34,16 @@ public record LiveStreamUpdateRequest(
         List<String> hashtags,
 
         // 카메라 대신 미리 녹화한 영상을 내보내는지. 대기 중·방송 중에 바꿀 수 있다.
-        Boolean recorded
+        Boolean recorded,
+
+        // 채팅 AI 검토 처리 방식 (OFF / ALERT / AUTO_HIDE). 대기 중·방송 중에 바꿀 수 있다.
+        ChatModerationMode chatModerationMode
 ) {
+    public LiveStreamUpdateRequest(String title, String description, LocalDateTime scheduledStartAt, String notice,
+                                   List<String> hashtags, Boolean recorded) {
+        this(title, description, scheduledStartAt, notice, hashtags, recorded, null);
+    }
+
     public LiveStreamUpdateRequest(String title, String description) {
         this(title, description, null, null);
     }

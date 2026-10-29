@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { RequireVerifiedSeller } from '@/components/seller/RequireVerifiedSeller';
@@ -20,7 +20,7 @@ import { MyInfoPage } from '@/pages/me/MyInfoPage';
 import { MessagesPage } from '@/pages/messages/MessagesPage';
 import { PointsPage } from '@/pages/me/PointsPage';
 import { DonationPointsPage } from '@/pages/me/DonationPointsPage';
-import { SellerShopPage } from '@/pages/me/SellerShopPage';
+import { ShopPage } from '@/pages/me/ShopPage';
 import { DonationPolicyPage } from '@/pages/admin/DonationPolicyPage';
 import { AlertedAuctionsPage } from '@/pages/me/AlertedAuctionsPage';
 import { NotificationSettingsPage } from '@/pages/me/NotificationSettingsPage';
@@ -71,6 +71,9 @@ export const router = createBrowserRouter([
           { path: '/me', element: <MyInfoPage /> },
           { path: '/points', element: <PointsPage /> },
           { path: '/me/donation-points', element: <DonationPointsPage /> },
+          { path: '/shop', element: <ShopPage /> },
+          // 예전 판매자 상점 주소 (파워 판매자는 마일리지 상점으로 옮겼다)
+          { path: '/me/donation-shop', element: <Navigate to="/shop" replace /> },
           { path: '/me/seller', element: <SellerApplicationPage /> },
           { path: '/me/notifications', element: <NotificationSettingsPage /> },
           { path: '/me/auction-alerts', element: <AlertedAuctionsPage /> },
@@ -84,7 +87,6 @@ export const router = createBrowserRouter([
             element: <RequireVerifiedSeller />,
             children: [
               { path: '/me/products', element: <MyProductsPage /> },
-              { path: '/me/donation-shop', element: <SellerShopPage /> },
               { path: '/products/new', element: <ProductCreatePage /> },
               { path: '/products/:productId/edit', element: <ProductEditPage /> },
               { path: '/products/:productId/auction', element: <ProductAuctionPage /> },

@@ -137,7 +137,7 @@ function TrackingSteps({ events, problem }: { events: TrackingEvent[]; problem: 
                                 !reached && 'border-neutral-200 bg-neutral-0 text-neutral-400',
                                 reached && !isCurrent && 'border-info-600 bg-info-50 text-info-700',
                                 isCurrent && !problem && 'border-info-600 bg-info-600 text-neutral-25',
-                                isCurrent && problem && 'border-brand-500 bg-brand-500 text-white',
+                                isCurrent && problem && 'border-red-500 bg-red-500 text-white',
                             )}
                         >
                             <Icon className="size-5" aria-hidden="true" />

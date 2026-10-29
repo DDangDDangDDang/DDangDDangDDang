@@ -13,11 +13,16 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+
 @Getter
 @Entity
 @Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseTimeEntity {
+
+    public static final int BIO_MAX_LENGTH = 150;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,6 +43,23 @@ public class User extends BaseTimeEntity {
 
     @Column(unique = true, length = 11)
     private String phoneNumber;
+
+    // 마지막으로 닉네임을 바꾼 시각. 가입 후 한 번도 바꾸지 않았으면 null (첫 변경은 바로 할 수 있다)
+    private LocalDateTime nicknameChangedAt;
+
+    // 자기소개. 프로필에 보여 준다. 없으면 null
+    @Column(length = BIO_MAX_LENGTH)
+    private String bio;
+
+    // 프로필 이미지의 저장소 키 (profile-images/{회원 ID}/...). 화면 주소는 FileStorage.publicUrl로 만든다. 없으면 null
+    @Column(length = 200)
+    private String profileImageKey;
+
+    // 라이브 채팅에서 닉네임을 꾸미는 장착한 뱃지. 없으면 null (가진 뱃지는 UserBadge)
+    // MySQL ENUM이 아니라 문자열로 둔다. (뱃지를 더할 때 ddl-auto가 ENUM 정의를 고치지 않음)
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20)")
+    private NicknameBadge equippedBadge;
 
     private User(String email, String password, String nickname, String phoneNumber, UserRole role) {
         this.email = email;
@@ -71,8 +93,47 @@ public class User extends BaseTimeEntity {
         this.password = encodedPassword;
     }
 
-    public void changeNickname(String nickname) {
+    /** 뱃지를 장착한다. null이면 뺀다. (가졌는지는 UserBadgeService가 확인) */
+    public void equipBadge(NicknameBadge badge) {
+        this.equippedBadge = badge;
+    }
+
+    public void changeNickname(String nickname, LocalDateTime now) {
         this.nickname = nickname;
+        this.nicknameChangedAt = now;
+    }
+
+    /** 빈 값이면 소개를 지운다 */
+    public void changeBio(String bio) {
+        this.bio = bio == null || bio.isBlank() ? null : bio;
+    }
+
+    /** null이면 프로필 이미지를 지운다 */
+    public void changeProfileImage(String profileImageKey) {
+        this.profileImageKey = profileImageKey;
+    }
+
+    /** 본인 인증을 마친 새 이메일로 바꾼다 */
+    public void changeEmail(String email) {
+        this.email = email;
+    }
+
+    /** 본인 인증을 마친 새 휴대폰 번호로 바꾼다 */
+    public void changePhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    /**
+     * 다음에 닉네임을 바꿀 수 있는 시각. 지금 바로 바꿀 수 있으면 null
+     *
+     * @param interval 닉네임을 바꾼 뒤 다시 바꿀 수 있을 때까지의 기간
+     */
+    public LocalDateTime nicknameChangeAvailableAt(Duration interval, LocalDateTime now) {
+        if (nicknameChangedAt == null) {
+            return null;
+        }
+        LocalDateTime availableAt = nicknameChangedAt.plus(interval);
+        return now.isBefore(availableAt) ? availableAt : null;
     }
 
     /** 개발용 관리자 계정 생성 (DevAdminInitializer). 운영에서는 쓰지 않는다 */

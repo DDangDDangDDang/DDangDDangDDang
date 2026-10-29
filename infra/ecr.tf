@@ -31,7 +31,8 @@ locals {
   # LiveKit Cloud: 서버 API는 https://, 브라우저 접속은 wss:// 같은 호스트를 쓴다.
   livekit_api_url = replace(var.livekit_url, "wss://", "https://")
 
-  common_app_environment = merge(var.app_environment, {
+  # 저장소 값(storage.tf)을 먼저 두어 tfvars의 app_environment로 덮어쓸 수 있게 한다. (APP_STORAGE_S3_PUBLIC_BASE_URL 등)
+  common_app_environment = merge(local.main_storage_environment, var.app_environment, {
     SPRING_PROFILES_ACTIVE = "prod"
     DDL_AUTO               = var.ddl_auto
     LIVEKIT_API_URL        = local.livekit_api_url
@@ -39,5 +40,24 @@ locals {
     DB_URL                 = "jdbc:mysql://${aws_db_instance.main.address}:${aws_db_instance.main.port}/${local.db_name}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
     REDIS_HOST             = aws_elasticache_cluster.redis.cache_nodes[0].address
     REDIS_PORT             = tostring(aws_elasticache_cluster.redis.port)
+    }, var.domain_name == "" ? {} : {
+    # 프론트는 접속한 주소의 /oauth/{provider}/callback을 쓴다. 카카오·구글 콘솔에도 같은 주소를 등록한다.
+    KAKAO_REDIRECT_URI  = "https://${var.domain_name}/oauth/kakao/callback"
+    GOOGLE_REDIRECT_URI = "https://${var.domain_name}/oauth/google/callback"
   })
+}
+
+# 웹 이미지 저장소 (EC2 구성: 프론트엔드 + Caddy. frontend/Dockerfile)
+resource "aws_ecr_repository" "web" {
+  name                 = "${var.project}-web"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "web" {
+  repository = aws_ecr_repository.web.name
+  policy     = aws_ecr_lifecycle_policy.app.policy
 }

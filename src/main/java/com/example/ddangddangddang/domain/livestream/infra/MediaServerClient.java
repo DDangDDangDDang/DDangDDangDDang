@@ -21,6 +21,12 @@ public interface MediaServerClient {
     /** 시청 전용 토큰 (구매자) */
     String createViewerToken(String roomName, String identity, String displayName);
 
+    /**
+     * 홈 미리보기 전용 토큰. 다른 참가자에게 보이지 않는 숨은 참가자로 입장하고, 송출할 수 없다.
+     * 토큰은 짧게만 유효하다. (접속한 뒤에는 LiveKit이 연결을 유지한다)
+     */
+    String createPreviewToken(String roomName, String identity);
+
     /** 브라우저가 접속할 LiveKit 주소 */
     String getWsUrl();
 

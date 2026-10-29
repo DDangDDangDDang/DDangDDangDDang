@@ -18,7 +18,7 @@ import { useLiveStreamAuctions, WATCH_AUCTION_REFRESH_MS } from '@/lib/use-live-
 import { AuctionPanel } from './AuctionPanel';
 import { Hashtags } from '@/components/live/Hashtags';
 import { LiveChat } from '@/components/live/LiveChat';
-import { appendChatMessage } from '@/lib/live-room';
+import { applyChatMessage } from '@/lib/live-room';
 import { LiveVideo } from './LiveVideo';
 import { useLiveRealtime } from '@/lib/use-live-realtime';
 import { useWatchStream } from '@/components/watch/watch-context';
@@ -67,7 +67,7 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
 
   const realtime = useLiveRealtime(liveStreamId, {
     onChat: (message) => {
-      setMessages((list) => appendChatMessage(list, message));
+      setMessages((list) => applyChatMessage(list, message));
       // 서버 안내(방송 시작·종료 등)가 오면 방송 상태가 바뀌었을 수 있으므로 다시 불러온다.
       if (message.type === 'SYSTEM') refetchLiveStream();
     },

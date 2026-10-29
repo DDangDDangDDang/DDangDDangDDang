@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.donation.controller;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
+import com.example.ddangddangddang.domain.donation.entity.DonationLotSource;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointLot;
 import com.example.ddangddangddang.domain.donation.event.DonationPointEarner;
 import com.example.ddangddangddang.domain.donation.repository.DonationPointLotRepository;
@@ -19,13 +20,11 @@ import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
-import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.entity.UserRole;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
-import com.example.ddangddangddang.support.SellerFixture;
 import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.DisplayName;
@@ -61,9 +60,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 도네이션 포인트: 구매 확정 적립 → 방송 중인 판매자에게 선물 → 유효기간 만료 → 판매자 상점(파워 판매자) → 신뢰 지표
- * 기본 설정(DonationProperties): 낙찰가의 1%(주문당 최대 1,000P), 한 달 적립 10,000P, 유효기간 90일,
- * 선물 100~5,000P(100P 단위), 판매자 한 명에게 한 달 5,000P, 파워 판매자 30,000P/30일
+ * 도네이션 마일리지: 구매·판매 확정 적립 → 방송 중인 판매자에게 선물 → 유효기간 만료 → 신뢰 지표 (파워 판매자는 마일리지 상점: ShopControllerTest)
+ * 구매·판매 적립과 선물받은 마일리지는 구분 없이 하나의 잔액(balance)으로 쓴다.
+ * 기본 설정(DonationProperties): 낙찰가의 1%를 구매자·판매자에게 각각(주문당 최대 1,000P), 한 달 적립 10,000P(구매·판매 각각), 유효기간 90일,
+ * 선물 100~5,000P(100P 단위), 판매자 한 명에게 한 달 5,000P
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -104,9 +104,6 @@ class DonationControllerTest {
     private LiveStreamRepository liveStreamRepository;
 
     @Autowired
-    private SellerApplicationRepository sellerApplicationRepository;
-
-    @Autowired
     private ApplicationEventPublisher eventPublisher;
 
     @Autowired
@@ -128,7 +125,7 @@ class DonationControllerTest {
     private StompBroadcaster stompBroadcaster;
 
     @Test
-    @DisplayName("구매 확정하면 낙찰가의 1%(주문당 최대 1,000P)를 적립하고 알린다. 같은 주문은 한 번만, 한 달 10,000P까지 적립한다")
+    @DisplayName("구매 확정하면 구매자와 판매자에게 낙찰가의 1%(주문당 최대 1,000P)씩 적립하고 알린다. 같은 주문은 한 번만, 한 달 10,000P까지 적립한다")
     void earn() throws Exception {
         Member buyer = signupAndLogin();
         Member seller = signupAndLogin();
@@ -139,8 +136,15 @@ class DonationControllerTest {
                 eventPublisher.publishEvent(new OrderConfirmedEvent(orderId, buyer.id(), seller.id(), 35_000L)));
         verify(stompBroadcaster, timeout(5000)).sendToUser(eq(buyer.id()), eq("/queue/notifications"), argThat(message ->
                 message instanceof NotificationResponse n && n.type() == NotificationType.DONATION_POINT_EARNED
-                        && n.title().equals("도네이션 포인트 350P가 적립됐어요") && n.link().equals("/lives")));
-        wallet(buyer).andExpect(jsonPath("$.data.giftableBalance").value(350))
+                        && n.title().equals("도네이션 마일리지 350M이 적립됐어요") && n.link().equals("/lives")));
+        // 판매자도 같은 주문으로 판매 적립을 받는다.
+        verify(stompBroadcaster, timeout(5000)).sendToUser(eq(seller.id()), eq("/queue/notifications"), argThat(message ->
+                message instanceof NotificationResponse n && n.type() == NotificationType.DONATION_POINT_EARNED
+                        && n.title().equals("도네이션 마일리지 350M이 적립됐어요")));
+        wallet(seller).andExpect(jsonPath("$.data.balance").value(350))
+                .andExpect(jsonPath("$.data.earnedThisMonth").value(0))
+                .andExpect(jsonPath("$.data.saleEarnedThisMonth").value(350));
+        wallet(buyer).andExpect(jsonPath("$.data.balance").value(350))
                 .andExpect(jsonPath("$.data.earnedThisMonth").value(350))
                 .andExpect(jsonPath("$.data.monthlyEarnLimit").value(10_000))
                 .andExpect(jsonPath("$.data.nextExpiresAt").exists());
@@ -157,12 +161,39 @@ class DonationControllerTest {
         long capped = ORDER_SEQ.incrementAndGet();
         assertThat(donationPointService.earn(capped, buyer.id(), seller.id(), 5_000_000L)).isZero();
         // 한도에 걸린 주문도 처리한 주문으로 남아, 적립 보정이 다음 달에 다시 적립하지 않는다.
-        assertThat(lotRepository.existsByOrderId(capped)).isTrue();
-        wallet(buyer).andExpect(jsonPath("$.data.giftableBalance").value(10_000))
+        assertThat(lotRepository.existsByOrderIdAndSource(capped, DonationLotSource.PURCHASE)).isTrue();
+        wallet(buyer).andExpect(jsonPath("$.data.balance").value(10_000))
                 .andExpect(jsonPath("$.data.earnedThisMonth").value(10_000));
         mockMvc.perform(get("/api/v1/donation-points/histories").header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
                 .andExpect(jsonPath("$.data.content[0].type").value("EARN"))
-                .andExpect(jsonPath("$.data.content[0].giftableAfter").value(10_000));
+                .andExpect(jsonPath("$.data.content[0].balanceAfter").value(10_000));
+    }
+
+    @Test
+    @DisplayName("판매 적립의 한 달 한도는 구매 적립과 따로 센다. 구매 한도를 다 써도 판매 적립은 받는다")
+    void saleEarnLimit() throws Exception {
+        Member member = signupAndLogin();
+        Member other = signupAndLogin();
+        // 구매 적립 10,000P를 다 채운다.
+        for (int i = 0; i < 10; i++) {
+            donationPointService.earn(ORDER_SEQ.incrementAndGet(), member.id(), other.id(), 5_000_000L);
+        }
+        assertThat(donationPointService.earn(ORDER_SEQ.incrementAndGet(), member.id(), other.id(), 5_000_000L)).isZero();
+
+        // 판매 적립은 따로 10,000P까지
+        long orderId = ORDER_SEQ.incrementAndGet();
+        assertThat(donationPointService.earnSale(orderId, member.id(), 5_000_000L)).isEqualTo(1_000);
+        assertThat(donationPointService.earnSale(orderId, member.id(), 5_000_000L)).isZero();
+        for (int i = 0; i < 9; i++) {
+            donationPointService.earnSale(ORDER_SEQ.incrementAndGet(), member.id(), 5_000_000L);
+        }
+        assertThat(donationPointService.earnSale(ORDER_SEQ.incrementAndGet(), member.id(), 5_000_000L)).isZero();
+
+        wallet(member).andExpect(jsonPath("$.data.balance").value(20_000))
+                .andExpect(jsonPath("$.data.earnedThisMonth").value(10_000))
+                .andExpect(jsonPath("$.data.saleEarnedThisMonth").value(10_000));
+        mockMvc.perform(get("/api/v1/donation-points/histories").header(HttpHeaders.AUTHORIZATION, member.bearer()))
+                .andExpect(jsonPath("$.data.content[0].type").value("SALE"));
     }
 
     @Test
@@ -177,7 +208,7 @@ class DonationControllerTest {
 
         mockMvc.perform(get("/api/v1/live-streams/{id}/donations/me", liveStreamId).header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
                 .andExpect(jsonPath("$.data.sellerId").value(seller.id()))
-                .andExpect(jsonPath("$.data.giftableBalance").value(1_000))
+                .andExpect(jsonPath("$.data.balance").value(1_000))
                 .andExpect(jsonPath("$.data.remainingThisMonth").value(5_000))
                 .andExpect(jsonPath("$.data.minGift").value(100));
 
@@ -185,7 +216,7 @@ class DonationControllerTest {
         String first = gift(viewer, liveStreamId, 300, "오늘 방송 최고예요", key)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.amount").value(300))
-                .andExpect(jsonPath("$.data.giftableBalance").value(700))
+                .andExpect(jsonPath("$.data.balance").value(700))
                 .andExpect(jsonPath("$.data.remainingThisMonth").value(4_700))
                 .andReturn().getResponse().getContentAsString();
         verify(stompBroadcaster, timeout(5000)).broadcast(eq("/topic/live-streams/" + liveStreamId + "/chat"), argThat(message ->
@@ -196,13 +227,15 @@ class DonationControllerTest {
         gift(viewer, liveStreamId, 300, "오늘 방송 최고예요", key)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.donationId").value(((Number) JsonPath.read(first, "$.data.donationId")).longValue()))
-                .andExpect(jsonPath("$.data.giftableBalance").value(700));
-        wallet(viewer).andExpect(jsonPath("$.data.giftableBalance").value(700));
+                .andExpect(jsonPath("$.data.balance").value(700));
+        wallet(viewer).andExpect(jsonPath("$.data.balance").value(700));
         // 같은 키로 다른 선물(금액이 다름)을 보내면 처음 결과를 돌려주지 않고 거부한다.
         gift(viewer, liveStreamId, 500, null, key)
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("DONATION_010"));
-        wallet(viewer).andExpect(jsonPath("$.data.giftableBalance").value(700));
-        wallet(seller).andExpect(jsonPath("$.data.receivedBalance").value(300));
+        wallet(viewer).andExpect(jsonPath("$.data.balance").value(700));
+        // 받은 마일리지도 같은 잔액으로 쌓이고, 받은 날부터 90일 유효하다.
+        wallet(seller).andExpect(jsonPath("$.data.balance").value(300))
+                .andExpect(jsonPath("$.data.nextExpiresAt").exists());
         mockMvc.perform(get("/api/v1/donation-points/histories").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
                 .andExpect(jsonPath("$.data.content[0].type").value("RECEIVE"))
                 .andExpect(jsonPath("$.data.content[0].amount").value(300));
@@ -237,10 +270,14 @@ class DonationControllerTest {
         // 선물 메시지에도 연락처는 넣을 수 없다.
         gift(viewer, live, 100, "연락주세요 010-1234-5678", UUID.randomUUID().toString())
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("DONATION_007"));
-        // 1,000P밖에 없다.
-        gift(viewer, live, 2_000, null, UUID.randomUUID().toString())
+        // 선물 메시지는 20자까지
+        gift(viewer, live, 100, "가".repeat(21), UUID.randomUUID().toString())
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("COMMON_001"));
+        gift(viewer, live, 100, "가".repeat(20), UUID.randomUUID().toString()).andExpect(status().isCreated());
+        // 900P밖에 없다.
+        gift(viewer, live, 1_000, null, UUID.randomUUID().toString())
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("DONATION_002"));
-        wallet(viewer).andExpect(jsonPath("$.data.giftableBalance").value(1_000));
+        wallet(viewer).andExpect(jsonPath("$.data.balance").value(900));
     }
 
     @Test
@@ -261,10 +298,10 @@ class DonationControllerTest {
         gift(viewer, live, 4_500, null, UUID.randomUUID().toString()).andExpect(status().isCreated());
         gift(viewer, live, 100, null, UUID.randomUUID().toString())
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("DONATION_003"))
-                .andExpect(jsonPath("$.error.message").value("이 판매자에게 이번 달 선물할 수 있는 포인트는 0P 남았습니다."));
+                .andExpect(jsonPath("$.error.message").value("이 판매자에게 이번 달 선물할 수 있는 마일리지는 0M 남았습니다."));
         // 남은 2,000P는 다른 판매자에게 선물할 수 있다.
         mockMvc.perform(get("/api/v1/live-streams/{id}/donations/me", live).header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
-                .andExpect(jsonPath("$.data.giftableBalance").value(2_000))
+                .andExpect(jsonPath("$.data.balance").value(2_000))
                 .andExpect(jsonPath("$.data.givenThisMonth").value(5_000))
                 .andExpect(jsonPath("$.data.remainingThisMonth").value(0));
     }
@@ -277,11 +314,11 @@ class DonationControllerTest {
         // 이미 유효기간이 지난 400P, 3일 뒤 사라지는 600P
         lot(viewer, seller, 400, LocalDateTime.now().minusDays(1));
         lot(viewer, seller, 600, LocalDateTime.now().plusDays(3));
-        wallet(viewer).andExpect(jsonPath("$.data.giftableBalance").value(1_000))
+        wallet(viewer).andExpect(jsonPath("$.data.balance").value(1_000))
                 .andExpect(jsonPath("$.data.expiringSoon").value(600));
 
         assertThat(expirer.expire()).isGreaterThanOrEqualTo(400);
-        wallet(viewer).andExpect(jsonPath("$.data.giftableBalance").value(600));
+        wallet(viewer).andExpect(jsonPath("$.data.balance").value(600));
         mockMvc.perform(get("/api/v1/donation-points/histories").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
                 .andExpect(jsonPath("$.data.content[0].type").value("EXPIRE"))
                 .andExpect(jsonPath("$.data.content[0].amount").value(400));
@@ -290,47 +327,11 @@ class DonationControllerTest {
         expirer.notifyExpiring();
         verify(stompBroadcaster, after(500).times(1)).sendToUser(eq(viewer.id()), eq("/queue/notifications"), argThat(message ->
                 message instanceof NotificationResponse n && n.type() == NotificationType.DONATION_POINT_EXPIRING
-                        && n.title().equals("도네이션 포인트 600P가 곧 사라져요")));
+                        && n.title().equals("도네이션 마일리지 600M이 곧 사라져요")));
     }
 
     @Test
-    @DisplayName("인증 판매자는 받은 포인트로 파워 판매자를 사고(다시 사면 기간이 이어짐), 프로필에 배지가 붙고 방송이 라이브 목록 맨 위에 올라간다")
-    void powerSeller() throws Exception {
-        Member seller = signupAndLogin();
-        Member fan = signupAndLogin();
-        mockMvc.perform(get("/api/v1/seller-perks/shop").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
-                .andExpect(jsonPath("$.data[0].type").value("POWER_SELLER"))
-                .andExpect(jsonPath("$.data[0].price").value(30_000))
-                .andExpect(jsonPath("$.data[0].periodDays").value(30));
-
-        // 인증 전에는 살 수 없다.
-        buyPower(seller).andExpect(status().isForbidden()).andExpect(jsonPath("$.error.code").value("DONATION_009"));
-        SellerFixture.verify(sellerApplicationRepository, seller.id());
-        buyPower(seller).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("DONATION_008"));
-
-        // 받은 포인트 60,000P (선물받은 것처럼 지갑에 바로 넣는다)
-        walletLocker.prepare(seller.id());
-        transactionTemplate.executeWithoutResult(status -> walletLocker.lock(seller.id()).receive(60_000));
-        String first = buyPower(seller).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
-        String second = buyPower(seller).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
-        // 두 번째는 첫 번째가 끝나는 시각부터 30일
-        assertThat((String) JsonPath.read(second, "$.data.startsAt")).isEqualTo(JsonPath.read(first, "$.data.endsAt"));
-        wallet(seller).andExpect(jsonPath("$.data.receivedBalance").value(0));
-        mockMvc.perform(get("/api/v1/seller-perks/me").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
-                .andExpect(jsonPath("$.data.length()").value(2));
-
-        mockMvc.perform(get("/api/v1/sellers/{id}/profile", seller.id())).andExpect(jsonPath("$.data.powerSeller").value(true));
-
-        // 늦게 시작했어도 파워 판매자 방송이 맨 위
-        Long power = liveStream(seller, true);
-        liveStream(fan, true);
-        mockMvc.perform(get("/api/v1/live-streams"))
-                .andExpect(jsonPath("$.data.content[0].liveStreamId").value(power))
-                .andExpect(jsonPath("$.data.content[0].powerSeller").value(true));
-    }
-
-    @Test
-    @DisplayName("적립 이벤트 처리가 실패한 구매 확정 주문은 새벽 보정에서 한 번만 적립한다")
+    @DisplayName("적립 이벤트 처리가 실패한 구매 확정 주문은 새벽 보정에서 구매자·판매자에게 한 번씩만 적립한다")
     void backfill() throws Exception {
         Member buyer = signupAndLogin();
         Member seller = signupAndLogin();
@@ -342,10 +343,12 @@ class DonationControllerTest {
         Long orderId = orderRepository.save(order).getId();
         jdbcTemplate.update("update orders set completed_at = ? where id = ?", LocalDateTime.now().minusHours(1), orderId);
 
-        assertThat(earner.backfill()).isGreaterThanOrEqualTo(1);
-        wallet(buyer).andExpect(jsonPath("$.data.giftableBalance").value(500));
+        assertThat(earner.backfill()).isGreaterThanOrEqualTo(2);
+        wallet(buyer).andExpect(jsonPath("$.data.balance").value(500));
+        wallet(seller).andExpect(jsonPath("$.data.balance").value(500));
         earner.backfill();
-        wallet(buyer).andExpect(jsonPath("$.data.giftableBalance").value(500));
+        wallet(buyer).andExpect(jsonPath("$.data.balance").value(500));
+        wallet(seller).andExpect(jsonPath("$.data.balance").value(500));
     }
 
     @Test
@@ -392,7 +395,7 @@ class DonationControllerTest {
         String body = """
                 {"earnRatePercent": 1, "maxEarnPerOrder": 1000, "monthlyEarnLimit": 10000, "pointValidDays": 90, "expiringNoticeDays": 7,
                  "minGift": %d, "giftUnit": 100, "maxGift": 5000, "monthlyGiftLimitPerSeller": %d, "trustWindowDays": 90,
-                 "powerSellerPrice": 30000, "powerSellerDays": 30, "promotedLiveSlots": 4, "memo": "%s"}
+                 "memo": "%s"}
                 """.formatted(minGift, monthlyGiftLimitPerSeller, memo);
         return mockMvc.perform(put("/api/v1/admin/donation-policy").header(HttpHeaders.AUTHORIZATION, adminBearer())
                 .contentType(MediaType.APPLICATION_JSON).content(body));
@@ -415,11 +418,6 @@ class DonationControllerTest {
                 .contentType(MediaType.APPLICATION_JSON).content(body));
     }
 
-    private ResultActions buyPower(Member seller) throws Exception {
-        return mockMvc.perform(post("/api/v1/seller-perks").header(HttpHeaders.AUTHORIZATION, seller.bearer())
-                .contentType(MediaType.APPLICATION_JSON).content("{\"type\": \"POWER_SELLER\"}"));
-    }
-
     private ResultActions wallet(Member member) throws Exception {
         return mockMvc.perform(get("/api/v1/donation-points/wallet").header(HttpHeaders.AUTHORIZATION, member.bearer()))
                 .andExpect(status().isOk());
@@ -429,8 +427,8 @@ class DonationControllerTest {
     private void lot(Member owner, Member seller, long amount, LocalDateTime expiresAt) {
         walletLocker.prepare(owner.id());
         transactionTemplate.executeWithoutResult(status -> {
-            walletLocker.lock(owner.id()).earn(amount);
-            lotRepository.save(DonationPointLot.earn(owner.id(), ORDER_SEQ.incrementAndGet(), seller.id(), amount,
+            walletLocker.lock(owner.id()).add(amount);
+            lotRepository.save(DonationPointLot.purchase(owner.id(), ORDER_SEQ.incrementAndGet(), seller.id(), amount,
                     expiresAt.minusDays(90), expiresAt));
         });
     }

@@ -8,10 +8,13 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayImageUploadRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayImageUploadResponse;
 import com.example.ddangddangddang.domain.livestream.dto.OverlayLayoutRequest;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamHashtags;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
+import com.example.ddangddangddang.domain.livestream.entity.OverlayBox;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamEndedEvent;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamUpdatedEvent;
@@ -46,6 +49,8 @@ public class LiveStreamService {
     // 로그인하지 않은 시청자. viewer-로 시작하므로 시청자 수에 함께 센다.
     static final String GUEST_IDENTITY_PREFIX = VIEWER_IDENTITY_PREFIX + "guest-";
     static final String GUEST_DISPLAY_NAME = "손님";
+    // 홈 미리보기. viewer-로 시작하지 않으므로 시청자 수에 들어가지 않는다.
+    static final String PREVIEW_IDENTITY_PREFIX = "preview-";
 
     // 판매자당 종료되지 않은 방송 하나 규칙의 유니크 제약 (LiveStream 엔티티의 @UniqueConstraint 이름)
     static final String ACTIVE_SELLER_CONSTRAINT = "uk_live_stream_active_seller";
@@ -61,6 +66,8 @@ public class LiveStreamService {
     private final SellerVerification sellerVerification;
     // 영상 위에 띄울 경매가 이 방송에 올라간 경매인지 확인할 때만 쓴다. (경매 정보는 바꾸지 않음)
     private final AuctionRepository auctionRepository;
+    // 방송 화면에 판매자가 넣는 텍스트·이미지 박스 검사, 이미지 업로드
+    private final OverlayBoxResolver overlayBoxResolver;
 
     /**
      * 방송을 만든다. 판매자는 종료되지 않은(대기 중·방송 중) 방송을 하나만 가질 수 있다.
@@ -148,6 +155,9 @@ public class LiveStreamService {
         if (request.recorded() != null) {
             changed = liveStream.changeRecorded(request.recorded()) || changed;
         }
+        if (request.chatModerationMode() != null) {
+            changed = liveStream.changeChatModerationMode(request.chatModerationMode()) || changed;
+        }
         if (!changed) {
             return LiveStreamResponse.from(liveStream);
         }
@@ -186,12 +196,30 @@ public class LiveStreamService {
     }
 
     /**
-     * 방송 화면 배치를 바꾼다. 바뀌면 커밋 뒤 시청자 화면에 방송 정보 변경으로 알려 바로 같은 배치로 그리게 한다.
+     * 방송 화면 배치를 바꾼다. 안내 위치·숨김과 판매자가 넣은 텍스트·이미지 박스를 함께 바꾼다.
+     * 바뀌면 커밋 뒤 시청자 화면에 방송 정보 변경으로 알려 바로 같은 배치로 그리게 한다. 빠진 이미지는 커밋 뒤 저장소에서 지운다.
      */
     @Transactional
     public LiveStreamResponse changeOverlayLayout(Long liveStreamId, Long sellerId, OverlayLayoutRequest request) {
         LiveStream liveStream = findById(liveStreamId);
-        return publishChange(liveStream, liveStream.changeOverlayLayout(sellerId, request.toEntity()));
+        liveStream.validateOverlayEditable(sellerId);
+        List<OverlayBox> before = liveStream.overlayBoxes();
+        List<OverlayBox> boxes = overlayBoxResolver.resolve(liveStreamId, before, request.boxesOrEmpty());
+        boolean changed = liveStream.changeOverlayLayout(sellerId, request.toEntity(boxes));
+        if (changed) {
+            overlayBoxResolver.deleteRemovedImagesAfterCommit(before, boxes);
+        }
+        return publishChange(liveStream, changed);
+    }
+
+    /**
+     * 방송 화면 이미지 박스용 업로드 URL. 방송 주인만, 종료 전에만 받을 수 있다.
+     * 올린 이미지는 화면 배치를 저장할 때 박스로 확정한다. (changeOverlayLayout)
+     */
+    @Transactional(readOnly = true)
+    public OverlayImageUploadResponse createOverlayImageUpload(Long liveStreamId, Long sellerId, OverlayImageUploadRequest request) {
+        findById(liveStreamId).validateOverlayEditable(sellerId);
+        return overlayBoxResolver.createImageUpload(liveStreamId, request.contentType(), request.contentLength());
     }
 
     private boolean isShowable(Long liveStreamId, Long auctionId) {
@@ -327,6 +355,20 @@ public class LiveStreamService {
 
         String identity = GUEST_IDENTITY_PREFIX + UUID.randomUUID();
         String token = mediaServerClient.createViewerToken(liveStream.getRoomName(), identity, GUEST_DISPLAY_NAME);
+
+        return new LiveStreamTokenResponse(
+                liveStream.getId(), liveStream.getRoomName(), mediaServerClient.getWsUrl(), token);
+    }
+
+    /**
+     * 홈 방송 카드 미리보기(소리 없이 잠깐 보기). 로그인과 상관없이 접속마다 다른 identity("preview-{무작위}")로 숨은 참가자 토큰을 만든다.
+     * 시청자 수는 VIEWER_IDENTITY_PREFIX로 세므로 미리보기는 시청자 수·시청자 급증 순위에 들어가지 않는다.
+     */
+    public LiveStreamTokenResponse preview(Long liveStreamId) {
+        LiveStream liveStream = findById(liveStreamId);
+        liveStream.validateJoinable();
+
+        String token = mediaServerClient.createPreviewToken(liveStream.getRoomName(), PREVIEW_IDENTITY_PREFIX + UUID.randomUUID());
 
         return new LiveStreamTokenResponse(
                 liveStream.getId(), liveStream.getRoomName(), mediaServerClient.getWsUrl(), token);

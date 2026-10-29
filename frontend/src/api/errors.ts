@@ -18,7 +18,9 @@ export class ApiError extends Error {
  * 적지 않은 코드는 서버 메시지를 그대로 쓴다.
  */
 const USER_MESSAGES: Partial<Record<ErrorCode, string>> = {
-  AUCTION_002: '판매 중인 상품만 경매에 올릴 수 있어요.',
+  LIVECHAT_004: '같은 내용을 연달아 보낼 수 없어요. 잠시 후에 보내 주세요.',
+  LIVECHAT_005: '내 방송의 채팅만 관리할 수 있어요.',
+  AUCTION_002:'판매 중인 상품만 경매에 올릴 수 있어요.',
   AUCTION_003: '이 상품은 이미 시작 전이거나 진행 중인 경매가 있어요.',
   AUCTION_004: '마감 시각은 시작 시각보다 뒤여야 해요.',
   AUCTION_005: '즉시구매가는 시작가보다 커야 해요.',
@@ -42,6 +44,9 @@ const USER_MESSAGES: Partial<Record<ErrorCode, string>> = {
   CATEGORY_004: '하위 카테고리가 있어 삭제할 수 없어요.',
   CATEGORY_005: '이 카테고리에 등록된 상품이 있어 삭제할 수 없어요.',
   CATEGORY_006: '상품이 등록된 카테고리에는 하위 카테고리를 만들 수 없어요.',
+  USER_005: '닉네임은 한 번 바꾸면 30일 동안 다시 바꿀 수 없어요.',
+  USER_012: '지금은 변경권 없이 내 정보에서 닉네임을 바꿀 수 있어요.',
+  USER_013: '지금 쓰고 있는 닉네임이에요.',
 };
 
 const NETWORK_ERROR = 'NETWORK_ERROR';

@@ -64,7 +64,7 @@ export function StudioStage({
             <CameraMessage camera={camera} onRetry={() => onToggle("camera")} />
           ))}
 
-        <div className="absolute top-4 left-4 flex gap-2">
+        <div className="absolute top-4 left-4 z-10 flex gap-2">
           <PublishBadge live={live} phase={publisher.phase} />
           {recordedMode && camera.track && <RecordedBadge className="h-7 px-2.5" />}
         </div>
@@ -74,7 +74,7 @@ export function StudioStage({
           publisher.phase === "connected" &&
           !(camera.enabled && camera.track) &&
           !(microphone.enabled && microphone.track) && (
-            <div className="absolute inset-x-4 top-14 flex justify-center">
+            <div className="pointer-events-none absolute inset-x-4 top-14 z-10 flex justify-center *:pointer-events-auto">
               <OverlayLine
                 icon={<VideoOff className="size-4" aria-hidden="true" />}
               >
@@ -84,7 +84,7 @@ export function StudioStage({
           )}
         {showOverlay && overlay}
 
-        <div className="absolute bottom-4 left-4 flex gap-2">
+        <div className="absolute bottom-4 left-4 z-10 flex gap-2">
           <StageToggle
             on={microphone.enabled && !!microphone.track}
             label={
@@ -414,7 +414,7 @@ function PublishOverlay({
   }
   if (!content) return null;
   return (
-    <div className="absolute inset-x-4 top-14 flex justify-center">
+    <div className="pointer-events-none absolute inset-x-4 top-14 z-10 flex justify-center *:pointer-events-auto">
       {content}
     </div>
   );
@@ -463,7 +463,7 @@ function StageToggle({
       onClick={onClick}
       className={cn(
         "flex size-11 items-center justify-center rounded-md text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-        on ? "bg-stage/70 hover:bg-stage" : "bg-brand-500 hover:bg-brand-600",
+        on ? "bg-stage/70 hover:bg-stage" : "bg-brand-800 hover:bg-brand-900",
       )}
     >
       {children}

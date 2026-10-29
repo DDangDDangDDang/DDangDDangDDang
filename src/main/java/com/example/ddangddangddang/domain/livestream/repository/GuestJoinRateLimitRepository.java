@@ -13,6 +13,7 @@ import java.util.List;
  * 첫 요청에서 TTL이 시작되고, TTL이 지나면 키가 사라져 횟수가 초기화된다.
  * <p>
  * live:guest-join:ip:{IP}  IP별 손님 입장 요청 횟수
+ * live:preview:ip:{IP}     IP별 홈 미리보기 요청 횟수 (회원·손님 모두)
  */
 @Repository
 @RequiredArgsConstructor
@@ -33,7 +34,18 @@ public class GuestJoinRateLimitRepository {
      * IP의 손님 입장 횟수를 1 늘리고, window 안에서 몇 번째 요청인지 반환한다.
      */
     public long increase(String ip, Duration window) {
-        Long count = redisTemplate.execute(INCREMENT_SCRIPT, List.of("live:guest-join:ip:" + ip), String.valueOf(window.toMillis()));
+        return increaseKey("live:guest-join:ip:" + ip, window);
+    }
+
+    /**
+     * IP의 홈 미리보기 횟수를 1 늘리고, window 안에서 몇 번째 요청인지 반환한다.
+     */
+    public long increasePreview(String ip, Duration window) {
+        return increaseKey("live:preview:ip:" + ip, window);
+    }
+
+    private long increaseKey(String key, Duration window) {
+        Long count = redisTemplate.execute(INCREMENT_SCRIPT, List.of(key), String.valueOf(window.toMillis()));
         return count == null ? 0 : count;
     }
 }

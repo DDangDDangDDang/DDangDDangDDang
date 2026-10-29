@@ -7,7 +7,7 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         /** 화면의 주요 동작 하나 (입찰하기, 방송 시작 등) */
-        primary: 'bg-brand-500 text-white hover:bg-brand-600',
+        primary: 'bg-brand-500 text-on-brand hover:bg-brand-600',
         /** 보조 동작 (전송, 확인 등) */
         secondary: 'bg-neutral-900 text-neutral-0 hover:bg-neutral-700',
         /** 테두리 버튼 (취소, +1,000 같은 빠른 선택) */

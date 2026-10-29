@@ -98,7 +98,45 @@ variable "app_secret_keys" {
     "ANTHROPIC_API_KEY",
     "WEB_PUSH_PUBLIC_KEY",
     "WEB_PUSH_PRIVATE_KEY",
+    "KAKAO_CLIENT_ID",
+    "KAKAO_CLIENT_SECRET",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
   ]
+}
+
+# ---------- 도메인 ----------
+
+variable "domain_name" {
+  description = <<-EOT
+    서비스 도메인 (예: ddangddangddang.com). 넣으면 EC2의 Caddy가 이 도메인으로 Let's Encrypt 인증서를 받아 HTTPS로 서비스하고,
+    리프레시 토큰 쿠키에 Secure를 붙이고, 소셜 로그인 redirect URI를 https://<도메인>/oauth/{provider}/callback 으로 정한다.
+    비워 두면 EC2는 HTTP(Elastic IP)로만 서비스한다.
+  EOT
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.domain_name == "" || can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", var.domain_name))
+    error_message = "domain_name은 https:// 나 경로 없이 도메인만 소문자로 적습니다. (예: ddangddangddang.com)"
+  }
+}
+
+variable "manage_dns_record" {
+  description = "Route 53 호스팅 영역(domain_name)에 EC2 고정 IP를 가리키는 A 레코드를 Terraform이 만들지. 도메인을 Route 53에서 샀으면 true, 다른 곳(가비아 등)이면 false로 두고 직접 등록한다."
+  type        = bool
+  default     = false
+}
+
+variable "dns_target" {
+  description = "manage_dns_record = true일 때 도메인이 가리킬 구성. ec2(고정 IP) 또는 ecs(ALB). ECS로 전환할 때 EC2를 끄기 전에 ecs로 바꾼다."
+  type        = string
+  default     = "ec2"
+
+  validation {
+    condition     = contains(["ec2", "ecs"], var.dns_target)
+    error_message = "dns_target은 ec2 또는 ecs여야 합니다."
+  }
 }
 
 # ---------- LiveKit Cloud ----------
@@ -155,6 +193,16 @@ variable "github_repository" {
   default     = "DDangDDangDDang/DDangDDangDDang"
 }
 
+variable "github_oidc_subject_prefix" {
+  description = <<-EOT
+    GitHub OIDC 토큰 sub의 저장소 부분. 저장소가 "immutable subject"(소유자·저장소 ID 포함)를 쓰면 그 값을 넣는다.
+    확인: gh api repos/<owner>/<repo>/actions/oidc/customization/sub 의 sub_claim_prefix
+    비워 두면 예전 형식(repo:<owner>/<repo>)만 허용한다. 두 형식 모두 지정한 Environment에서 실행된 작업만 허용한다.
+  EOT
+  type        = string
+  default     = "repo:DDangDDangDDang@339603727/DDangDDangDDang@1411657907"
+}
+
 variable "github_environment" {
   description = "배포 워크플로가 쓰는 GitHub Environment 이름. 이 환경에서 실행된 작업만 AWS 배포 권한을 받는다."
   type        = string
@@ -165,4 +213,62 @@ variable "create_github_oidc_provider" {
   description = "GitHub OIDC 공급자를 새로 만들지. 이 AWS 계정에 이미 있으면 false로 둔다."
   type        = bool
   default     = true
+}
+
+# ---------- dev 사이트 (dev.<도메인>, infra/dev.tf) ----------
+
+variable "dev_enabled" {
+  description = "dev 사이트(EC2 한 대에 앱·웹·MySQL·Redis 컨테이너)를 만들지. dev 브랜치에 푸시하면 이 서버로 배포한다."
+  type        = bool
+  default     = false
+}
+
+variable "dev_instance_type" {
+  description = "dev 서버 크기. 앱·MySQL·Redis를 한 대에 띄우므로 메모리 2GB 이상"
+  type        = string
+  default     = "t3.small"
+}
+
+variable "dev_livekit_url" {
+  description = "dev 사이트가 쓸 LiveKit Cloud 프로젝트 주소. 비우면 운영과 같은 프로젝트(livekit_url)를 쓴다. (방 이름이 겹치지 않도록 따로 두는 것을 권장)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.dev_livekit_url == "" || startswith(var.dev_livekit_url, "wss://")
+    error_message = "dev_livekit_url은 wss:// 로 시작해야 합니다."
+  }
+}
+
+variable "dev_app_environment" {
+  description = "dev 사이트의 비밀이 아닌 추가 환경변수. 문자·메일은 기본으로 끄고 서버 로그로 확인한다. AI 채팅 검토는 dev에서 먼저 켜 본다. (ddang-dev/app의 ANTHROPIC_API_KEY가 비어 있으면 서버가 알아서 끈다)"
+  type        = map(string)
+  default = {
+    MAIL_ENABLED               = "false"
+    SMS_ENABLED                = "false"
+    CHAT_MODERATION_AI_ENABLED = "true"
+  }
+}
+
+variable "github_dev_environment" {
+  description = "dev 배포 워크플로가 쓰는 GitHub Environment 이름. 이 환경에서 실행된 작업만 dev 배포 역할을 받는다."
+  type        = string
+  default     = "development"
+}
+
+variable "developer_iam_users" {
+  description = "DB 터널(Session Manager 포트 포워딩)을 쓸 팀원 IAM 사용자 이름. ddang-developers 그룹에 넣는다. 액세스 키는 콘솔에서 만든다. (infra/team_access.tf)"
+  type        = list(string)
+  default     = []
+}
+
+variable "db_writer_iam_users" {
+  description = "운영 DB 수정용 계정(ddang_rw)을 쓸 팀원. developer_iam_users에도 있어야 한다. (터널 권한은 developers 그룹에서 받는다)"
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for u in var.db_writer_iam_users : contains(var.developer_iam_users, u)])
+    error_message = "db_writer_iam_users의 사용자는 developer_iam_users에도 넣어야 합니다."
+  }
 }

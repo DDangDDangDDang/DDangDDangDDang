@@ -29,13 +29,13 @@ export function Textarea({ label, hideLabel = false, hint, error, id, className,
         className={cn(
           'min-h-24 w-full resize-y rounded-md border border-neutral-400 bg-neutral-0 px-3.5 py-2.5 text-body text-neutral-900 placeholder:text-neutral-500',
           'disabled:bg-neutral-50 disabled:text-neutral-500',
-          error && 'border-brand-500',
+          error && 'border-red-500',
           className,
         )}
         {...props}
       />
       {error ? (
-        <p id={`${textareaId}-error`} className="text-caption text-brand-700">
+        <p id={`${textareaId}-error`} className="text-caption text-red-300">
           {error}
         </p>
       ) : (

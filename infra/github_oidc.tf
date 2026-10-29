@@ -15,6 +15,9 @@ data "aws_iam_openid_connect_provider" "github" {
 
 locals {
   github_oidc_provider_arn = var.create_github_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github[0].arn
+
+  # GitHub은 sub의 각 부분에 들어간 콜론을 %3A로 바꿔 보낸다. (환경 이름에 콜론이 있을 때)
+  github_oidc_environment = replace(var.github_environment, ":", "%3A")
 }
 
 data "aws_iam_policy_document" "github_assume" {
@@ -32,10 +35,14 @@ data "aws_iam_policy_document" "github_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # 저장소가 ID를 넣은 새 형식(immutable subject)을 쓰면 sub가 repo:<owner>@<ID>/<repo>@<ID>:... 로 온다.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:environment:${var.github_environment}"]
+      values = compact([
+        "repo:${var.github_repository}:environment:${local.github_oidc_environment}",
+        var.github_oidc_subject_prefix == "" ? "" : "${var.github_oidc_subject_prefix}:environment:${local.github_oidc_environment}",
+      ])
     }
   }
 }
@@ -64,7 +71,7 @@ data "aws_iam_policy_document" "github_deploy" {
       "ecr:PutImage",
       "ecr:UploadLayerPart",
     ]
-    resources = [aws_ecr_repository.app.arn]
+    resources = [aws_ecr_repository.app.arn, aws_ecr_repository.web.arn]
   }
 
   # ---- EC2 구성: SSM Run Command로 서버에서 deploy.sh 실행 ----
