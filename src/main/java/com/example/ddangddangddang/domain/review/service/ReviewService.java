@@ -50,7 +50,8 @@ public class ReviewService {
     }
 
 
-    //리뷰수정
+    // 리뷰수정
+    @Transactional
     public ReviewResponse updateReview(Long userId, Long reviewId, @Valid ReviewUpdateRequest request) {
        Review review= findReview(reviewId);
 
@@ -62,10 +63,15 @@ public class ReviewService {
        return ReviewResponse.from(review);
     }
 
-
-
-
-
+    // 구매자 리뷰 삭제
+    @Transactional
+    public void deleteReview(Long userId, Long reviewId) {
+        Review review = findReview(reviewId);
+        if (!review.isWriter(userId)){
+            throw  new BusinessException(ReviewErrorCode.NOT_REVIEW_WRITER);
+        }
+        reviewRepository.delete(review);
+    }
 
     private Review findReview(Long reviewId){
         return reviewRepository.findById(reviewId).orElseThrow(

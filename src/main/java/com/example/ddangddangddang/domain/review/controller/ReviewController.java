@@ -35,13 +35,15 @@ public class ReviewController {
                                                               @Valid @RequestBody ReviewUpdateRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(reviewService.updateReview(authUser.id(),reviewId,request)));
     }
-//    // 구매자 리뷰 삭제
-//    @PostMapping("/{reviewId}")
-//    @ResponseStatus(HttpStatus.CREATED)
-//    ResponseEntity<ApiResponse<ProductResponse>> creation(@AuthenticationPrincipal AuthUser authUser,
-//                                                          @Valid @RequestBody ProductRequest request) {
-//        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(categoryService.creation(authUser.id(), request)));
-//    }
+    // 구매자 리뷰 삭제
+    @DeleteMapping("/{reviewId}")
+    ResponseEntity<ApiResponse<Void>> deleteReview(@AuthenticationPrincipal AuthUser authUser,
+                                                   @PathVariable Long reviewId) {
+        reviewService.deleteReview(authUser.id(), reviewId);
+        return ResponseEntity.noContent().build();
+    }
+
+
 //
 //    // 판매자 리뷰 목록(상점 리뷰 탭,로그인 없이 조회)
 //    @PatchMapping("/sellers/{sellerId}")
