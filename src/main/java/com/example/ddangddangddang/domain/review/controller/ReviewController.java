@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.review.controller;
 import com.example.ddangddangddang.domain.product.dto.request.ProductRequest;
 import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
 import com.example.ddangddangddang.domain.review.dto.request.ReviewCreateRequest;
+import com.example.ddangddangddang.domain.review.dto.request.ReviewReplyRequest;
 import com.example.ddangddangddang.domain.review.dto.request.ReviewUpdateRequest;
 import com.example.ddangddangddang.domain.review.dto.response.ReviewResponse;
 import com.example.ddangddangddang.domain.review.service.ReviewService;
@@ -51,15 +52,14 @@ public class ReviewController {
                                                                                 @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(ApiResponse.ok(reviewService.getSellerReviews(sellerId,cursor, size)));
     }
-//
-//    // 판맺자 답글 달기,수정
-//    @DeleteMapping("/sellers/{reviewId}/reply")
-//    @ResponseStatus(HttpStatus.NO_CONTENT)
-//    ResponseEntity<Void> delete(@AuthenticationPrincipal AuthUser authUser,
-//                                @PathVariable Long productId){
-//        categoryService.delete(authUser.id(),productId);
-//        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-//    }
+
+    // 판맺자 답글 달기,수정
+    @PutMapping("/sellers/{reviewId}/reply")
+    ResponseEntity<ApiResponse<ReviewResponse>> replyReview(@AuthenticationPrincipal AuthUser authUser,
+                                                            @PathVariable Long reviewId,
+                                                            @Valid @RequestBody ReviewReplyRequest request){
+        return ResponseEntity.ok(ApiResponse.ok(reviewService.replyReview(authUser.id(),reviewId,request)));
+    }
 //
 //    // 판매자 답글 삭제
 //    @DeleteMapping("/sellers/{reviewId}/reply")

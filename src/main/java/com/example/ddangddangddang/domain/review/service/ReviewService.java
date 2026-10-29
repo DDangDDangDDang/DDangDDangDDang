@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
 import com.example.ddangddangddang.domain.review.dto.request.ReviewCreateRequest;
+import com.example.ddangddangddang.domain.review.dto.request.ReviewReplyRequest;
 import com.example.ddangddangddang.domain.review.dto.request.ReviewUpdateRequest;
 import com.example.ddangddangddang.domain.review.dto.response.ReviewListResponse;
 import com.example.ddangddangddang.domain.review.dto.response.ReviewResponse;
@@ -80,6 +81,7 @@ public class ReviewService {
         reviewRepository.delete(review);
     }
 
+    // 판매자 리뷰 목록(상점 리뷰 탭,로그인 없이 조회)
     public CursorResponse<ReviewResponse> getSellerReviews(Long sellerId, Long cursor, int size) {
         if (!userRepository.existsById(sellerId)){
             throw new BusinessException(UserErrorCode.USER_NOT_FOUND);
@@ -90,6 +92,17 @@ public class ReviewService {
 
         return CursorResponse.of(reviews,pageSize,ReviewResponse::from,Review::getId);
 
+    }
+
+    //판매자 답글 달기,수정
+    @Transactional
+    public ReviewResponse replyReview(Long userId, Long reviewId, ReviewReplyRequest request) {
+        Review review = findReview(reviewId);
+        if (!review.isSeller(userId)){
+            throw new BusinessException(ReviewErrorCode.NOT_REVIEW_SELLER);
+        }
+        review.reply(request.content());
+        return ReviewResponse.from(review);
     }
 
     private Review findReview(Long reviewId){
