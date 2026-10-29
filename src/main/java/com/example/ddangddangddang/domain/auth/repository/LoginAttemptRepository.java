@@ -14,7 +14,7 @@ import java.util.Locale;
  * 첫 시도에서 TTL이 시작되고, TTL이 지나면 키가 사라져 횟수가 초기화된다.
  * <p>
  * login:rate:ip:{IP}       IP별 로그인 요청 횟수 (성공·실패 합산)
- * login:fail:{이메일}       이메일별 연속 실패 횟수. 로그인에 성공하면 지운다
+ * login:fail:{이메일}       이메일별 연속 실패 횟수. 시도 전에 미리 올리고, 로그인에 성공하면 지운다
  */
 @Repository
 @RequiredArgsConstructor
@@ -39,15 +39,8 @@ public class LoginAttemptRepository {
     }
 
     /**
-     * 이메일의 현재 실패 횟수. 기록이 없으면 0
-     */
-    public long getFailureCount(String email) {
-        String count = redisTemplate.opsForValue().get(failureKey(email));
-        return count == null ? 0 : Long.parseLong(count);
-    }
-
-    /**
-     * 이메일의 실패 횟수를 1 늘리고, window 안에서 몇 번째 실패인지 반환한다.
+     * 이메일의 실패 횟수를 1 늘리고, window 안에서 몇 번째인지 반환한다.
+     * 비밀번호를 비교하기 전에 불러 시도를 미리 세므로, 동시에 들어온 요청도 각자 다른 값을 받는다.
      */
     public long increaseFailureCount(String email, Duration window) {
         return increment(failureKey(email), window);

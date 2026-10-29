@@ -202,10 +202,10 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("실패가 5번 쌓인 이메일은 비밀번호를 비교하지 않고 AUTH_010으로 막는다")
+        @DisplayName("실패가 5번 쌓인 이메일의 6번째 시도는 비밀번호를 비교하지 않고 AUTH_010으로 막는다")
         void tooManyFailures() {
-            given(loginAttemptRepository.getFailureCount(request.email()))
-                    .willReturn((long) AuthService.MAX_LOGIN_FAILURES);
+            given(loginAttemptRepository.increaseFailureCount(request.email(), AuthService.LOGIN_FAILURE_WINDOW))
+                    .willReturn((long) AuthService.MAX_LOGIN_FAILURES + 1);
 
             assertThatThrownBy(() -> authService.login(request))
                     .isInstanceOf(BusinessException.class)
@@ -216,11 +216,11 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("실패가 4번이면 아직 로그인을 시도할 수 있다")
+        @DisplayName("실패가 4번이면 5번째 시도는 아직 비밀번호를 비교한다")
         void belowFailureLimit() {
             User user = createUser(1L);
-            given(loginAttemptRepository.getFailureCount(request.email()))
-                    .willReturn((long) AuthService.MAX_LOGIN_FAILURES - 1);
+            given(loginAttemptRepository.increaseFailureCount(request.email(), AuthService.LOGIN_FAILURE_WINDOW))
+                    .willReturn((long) AuthService.MAX_LOGIN_FAILURES);
             given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
             given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(true);
             given(jwtProvider.createAccessToken(user)).willReturn("access-token");
