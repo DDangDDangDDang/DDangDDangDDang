@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -85,6 +86,7 @@ class ReviewControllerTest {
                 .andExpect(jsonPath("$.data.sellerId").value(seller.id()))
                 .andExpect(jsonPath("$.data.productName").value("슈프림 후드"))
                 .andExpect(jsonPath("$.data.rating").value(5))
+                .andExpect(jsonPath("$.data.createdAt").exists())
                 .andExpect(jsonPath("$.data.reply").doesNotExist()), "$.data.reviewId");
 
         // 수정
@@ -102,11 +104,14 @@ class ReviewControllerTest {
         reply(seller, reviewId, "다음에도 찾아 주세요.")
                 .andExpect(jsonPath("$.data.reply.content").value("다음에도 찾아 주세요."));
 
-        // 로그인하지 않아도 상점 리뷰 탭을 볼 수 있다.
-        mockMvc.perform(sellerReviews(seller.id()))
+        // 로그인하지 않아도 상점 리뷰 탭을 볼 수 있다. 작성일은 답글을 달아도 리뷰를 쓴 시각 그대로다.
+        String listed = mockMvc.perform(sellerReviews(seller.id()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].reviewId").value(reviewId))
-                .andExpect(jsonPath("$.data.content[0].reply.content").value("다음에도 찾아 주세요."));
+                .andExpect(jsonPath("$.data.content[0].reply.content").value("다음에도 찾아 주세요."))
+                .andReturn().getResponse().getContentAsString();
+        String createdAt = JsonPath.read(listed, "$.data.content[0].createdAt");
+        assertThat(createdAt).isNotNull().isNotEqualTo(JsonPath.read(listed, "$.data.content[0].reply.repliedAt"));
 
         // 답글 삭제 → 리뷰는 남고 답글만 빠진다.
         mockMvc.perform(delete("/api/v1/reviews/{id}/reply", reviewId).header(HttpHeaders.AUTHORIZATION, seller.bearer()))
@@ -191,6 +196,8 @@ class ReviewControllerTest {
         mockMvc.perform(sellerReviews(seller.id()).param("size", "1").param("cursor", String.valueOf(cursor)))
                 .andExpect(jsonPath("$.data.content[0].reviewId").value(first))
                 .andExpect(jsonPath("$.data.content[0].content").doesNotExist())
+                // 답글이 없는 리뷰도 작성일이 나온다.
+                .andExpect(jsonPath("$.data.content[0].createdAt").exists())
                 .andExpect(jsonPath("$.data.hasNext").value(false));
 
         mockMvc.perform(sellerReviews(999_999_999L))
