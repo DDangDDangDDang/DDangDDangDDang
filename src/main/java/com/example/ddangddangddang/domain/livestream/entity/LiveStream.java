@@ -291,15 +291,25 @@ public class LiveStream extends BaseTimeEntity {
      * @return 실제로 바뀌었으면 true
      */
     public boolean changeOverlayLayout(Long requesterId, OverlayLayout layout) {
-        validateOwner(requesterId);
-        if (status == LiveStreamStatus.ENDED) {
-            throw new BusinessException(LiveStreamErrorCode.ALREADY_ENDED);
-        }
+        validateOverlayEditable(requesterId);
         if (Objects.equals(layout, this.overlayLayout)) {
             return false;
         }
         this.overlayLayout = layout;
         return true;
+    }
+
+    /** 방송 화면 배치를 고칠 수 있는지: 방송 주인이고 종료 전이어야 한다. (이미지 박스 업로드 URL을 줄 때도 같은 조건) */
+    public void validateOverlayEditable(Long requesterId) {
+        validateOwner(requesterId);
+        if (status == LiveStreamStatus.ENDED) {
+            throw new BusinessException(LiveStreamErrorCode.ALREADY_ENDED);
+        }
+    }
+
+    /** 지금 화면 배치의 박스 (정하지 않았으면 빈 목록) */
+    public List<OverlayBox> overlayBoxes() {
+        return overlayLayout == null ? List.of() : overlayLayout.boxesOrEmpty();
     }
 
     private void setFeaturedAuctions(List<Long> ids) {

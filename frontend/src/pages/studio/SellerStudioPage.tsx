@@ -232,6 +232,8 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
                 <OverlayLayoutEditor
                   layout={layoutEditing.draft}
                   onChange={layoutEditing.setDraft}
+                  selected={layoutEditing.selected}
+                  onSelect={layoutEditing.select}
                   featured={featuredAuctions(liveStream.featuredAuctionIds, liveAuctions.auctions, new Date())}
                 />
               ) : (
