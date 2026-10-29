@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.auth.service;
 
 import com.example.ddangddangddang.domain.auth.dto.*;
+import com.example.ddangddangddang.domain.auth.repository.LoginAttemptRepository;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository.RotateResult;
 import com.example.ddangddangddang.domain.point.service.PointService;
@@ -31,6 +32,9 @@ import java.time.Instant;
 @Transactional(readOnly = true)
 public class AuthService {
 
+    public static final int MAX_LOGIN_FAILURES = 5;
+    public static final Duration LOGIN_FAILURE_WINDOW = Duration.ofMinutes(15);
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
@@ -38,6 +42,7 @@ public class AuthService {
     private final TokenBlacklistRepository tokenBlacklistRepository;
     private final PointService pointService;
     private final VerificationService verificationService;
+    private final LoginAttemptRepository loginAttemptRepository;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -70,16 +75,25 @@ public class AuthService {
         return SignupResponse.from(savedUser);
     }
 
+    /**
+     * 이메일별로 15분 안에 5번 틀리면, 첫 실패부터 15분이 지날 때까지 비밀번호를 비교하지 않고 막는다.
+     * 없는 이메일도 똑같이 세어 계정 존재 여부를 노출하지 않는다. (IP별 제한은 LoginIpRateLimitInterceptor)
+     *
+     * 비밀번호를 비교하기 전에 시도 횟수를 먼저 올리고(실패로 가정), 성공하면 지운다.
+     * 횟수를 읽고 나서 실패 때 올리면, 같은 이메일로 동시에 들어온 요청이 모두 "5회 미만"을 읽고 제한을 넘어 시도할 수 있다.
+     */
     public LoginResult login(LoginRequest request) {
-        // 이메일이 없을 때와 비밀번호가 틀릴 때 같은 에러를 던져 계정 존재 여부를 노출하지 않는다
-        User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new BusinessException(AuthErrorCode.LOGIN_FAILED));
-
-        // 소셜 로그인으로만 가입해 비밀번호가 없는 회원도 같은 에러로 응답
-        if (!user.hasPassword() || !passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new BusinessException(AuthErrorCode.LOGIN_FAILED);
+        if (loginAttemptRepository.increaseFailureCount(request.email(), LOGIN_FAILURE_WINDOW) > MAX_LOGIN_FAILURES) {
+            throw new BusinessException(AuthErrorCode.TOO_MANY_LOGIN_FAILURES);
         }
 
+        // 이메일이 없을 때와 비밀번호가 틀릴 때 같은 에러를 던져 계정 존재 여부를 노출하지 않는다
+        // 소셜 로그인으로만 가입해 비밀번호가 없는 회원도 같은 에러로 응답
+        User user = userRepository.findByEmail(request.email())
+                .filter(found -> found.hasPassword() && passwordEncoder.matches(request.password(), found.getPassword()))
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.LOGIN_FAILED));
+
+        loginAttemptRepository.clearFailures(request.email());
         return issueTokens(user);
     }
 
