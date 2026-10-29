@@ -5,11 +5,9 @@ import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
-import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
 import com.example.ddangddangddang.domain.review.dto.request.ReviewCreateRequest;
 import com.example.ddangddangddang.domain.review.dto.request.ReviewReplyRequest;
 import com.example.ddangddangddang.domain.review.dto.request.ReviewUpdateRequest;
-import com.example.ddangddangddang.domain.review.dto.response.ReviewListResponse;
 import com.example.ddangddangddang.domain.review.dto.response.ReviewResponse;
 import com.example.ddangddangddang.domain.review.entity.Review;
 import com.example.ddangddangddang.domain.review.exception.ReviewErrorCode;
@@ -24,7 +22,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.CacheResponse;
 import java.util.List;
 
 @RequiredArgsConstructor
