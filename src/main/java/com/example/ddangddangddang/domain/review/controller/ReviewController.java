@@ -60,10 +60,14 @@ public class ReviewController {
                                                             @Valid @RequestBody ReviewReplyRequest request){
         return ResponseEntity.ok(ApiResponse.ok(reviewService.replyReview(authUser.id(),reviewId,request)));
     }
-//
-//    // 판매자 답글 삭제
-//    @DeleteMapping("/sellers/{reviewId}/reply")
-//
+
+    // 판매자 답글 삭제
+    @DeleteMapping("/sellers/{reviewId}/reply")
+    ResponseEntity<Void> deleteReply(@AuthenticationPrincipal AuthUser authUser,
+                                                   @PathVariable Long reviewId) {
+        reviewService.deleteReply(authUser.id(), reviewId);
+        return ResponseEntity.noContent().build();
+    }
 
 
 }

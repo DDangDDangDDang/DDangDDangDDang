@@ -105,6 +105,19 @@ public class ReviewService {
         return ReviewResponse.from(review);
     }
 
+    // 판매자 답글 삭제
+    @Transactional
+    public void deleteReply(Long userId, Long reviewId) {
+        Review review = findReview(reviewId);
+        if (!review.isSeller(userId)){
+            throw new BusinessException(ReviewErrorCode.NOT_REVIEW_SELLER);
+        }
+        if (!review.hasReply()){
+            throw new BusinessException(ReviewErrorCode.REPLY_NOT_FOUND);
+        }
+        review.deleteReply();
+    }
+
     private Review findReview(Long reviewId){
         return reviewRepository.findById(reviewId).orElseThrow(
                 ()-> new BusinessException(ReviewErrorCode.REVIEW_NOT_FOUND)
