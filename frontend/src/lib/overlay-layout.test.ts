@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OVERLAY_LAYOUT, dragPercent, keyboardMove, overlayPositionStyle, resolveOverlayLayout, sameLayout, snapPercent } from './overlay-layout';
+import {
+  DEFAULT_OVERLAY_LAYOUT,
+  dragPercent,
+  keyboardMove,
+  overlayPositionStyle,
+  resolveOverlayLayout,
+  sameLayout,
+  snapPercent,
+  toOverlayLayoutRequest,
+} from './overlay-layout';
 
 describe('resolveOverlayLayout', () => {
   it('정하지 않은 방송은 기본 배치', () => {
@@ -58,5 +67,45 @@ describe('sameLayout', () => {
   it('네 위치가 모두 같아야 같은 배치', () => {
     expect(sameLayout(DEFAULT_OVERLAY_LAYOUT, { ...DEFAULT_OVERLAY_LAYOUT })).toBe(true);
     expect(sameLayout(DEFAULT_OVERLAY_LAYOUT, { ...DEFAULT_OVERLAY_LAYOUT, bid: { x: 50, y: 2 } })).toBe(false);
+  });
+});
+
+describe('숨김·박스', () => {
+  const saved = {
+    featured: { x: 0, y: 100, hidden: true },
+    donation: { x: 100, y: 0 },
+    bid: { x: 50, y: 0 },
+    sold: { x: 50, y: 50 },
+    boxes: [
+      { type: 'TEXT' as const, x: 50, y: 10, text: '오늘 마감 특가', textStyle: 'HIGHLIGHT' as const, textSize: 'LARGE' as const },
+      { type: 'IMAGE' as const, x: 100, y: 0, imageKey: 'overlay-images/1/a.png', imageUrl: 'https://cdn/a.png', width: 30 },
+      // 글자 없는 텍스트 박스처럼 모양이 맞지 않는 박스는 그리지 않는다.
+      { type: 'TEXT' as const, x: 0, y: 0 },
+    ],
+  };
+
+  it('숨긴 안내와 박스를 읽고, 저장 요청에는 화면용 id·주소를 빼고 보낸다', () => {
+    const layout = resolveOverlayLayout(saved);
+    expect(layout.featured).toEqual({ x: 0, y: 100, hidden: true });
+    expect(layout.donation).toEqual({ x: 100, y: 0 });
+    expect(layout.boxes).toHaveLength(2);
+
+    expect(toOverlayLayoutRequest(layout)).toEqual({
+      featured: { x: 0, y: 100, hidden: true },
+      donation: { x: 100, y: 0, hidden: false },
+      bid: { x: 50, y: 0, hidden: false },
+      sold: { x: 50, y: 50, hidden: false },
+      boxes: [
+        { type: 'TEXT', x: 50, y: 10, text: '오늘 마감 특가', textStyle: 'HIGHLIGHT', textSize: 'LARGE' },
+        { type: 'IMAGE', x: 100, y: 0, imageKey: 'overlay-images/1/a.png', width: 30 },
+      ],
+    });
+  });
+
+  it('박스의 화면용 id가 달라도 같은 배치로 본다. 숨김이 바뀌면 다른 배치다', () => {
+    const a = resolveOverlayLayout(saved);
+    const b = { ...a, boxes: a.boxes.map((box) => ({ ...box, id: 'other' })) };
+    expect(sameLayout(a, b)).toBe(true);
+    expect(sameLayout(a, { ...a, featured: { x: 0, y: 100 } })).toBe(false);
   });
 });

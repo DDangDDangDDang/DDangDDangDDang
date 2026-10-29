@@ -69,7 +69,7 @@ describe('화면 배치 편집', () => {
     expect(state.puts).toHaveLength(1);
     expect(state.puts[0]?.path).toBe('/api/v1/live-streams/{liveStreamId}/overlay-layout');
     expect(state.puts[0]?.body).toMatchObject({ bid: { x: 52, y: 20 }, featured: { x: 0, y: 100 }, donation: { x: 100, y: 0 }, sold: { x: 50, y: 50 } });
-    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ overlayLayout: expect.objectContaining({ bid: { x: 52, y: 20 } }) }));
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ overlayLayout: expect.objectContaining({ bid: { x: 52, y: 20, hidden: false } }) }));
     // 저장하면 편집을 마친다.
     expect(screen.queryByRole('group', { name: '화면 배치 편집' })).toBeNull();
   });
@@ -87,5 +87,45 @@ describe('화면 배치 편집', () => {
     await userEvent.click(screen.getByRole('button', { name: '취소' }));
     expect(screen.queryByRole('group', { name: '화면 배치 편집' })).toBeNull();
     expect(state.puts).toHaveLength(0);
+  });
+
+  it('기본 안내를 숨기면 견본이 사라지고, 숨김으로 저장한다', async () => {
+    renderHarness();
+    await userEvent.click(screen.getByRole('button', { name: '화면 배치 편집' }));
+
+    await userEvent.click(screen.getByRole('button', { name: /선물 안내/, pressed: true }));
+    expect(screen.queryByRole('button', { name: '선물 안내 위치 옮기기' })).toBeNull();
+    expect(screen.getByRole('button', { name: /선물 안내/, pressed: false })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(state.puts[0]?.body).toMatchObject({ donation: { x: 100, y: 0, hidden: true }, bid: { hidden: false }, boxes: [] });
+  });
+
+  it('텍스트 박스를 넣고 글자·모양을 바꿔 저장하고, 빈 글자면 저장할 수 없다', async () => {
+    renderHarness();
+    await userEvent.click(screen.getByRole('button', { name: '화면 배치 편집' }));
+
+    await userEvent.click(screen.getByRole('button', { name: '텍스트 추가' }));
+    expect(screen.getByRole('button', { name: '텍스트 박스 1 위치 옮기기' })).toBeInTheDocument();
+    const text = screen.getByRole('textbox', { name: '글자' });
+    await userEvent.clear(text);
+    expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
+    await userEvent.type(text, '오늘 마감 특가');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '모양' }), 'HIGHLIGHT');
+    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(state.puts[0]?.body).toMatchObject({
+      boxes: [{ type: 'TEXT', x: 50, y: 50, text: '오늘 마감 특가', textStyle: 'HIGHLIGHT', textSize: 'MEDIUM' }],
+    });
+  });
+
+  it('고른 박스를 빼면 미리보기에서도 사라진다', async () => {
+    renderHarness();
+    await userEvent.click(screen.getByRole('button', { name: '화면 배치 편집' }));
+    await userEvent.click(screen.getByRole('button', { name: '텍스트 추가' }));
+
+    await userEvent.click(screen.getByRole('button', { name: '박스 빼기' }));
+    expect(screen.queryByRole('button', { name: '텍스트 박스 1 위치 옮기기' })).toBeNull();
+    expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
   });
 });

@@ -515,7 +515,7 @@ GitHub의 `EC2_INSTANCE_ID`, `ECR_WEB_REPOSITORY` 변수는 지워도 됩니다.
 - **WebSocket 허용 출처**: 지금은 모든 출처를 허용합니다(`WebSocketConfig`). 프론트 도메인이 정해지면 좁히세요.
 - **EC2 서버 교체**: 서버 디스크에는 데이터가 없어 EC2를 다시 만들어도 잃는 것이 없습니다. 다만 Terraform은 apply할 때마다 서버가 바뀌어 접속이 끊기지 않도록, AMI·부팅 스크립트가 바뀌어도 서버를 교체하지 않습니다. 새로 만들려면 위 "서버를 새로 만들기"를 따르세요.
 - **RDS 삭제 방지**: RDS는 `db_deletion_protection = true`(기본값)라 실수로 `terraform destroy`해도 지워지지 않습니다.
-- **업로드 파일(프로필 사진)**: `infra/storage.tf`가 운영 `ddang-uploads-<계정 ID>`, dev `ddang-dev-uploads-<계정 ID>` 버킷을 만들고 앱 환경변수(`APP_STORAGE_TYPE=s3`, `APP_STORAGE_S3_BUCKET`)를 넣습니다. 브라우저가 사이트 주소에서 버킷으로 직접 올리고(CORS PUT), `profile-images/` 아래만 공개로 읽힙니다. apply 뒤에는 앱을 다시 배포해야 새 환경변수가 반영됩니다. CloudFront를 붙이면 tfvars의 `app_environment`에 `APP_STORAGE_S3_PUBLIC_BASE_URL`을 넣습니다. 버킷에 파일이 있으면 `terraform destroy`가 버킷을 지우지 못하니 먼저 비우세요.
+- **업로드 파일(프로필 사진, 방송 화면 이미지 박스)**: `infra/storage.tf`가 운영 `ddang-uploads-<계정 ID>`, dev `ddang-dev-uploads-<계정 ID>` 버킷을 만들고 앱 환경변수(`APP_STORAGE_TYPE=s3`, `APP_STORAGE_S3_BUCKET`)를 넣습니다. 브라우저가 사이트 주소에서 버킷으로 직접 올리고(CORS PUT), `profile-images/`·`overlay-images/` 아래만 공개로 읽힙니다. apply 뒤에는 앱을 다시 배포해야 새 환경변수가 반영됩니다. CloudFront를 붙이면 tfvars의 `app_environment`에 `APP_STORAGE_S3_PUBLIC_BASE_URL`을 넣습니다. 버킷에 파일이 있으면 `terraform destroy`가 버킷을 지우지 못하니 먼저 비우세요.
 
 ## 정리 (전부 지우기)
 

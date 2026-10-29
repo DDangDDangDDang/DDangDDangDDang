@@ -9,7 +9,13 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
 import com.example.ddangddangddang.domain.livestream.dto.OverlayLayoutRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayBoxRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayImageUploadRequest;
 import com.example.ddangddangddang.domain.livestream.dto.OverlayPosition;
+import com.example.ddangddangddang.domain.livestream.entity.OverlayBox;
+import com.example.ddangddangddang.domain.livestream.entity.OverlayBoxType;
+import com.example.ddangddangddang.domain.livestream.entity.OverlayTextSize;
+import com.example.ddangddangddang.domain.livestream.entity.OverlayTextStyle;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamUpdatedEvent;
 import com.example.ddangddangddang.domain.livestream.entity.ChatModerationMode;
@@ -47,6 +53,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -82,9 +89,14 @@ class LiveStreamServiceTest {
     @Mock
     private SellerVerification sellerVerification;
 
+    // 방송 화면 박스 검사. 기본은 박스 없음(빈 목록). 박스 검사 자체는 OverlayBoxResolverTest에서 본다.
+    @Mock
+    private OverlayBoxResolver overlayBoxResolver;
+
     @BeforeEach
     void verifiedSeller() {
         lenient().when(sellerVerification.isVerified(any())).thenReturn(true);
+        lenient().when(overlayBoxResolver.resolve(any(), any(), any())).thenReturn(List.of());
     }
 
     @Test
@@ -616,6 +628,44 @@ class LiveStreamServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(LiveStreamErrorCode.ALREADY_ENDED);
             then(eventPublisher).should(never()).publishEvent(any());
+            then(overlayBoxResolver).should(never()).resolve(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("숨긴 안내와 넣은 박스를 함께 저장하고, 빠진 이미지는 지우게 한다")
+        void hiddenAndBoxes() {
+            LiveStream liveStream = liveStream(true);
+            OverlayBox oldImage = OverlayBox.image(10, 10, "overlay-images/10/old.png", "https://cdn/old.png", 20);
+            ReflectionTestUtils.setField(liveStream, "overlayLayout", request.toEntity(List.of(oldImage)));
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+            OverlayBox text = OverlayBox.text(50, 50, "오늘 마감 특가", OverlayTextStyle.HIGHLIGHT, OverlayTextSize.LARGE);
+            OverlayBoxRequest textRequest = new OverlayBoxRequest(OverlayBoxType.TEXT, 50, 50, "오늘 마감 특가", OverlayTextStyle.HIGHLIGHT, OverlayTextSize.LARGE, null, null);
+            given(overlayBoxResolver.resolve(LIVE_STREAM_ID, List.of(oldImage), List.of(textRequest))).willReturn(List.of(text));
+            OverlayLayoutRequest withBoxes = new OverlayLayoutRequest(
+                    new OverlayPosition(100, 0, true), request.donation(), request.bid(), request.sold(), List.of(textRequest));
+
+            LiveStreamResponse response = liveStreamService.changeOverlayLayout(LIVE_STREAM_ID, SELLER_ID, withBoxes);
+
+            assertThat(response.overlayLayout().featured()).isEqualTo(new OverlayPosition(100, 0, true));
+            assertThat(response.overlayLayout().donation().hidden()).isFalse();
+            assertThat(response.overlayLayout().boxes()).containsExactly(text);
+            then(overlayBoxResolver).should().deleteRemovedImagesAfterCommit(List.of(oldImage), List.of(text));
+            then(eventPublisher).should().publishEvent(any(LiveStreamUpdatedEvent.class));
+        }
+
+        @Test
+        @DisplayName("이미지 업로드 URL은 방송 주인만 받을 수 있다 (LIVESTREAM_002)")
+        void imageUploadOwnerOnly() {
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(true)));
+            OverlayImageUploadRequest upload = new OverlayImageUploadRequest("image/png", 1_000L);
+
+            assertThatThrownBy(() -> liveStreamService.createOverlayImageUpload(LIVE_STREAM_ID, 2L, upload))
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(LiveStreamErrorCode.NOT_OWNER);
+            then(overlayBoxResolver).should(never()).createImageUpload(any(), any(), anyLong());
+
+            liveStreamService.createOverlayImageUpload(LIVE_STREAM_ID, SELLER_ID, upload);
+            then(overlayBoxResolver).should().createImageUpload(LIVE_STREAM_ID, "image/png", 1_000L);
         }
     }
 

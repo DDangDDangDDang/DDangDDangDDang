@@ -2227,6 +2227,63 @@
         "security" : [ ]
       }
     },
+    "/api/v1/live-streams/{liveStreamId}/overlay-images" : {
+      "post" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamCreateOverlayImageUpload",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OverlayImageUploadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOverlayImageUploadResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live-streams/{liveStreamId}/join" : {
       "post" : {
         "tags" : [ "live-stream-controller" ],
@@ -7130,6 +7187,52 @@
           }
         }
       },
+      "OverlayBoxRequest" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "TEXT", "IMAGE" ]
+          },
+          "x" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 0
+          },
+          "y" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 0
+          },
+          "text" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "textStyle" : {
+            "type" : "string",
+            "enum" : [ "PLAIN", "HIGHLIGHT", "DARK" ]
+          },
+          "textSize" : {
+            "type" : "string",
+            "enum" : [ "SMALL", "MEDIUM", "LARGE" ]
+          },
+          "imageKey" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 60,
+            "minimum" : 10
+          }
+        },
+        "required" : [ "type", "x", "y" ]
+      },
       "OverlayLayoutRequest" : {
         "type" : "object",
         "properties" : {
@@ -7144,6 +7247,14 @@
           },
           "sold" : {
             "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "boxes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OverlayBoxRequest"
+            },
+            "maxItems" : 10,
+            "minItems" : 0
           }
         },
         "required" : [ "bid", "donation", "featured", "sold" ]
@@ -7162,6 +7273,9 @@
             "format" : "int32",
             "maximum" : 100,
             "minimum" : 0
+          },
+          "hidden" : {
+            "type" : "boolean"
           }
         },
         "required" : [ "x", "y" ]
@@ -7245,6 +7359,44 @@
           }
         }
       },
+      "OverlayBox" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "TEXT", "IMAGE" ]
+          },
+          "x" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "y" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "text" : {
+            "type" : "string"
+          },
+          "textStyle" : {
+            "type" : "string",
+            "enum" : [ "PLAIN", "HIGHLIGHT", "DARK" ]
+          },
+          "textSize" : {
+            "type" : "string",
+            "enum" : [ "SMALL", "MEDIUM", "LARGE" ]
+          },
+          "imageKey" : {
+            "type" : "string"
+          },
+          "imageUrl" : {
+            "type" : "string"
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "OverlayLayoutResponse" : {
         "type" : "object",
         "properties" : {
@@ -7259,6 +7411,12 @@
           },
           "sold" : {
             "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "boxes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OverlayBox"
+            }
           }
         }
       },
@@ -8148,6 +8306,53 @@
           },
           "token" : {
             "type" : "string"
+          }
+        }
+      },
+      "OverlayImageUploadRequest" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "contentLength" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        },
+        "required" : [ "contentLength", "contentType" ]
+      },
+      "ApiResponseOverlayImageUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/OverlayImageUploadResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "OverlayImageUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "uploadUrl" : {
+            "type" : "string"
+          },
+          "imageKey" : {
+            "type" : "string"
+          },
+          "imageUrl" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -11225,6 +11430,22 @@
     "code" : "LIVESTREAM_018",
     "status" : 429,
     "message" : "미리보기 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
+  }, {
+    "code" : "LIVESTREAM_019",
+    "status" : 400,
+    "message" : "텍스트 박스에 넣을 글자를 입력해 주세요."
+  }, {
+    "code" : "LIVESTREAM_020",
+    "status" : 400,
+    "message" : "이미지가 올라가지 않았습니다. 이미지를 다시 올려 주세요."
+  }, {
+    "code" : "LIVESTREAM_021",
+    "status" : 400,
+    "message" : "이미지는 JPG, PNG, WEBP, GIF 파일만 올릴 수 있습니다."
+  }, {
+    "code" : "LIVESTREAM_022",
+    "status" : 400,
+    "message" : "이미지는 5MB까지 올릴 수 있습니다."
   }, {
     "code" : "NOTIFICATION_001",
     "status" : 404,
