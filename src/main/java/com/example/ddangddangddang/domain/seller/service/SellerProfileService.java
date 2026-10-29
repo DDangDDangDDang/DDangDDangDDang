@@ -13,6 +13,7 @@ import com.example.ddangddangddang.domain.livestream.repository.LiveStreamReposi
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
+import com.example.ddangddangddang.domain.review.repository.ReviewRepository;
 import com.example.ddangddangddang.domain.seller.dto.SellerAuctionResponse;
 import com.example.ddangddangddang.domain.seller.dto.SellerProfileResponse;
 import com.example.ddangddangddang.domain.seller.entity.SellerApplication;
@@ -53,6 +54,8 @@ public class SellerProfileService {
     // 도네이션 도메인의 값을 읽기만 한다. (파워 판매자 여부, 응원 지표)
     private final PowerSellers powerSellers;
     private final DonationTrust donationTrust;
+    // 리뷰 도메인의 값을 읽기만 하낟.(구매자 만족도)
+    private final ReviewRepository reviewRepository;
 
     /** @param viewerId 보는 사람 (로그인하지 않았으면 null) */
     public SellerProfileResponse getProfile(Long sellerId, Long viewerId) {
@@ -94,7 +97,9 @@ public class SellerProfileService {
                         averageShippingHours(orderRepository.findTop100BySellerIdAndShippedAtIsNotNullOrderByIdDesc(sellerId)),
                         donation.donorCount(),
                         donation.receivedPoints(),
-                        donation.windowDays()
+                        donation.windowDays(),
+                        averageRating(reviewRepository.findAverageRatingBySellerId(sellerId)),
+                        reviewRepository.countBySellerId(sellerId)
                 )
         );
     }
@@ -127,5 +132,10 @@ public class SellerProfileService {
                 .mapToLong(o -> Math.max(0, Duration.between(o.getCreatedAt(), o.getShippedAt()).toMinutes()))
                 .average().orElse(0);
         return Math.round(averageMinutes / 60.0 * 10) / 10.0;
+    }
+
+    /** 리뷰 평균 점수(소수 첫째 자리). 리뷰가 없으면 null */
+    static Double averageRating(Double average){
+        return average == null ? null : Math.round(average * 10) /10.0;
     }
 }
