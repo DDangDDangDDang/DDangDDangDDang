@@ -55,6 +55,12 @@ public class User extends BaseTimeEntity {
     @Column(length = 200)
     private String profileImageKey;
 
+    // 라이브 채팅에서 닉네임을 꾸미는 장착한 뱃지. 없으면 null (가진 뱃지는 UserBadge)
+    // MySQL ENUM이 아니라 문자열로 둔다. (뱃지를 더할 때 ddl-auto가 ENUM 정의를 고치지 않음)
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20)")
+    private NicknameBadge equippedBadge;
+
     private User(String email, String password, String nickname, String phoneNumber, UserRole role) {
         this.email = email;
         this.password = password;
@@ -85,6 +91,11 @@ public class User extends BaseTimeEntity {
 
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+
+    /** 뱃지를 장착한다. null이면 뺀다. (가졌는지는 UserBadgeService가 확인) */
+    public void equipBadge(NicknameBadge badge) {
+        this.equippedBadge = badge;
     }
 
     public void changeNickname(String nickname, LocalDateTime now) {

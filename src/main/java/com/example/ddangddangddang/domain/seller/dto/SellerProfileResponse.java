@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
  * - subscribed: 내가 구독 중인지. 로그인하지 않았으면 false
  * - liveStreamId: 지금 방송 중이면 그 방송 (아니면 null)
  * - 방송: firstBroadcastAt(첫 방송 시작, 방송한 적 없으면 null), broadcastCount(시작한 방송 수), totalBroadcastSeconds(방송한 시간 합, 방송 중이면 지금까지)
- * - powerSeller: 판매자 상점에서 파워 판매자를 사서 지금 기간 중인지 (프로필에 파워 판매자 배지)
+ * - powerSeller: 마일리지 상점에서 파워 판매자를 샀는지 (영구, 프로필에 파워 판매자 배지)
  * - 신뢰 지표(trust): 판매자를 믿을 수 있는지 판단할 자료
  */
 public record SellerProfileResponse(

@@ -4,7 +4,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
  * 도네이션 마일리지
  * 1. 시청자가 방송 중 경매를 즉시 구매하고 → 판매자가 발송하고 → 시청자가 구매 확정하면 도네이션 마일리지가 적립된다. (헤더·도네이션 마일리지 화면)
  * 2. 시청자가 방송 화면에서 [선물하기]로 선물하면, 시청 화면과 판매자 스튜디오 영상 위에 "누구님이 몇 M을 선물했어요"가 뜬다.
- * 3. 판매자 프로필에 응원 지표가, 판매자 상점에 내 마일리지가 보인다. 관리자는 도네이션 정책 화면을 본다.
+ * 3. 판매자 프로필에 응원 지표가, 마일리지 상점에 내 마일리지와 파워 판매자 상품이 보인다. 관리자는 도네이션 정책 화면을 본다.
  *
  * 로컬 백엔드(MySQL·Redis·LiveKit)가 떠 있어야 한다. 시청자 계정에 현금 포인트가 10,000P 이상 있어야 한다. (즉시 구매)
  * 계정: E2E_EMAIL / E2E_PASSWORD (시청자), E2E_SELLER_EMAIL / E2E_SELLER_PASSWORD (판매자), E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD (관리자, 선택)
@@ -113,11 +113,12 @@ test.describe('도네이션 마일리지', () => {
       await expect(profile.getByText(/받음$/)).toBeVisible();
       await test.info().attach('판매자 프로필 응원 지표', { body: await watch.screenshot(), contentType: 'image/png' });
 
-      // 판매자 상점: 내 마일리지
+      // 마일리지 상점: 내 마일리지, 파워 판매자 상품 (예전 판매자 상점 주소로 와도 마일리지 상점으로 간다)
       await studio.goto('/me/donation-shop');
+      await expect(studio).toHaveURL(/\/shop$/);
       await expect(studio.getByText('내 마일리지').first()).toBeVisible();
       await expect(studio.getByText('파워 판매자', { exact: true }).first()).toBeVisible();
-      await test.info().attach('판매자 상점', { body: await studio.screenshot(), contentType: 'image/png' });
+      await test.info().attach('마일리지 상점', { body: await studio.screenshot(), contentType: 'image/png' });
     } finally {
       await endActive(request, await apiLogin(request, seller).catch(() => ''));
       await sellerContext.close();

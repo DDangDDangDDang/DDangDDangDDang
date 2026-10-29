@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.livechat.moderation;
 
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.livechat.repository.ChatRateLimitRepository;
+import com.example.ddangddangddang.domain.livestream.entity.ChatModerationMode;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
@@ -53,6 +54,8 @@ class ChatModerationIntegrationTest {
     private static final Long SELLER_ID = 1L;
     private static final Long VIEWER_ID = 2L;
     private static final Long OTHER_VIEWER_ID = 3L;
+    // 규칙 검사(메신저 아이디·연락처)는 통과하고 가짜 AI 검토기("카톡" 포함)에만 걸리는 채팅
+    private static final String CONTACT_HINT = "제 카톡 프사에 연락처 있어요";
 
     @TestConfiguration
     static class FakeModeratorConfig {
@@ -67,11 +70,11 @@ class ChatModerationIntegrationTest {
                 }
 
                 @Override
-                public List<ModerationFlag> review(List<ChatForReview> messages) {
+                public List<ModerationFlag> review(ReviewChannel channel, List<ChatForReview> messages) {
                     return messages.stream()
                             .filter(m -> m.content().contains("카톡"))
                             .map(m -> new ModerationFlag(m.messageId(), ModerationCategory.EXTERNAL_TRADE,
-                                    "외부 메신저로 직거래를 유도합니다."))
+                                    "외부 메신저로 직거래를 유도합니다.", true))
                             .toList();
                 }
             };
@@ -131,7 +134,7 @@ class ChatModerationIntegrationTest {
         awaitSubscribed(chatTopic);
         awaitSubscribed("/user/queue/moderation");
 
-        viewer.send("/app/live-streams/" + liveStreamId + "/chat", Map.of("content", "카톡 아디 seller77 로 따로 연락주세요"));
+        viewer.send("/app/live-streams/" + liveStreamId + "/chat", Map.of("content", CONTACT_HINT));
 
         Map<String, Object> chat = viewerChats.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
         assertThat(chat).isNotNull();
@@ -185,7 +188,42 @@ class ChatModerationIntegrationTest {
         assertThat(chats.poll(500, TimeUnit.MILLISECONDS)).isNull();
     }
 
+    @Test
+    @DisplayName("자동 가림 방송이면 AI가 명백하다고 본 채팅은 시청자 모두에게 MESSAGE_HIDDEN으로 가려지고, 판매자 알림에 가렸다고 표시된다")
+    void autoHide() throws Exception {
+        Long liveStreamId = liveStream(ChatModerationMode.AUTO_HIDE);
+        String chatTopic = "/topic/live-streams/" + liveStreamId + "/chat";
+
+        StompSession seller = connect(SELLER_ID);
+        BlockingQueue<Map<String, Object>> sellerAlerts = subscribe(seller, "/user/queue/moderation");
+        StompSession other = connect(OTHER_VIEWER_ID);
+        BlockingQueue<Map<String, Object>> otherChats = subscribe(other, chatTopic);
+        StompSession viewer = connect(VIEWER_ID);
+        awaitSubscribed(chatTopic);
+        awaitSubscribed("/user/queue/moderation");
+
+        viewer.send("/app/live-streams/" + liveStreamId + "/chat", Map.of("content", CONTACT_HINT));
+
+        Map<String, Object> chat = otherChats.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        assertThat(chat).isNotNull();
+        assertThat(chat.get("type")).isEqualTo("CHAT");
+
+        Map<String, Object> hidden = otherChats.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        assertThat(hidden).isNotNull();
+        assertThat(hidden.get("type")).isEqualTo("MESSAGE_HIDDEN");
+        assertThat(hidden.get("targetMessageId")).isEqualTo(chat.get("messageId"));
+
+        Map<String, Object> alert = sellerAlerts.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        assertThat(alert).isNotNull();
+        assertThat(alert.get("autoHidden")).isEqualTo(true);
+        assertThat(alert.get("messageType")).isEqualTo("CHAT");
+    }
+
     private Long liveStream() {
+        return liveStream(ChatModerationMode.ALERT);
+    }
+
+    private Long liveStream(ChatModerationMode mode) {
         // 판매자당 종료되지 않은 방송은 하나라서, 앞선 테스트가 남긴 방송을 먼저 끝낸다.
         liveStreamRepository.findByActiveSellerId(SELLER_ID).ifPresent(previous -> {
             previous.end(SELLER_ID);
@@ -193,6 +231,7 @@ class ChatModerationIntegrationTest {
         });
         LiveStream liveStream = LiveStream.create(SELLER_ID, "테스트 방송");
         liveStream.start(SELLER_ID);
+        liveStream.changeChatModerationMode(mode);
         return liveStreamRepository.save(liveStream).getId();
     }
 

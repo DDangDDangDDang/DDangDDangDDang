@@ -46,6 +46,25 @@ export function appendChatMessage(list: ChatMessage[], message: ChatMessage, max
   return next.length > max ? next.slice(next.length - max) : next;
 }
 
+/**
+ * 받은 채팅 메시지를 목록에 반영한다.
+ * MESSAGE_HIDDEN·MESSAGE_RESTORED는 새 줄을 붙이지 않고 targetMessageId 메시지를 가리거나 되돌린다. (목록에 없으면 그대로)
+ * 나머지는 끝에 붙인다.
+ */
+export function applyChatMessage(list: ChatMessage[], message: ChatMessage, max = MAX_CHAT_MESSAGES): ChatMessage[] {
+  if (message.type === 'MESSAGE_HIDDEN' || message.type === 'MESSAGE_RESTORED') {
+    const hidden = message.type === 'MESSAGE_HIDDEN';
+    let changed = false;
+    const next = list.map((m) => {
+      if (m.messageId !== message.targetMessageId || (m.hidden ?? false) === hidden) return m;
+      changed = true;
+      return { ...m, hidden };
+    });
+    return changed ? next : list;
+  }
+  return appendChatMessage(list, message, max);
+}
+
 /** 채팅 입력 최대 글자 수 (docs/api/README.md: 1~200자) */
 export const CHAT_MAX_LENGTH = 200;
 

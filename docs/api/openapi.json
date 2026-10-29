@@ -192,6 +192,54 @@
         }
       }
     },
+    "/api/v1/users/me/badge" : {
+      "put" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userEquipBadge",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BadgeEquipRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyBadgesResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sellers/{sellerId}/subscription" : {
       "put" : {
         "tags" : [ "seller-controller" ],
@@ -997,6 +1045,44 @@
         }
       }
     },
+    "/api/v1/shop/power-seller" : {
+      "post" : {
+        "tags" : [ "shop-controller" ],
+        "operationId" : "shopBuyPowerSeller",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/shop/nickname-change" : {
       "post" : {
         "tags" : [ "shop-controller" ],
@@ -1045,27 +1131,74 @@
         }
       }
     },
-    "/api/v1/seller-perks" : {
+    "/api/v1/shop/badges/{badge}" : {
       "post" : {
-        "tags" : [ "seller-perk-controller" ],
-        "operationId" : "sellerPerkPurchase",
+        "tags" : [ "shop-controller" ],
+        "operationId" : "shopBuyBadge",
+        "parameters" : [ {
+          "name" : "badge",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyBadgesResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shop/auction-boosts" : {
+      "post" : {
+        "tags" : [ "shop-controller" ],
+        "operationId" : "shopBoostAuction",
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/SellerPerkPurchaseRequest"
+                "$ref" : "#/components/schemas/AuctionBoostRequest"
               }
             }
           },
           "required" : true
         },
         "responses" : {
-          "201" : {
-            "description" : "Created",
+          "200" : {
+            "description" : "OK",
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseSellerPerkResponse"
+                  "$ref" : "#/components/schemas/ApiResponseAuctionBoostResponse"
                 }
               }
             }
@@ -2094,6 +2227,63 @@
         "security" : [ ]
       }
     },
+    "/api/v1/live-streams/{liveStreamId}/overlay-images" : {
+      "post" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamCreateOverlayImageUpload",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OverlayImageUploadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOverlayImageUploadResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live-streams/{liveStreamId}/join" : {
       "post" : {
         "tags" : [ "live-stream-controller" ],
@@ -2219,6 +2409,60 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseDonationResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/live-streams/{liveStreamId}/chat/messages/{messageId}/restore" : {
+      "post" : {
+        "tags" : [ "live-chat-moderation-controller" ],
+        "operationId" : "liveChatModerationRestore",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "messageId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
                 }
               }
             }
@@ -4736,6 +4980,44 @@
         }
       }
     },
+    "/api/v1/users/me/badges" : {
+      "get" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userGetMyBadges",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMyBadgesResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/me/auctions" : {
       "get" : {
         "tags" : [ "auction-controller" ],
@@ -5005,82 +5287,6 @@
           }
         },
         "security" : [ ]
-      }
-    },
-    "/api/v1/seller-perks/shop" : {
-      "get" : {
-        "tags" : [ "seller-perk-controller" ],
-        "operationId" : "sellerPerkGetShop",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListSellerShopItemResponse"
-                }
-              }
-            }
-          },
-          "4XX" : {
-            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "5XX" : {
-            "description" : "서버 오류",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/seller-perks/me" : {
-      "get" : {
-        "tags" : [ "seller-perk-controller" ],
-        "operationId" : "sellerPerkGetMine",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListSellerPerkResponse"
-                }
-              }
-            }
-          },
-          "4XX" : {
-            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "5XX" : {
-            "description" : "서버 오류",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/v1/seller-applications/me" : {
@@ -6407,6 +6613,126 @@
         }
       }
     },
+    "/api/v1/admin/dm/moderation-flags" : {
+      "get" : {
+        "tags" : [ "admin-dm-moderation-controller" ],
+        "operationId" : "adminDmModerationGetFlags",
+        "parameters" : [ {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseDmModerationFlagResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/dm/moderation-flags/{flagId}/messages" : {
+      "get" : {
+        "tags" : [ "admin-dm-moderation-controller" ],
+        "operationId" : "adminDmModerationGetFlaggedRoomMessages",
+        "parameters" : [ {
+          "name" : "flagId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseDmMessageResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live-streams/{liveStreamId}/featured-auction/{auctionId}" : {
       "delete" : {
         "tags" : [ "live-stream-controller" ],
@@ -6644,6 +6970,45 @@
           }
         }
       },
+      "BadgeEquipRequest" : {
+        "type" : "object",
+        "properties" : {
+          "badge" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+          }
+        }
+      },
+      "ApiResponseMyBadgesResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/MyBadgesResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "MyBadgesResponse" : {
+        "type" : "object",
+        "properties" : {
+          "owned" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+            }
+          },
+          "equipped" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+          }
+        }
+      },
       "ApiResponseSubscriptionResponse" : {
         "type" : "object",
         "properties" : {
@@ -6822,6 +7187,52 @@
           }
         }
       },
+      "OverlayBoxRequest" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "TEXT", "IMAGE" ]
+          },
+          "x" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 0
+          },
+          "y" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 0
+          },
+          "text" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "textStyle" : {
+            "type" : "string",
+            "enum" : [ "PLAIN", "HIGHLIGHT", "DARK" ]
+          },
+          "textSize" : {
+            "type" : "string",
+            "enum" : [ "SMALL", "MEDIUM", "LARGE" ]
+          },
+          "imageKey" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 60,
+            "minimum" : 10
+          }
+        },
+        "required" : [ "type", "x", "y" ]
+      },
       "OverlayLayoutRequest" : {
         "type" : "object",
         "properties" : {
@@ -6836,6 +7247,14 @@
           },
           "sold" : {
             "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "boxes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OverlayBoxRequest"
+            },
+            "maxItems" : 10,
+            "minItems" : 0
           }
         },
         "required" : [ "bid", "donation", "featured", "sold" ]
@@ -6854,6 +7273,9 @@
             "format" : "int32",
             "maximum" : 100,
             "minimum" : 0
+          },
+          "hidden" : {
+            "type" : "boolean"
           }
         },
         "required" : [ "x", "y" ]
@@ -6911,6 +7333,10 @@
           "recorded" : {
             "type" : "boolean"
           },
+          "chatModerationMode" : {
+            "type" : "string",
+            "enum" : [ "OFF", "ALERT", "AUTO_HIDE" ]
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "SCHEDULED", "LIVE", "ENDED" ]
@@ -6933,6 +7359,44 @@
           }
         }
       },
+      "OverlayBox" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "TEXT", "IMAGE" ]
+          },
+          "x" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "y" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "text" : {
+            "type" : "string"
+          },
+          "textStyle" : {
+            "type" : "string",
+            "enum" : [ "PLAIN", "HIGHLIGHT", "DARK" ]
+          },
+          "textSize" : {
+            "type" : "string",
+            "enum" : [ "SMALL", "MEDIUM", "LARGE" ]
+          },
+          "imageKey" : {
+            "type" : "string"
+          },
+          "imageUrl" : {
+            "type" : "string"
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "OverlayLayoutResponse" : {
         "type" : "object",
         "properties" : {
@@ -6947,6 +7411,12 @@
           },
           "sold" : {
             "$ref" : "#/components/schemas/OverlayPosition"
+          },
+          "boxes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OverlayBox"
+            }
           }
         }
       },
@@ -7029,25 +7499,13 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "powerSellerPrice" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "powerSellerDays" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "promotedLiveSlots" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "memo" : {
             "type" : "string",
             "maxLength" : 200,
             "minLength" : 0
           }
         },
-        "required" : [ "earnRatePercent", "expiringNoticeDays", "giftUnit", "maxEarnPerOrder", "maxGift", "minGift", "monthlyEarnLimit", "monthlyGiftLimitPerSeller", "pointValidDays", "powerSellerDays", "powerSellerPrice", "promotedLiveSlots", "trustWindowDays" ]
+        "required" : [ "earnRatePercent", "expiringNoticeDays", "giftUnit", "maxEarnPerOrder", "maxGift", "minGift", "monthlyEarnLimit", "monthlyGiftLimitPerSeller", "pointValidDays", "trustWindowDays" ]
       },
       "ApiResponseDonationPolicyResponse" : {
         "type" : "object",
@@ -7103,18 +7561,6 @@
             "format" : "int64"
           },
           "trustWindowDays" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "powerSellerPrice" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "powerSellerDays" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "promotedLiveSlots" : {
             "type" : "integer",
             "format" : "int32"
           }
@@ -7236,6 +7682,18 @@
         },
         "required" : [ "email" ]
       },
+      "ApiResponseVoid" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : { },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
       "NicknameChangeTicketRequest" : {
         "type" : "object",
         "properties" : {
@@ -7247,42 +7705,34 @@
         },
         "required" : [ "nickname" ]
       },
-      "SellerPerkPurchaseRequest" : {
+      "AuctionBoostRequest" : {
         "type" : "object",
         "properties" : {
-          "type" : {
-            "type" : "string",
-            "enum" : [ "POWER_SELLER" ]
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         },
-        "required" : [ "type" ]
+        "required" : [ "auctionId" ]
       },
-      "ApiResponseSellerPerkResponse" : {
+      "ApiResponseAuctionBoostResponse" : {
         "type" : "object",
         "properties" : {
           "success" : {
             "type" : "boolean"
           },
           "data" : {
-            "$ref" : "#/components/schemas/SellerPerkResponse"
+            "$ref" : "#/components/schemas/AuctionBoostResponse"
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
-      "SellerPerkResponse" : {
+      "AuctionBoostResponse" : {
         "type" : "object",
         "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "type" : {
-            "type" : "string",
-            "enum" : [ "POWER_SELLER" ]
-          },
-          "price" : {
+          "auctionId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -7337,18 +7787,6 @@
           }
         },
         "required" : [ "auth", "endpoint", "p256dh" ]
-      },
-      "ApiResponseVoid" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : { },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
       },
       "ProductRequest" : {
         "type" : "object",
@@ -7868,6 +8306,53 @@
           },
           "token" : {
             "type" : "string"
+          }
+        }
+      },
+      "OverlayImageUploadRequest" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "contentLength" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        },
+        "required" : [ "contentLength", "contentType" ]
+      },
+      "ApiResponseOverlayImageUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/OverlayImageUploadResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "OverlayImageUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "uploadUrl" : {
+            "type" : "string"
+          },
+          "imageKey" : {
+            "type" : "string"
+          },
+          "imageUrl" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -9016,6 +9501,10 @@
           },
           "recorded" : {
             "type" : "boolean"
+          },
+          "chatModerationMode" : {
+            "type" : "string",
+            "enum" : [ "OFF", "ALERT", "AUTO_HIDE" ]
           }
         }
       },
@@ -9231,6 +9720,9 @@
           },
           "live" : {
             "type" : "boolean"
+          },
+          "promoted" : {
+            "type" : "boolean"
           }
         }
       },
@@ -9274,7 +9766,7 @@
         "properties" : {
           "item" : {
             "type" : "string",
-            "enum" : [ "NICKNAME_CHANGE" ]
+            "enum" : [ "NICKNAME_CHANGE", "BADGE_ANGEL_WINGS", "BADGE_DEVIL_WINGS", "BADGE_HALO", "BADGE_STAR", "AUCTION_BOOST", "POWER_SELLER" ]
           },
           "name" : {
             "type" : "string"
@@ -9285,6 +9777,10 @@
           "price" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "badge" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
           },
           "available" : {
             "type" : "boolean"
@@ -9481,63 +9977,6 @@
           "liveStreamId" : {
             "type" : "integer",
             "format" : "int64"
-          }
-        }
-      },
-      "ApiResponseListSellerShopItemResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/SellerShopItemResponse"
-            }
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "SellerShopItemResponse" : {
-        "type" : "object",
-        "properties" : {
-          "type" : {
-            "type" : "string",
-            "enum" : [ "POWER_SELLER" ]
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "description" : {
-            "type" : "string"
-          },
-          "price" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "periodDays" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
-      "ApiResponseListSellerPerkResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/SellerPerkResponse"
-            }
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
@@ -10542,6 +10981,76 @@
           }
         }
       },
+      "ApiResponseCursorResponseDmModerationFlagResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseDmModerationFlagResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CursorResponseDmModerationFlagResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DmModerationFlagResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "DmModerationFlagResponse" : {
+        "type" : "object",
+        "properties" : {
+          "flagId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "roomId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "messageId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "senderId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "category" : {
+            "type" : "string",
+            "enum" : [ "EXTERNAL_TRADE", "SCAM", "HARASSMENT", "HATE", "SEXUAL", "SPAM", "PERSONAL_INFO" ]
+          },
+          "categoryLabel" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "content" : {
+            "type" : "string"
+          },
+          "flaggedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "ApiErrorResponse" : {
         "type" : "object",
         "description" : "실패 응답. error.code로 원인을 구분한다. (x-error-codes 참고)",
@@ -10790,6 +11299,10 @@
     "status" : 404,
     "message" : "신고를 찾을 수 없습니다."
   }, {
+    "code" : "DM_014",
+    "status" : 404,
+    "message" : "AI 검토 기록을 찾을 수 없습니다."
+  }, {
     "code" : "DONATION_001",
     "status" : 400,
     "message" : "선물할 수 없는 마일리지입니다."
@@ -10837,6 +11350,14 @@
     "code" : "LIVECHAT_003",
     "status" : 400,
     "message" : "보낼 수 없는 내용이 포함되어 있습니다."
+  }, {
+    "code" : "LIVECHAT_004",
+    "status" : 400,
+    "message" : "같은 내용을 짧은 시간에 반복해서 보낼 수 없습니다."
+  }, {
+    "code" : "LIVECHAT_005",
+    "status" : 403,
+    "message" : "내 방송의 채팅만 관리할 수 있습니다."
   }, {
     "code" : "LIVESTREAM_001",
     "status" : 404,
@@ -10909,6 +11430,22 @@
     "code" : "LIVESTREAM_018",
     "status" : 429,
     "message" : "미리보기 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
+  }, {
+    "code" : "LIVESTREAM_019",
+    "status" : 400,
+    "message" : "텍스트 박스에 넣을 글자를 입력해 주세요."
+  }, {
+    "code" : "LIVESTREAM_020",
+    "status" : 400,
+    "message" : "이미지가 올라가지 않았습니다. 이미지를 다시 올려 주세요."
+  }, {
+    "code" : "LIVESTREAM_021",
+    "status" : 400,
+    "message" : "이미지는 JPG, PNG, WEBP, GIF 파일만 올릴 수 있습니다."
+  }, {
+    "code" : "LIVESTREAM_022",
+    "status" : 400,
+    "message" : "이미지는 5MB까지 올릴 수 있습니다."
   }, {
     "code" : "NOTIFICATION_001",
     "status" : 404,
@@ -11142,6 +11679,30 @@
     "status" : 403,
     "message" : "판매자 인증을 받은 회원만 상점 정보를 바꿀 수 있습니다."
   }, {
+    "code" : "SHOP_001",
+    "status" : 400,
+    "message" : "시작 전이거나 진행 중인 경매만 위로 올릴 수 있습니다."
+  }, {
+    "code" : "SHOP_002",
+    "status" : 409,
+    "message" : "이미 위로 올린 경매입니다. 경매 하나는 한 번만 올릴 수 있습니다."
+  }, {
+    "code" : "SHOP_003",
+    "status" : 409,
+    "message" : "지금은 위로 올릴 자리가 없습니다. 잠시 후 다시 시도해 주세요."
+  }, {
+    "code" : "SHOP_004",
+    "status" : 403,
+    "message" : "내 경매만 위로 올릴 수 있습니다."
+  }, {
+    "code" : "SHOP_005",
+    "status" : 400,
+    "message" : "판매 확정 20건 이상인 판매자만 파워 판매자가 될 수 있습니다."
+  }, {
+    "code" : "SHOP_006",
+    "status" : 409,
+    "message" : "이미 파워 판매자입니다."
+  }, {
     "code" : "USER_001",
     "status" : 409,
     "message" : "이미 사용 중인 이메일입니다."
@@ -11193,6 +11754,14 @@
     "code" : "USER_013",
     "status" : 400,
     "message" : "지금 쓰고 있는 닉네임입니다."
+  }, {
+    "code" : "USER_014",
+    "status" : 409,
+    "message" : "이미 가지고 있는 뱃지입니다."
+  }, {
+    "code" : "USER_015",
+    "status" : 400,
+    "message" : "가지고 있지 않은 뱃지입니다."
   }, {
     "code" : "VERIFY_001",
     "status" : 400,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChatMessage, ModerationAlert } from '@/api';
-import { appendChatMessage, countViewers, isSendableChat, summarizeParticipants, prependModerationAlert } from './live-room';
+import { appendChatMessage, applyChatMessage, countViewers, isSendableChat, summarizeParticipants, prependModerationAlert } from './live-room';
 
 const chat = (messageId: string): ChatMessage => ({
   messageId,
@@ -73,12 +73,14 @@ describe('prependModerationAlert', () => {
   const alert = (messageId: string): ModerationAlert => ({
     liveStreamId: 1,
     messageId,
+    messageType: 'CHAT',
     senderId: 2,
     nickname: '시청자',
     content: '010-1234-5678로 연락 주세요',
     category: 'EXTERNAL_TRADE',
     categoryLabel: '외부 거래 유도',
     reason: '연락처를 남겨 외부 거래를 유도함',
+    autoHidden: false,
     detectedAt: '2026-10-21T12:00:00',
   });
 
@@ -90,5 +92,32 @@ describe('prependModerationAlert', () => {
 
   it('최대 개수를 넘으면 오래된 것부터 지운다', () => {
     expect(prependModerationAlert([alert('a'), alert('b')], alert('c'), 2).map((a) => a.messageId)).toEqual(['c', 'a']);
+  });
+});
+
+describe('applyChatMessage', () => {
+  const control = (type: 'MESSAGE_HIDDEN' | 'MESSAGE_RESTORED', targetMessageId: string): ChatMessage => ({ ...chat(`${type}-${targetMessageId}`), type, content: null, targetMessageId });
+
+  it('MESSAGE_HIDDEN은 새 줄을 붙이지 않고 대상 메시지를 가린다', () => {
+    const list = applyChatMessage([chat('a'), chat('b')], control('MESSAGE_HIDDEN', 'b'));
+    expect(list.map((m) => [m.messageId, m.hidden ?? false])).toEqual([
+      ['a', false],
+      ['b', true],
+    ]);
+  });
+
+  it('MESSAGE_RESTORED는 가린 메시지를 되돌린다', () => {
+    const hidden = applyChatMessage([chat('a')], control('MESSAGE_HIDDEN', 'a'));
+    expect(applyChatMessage(hidden, control('MESSAGE_RESTORED', 'a'))[0]?.hidden).toBe(false);
+  });
+
+  it('대상이 목록에 없거나 이미 그 상태면 목록을 바꾸지 않는다', () => {
+    const list = [chat('a')];
+    expect(applyChatMessage(list, control('MESSAGE_HIDDEN', 'zzz'))).toBe(list);
+    expect(applyChatMessage(list, control('MESSAGE_RESTORED', 'a'))).toBe(list);
+  });
+
+  it('그 밖의 메시지는 끝에 붙인다', () => {
+    expect(applyChatMessage([chat('a')], chat('b')).map((m) => m.messageId)).toEqual(['a', 'b']);
   });
 });

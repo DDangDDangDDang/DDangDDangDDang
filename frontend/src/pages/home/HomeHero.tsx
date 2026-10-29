@@ -1,44 +1,33 @@
 import { Zap } from 'lucide-react';
-import { Link } from 'react-router';
-import { buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
 
 /** 겹쳐 그리는 번개·금·충격파가 망치와 함께 같은 기준(그림 전체)으로 움직이게 한다 */
 const VIEW_BOX = '[transform-box:view-box]';
 
 /**
- * 홈 맨 위 브랜드 배너: 서비스 소개 문구 + 망치 애니메이션.
- * 망치(묠니르 모양)가 옆으로 휘둘러 바닥을 찍으면 닿은 자리에서 번개가 터진다. (리디자인 시안)
- * 움직임 줄이기 설정이면 망치가 바닥에 닿은 순간의 그림으로 멈춰 보여 준다.
+ * 홈 맨 위 브랜드 배너: 왼쪽에 서비스 소개 문구, 제목("번개처럼 낙찰.") 끝에서 20px 오른쪽에 망치 애니메이션.
+ * 크기는 2048×320 비율이라 폭에 따라 높이가 함께 줄어든다. (최소 폭 1280px에서도 글자가 넘치지 않는 높이)
+ * 망치 그림은 배너 폭에 맞춰 커지고 줄어들어 배너 높이 안에 들어간다.
+ * 브라우저 글자 크기를 키워 내용이 그 높이를 넘으면 배너가 내용만큼 늘어난다. (overflow-hidden을 두면 aspect-ratio가 높이를 고정해 글자가 잘린다)
  */
 export function HomeHero() {
   return (
-    <section aria-label="땅땅땅 소개" className="flex items-center overflow-hidden rounded-lg border border-brand-200 bg-brand-50">
-      <div className="flex min-w-0 flex-1 flex-col gap-4 px-12 py-10">
+    <section
+      aria-label="땅땅땅 소개"
+      className="flex aspect-[2048/320] items-center gap-[20px] rounded-lg border border-brand-200 bg-brand-50 py-4 pr-10 pl-12"
+    >
+      {/* 글 묶음 폭은 제목 폭만큼. 설명(p)은 w-0 min-w-full로 묶음 폭을 넓히지 않아 망치 위치가 제목 끝을 따른다. */}
+      <div className="flex min-w-0 flex-none flex-col gap-2">
         <span className="flex items-center gap-1.5 self-start rounded-full bg-brand-100 px-3 py-1 text-label font-bold text-brand-700">
           <Zap className="size-3.5" aria-hidden="true" />
           실시간 라이브 경매
         </span>
         <h1 className="text-display font-bold tracking-tight">
-          땅! 내리치는 순간,
-          <br />
-          <span className="text-brand-500">번개처럼 낙찰.</span>
+          땅! 내리치는 순간, <span className="text-brand-500">번개처럼 낙찰.</span>
         </h1>
-        <p className="max-w-[420px] text-body-lg text-neutral-700">
-          라이브로 보고, 실시간으로 입찰하고, 망치 소리와 함께 내 것이 되는 경매.
-        </p>
-        <div className="mt-1 flex gap-2.5">
-          <Link to="/lives" className={buttonVariants({ variant: 'primary' })}>
-            라이브 경매 보러 가기
-          </Link>
-          <Link to="/auctions" className={buttonVariants({ variant: 'outline' })}>
-            경매 둘러보기
-          </Link>
-        </div>
+        <p className="w-0 min-w-full text-body-lg text-neutral-700">라이브로 보고, 실시간으로 입찰하고, 망치 소리와 함께 내 것이 되는 경매.</p>
       </div>
-      <div className="flex w-[380px] shrink-0 items-center justify-center py-6 pr-12 pl-4">
-        <HammerStrike />
-      </div>
+      <HammerStrike />
     </section>
   );
 }
@@ -47,7 +36,8 @@ function HammerStrike() {
   const bolt = 'animate-hammer-bolt opacity-0 motion-reduce:animate-none motion-reduce:opacity-100';
   const crack = 'animate-hammer-crack opacity-0 motion-reduce:animate-none motion-reduce:opacity-100 motion-reduce:[stroke-dashoffset:0]';
   return (
-    <svg viewBox="0 0 600 420" aria-hidden="true" className="aspect-[600/420] w-full max-w-[300px]">
+    // 폭을 배너 폭의 16%로 두면 높이(600:420)가 배너 안쪽 높이(2048:320 - 위아래 여백)보다 항상 작다.
+    <svg viewBox="0 0 600 420" aria-hidden="true" className="aspect-[600/420] w-[16%] shrink-0">
       <ellipse
         cx="265"
         cy="382"

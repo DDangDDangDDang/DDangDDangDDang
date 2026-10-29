@@ -21,7 +21,9 @@ public enum UserErrorCode implements ErrorCode {
     SAME_EMAIL(HttpStatus.BAD_REQUEST, "USER_010", "지금 쓰고 있는 이메일입니다."),
     SAME_PHONE_NUMBER(HttpStatus.BAD_REQUEST, "USER_011", "지금 쓰고 있는 휴대폰 번호입니다."),
     NICKNAME_TICKET_NOT_NEEDED(HttpStatus.BAD_REQUEST, "USER_012", "지금은 변경권 없이 닉네임을 바꿀 수 있습니다."),
-    SAME_NICKNAME(HttpStatus.BAD_REQUEST, "USER_013", "지금 쓰고 있는 닉네임입니다.");
+    SAME_NICKNAME(HttpStatus.BAD_REQUEST, "USER_013", "지금 쓰고 있는 닉네임입니다."),
+    BADGE_ALREADY_OWNED(HttpStatus.CONFLICT, "USER_014", "이미 가지고 있는 뱃지입니다."),
+    BADGE_NOT_OWNED(HttpStatus.BAD_REQUEST, "USER_015", "가지고 있지 않은 뱃지입니다.");
 
     private final HttpStatus status;
     private final String code;

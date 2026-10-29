@@ -1,6 +1,7 @@
 import { Gavel, HandCoins, Megaphone, SendHorizontal, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { useSession, type ChatMessage, type RealtimeStatus } from '@/api';
+import { DecoratedNickname } from '@/components/badge/DecoratedNickname';
 import { Badge, Notice } from '@/components/ui';
 import { bidIncreasePercent, bidTier } from '@/lib/auction-effects';
 import { cn } from '@/lib/cn';
@@ -18,6 +19,8 @@ type Props = {
   onSend: (content: string) => boolean;
   /** AI 검토 알림이 온 채팅의 messageId. 판매자 화면에서만 넘겨 해당 채팅에 표시한다. */
   flaggedIds?: ReadonlySet<string>;
+  /** AI 검토로 가려진 메시지의 원래 내용을 보여 줄지. 판매자 화면만 true (시청자는 "가려진 메시지"만 본다) */
+  showHiddenContent?: boolean;
   /**
    * 로그인하지 않은 사람이 보내려고 할 때 부른다. ("로그인이 필요합니다" 창, useLoginGuard)
    * 로그인하면 afterLogin으로 입력칸에 다시 포커스해 쓰던 채팅을 이어서 보낼 수 있게 한다.
@@ -31,7 +34,7 @@ type Props = {
 const STICK_TO_BOTTOM_PX = 48;
 
 /** 실시간 채팅: 메시지 목록 + 입력. 메시지는 접속한 뒤부터 쌓인다. (이전 채팅 API 없음) 방송 시청·판매자 스튜디오가 같이 쓴다. */
-export function LiveChat({ messages, sellerId, canChat, status, error, onSend, flaggedIds, requireLogin, notice }: Props) {
+export function LiveChat({ messages, sellerId, canChat, status, error, onSend, flaggedIds, showHiddenContent = false, requireLogin, notice }: Props) {
   const session = useSession();
   // [X]로 닫은 공지. 이 화면에서만 기억해서, 다시 들어오면(새로 그리면) 다시 보인다. 판매자가 공지를 바꾸면 새 공지는 보인다.
   const [dismissedNotice, setDismissedNotice] = useState<string>();
@@ -142,6 +145,7 @@ export function LiveChat({ messages, sellerId, canChat, status, error, onSend, f
                 isSeller={message.senderId === sellerId}
                 isMine={message.senderId === session?.user.userId}
                 flagged={flaggedIds?.has(message.messageId) ?? false}
+                showHiddenContent={showHiddenContent}
               />
           ))
         )}
@@ -191,7 +195,21 @@ export function LiveChat({ messages, sellerId, canChat, status, error, onSend, f
   );
 }
 
-function ChatLine({ message, isSeller, isMine, flagged }: { message: ChatMessage; isSeller: boolean; isMine: boolean; flagged: boolean }) {
+/** 가려진 메시지 자리에 시청자가 보는 문구 */
+const HIDDEN_MESSAGE_TEXT = '운영 정책에 따라 가려진 메시지예요.';
+
+type ChatLineProps = { message: ChatMessage; isSeller: boolean; isMine: boolean; flagged: boolean; showHiddenContent: boolean };
+
+function ChatLine({ message, isSeller, isMine, flagged, showHiddenContent }: ChatLineProps) {
+  // AI 검토로 가려진 채팅·선물 한마디. 판매자는 원래 내용을 줄을 그어 보고, 시청자는 안내 문구만 본다.
+  const hiddenContent = message.hidden && (
+    <span className="text-neutral-500">
+      <Badge variant="neutral" className="mr-1 h-4.5 px-1.5 align-[1px]">
+        가려짐
+      </Badge>
+      {showHiddenContent ? <span className="line-through">{message.content}</span> : HIDDEN_MESSAGE_TEXT}
+    </span>
+  );
   if (message.type === 'SYSTEM') {
     return <li className="self-center rounded-full bg-neutral-50 px-3 py-1 text-caption text-neutral-500">{message.content}</li>;
   }
@@ -200,7 +218,7 @@ function ChatLine({ message, isSeller, isMine, flagged }: { message: ChatMessage
     return (
       <li className="self-center rounded-full bg-brand-50 px-3 py-1 text-caption font-semibold text-brand-700">
         {message.nickname || '알 수 없음'}님이 <span className="num">{formatMileage(message.amount ?? 0)}</span>을 선물했어요
-        {message.content && <span className="font-normal text-neutral-700"> · {message.content}</span>}
+        {message.content && <span className="font-normal text-neutral-700"> · {hiddenContent || message.content}</span>}
       </li>
     );
   }
@@ -243,9 +261,9 @@ function ChatLine({ message, isSeller, isMine, flagged }: { message: ChatMessage
         </Badge>
       )}
       <strong className={cn('mr-1.5 text-label font-semibold', isSeller ? 'text-brand-700' : isMine ? 'text-info-700' : 'text-neutral-700')}>
-        {message.nickname || '알 수 없음'}
+        <DecoratedNickname nickname={message.nickname || '알 수 없음'} badge={message.badge} />
       </strong>
-      <span>{message.content}</span>
+      {hiddenContent || <span>{message.content}</span>}
     </li>
   );
 }

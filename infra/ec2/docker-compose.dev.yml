@@ -48,6 +48,9 @@ services:
   mysql:
     image: mysql:8.4
     env_file: [db.env]
+    # 팀원이 Session Manager 포트 포워딩으로 DB 툴을 붙일 수 있게 서버 안(127.0.0.1)에만 연다. 보안 그룹은 3306을 열지 않는다.
+    ports:
+      - "127.0.0.1:3306:3306"
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci

@@ -18,7 +18,9 @@ export class ApiError extends Error {
  * 적지 않은 코드는 서버 메시지를 그대로 쓴다.
  */
 const USER_MESSAGES: Partial<Record<ErrorCode, string>> = {
-  AUCTION_002: '판매 중인 상품만 경매에 올릴 수 있어요.',
+  LIVECHAT_004: '같은 내용을 연달아 보낼 수 없어요. 잠시 후에 보내 주세요.',
+  LIVECHAT_005: '내 방송의 채팅만 관리할 수 있어요.',
+  AUCTION_002:'판매 중인 상품만 경매에 올릴 수 있어요.',
   AUCTION_003: '이 상품은 이미 시작 전이거나 진행 중인 경매가 있어요.',
   AUCTION_004: '마감 시각은 시작 시각보다 뒤여야 해요.',
   AUCTION_005: '즉시구매가는 시작가보다 커야 해요.',

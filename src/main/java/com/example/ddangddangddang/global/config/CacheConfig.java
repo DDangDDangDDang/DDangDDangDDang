@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.global.config;
 
 import com.example.ddangddangddang.domain.donation.policy.DonationPolicy;
+import com.example.ddangddangddang.domain.user.service.EquippedBadge;
 import com.example.ddangddangddang.domain.category.dto.response.CategoryResponse;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurer;
@@ -29,6 +30,8 @@ public class CacheConfig implements CachingConfigurer {
     public static final String CATEGORIES ="categories";
     // 도네이션 포인트 정책 (DonationPolicies.current). 선물·적립마다 읽어 캐시하고, 관리자가 바꾸면 지운다.
     public static final String DONATION_POLICY = "donationPolicy";
+    // 회원이 장착한 닉네임 뱃지 (NicknameBadges.equipped). 라이브 채팅 메시지마다 읽어 캐시하고, 장착을 바꾸면 지운다.
+    public static final String NICKNAME_BADGE = "nicknameBadge";
 
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory){
@@ -49,12 +52,19 @@ public class CacheConfig implements CachingConfigurer {
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
                         new JacksonJsonRedisSerializer<>(jsonMapper, jsonMapper.getTypeFactory().constructType(DonationPolicy.class))
                 ));
+        RedisCacheConfiguration nicknameBadgeConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(10)) //삭제를 놓쳐도 10분 뒤 자동 새로 만들기
+                .disableCachingNullValues()
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
+                        new JacksonJsonRedisSerializer<>(jsonMapper, jsonMapper.getTypeFactory().constructType(EquippedBadge.class))
+                ));
         // 캐시 쓰기·삭제를 끝까지 기다린다. (immediateWrites)
         // Spring Data Redis 4는 Lettuce를 쓰면 기본으로 비동기로 지워서, 카테고리·정책을 바꾸자마자 다시 조회하면 지우기 전의 예전 값이 나왔다.
         RedisCacheWriter cacheWriter = RedisCacheWriter.create(connectionFactory, writer -> writer.immediateWrites());
         RedisCacheManager redisCacheManager = RedisCacheManager.builder(cacheWriter)
                 .withCacheConfiguration(CATEGORIES, categoryConfig)
                 .withCacheConfiguration(DONATION_POLICY, donationPolicyConfig)
+                .withCacheConfiguration(NICKNAME_BADGE, nicknameBadgeConfig)
                 .build();
         // 빈으로 등록하지 않으므로 위에서 정한 캐시 설정을 직접 적용한다.
         redisCacheManager.afterPropertiesSet();

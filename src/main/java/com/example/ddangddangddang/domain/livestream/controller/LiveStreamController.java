@@ -7,6 +7,8 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamHomeResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamTokenResponse;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayImageUploadRequest;
+import com.example.ddangddangddang.domain.livestream.dto.OverlayImageUploadResponse;
 import com.example.ddangddangddang.domain.livestream.dto.OverlayLayoutRequest;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamHomeService;
@@ -99,7 +101,8 @@ public class LiveStreamController {
     }
 
     /**
-     * 판매자가 방송 화면 배치(경매 카드·선물·입찰·낙찰 안내 위치)를 정한다. 방송 시작 전에도 정할 수 있고, 시청자 화면에 바로 반영된다.
+     * 판매자가 방송 화면 배치를 정한다. 경매 카드·선물·입찰·낙찰 안내의 위치와 숨김, 직접 넣은 텍스트·이미지 박스를 함께 보낸다.
+     * 방송 시작 전에도 정할 수 있고, 시청자 화면에 바로 반영된다.
      */
     @PutMapping("/{liveStreamId}/overlay-layout")
     public ResponseEntity<ApiResponse<LiveStreamResponse>> changeOverlayLayout(
@@ -107,6 +110,18 @@ public class LiveStreamController {
             @PathVariable Long liveStreamId,
             @Valid @RequestBody OverlayLayoutRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(liveStreamService.changeOverlayLayout(liveStreamId, authUser.id(), request)));
+    }
+
+    /**
+     * 방송 화면 이미지 박스에 넣을 이미지의 업로드 URL을 받는다. 올린 뒤 imageKey를 박스에 넣어 화면 배치를 저장한다.
+     * JPG·PNG·WEBP·GIF, 5MB까지. 방송 주인만, 종료 전에만 받을 수 있다.
+     */
+    @PostMapping("/{liveStreamId}/overlay-images")
+    public ResponseEntity<ApiResponse<OverlayImageUploadResponse>> createOverlayImageUpload(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @Valid @RequestBody OverlayImageUploadRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(liveStreamService.createOverlayImageUpload(liveStreamId, authUser.id(), request)));
     }
 
     /**
