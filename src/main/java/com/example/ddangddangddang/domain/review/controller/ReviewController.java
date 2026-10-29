@@ -3,6 +3,8 @@ package com.example.ddangddangddang.domain.review.controller;
 import com.example.ddangddangddang.domain.product.dto.request.ProductRequest;
 import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
 import com.example.ddangddangddang.domain.review.dto.request.ReviewCreateRequest;
+import com.example.ddangddangddang.domain.review.dto.request.ReviewUpdateRequest;
+import com.example.ddangddangddang.domain.review.dto.response.ReviewResponse;
 import com.example.ddangddangddang.domain.review.service.ReviewService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
@@ -22,15 +24,17 @@ public class ReviewController {
 
     // 구매자 리뷰 작성
     @GetMapping()
-    ResponseEntity<ApiResponse<ProductResponse>> createReview(@AuthenticationPrincipal AuthUser authUser,
-                                                                    @Valid @RequestBody ReviewCreateRequest request) {
+    ResponseEntity<ApiResponse<ReviewResponse>> createReview(@AuthenticationPrincipal AuthUser authUser,
+                                                                           @Valid @RequestBody ReviewCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(reviewService.createReview(authUser.id(),request)));
     }
-//    // 구매자 리뷰 수정
-//    @GetMapping("/{reviewId}")
-//    ResponseEntity<ApiResponse<ProductResponse>> findAddBy(@PathVariable Long productId) {
-//        return ResponseEntity.ok(ApiResponse.ok(categoryService.findAddBy(productId)));
-//    }
+    // 구매자 리뷰 수정
+    @GetMapping("/{reviewId}")
+    ResponseEntity<ApiResponse<ReviewResponse>> updateReview(@AuthenticationPrincipal AuthUser authUser,
+                                                              @PathVariable Long reviewId,
+                                                              @Valid @RequestBody ReviewUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(reviewService.updateReview(authUser.id(),reviewId,request)));
+    }
 //    // 구매자 리뷰 삭제
 //    @PostMapping("/{reviewId}")
 //    @ResponseStatus(HttpStatus.CREATED)

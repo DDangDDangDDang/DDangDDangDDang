@@ -5,13 +5,16 @@ import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
+import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
 import com.example.ddangddangddang.domain.review.dto.request.ReviewCreateRequest;
+import com.example.ddangddangddang.domain.review.dto.request.ReviewUpdateRequest;
 import com.example.ddangddangddang.domain.review.dto.response.ReviewResponse;
 import com.example.ddangddangddang.domain.review.entity.Review;
 import com.example.ddangddangddang.domain.review.exception.ReviewErrorCode;
 import com.example.ddangddangddang.domain.review.repository.ReviewRepository;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +50,26 @@ public class ReviewService {
     }
 
 
+    //리뷰수정
+    public ReviewResponse updateReview(Long userId, Long reviewId, @Valid ReviewUpdateRequest request) {
+       Review review= findReview(reviewId);
+
+       if (!review.isWriter(userId)) {
+           throw new BusinessException(ReviewErrorCode.NOT_REVIEW_WRITER);
+       }
+
+       review.update(request.rating(), request.content());;
+       return ReviewResponse.from(review);
+    }
 
 
+
+
+
+
+    private Review findReview(Long reviewId){
+        return reviewRepository.findById(reviewId).orElseThrow(
+                ()-> new BusinessException(ReviewErrorCode.REVIEW_NOT_FOUND)
+        );
+    }
 }
