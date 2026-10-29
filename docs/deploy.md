@@ -359,8 +359,8 @@ DB는 밖에서 바로 붙을 수 없습니다. 운영 RDS는 프라이빗 서�
 |---|---|---|
 | 거쳐 가는 서버 | 운영 EC2 `i-04fc05c14987651e6` | dev EC2 `i-0a73afb7c5407ee41` |
 | DB | RDS `ddang-mysql.cd0eqomq20jd.ap-northeast-2.rds.amazonaws.com:3306` | 서버 안 MySQL 컨테이너 `127.0.0.1:3306` |
-| 계정 | `ddang_ro` (**SELECT만 가능**) | `ddang` (dev 앱 계정, 읽기·쓰기) |
-| 비밀번호 | Secrets Manager `ddang/db-readonly` | Secrets Manager `ddang-dev/db` |
+| 계정 | `ddang_ro` (**조회만**, 모든 팀원) / `ddang_rw` (**행 조회·추가·수정·삭제**, 데이터 수정 담당만. 테이블 구조 변경 불가) | `ddang` (dev 앱 계정, 읽기·쓰기) |
+| 비밀번호 | Secrets Manager `ddang/db-readonly` / `ddang/db-readwrite` | Secrets Manager `ddang-dev/db` |
 | 내 PC 포트 (예시) | `13306` | `13307` |
 
 서버를 새로 만들면 ID가 바뀝니다. 최신 값은 `terraform output team_db_access`로 확인합니다.
@@ -371,7 +371,9 @@ DB는 밖에서 바로 붙을 수 없습니다. 운영 RDS는 프라이빗 서�
    - 그룹 권한은 두 서버로 **DB 터널 세션만** 여는 것입니다. 터널 대상은 세션 문서(`ddang-db-tunnel-prod`, `ddang-db-tunnel-dev`)에 DB로 고정돼 있어 다른 호스트·포트로는 열 수 없고, 서버 셸 접속도 할 수 없습니다.
    - DB 비밀번호 두 개(`ddang/db-readonly`, `ddang-dev/db`)를 읽을 수 있고, 본인 액세스 키·MFA를 스스로 관리할 수 있습니다.
    - 액세스 키는 IAM 콘솔 → 사용자 → 보안 자격 증명에서 만들어 본인에게 전달합니다. (Terraform으로 만들면 상태 파일에 키가 남습니다)
-2. **운영 읽기 전용 계정 만들기**: 비밀번호는 `terraform apply`가 `ddang/db-readonly`에 만들어 둡니다. MySQL 계정은 운영 서버에서 한 번 만듭니다. 비밀번호는 서버에서 바로 읽어 명령 기록에 남지 않습니다.
+   - 운영 데이터를 고쳐야 하는 사람만 `db_writer_iam_users = ["이름1"]`에도 넣습니다. (`developer_iam_users`에 있어야 함) `ddang-db-writers` 그룹에 더 들어가 수정용 계정 비밀번호(`ddang/db-readwrite`)를 읽을 수 있습니다.
+2. **운영 팀원용 계정 만들기** (`ddang_ro`, `ddang_rw`): 비밀번호는 `terraform apply`가 `ddang/db-readonly`, `ddang/db-readwrite`에 만들어 둡니다. MySQL 계정은 운영 서버에서 한 번 만듭니다. 비밀번호는 서버에서 바로 읽어 명령 기록에 남지 않습니다.
+   - `ddang_rw`에는 `SELECT, INSERT, UPDATE, DELETE`만 줍니다. 테이블 구조 변경(`CREATE`·`ALTER`·`DROP`)과 계정 관리는 앱 계정(`ddang`)과 관리자만 합니다.
    ```bash
    aws ssm start-session --target "$(terraform output -raw ec2_instance_id)"
    sudo -i
@@ -379,14 +381,19 @@ DB는 밖에서 바로 붙을 수 없습니다. 운영 RDS는 프라이빗 서�
    source <(grep -E '^DB_(URL|USERNAME|PASSWORD)=' app.env | sed "s/^/export /")
    MAIN="$(sed -E 's|jdbc:mysql://([^:/]+).*|\1|' <<<"$DB_URL")"
    RO_PW="$(aws secretsmanager get-secret-value --region ap-northeast-2 --secret-id ddang/db-readonly --query SecretString --output text | jq -r .password)"
+   RW_PW="$(aws secretsmanager get-secret-value --region ap-northeast-2 --secret-id ddang/db-readwrite --query SecretString --output text | jq -r .password)"
    docker run --rm -i -e MYSQL_PWD="$DB_PASSWORD" mysql:8.4 mysql --ssl-mode=REQUIRED -h "$MAIN" -u"$DB_USERNAME" <<SQL
    CREATE USER IF NOT EXISTS 'ddang_ro'@'%' IDENTIFIED BY '$RO_PW';
    ALTER USER 'ddang_ro'@'%' IDENTIFIED BY '$RO_PW';
    GRANT SELECT, SHOW VIEW ON ddang.* TO 'ddang_ro'@'%';
+   CREATE USER IF NOT EXISTS 'ddang_rw'@'%' IDENTIFIED BY '$RW_PW';
+   ALTER USER 'ddang_rw'@'%' IDENTIFIED BY '$RW_PW';
+   GRANT SELECT, INSERT, UPDATE, DELETE, SHOW VIEW ON ddang.* TO 'ddang_rw'@'%';
    SQL
-   unset RO_PW DB_PASSWORD
+   unset RO_PW RW_PW DB_PASSWORD
    ```
-   비밀번호를 바꾸려면 `terraform apply -replace=random_password.db_readonly` 뒤 같은 명령을 다시 실행합니다. (`ALTER USER`가 새 비밀번호로 바꿉니다)
+   비밀번호를 바꾸려면 `terraform apply -replace=random_password.db_readonly`(또는 `db_readwrite`) 뒤 같은 명령을 다시 실행합니다. (`ALTER USER`가 새 비밀번호로 바꿉니다)
+   수정 담당에서 빠진 사람이 비밀번호를 이미 봤다면 `ddang_rw` 비밀번호도 같은 방법으로 바꿉니다.
 3. dev 서버에 `docker-compose.dev.yml` 변경(MySQL `127.0.0.1:3306` 열기)을 반영하려면 `terraform apply` 뒤 Actions → Deploy → Run workflow (branch: `dev`).
 
 ### 팀원이 할 일
@@ -397,7 +404,8 @@ DB는 밖에서 바로 붙을 수 없습니다. 운영 RDS는 프라이빗 서�
 
 **DB 비밀번호 확인**
 ```bash
-aws secretsmanager get-secret-value --secret-id ddang/db-readonly --query SecretString --output text   # 운영 (ddang_ro)
+aws secretsmanager get-secret-value --secret-id ddang/db-readonly --query SecretString --output text   # 운영 조회 (ddang_ro)
+aws secretsmanager get-secret-value --secret-id ddang/db-readwrite --query SecretString --output text  # 운영 수정 (ddang_rw, 수정 담당만)
 aws secretsmanager get-secret-value --secret-id ddang-dev/db --query SecretString --output text        # dev (ddang)
 ```
 
@@ -417,7 +425,13 @@ macOS 터미널, Git Bash, Windows PowerShell 모두 같은 명령을 한 줄로
 
 **지켜 주세요**
 - 운영 DB에는 실제 회원 정보가 있습니다. 조회 결과(개인정보)를 메신저·문서·AI 도구에 붙이지 않습니다.
-- 운영 데이터 수정이 필요하면 직접 하지 말고 팀에 요청합니다. (`ddang_ro`는 SELECT만 됩니다)
+- 평소에는 조회용 `ddang_ro`로 접속합니다. 운영 데이터 수정은 수정 담당이 `ddang_rw`로 하고, 다른 사람은 수정 담당에게 요청합니다.
+- **운영 데이터를 고치기 전에**
+  1. RDS 콘솔 → `ddang-mysql` → 작업 → **스냅샷 생성**으로 수동 스냅샷을 찍습니다. (이름 예: `ddang-mysql-before-<무엇>-<날짜>`)
+  2. DB 툴의 자동 커밋을 끄고 `START TRANSACTION;` → 고치기 → `SELECT`로 결과 확인 → `COMMIT;` (잘못됐으면 `ROLLBACK;`) 순서로 합니다.
+  3. `UPDATE`·`DELETE`에는 꼭 `WHERE`를 붙이고, 먼저 같은 조건의 `SELECT`로 바뀔 행 수를 확인합니다.
+  4. 무엇을 왜 고쳤는지 팀 채널에 남깁니다.
+- 포인트·주문·경매·도네이션처럼 금액이 걸린 데이터는 앱의 규칙(잔액·내역·묶음 합계)이 함께 맞아야 합니다. 한 테이블만 고치면 어긋나므로, 이런 수정은 담당자와 먼저 상의합니다.
 - 다 쓰면 터널 창을 닫습니다. 무거운 조회(큰 테이블 전체 조회 등)는 운영 서비스를 느리게 할 수 있습니다.
 - dev 데이터는 테스트용이라 언제든 초기화될 수 있습니다.
 

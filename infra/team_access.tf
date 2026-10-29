@@ -1,5 +1,6 @@
 # 팀원 DB 접속: 팀원은 SSH·공개 포트 없이 Session Manager 포트 포워딩으로만 DB에 붙는다. (docs/deploy.md "팀원 DB 접속")
 # - 운영: EC2를 거쳐 RDS로 터널(ddang-db-tunnel-prod 문서). 계정은 SELECT만 되는 읽기 전용 계정(ddang_ro).
+#   데이터를 고쳐야 하는 일부 팀원(db_writer_iam_users)만 수정용 계정(ddang_rw)을 쓴다. 행 조회·추가·수정·삭제만 되고 테이블 구조는 못 바꾼다.
 # - dev: dev 서버의 MySQL 컨테이너(127.0.0.1:3306에만 열림)로 터널(ddang-db-tunnel-dev 문서). 계정은 dev 앱 계정.
 # - 터널 대상은 문서에 고정한다. 팀원은 내 PC 포트만 고른다. (아래 "DB 터널 전용 세션 문서")
 # - 서버 셸 접속(SSM-SessionManagerRunShell)은 주지 않는다. 문서를 고르지 않고 접속하면 셸이 열리므로 문서 지정을 강제한다.
@@ -7,7 +8,8 @@
 #   (Terraform으로 키를 만들면 상태 파일에 키가 남는다)
 
 locals {
-  db_readonly_username = "ddang_ro"
+  db_readonly_username  = "ddang_ro"
+  db_readwrite_username = "ddang_rw"
 
   # 터널을 열 수 있는 서버 (켜져 있는 구성만)
   team_tunnel_instance_arns = concat(
@@ -37,25 +39,66 @@ resource "aws_secretsmanager_secret_version" "db_readonly" {
   })
 }
 
-# 운영 서버가 읽기 전용 계정을 만들 때 비밀번호를 서버에서 바로 읽는다. (명령 기록에 비밀번호가 남지 않게)
-data "aws_iam_policy_document" "ec2_read_db_readonly" {
+# ---------- 운영 수정용 DB 계정 ----------
+# 행 조회·추가·수정·삭제만 된다. 테이블 구조 변경(CREATE·ALTER·DROP)과 계정 관리는 할 수 없다.
+# 비밀번호는 db_writers 그룹만 읽는다. 수정 전에는 RDS 수동 스냅샷을 찍는다. (docs/deploy.md "팀원 DB 접속")
+
+resource "random_password" "db_readwrite" {
+  length  = 32
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "db_readwrite" {
+  name        = "${var.project}/db-readwrite"
+  description = "운영 RDS 수정용 계정 (데이터 수정 담당 팀원용, Terraform이 관리)"
+}
+
+resource "aws_secretsmanager_secret_version" "db_readwrite" {
+  secret_id = aws_secretsmanager_secret.db_readwrite.id
+  secret_string = jsonencode({
+    username = local.db_readwrite_username
+    password = random_password.db_readwrite.result
+  })
+}
+
+# 운영 서버가 팀원용 계정을 만들 때 비밀번호를 서버에서 바로 읽는다. (명령 기록에 비밀번호가 남지 않게)
+data "aws_iam_policy_document" "ec2_read_team_db_accounts" {
   statement {
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_secretsmanager_secret.db_readonly.arn]
+    resources = [aws_secretsmanager_secret.db_readonly.arn, aws_secretsmanager_secret.db_readwrite.arn]
   }
 }
 
-resource "aws_iam_role_policy" "ec2_read_db_readonly" {
+resource "aws_iam_role_policy" "ec2_read_team_db_accounts" {
   count  = var.ec2_enabled ? 1 : 0
-  name   = "read-db-readonly-secret"
+  name   = "read-team-db-account-secrets"
   role   = aws_iam_role.ec2[0].id
-  policy = data.aws_iam_policy_document.ec2_read_db_readonly.json
+  policy = data.aws_iam_policy_document.ec2_read_team_db_accounts.json
 }
 
 # ---------- 팀원 IAM 그룹 ----------
 
 resource "aws_iam_group" "developers" {
   name = "${var.project}-developers"
+}
+
+# 운영 데이터 수정 담당. developers 그룹 권한(터널)에 수정용 계정 비밀번호 읽기만 더한다.
+resource "aws_iam_group" "db_writers" {
+  name = "${var.project}-db-writers"
+}
+
+data "aws_iam_policy_document" "db_writers" {
+  statement {
+    sid       = "ReadWriteDbCredentials"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.db_readwrite.arn]
+  }
+}
+
+resource "aws_iam_group_policy" "db_writers" {
+  name   = "db-readwrite-secret"
+  group  = aws_iam_group.db_writers.name
+  policy = data.aws_iam_policy_document.db_writers.json
 }
 
 # ---------- DB 터널 전용 세션 문서 ----------
@@ -178,5 +221,8 @@ resource "aws_iam_user" "developers" {
 resource "aws_iam_user_group_membership" "developers" {
   for_each = aws_iam_user.developers
   user     = each.value.name
-  groups   = [aws_iam_group.developers.name]
+  groups = concat(
+    [aws_iam_group.developers.name],
+    contains(var.db_writer_iam_users, each.key) ? [aws_iam_group.db_writers.name] : [],
+  )
 }
