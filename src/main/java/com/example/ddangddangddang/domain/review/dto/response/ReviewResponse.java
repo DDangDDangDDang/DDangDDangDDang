@@ -20,7 +20,7 @@ public record ReviewResponse (
                 review.getProductName(),
                 review.getRating(),
                 review.getContent(),
-                review.getRepliedAt(),
+                review.getCreatedAt(),
                 review.hasReply() ? new ReplyResponse(review.getReplyContent(),review.getRepliedAt()) : null
         );
     }
