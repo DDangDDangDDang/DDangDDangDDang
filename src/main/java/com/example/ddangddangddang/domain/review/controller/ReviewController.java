@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.review.dto.request.ReviewUpdateRequest
 import com.example.ddangddangddang.domain.review.dto.response.ReviewResponse;
 import com.example.ddangddangddang.domain.review.service.ReviewService;
 import com.example.ddangddangddang.global.common.ApiResponse;
+import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -43,15 +44,13 @@ public class ReviewController {
         return ResponseEntity.noContent().build();
     }
 
-
-//
-//    // 판매자 리뷰 목록(상점 리뷰 탭,로그인 없이 조회)
-//    @PatchMapping("/sellers/{sellerId}")
-//    ResponseEntity<ApiResponse<ProductResponse>> updateProduct(@AuthenticationPrincipal AuthUser authUser,
-//                                                               @PathVariable Long productId,
-//                                                               @Valid @RequestBody UpdateRequest request) {
-//        return ResponseEntity.ok(ApiResponse.ok(categoryService.updateProduct(authUser.id(),productId, request)));
-//    }
+    // 판매자 리뷰 목록(상점 리뷰 탭,로그인 없이 조회)
+    @PatchMapping("/sellers/{sellerId}")
+    ResponseEntity<ApiResponse<CursorResponse<ReviewResponse>>> getSellerReviews(@PathVariable Long sellerId,
+                                                                                @RequestParam(required = false) Long cursor,
+                                                                                @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(ApiResponse.ok(reviewService.getSellerReviews(sellerId,cursor, size)));
+    }
 //
 //    // 판맺자 답글 달기,수정
 //    @DeleteMapping("/sellers/{reviewId}/reply")

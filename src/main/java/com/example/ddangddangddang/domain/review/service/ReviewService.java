@@ -8,16 +8,23 @@ import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
 import com.example.ddangddangddang.domain.review.dto.request.ReviewCreateRequest;
 import com.example.ddangddangddang.domain.review.dto.request.ReviewUpdateRequest;
+import com.example.ddangddangddang.domain.review.dto.response.ReviewListResponse;
 import com.example.ddangddangddang.domain.review.dto.response.ReviewResponse;
 import com.example.ddangddangddang.domain.review.entity.Review;
 import com.example.ddangddangddang.domain.review.exception.ReviewErrorCode;
 import com.example.ddangddangddang.domain.review.repository.ReviewRepository;
+import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
+import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.net.CacheResponse;
+import java.util.List;
 
 @RequiredArgsConstructor
 @Service
@@ -71,6 +78,18 @@ public class ReviewService {
             throw  new BusinessException(ReviewErrorCode.NOT_REVIEW_WRITER);
         }
         reviewRepository.delete(review);
+    }
+
+    public CursorResponse<ReviewResponse> getSellerReviews(Long sellerId, Long cursor, int size) {
+        if (!userRepository.existsById(sellerId)){
+            throw new BusinessException(UserErrorCode.USER_NOT_FOUND);
+        }
+
+        int pageSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        List<Review> reviews = reviewRepository.findSellerReviews(sellerId, cursor, PageRequest.of(0, pageSize + 1));
+
+        return CursorResponse.of(reviews,pageSize,ReviewResponse::from,Review::getId);
+
     }
 
     private Review findReview(Long reviewId){
