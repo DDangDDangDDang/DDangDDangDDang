@@ -40,6 +40,7 @@ public record SellerProfileResponse(
      * - averageShippingHours: 낙찰(주문) 뒤 발송까지 걸린 평균 시간. 최근 발송한 주문 기준, 발송한 적 없으면 null
      * - 응원(도네이션): 최근 donationWindowDays일 동안 방송에서 도네이션 포인트를 선물한 서로 다른 사람 수(donorCount)와 받은 포인트(receivedDonationPoints).
      *   도네이션 포인트는 구매 확정한 회원만 받으므로, 실제로 거래한 사람들이 응원했다는 뜻이다.
+     * - 구매자 만족도 : 구매 확정한 구매자가 남긴 리뷰의 평균 점수(averageRating, 1~5, 소수 첫째 자리,리뷰가 없을시 null)와 리뷰수(reviewCount)
      */
     public record Trust(
             long soldAuctionCount,
@@ -49,7 +50,9 @@ public record SellerProfileResponse(
             Double averageShippingHours,
             long donorCount,
             long receivedDonationPoints,
-            long donationWindowDays
+            long donationWindowDays,
+            Double averageRating,
+            long reviewCount
     ) {
     }
 }

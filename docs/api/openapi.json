@@ -10311,6 +10311,14 @@
           "donationWindowDays" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "averageRating" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "reviewCount" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
