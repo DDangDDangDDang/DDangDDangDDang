@@ -193,6 +193,28 @@ class ReviewControllerTest {
                 .andExpect(jsonPath("$.error.code").value("USER_003"));
     }
 
+    @Test
+    @DisplayName("판매자 프로필에 구매자 만족도(평균 점수, 리뷰 수)가 나오고, 리뷰가 없으면 평균은 null")
+    void profileSatisfaction() throws Exception {
+        Member buyer = signupAndLogin();
+        Member seller = signupAndLogin();
+
+        // 리뷰가 없으면 평균은 null, 리뷰 수는 0
+        mockMvc.perform(get("/api/v1/sellers/{id}/profile", seller.id()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.trust.averageRating").doesNotExist())
+                .andExpect(jsonPath("$.data.trust.reviewCount").value(0));
+
+        // 5, 4, 4점 → 평균 4.333... → 소수 첫째 자리 4.3
+        writeReview(buyer, completedOrder(buyer, seller, "렌즈"), 5, "좋아요").andExpect(status().isCreated());
+        writeReview(buyer, completedOrder(buyer, seller, "삼각대"), 4, "괜찮아요").andExpect(status().isCreated());
+        writeReview(buyer, completedOrder(buyer, seller, "카메라"), 4, "").andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/sellers/{id}/profile", seller.id()))
+                .andExpect(jsonPath("$.data.trust.averageRating").value(4.3))
+                .andExpect(jsonPath("$.data.trust.reviewCount").value(3));
+    }
+
     private MockHttpServletRequestBuilder sellerReviews(Long sellerId) {
         return get("/api/v1/reviews").param("sellerId", String.valueOf(sellerId));
     }
