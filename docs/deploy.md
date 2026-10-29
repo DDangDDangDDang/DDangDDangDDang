@@ -363,7 +363,9 @@ DB는 밖에서 바로 붙을 수 없습니다. 운영 RDS는 프라이빗 서�
 | 비밀번호 | Secrets Manager `ddang/db-readonly` / `ddang/db-readwrite` | Secrets Manager `ddang-dev/db` |
 | 내 PC 포트 (예시) | `13306` | `13307` |
 
-서버를 새로 만들면 ID가 바뀝니다. 최신 값은 `terraform output team_db_access`로 확인합니다.
+아래 팀원용 명령의 서버 ID는 위 표의 값입니다. 서버를 새로 만들면(`-replace`, dev 껐다 켜기 등) ID가 바뀌어 기존 명령이 실패합니다.
+그때는 **관리자가** `terraform output team_db_access`로 새 `prod_instance_id`·`dev_instance_id`를 확인해 이 표를 고치고 팀 채널에 알립니다.
+팀원은 알림받은 ID를 명령의 `--target`에 넣습니다. (상태 파일에는 비밀번호가 있어 팀원에게 Terraform 상태 읽기 권한은 주지 않습니다)
 
 ### 준비 (관리자, 한 번)
 
@@ -461,6 +463,9 @@ terraform apply   # 약 5~10분 (ALB·NAT·ECS 생성)
 **4) 도메인을 ALB로 옮기기** (EC2를 끄기 전에)
 
 EC2를 먼저 끄면 도메인이 가리키는 곳이 없어 접속이 끊깁니다. 위 "도메인·HTTPS"의 ECS 인증서(`certificate_arn`)를 먼저 붙인 뒤 옮깁니다.
+
+**팀원 DB 터널**: 운영 DB 터널은 운영 EC2를 거쳐 갑니다. (`infra/team_access.tf`) EC2를 끄면(`ec2_enabled = false`) 운영 터널 대상이 없어집니다.
+EC2를 끄기 전에 RDS 보안 그룹이 3306을 허용하는 SSM 관리용 작은 서버(배스천)를 추가하고, `team_tunnel_instance_arns`와 문서의 운영 서버 ID를 그 서버로 바꿉니다.
 
 - `manage_dns_record = true`면 `dns_target = "ecs"`로 바꾸고 `terraform apply`. 같은 A 레코드를 제자리에서 ALB 별칭으로 바꿉니다.
 - 다른 곳에서 산 도메인이면 그곳 DNS를 `alb_dns_name`으로 바꿉니다. ALB는 IP가 바뀌므로 A 레코드에 IP를 넣을 수 없고,
