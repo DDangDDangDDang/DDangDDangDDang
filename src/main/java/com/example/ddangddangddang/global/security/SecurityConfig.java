@@ -59,7 +59,8 @@ public class SecurityConfig {
             "/api/v1/categories",
             "/api/v1/products/{productId}",
             "/api/v1/sellers/{sellerId}/profile",
-            "/api/v1/sellers/{sellerId}/auctions"
+            "/api/v1/sellers/{sellerId}/auctions",
+            "/api/v1/reviews"
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
