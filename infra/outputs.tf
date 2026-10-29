@@ -84,3 +84,19 @@ output "github_variables_dev" {
     EC2_INSTANCE_ID     = aws_instance.dev[0].id
   } : null
 }
+
+output "team_db_access" {
+  description = "팀원 DB 접속에 쓰는 값 (docs/deploy.md \"팀원 DB 접속\")"
+  value = {
+    prod_instance_id      = join("", aws_instance.app[*].id)
+    prod_rds_address      = aws_db_instance.main.address
+    prod_readonly_secret  = aws_secretsmanager_secret.db_readonly.name
+    prod_readwrite_secret = aws_secretsmanager_secret.db_readwrite.name
+    dev_instance_id       = join("", aws_instance.dev[*].id)
+    dev_db_secret         = join("", aws_secretsmanager_secret.dev_db[*].name)
+    developers_iam_group  = aws_iam_group.developers.name
+    db_writers_iam_group  = aws_iam_group.db_writers.name
+    prod_tunnel_document  = aws_ssm_document.db_tunnel_prod.name
+    dev_tunnel_document   = join("", aws_ssm_document.db_tunnel_dev[*].name)
+  }
+}

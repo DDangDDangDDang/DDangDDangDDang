@@ -289,7 +289,7 @@ dev 데이터는 서버 디스크(Docker 볼륨)에만 있습니다. 배포해�
 | 비밀값 변경 | Secrets Manager 수정 → Actions → Deploy → Run workflow |
 | 환경변수 변경 | `infra/` 수정 → `terraform apply` → Actions → Deploy → Run workflow |
 | `docker-compose.yml`·`deploy.sh` 변경 | `infra/ec2/` 수정 → `terraform apply` → Actions → Deploy → Run workflow |
-| DB 직접 접속 | 서버 접속 후 `docker run --rm -it mysql:8.4 mysql -h <terraform output -raw rds_address 값> -u ddang -p` (비밀번호는 Secrets Manager `ddang/db`) |
+| DB 직접 접속 | 팀원은 아래 "팀원 DB 접속"(터널 + DB 툴). 관리자는 서버 접속 후 `docker run --rm -it mysql:8.4 mysql -h <terraform output -raw rds_address 값> -u ddang -p` (비밀번호는 Secrets Manager `ddang/db`) |
 | DB 백업에서 복구 | 아래 "DB 백업에서 복구" 참고 |
 | 메모리 부족(앱이 자꾸 재시작) | `ec2_instance_type = "t3.medium"`(4GB, 약 $38) → `terraform apply` |
 | 서버를 새로 만들기 | `terraform apply -replace='aws_instance.app[0]'` → Actions → Deploy → Run workflow (데이터는 RDS에 있어 잃지 않음) |
@@ -350,6 +350,93 @@ fi
 
 덮어쓰기 전에 RDS 콘솔에서 `ddang-mysql`의 수동 스냅샷을 찍어 두면, 잘못된 시점으로 복원했을 때 되돌릴 수 있습니다.
 
+## 팀원 DB 접속
+
+DB는 밖에서 바로 붙을 수 없습니다. 운영 RDS는 프라이빗 서브넷에 있고, dev MySQL은 dev 서버 안에서만 열려 있습니다.
+팀원은 **Session Manager 포트 포워딩**으로 서버를 거쳐 내 PC의 포트로 DB를 끌어와 DB 툴로 접속합니다. SSH 키와 보안 그룹 변경은 필요 없습니다. (`infra/team_access.tf`)
+
+| | 운영 (prod) | 개발 (dev) |
+|---|---|---|
+| 거쳐 가는 서버 | 운영 EC2 `i-04fc05c14987651e6` | dev EC2 `i-0a73afb7c5407ee41` |
+| DB | RDS `ddang-mysql.cd0eqomq20jd.ap-northeast-2.rds.amazonaws.com:3306` | 서버 안 MySQL 컨테이너 `127.0.0.1:3306` |
+| 계정 | `ddang_ro` (**조회만**, 모든 팀원) / `ddang_rw` (**행 조회·추가·수정·삭제**, 데이터 수정 담당만. 테이블 구조 변경 불가) | `ddang` (dev 앱 계정, 읽기·쓰기) |
+| 비밀번호 | Secrets Manager `ddang/db-readonly` / `ddang/db-readwrite` | Secrets Manager `ddang-dev/db` |
+| 내 PC 포트 (예시) | `13306` | `13307` |
+
+아래 팀원용 명령의 서버 ID는 위 표의 값입니다. 서버를 새로 만들면(`-replace`, dev 껐다 켜기 등) ID가 바뀌어 기존 명령이 실패합니다.
+그때는 **관리자가** `terraform output team_db_access`로 새 `prod_instance_id`·`dev_instance_id`를 확인해 이 표를 고치고 팀 채널에 알립니다.
+팀원은 알림받은 ID를 명령의 `--target`에 넣습니다. (상태 파일에는 비밀번호가 있어 팀원에게 Terraform 상태 읽기 권한은 주지 않습니다)
+
+### 준비 (관리자, 한 번)
+
+1. **팀원 IAM 사용자**: `infra/terraform.tfvars`에 `developer_iam_users = ["이름1", "이름2"]` → `terraform apply`. `ddang-developers` 그룹에 들어갑니다.
+   - 그룹 권한은 두 서버로 **DB 터널 세션만** 여는 것입니다. 터널 대상은 세션 문서(`ddang-db-tunnel-prod`, `ddang-db-tunnel-dev`)에 DB로 고정돼 있어 다른 호스트·포트로는 열 수 없고, 서버 셸 접속도 할 수 없습니다.
+   - DB 비밀번호 두 개(`ddang/db-readonly`, `ddang-dev/db`)를 읽을 수 있고, 본인 액세스 키·MFA를 스스로 관리할 수 있습니다.
+   - 액세스 키는 IAM 콘솔 → 사용자 → 보안 자격 증명에서 만들어 본인에게 전달합니다. (Terraform으로 만들면 상태 파일에 키가 남습니다)
+   - 운영 데이터를 고쳐야 하는 사람만 `db_writer_iam_users = ["이름1"]`에도 넣습니다. (`developer_iam_users`에 있어야 함) `ddang-db-writers` 그룹에 더 들어가 수정용 계정 비밀번호(`ddang/db-readwrite`)를 읽을 수 있습니다.
+2. **운영 팀원용 계정 만들기** (`ddang_ro`, `ddang_rw`): 비밀번호는 `terraform apply`가 `ddang/db-readonly`, `ddang/db-readwrite`에 만들어 둡니다. MySQL 계정은 운영 서버에서 한 번 만듭니다. 비밀번호는 서버에서 바로 읽어 명령 기록에 남지 않습니다.
+   - `ddang_rw`에는 `SELECT, INSERT, UPDATE, DELETE`만 줍니다. 테이블 구조 변경(`CREATE`·`ALTER`·`DROP`)과 계정 관리는 앱 계정(`ddang`)과 관리자만 합니다.
+   ```bash
+   aws ssm start-session --target "$(terraform output -raw ec2_instance_id)"
+   sudo -i
+   cd /opt/ddang
+   source <(grep -E '^DB_(URL|USERNAME|PASSWORD)=' app.env | sed "s/^/export /")
+   MAIN="$(sed -E 's|jdbc:mysql://([^:/]+).*|\1|' <<<"$DB_URL")"
+   RO_PW="$(aws secretsmanager get-secret-value --region ap-northeast-2 --secret-id ddang/db-readonly --query SecretString --output text | jq -r .password)"
+   RW_PW="$(aws secretsmanager get-secret-value --region ap-northeast-2 --secret-id ddang/db-readwrite --query SecretString --output text | jq -r .password)"
+   docker run --rm -i -e MYSQL_PWD="$DB_PASSWORD" mysql:8.4 mysql --ssl-mode=REQUIRED -h "$MAIN" -u"$DB_USERNAME" <<SQL
+   CREATE USER IF NOT EXISTS 'ddang_ro'@'%' IDENTIFIED BY '$RO_PW';
+   ALTER USER 'ddang_ro'@'%' IDENTIFIED BY '$RO_PW';
+   GRANT SELECT, SHOW VIEW ON ddang.* TO 'ddang_ro'@'%';
+   CREATE USER IF NOT EXISTS 'ddang_rw'@'%' IDENTIFIED BY '$RW_PW';
+   ALTER USER 'ddang_rw'@'%' IDENTIFIED BY '$RW_PW';
+   GRANT SELECT, INSERT, UPDATE, DELETE, SHOW VIEW ON ddang.* TO 'ddang_rw'@'%';
+   SQL
+   unset RO_PW RW_PW DB_PASSWORD
+   ```
+   비밀번호를 바꾸려면 `terraform apply -replace=random_password.db_readonly`(또는 `db_readwrite`) 뒤 같은 명령을 다시 실행합니다. (`ALTER USER`가 새 비밀번호로 바꿉니다)
+   수정 담당에서 빠진 사람이 비밀번호를 이미 봤다면 `ddang_rw` 비밀번호도 같은 방법으로 바꿉니다.
+3. dev 서버에 `docker-compose.dev.yml` 변경(MySQL `127.0.0.1:3306` 열기)을 반영하려면 `terraform apply` 뒤 Actions → Deploy → Run workflow (branch: `dev`).
+
+### 팀원이 할 일
+
+**처음 한 번**
+1. [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)와 [Session Manager 플러그인](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)을 설치합니다.
+2. 받은 액세스 키로 `aws configure`를 실행합니다. 리전은 `ap-northeast-2`입니다.
+
+**DB 비밀번호 확인**
+```bash
+aws secretsmanager get-secret-value --secret-id ddang/db-readonly --query SecretString --output text   # 운영 조회 (ddang_ro)
+aws secretsmanager get-secret-value --secret-id ddang/db-readwrite --query SecretString --output text  # 운영 수정 (ddang_rw, 수정 담당만)
+aws secretsmanager get-secret-value --secret-id ddang-dev/db --query SecretString --output text        # dev (ddang)
+```
+
+**운영 DB 터널** (창을 켜 둔 동안만 열립니다. 끝나면 Ctrl+C)
+```bash
+aws ssm start-session --target i-04fc05c14987651e6 --document-name ddang-db-tunnel-prod --parameters localPortNumber=13306
+```
+
+**dev DB 터널**
+```bash
+aws ssm start-session --target i-0a73afb7c5407ee41 --document-name ddang-db-tunnel-dev --parameters localPortNumber=13307
+```
+
+macOS 터미널, Git Bash, Windows PowerShell 모두 같은 명령을 한 줄로 씁니다.
+`Waiting for connections...`가 나오면 DB 툴(DataGrip, MySQL Workbench 등)에서 접속합니다.
+- 호스트 `127.0.0.1`, 포트 `13306`(운영) / `13307`(dev), 데이터베이스 `ddang`, 계정·비밀번호는 위에서 확인한 값
+
+**지켜 주세요**
+- 운영 DB에는 실제 회원 정보가 있습니다. 조회 결과(개인정보)를 메신저·문서·AI 도구에 붙이지 않습니다.
+- 평소에는 조회용 `ddang_ro`로 접속합니다. 운영 데이터 수정은 수정 담당이 `ddang_rw`로 하고, 다른 사람은 수정 담당에게 요청합니다.
+- **운영 데이터를 고치기 전에**
+  1. RDS 콘솔 → `ddang-mysql` → 작업 → **스냅샷 생성**으로 수동 스냅샷을 찍습니다. (이름 예: `ddang-mysql-before-<무엇>-<날짜>`)
+  2. DB 툴의 자동 커밋을 끄고 `START TRANSACTION;` → 고치기 → `SELECT`로 결과 확인 → `COMMIT;` (잘못됐으면 `ROLLBACK;`) 순서로 합니다.
+  3. `UPDATE`·`DELETE`에는 꼭 `WHERE`를 붙이고, 먼저 같은 조건의 `SELECT`로 바뀔 행 수를 확인합니다.
+  4. 무엇을 왜 고쳤는지 팀 채널에 남깁니다.
+- 포인트·주문·경매·도네이션처럼 금액이 걸린 데이터는 앱의 규칙(잔액·내역·묶음 합계)이 함께 맞아야 합니다. 한 테이블만 고치면 어긋나므로, 이런 수정은 담당자와 먼저 상의합니다.
+- 다 쓰면 터널 창을 닫습니다. 무거운 조회(큰 테이블 전체 조회 등)는 운영 서비스를 느리게 할 수 있습니다.
+- dev 데이터는 테스트용이라 언제든 초기화될 수 있습니다.
+
 ## ECS로 전환 (개발 완료 후)
 
 두 구성이 같은 RDS·ElastiCache를 쓰므로 **데이터를 옮기지 않습니다.**
@@ -376,6 +463,9 @@ terraform apply   # 약 5~10분 (ALB·NAT·ECS 생성)
 **4) 도메인을 ALB로 옮기기** (EC2를 끄기 전에)
 
 EC2를 먼저 끄면 도메인이 가리키는 곳이 없어 접속이 끊깁니다. 위 "도메인·HTTPS"의 ECS 인증서(`certificate_arn`)를 먼저 붙인 뒤 옮깁니다.
+
+**팀원 DB 터널**: 운영 DB 터널은 운영 EC2를 거쳐 갑니다. (`infra/team_access.tf`) EC2를 끄면(`ec2_enabled = false`) 운영 터널 대상이 없어집니다.
+EC2를 끄기 전에 RDS 보안 그룹이 3306을 허용하는 SSM 관리용 작은 서버(배스천)를 추가하고, `team_tunnel_instance_arns`와 문서의 운영 서버 ID를 그 서버로 바꿉니다.
 
 - `manage_dns_record = true`면 `dns_target = "ecs"`로 바꾸고 `terraform apply`. 같은 A 레코드를 제자리에서 ALB 별칭으로 바꿉니다.
 - 다른 곳에서 산 도메인이면 그곳 DNS를 `alb_dns_name`으로 바꿉니다. ALB는 IP가 바뀌므로 A 레코드에 IP를 넣을 수 없고,

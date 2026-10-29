@@ -255,3 +255,20 @@ variable "github_dev_environment" {
   type        = string
   default     = "development"
 }
+
+variable "developer_iam_users" {
+  description = "DB 터널(Session Manager 포트 포워딩)을 쓸 팀원 IAM 사용자 이름. ddang-developers 그룹에 넣는다. 액세스 키는 콘솔에서 만든다. (infra/team_access.tf)"
+  type        = list(string)
+  default     = []
+}
+
+variable "db_writer_iam_users" {
+  description = "운영 DB 수정용 계정(ddang_rw)을 쓸 팀원. developer_iam_users에도 있어야 한다. (터널 권한은 developers 그룹에서 받는다)"
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for u in var.db_writer_iam_users : contains(var.developer_iam_users, u)])
+    error_message = "db_writer_iam_users의 사용자는 developer_iam_users에도 넣어야 합니다."
+  }
+}
