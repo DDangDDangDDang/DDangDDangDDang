@@ -7,7 +7,7 @@ import { Button, buttonVariants, Card, CardBody, EmptyState, ErrorState, Notice,
 import { useCategories } from '@/lib/use-categories';
 import type { ProductNoticeState } from './ProductCreatePage';
 import { ProductFields } from '@/components/product/ProductFields';
-import { productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
+import { applyProductChange, productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
 
 /** 상품 수정. 시작 전이거나 진행 중인 경매가 있는 상품은 서버가 막는다. (PRODUCT_004) */
 export function ProductEditPage() {
@@ -63,8 +63,8 @@ function EditForm({ product, productId, categories }: { product: Schema<'Product
               categories={categories}
               values={values}
               errors={errors}
-              onChange={(patch) => {
-                setValues((prev) => ({ ...prev, ...patch }));
+              onChange={(change) => {
+                setValues((prev) => applyProductChange(prev, change));
                 setErrors({});
               }}
             />

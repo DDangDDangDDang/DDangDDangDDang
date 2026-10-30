@@ -15,7 +15,7 @@ import {
 } from '@/lib/auction';
 import { useCategories } from '@/lib/use-categories';
 import { ProductFields } from '@/components/product/ProductFields';
-import { productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
+import { applyProductChange, productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
 
 /** 등록 뒤 경매: later는 상품만 등록(방송 중에 스튜디오에서 시작), schedule은 시작·마감 시각을 정해 바로 경매 등록 */
 type AuctionChoice = 'later' | 'schedule';
@@ -86,9 +86,11 @@ export function ProductCreatePage() {
               categories={categories.data ?? []}
               values={values}
               errors={errors}
-              onChange={(patch) => {
-                setValues((prev) => ({ ...prev, ...patch }));
-                setErrors((prev) => ({ ...prev, ...Object.fromEntries(Object.keys(patch).map((k) => [k, undefined])) }));
+              onChange={(change) => {
+                setValues((prev) => applyProductChange(prev, change));
+                // 이미지 업로드가 끝나 붙는 변경(함수)은 이미지·설명 오류만 지운다.
+                const keys = typeof change === 'function' ? ['images', 'description'] : Object.keys(change);
+                setErrors((prev) => ({ ...prev, ...Object.fromEntries(keys.map((k) => [k, undefined])) }));
               }}
             />
           </Section>

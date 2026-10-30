@@ -10,7 +10,8 @@ import { BidHistory } from '@/components/auction/BidHistory';
 import { MyBidStatus } from '@/components/auction/MyBidStatus';
 import { auctionKey, useAuctionRealtime } from '@/lib/use-auction-realtime';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
-import { ProductImage } from '@/components/order/OrderBits';
+import { ProductDescription } from '@/components/product/ProductDescription';
+import { ProductGallery } from '@/components/product/ProductGallery';
 import { SellerIdentity } from '@/components/seller/SellerIdentity';
 import { Badge, Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
 import { auctionPhase, secondsUntil, type AuctionPhase } from '@/lib/auction';
@@ -96,7 +97,11 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
   return (
     <div className="flex items-start gap-8">
       <section aria-label="상품" className="flex min-w-0 flex-1 flex-col gap-5">
-        <ProductImage alt={auction.productName ?? '상품'} className="aspect-[4/3] w-full rounded-lg" />
+        {product.isPending ? (
+          <Skeleton className="aspect-[4/3] w-full rounded-lg" />
+        ) : (
+          <ProductGallery name={auction.productName ?? '상품'} images={product.data?.images} />
+        )}
         <Card>
           <CardBody className="flex flex-col gap-3 pt-5">
             <h2 className="text-title-md font-bold">상품 설명</h2>
@@ -106,7 +111,11 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
               <Notice tone="error">상품 설명을 불러오지 못했어요. {errorMessage(product.error)}</Notice>
             ) : (
               <>
-                <p className="text-body-lg leading-relaxed whitespace-pre-line text-neutral-700">{product.data?.description || '판매자가 적은 설명이 없어요.'}</p>
+                {product.data?.description?.trim() ? (
+                  <ProductDescription description={product.data.description} images={product.data.descriptionImages} />
+                ) : (
+                  <p className="text-body-lg leading-relaxed text-neutral-700">판매자가 적은 설명이 없어요.</p>
+                )}
                 {product.data?.categoryName && (
                   <span className="self-start rounded-full bg-neutral-50 px-3 py-1 text-label font-semibold text-neutral-700">
                     <span className="sr-only">카테고리 </span>
