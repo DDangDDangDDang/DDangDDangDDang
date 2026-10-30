@@ -77,8 +77,11 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
 
   const liveStream = query.data;
   const isLive = liveStream?.status === 'LIVE';
+  const session = useSession();
+  const mine = liveStream?.sellerId !== undefined && liveStream.sellerId === session?.user.userId;
   // 방송 영상·소리는 앱 전체에서 이어 본다. 이 화면을 떠나도 방송 중이면 오른쪽 아래 작은 플레이어에서 이어지고, 돌아오면 다시 접속하지 않는다.
-  const { video, muted, toggleSound } = useWatchStream({ liveStreamId, title: liveStream?.title, live: isLive }, refetchLiveStream);
+  // 내(판매자) 방송은 떠나면 끊는다. (작은 플레이어를 띄우지 않음)
+  const { video, muted, toggleSound } = useWatchStream({ liveStreamId, title: liveStream?.title, live: isLive, mine }, refetchLiveStream);
   // 선물·입찰·낙찰 효과음은 방송 소리를 켠 시청자에게만 낸다. (소리를 꺼 둔 사람에게 갑자기 소리가 나지 않게)
   const soundOn = !muted;
 

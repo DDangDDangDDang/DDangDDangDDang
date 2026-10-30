@@ -18,7 +18,8 @@ export function MiniPlayer() {
   const { pathname } = useLocation();
   // 시청 화면 경로에서는 숨긴다. 화면이 방송을 여는 effect가 돌기 전 첫 렌더에서 소리가 두 번 나지 않게.
   const onWatchPage = matchPath('/lives/:liveStreamId', pathname) !== null;
-  if (!session || pageOpen || onWatchPage || (!session.live && !ended)) return null;
+  // 내(판매자) 방송은 띄우지 않는다. (화면을 떠나면 연결도 끊는다)
+  if (!session || session.mine || pageOpen || onWatchPage || (!session.live && !ended)) return null;
 
   const sellerBroadcastShown = broadcast.publishing && broadcast.liveStream !== undefined && pathname !== '/studio';
   const watchPath = `/lives/${session.liveStreamId}`;

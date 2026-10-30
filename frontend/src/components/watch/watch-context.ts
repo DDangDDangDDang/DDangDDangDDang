@@ -2,7 +2,13 @@ import { createContext, useContext, useEffect, useRef } from 'react';
 import type { useLiveVideo } from '@/pages/live/use-live-video';
 
 /** 지금 보고 있는 방송 (시청 화면을 떠나도 작은 플레이어로 이어 보는 방송) */
-export type WatchSession = { liveStreamId: number; title?: string; live: boolean };
+export type WatchSession = {
+  liveStreamId: number;
+  title?: string;
+  live: boolean;
+  /** 로그인한 사용자가 이 방송의 판매자인지. 내 방송은 화면을 떠나면 끊고 작은 플레이어를 띄우지 않는다. */
+  mine?: boolean;
+};
 
 /**
  * 시청자 방송 시청 상태. 앱 전체에 하나만 두어(WatchProvider) 시청 화면을 떠나도 방송 연결(LiveKit)과 소리가 이어진다.
@@ -44,7 +50,7 @@ export function useWatchStream(session: WatchSession, onRoomClosed: () => void) 
   useEffect(() => {
     onRoomClosedRef.current = onRoomClosed;
   });
-  const { liveStreamId, title, live } = session;
+  const { liveStreamId, title, live, mine } = session;
 
   useEffect(() => {
     open({ liveStreamId, live: false }, () => onRoomClosedRef.current());
@@ -52,8 +58,8 @@ export function useWatchStream(session: WatchSession, onRoomClosed: () => void) 
   }, [liveStreamId, open, leave]);
 
   useEffect(() => {
-    update({ liveStreamId, title, live });
-  }, [liveStreamId, title, live, update]);
+    update({ liveStreamId, title, live, mine });
+  }, [liveStreamId, title, live, mine, update]);
 
   return watch;
 }

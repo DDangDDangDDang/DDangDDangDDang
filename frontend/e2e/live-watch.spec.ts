@@ -132,6 +132,24 @@ test.describe('방송 시청', () => {
     await expect(mini).toBeHidden();
   });
 
+  test('판매자가 자기 방송의 시청 화면을 떠나면 작은 플레이어를 띄우지 않는다', async ({ page }) => {
+    test.skip(seller.email === viewer.email, 'E2E_SELLER_EMAIL, E2E_SELLER_PASSWORD 환경변수가 필요합니다.');
+    if (!prepared) throw new Error('방송이 준비되지 않았습니다.');
+    const { stream } = prepared;
+
+    await loginOnPage(page, seller);
+    await page.goto(`/lives/${stream.id}`);
+    await expect(page.getByRole('heading', { level: 1, name: stream.title })).toBeVisible();
+    await expect(page.getByText('LIVE', { exact: true }).first()).toBeVisible();
+
+    // 화면 안에서 다른 화면으로 옮겨 가도(새로 고침 없이) 내 방송은 작은 플레이어로 이어지지 않는다.
+    await page.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '경매', exact: true }).click();
+    await expect(page).toHaveURL(/\/auctions$/);
+    await page.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '홈' }).click();
+    await expect(page.getByRole('heading', { name: '지금 인기 라이브' })).toBeVisible();
+    await expect(page.getByRole('complementary', { name: '보던 방송' })).toHaveCount(0);
+  });
+
   test('로그인하지 않아도 방송과 채팅을 보고, 채팅을 보내려 하면 로그인 창에서 로그인한 뒤 이어서 보낸다', async ({ browser }) => {
     if (!prepared) throw new Error('방송이 준비되지 않았습니다.');
     const { stream } = prepared;

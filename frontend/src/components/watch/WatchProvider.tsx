@@ -10,7 +10,7 @@ const ENDED_NOTICE_MS = 5_000;
  * - 시청 화면이 방송을 열면(useWatchStream) 여기서 LiveKit에 접속한다. 화면을 떠나도 방송 중이면 연결과 소리를 그대로 두고
  *   작은 플레이어(MiniPlayer)로 이어 보여 준다. 같은 방송으로 돌아오면 다시 접속하지 않는다.
  * - 다른 방송의 시청 화면을 열면 그 방송으로 바꾼다. (한 번에 하나만 본다)
- * - 작은 플레이어의 [닫기]나 방송 종료로 연결을 끊는다. 방송 중이 아닌(예정·종료) 방송은 화면을 떠나면 바로 끊는다.
+ * - 작은 플레이어의 [닫기]나 방송 종료로 연결을 끊는다. 방송 중이 아닌(예정·종료) 방송과 내(판매자) 방송은 화면을 떠나면 바로 끊는다.
  */
 export function WatchProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<WatchSession>();
@@ -52,8 +52,8 @@ export function WatchProvider({ children }: { children: ReactNode }) {
 
   const leave = useCallback((id: number) => {
     setPageStreamId((current) => (current === id ? undefined : current));
-    // 방송 중이 아니면 이어 볼 것이 없으므로 끊는다.
-    setSession((prev) => (prev?.liveStreamId === id && !prev.live ? undefined : prev));
+    // 방송 중이 아니면 이어 볼 것이 없고, 내 방송은 판매자가 스튜디오·작은 방송 창에서 보므로 끊는다.
+    setSession((prev) => (prev?.liveStreamId === id && (!prev.live || prev.mine) ? undefined : prev));
   }, []);
 
   const close = useCallback(() => {
