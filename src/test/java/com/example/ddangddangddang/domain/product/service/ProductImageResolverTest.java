@@ -171,10 +171,40 @@ class ProductImageResolverTest {
     @Test
     @DisplayName("빠진 이미지만 지운다 (트랜잭션 밖이면 바로)")
     void deleteRemoved() {
-        resolver.deleteRemovedImagesAfterCommit(Set.of(KEY_A, KEY_B), Set.of(KEY_B));
+        resolver.deleteRemovedImagesAfterCommit(SELLER_ID, Set.of(KEY_A, KEY_B), Set.of(KEY_B));
 
         then(fileStorage).should().delete(KEY_A);
         then(fileStorage).should(never()).delete(KEY_B);
+    }
+
+    @Test
+    @DisplayName("예전 설명에 남의 키가 적혀 있었어도 그 파일은 지우지 않고, 갤러리로 옮겨 쓸 수도 없다")
+    void foreignSavedKeyNeverTrusted() {
+        String foreign = "profile-images/8/0f8fad5b-d9cb-469f-a165-70867728950e.jpg";
+        Set<String> saved = Set.of(KEY_A, foreign);
+
+        // 설명에 원래 있던 줄은 그대로 저장할 수 있다. (막으면 상품을 아예 수정할 수 없게 된다)
+        resolver.checkDescription(SELLER_ID, saved, "![](" + foreign + ")");
+        // 하지만 저장돼 있었다는 이유로 갤러리에 넣을 수는 없다.
+        assertThatThrownBy(() -> resolver.resolveImages(SELLER_ID, saved, List.of(foreign)))
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ProductErrorCode.IMAGE_NOT_UPLOADED);
+        // 수정에서 그 줄을 빼도 남의 파일은 지우지 않는다.
+        resolver.deleteRemovedImagesAfterCommit(SELLER_ID, saved, Set.of());
+
+        then(fileStorage).should().delete(KEY_A);
+        then(fileStorage).should(never()).delete(foreign);
+        then(fileStorage).should(never()).find(anyString());
+    }
+
+    @Test
+    @DisplayName("내 키는 판매자 ID 폴더 아래 업로드 URL이 만든 이름만이다")
+    void isOwnKey() {
+        assertThat(ProductImageResolver.isOwnKey(SELLER_ID, KEY_A)).isTrue();
+        assertThat(ProductImageResolver.isOwnKey(8L, KEY_A)).isFalse();
+        assertThat(ProductImageResolver.isOwnKey(SELLER_ID, "product-images/7/../8/x.png")).isFalse();
+        assertThat(ProductImageResolver.isOwnKey(SELLER_ID, "https://evil.example/x.png")).isFalse();
+        assertThat(ProductImageResolver.isOwnKey(SELLER_ID, null)).isFalse();
     }
 
     @Test

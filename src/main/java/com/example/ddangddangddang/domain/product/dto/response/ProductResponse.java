@@ -54,7 +54,10 @@ public record ProductResponse(
                 auction == null ? null : auction.getStatus(),
                 product.getThumbnailKey() == null ? null : imageUrl.apply(product.getThumbnailKey()),
                 product.getImageKeys().stream().map(toImage).toList(),
-                ProductImageResolver.descriptionImageKeys(product.getDescription()).stream().map(toImage).toList()
+                // 이 판매자의 키만 그린다. (예전 설명의 "![](아무 글자)" 줄은 글자로 남는다)
+                ProductImageResolver.descriptionImageKeys(product.getDescription()).stream()
+                        .filter(key -> ProductImageResolver.isOwnKey(product.getSeller().getId(), key))
+                        .map(toImage).toList()
         );
     }
 

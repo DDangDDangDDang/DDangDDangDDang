@@ -5370,6 +5370,22 @@
         "tags" : [ "product-controller" ],
         "operationId" : "productMyProducts",
         "parameters" : [ {
+          "name" : "categoryId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "SOLD", "DELETED" ]
+          }
+        }, {
           "name" : "page",
           "in" : "query",
           "description" : "Zero-based page index (0..N)",
@@ -8930,6 +8946,9 @@
           "canceledAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "thumbnailUrl" : {
+            "type" : "string"
           }
         }
       },

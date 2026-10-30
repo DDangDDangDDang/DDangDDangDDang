@@ -77,13 +77,25 @@ public class ProductImageResolver {
         return keys;
     }
 
-    /** 설명 속 이미지 줄을 검사한다. 내 키가 아니거나 올라가지 않은 이미지가 있으면 막는다. */
+    /**
+     * 설명 속 이미지 줄을 검사한다. 내 키가 아니거나 올라가지 않은 이미지가 있으면 막는다.
+     * 다만 이 기능 전에 저장된 설명에 원래 있던 "![](내 키가 아닌 것)" 줄은 그대로 둔다. (글자로만 보이고, 지우지도 않는다)
+     * 막으면 그 상품은 설명을 고치기 전까지 다른 정보도 수정할 수 없게 된다.
+     */
     public void checkDescription(Long sellerId, Collection<String> saved, String description) {
         List<String> keys = descriptionImageKeys(description);
         if (keys.size() > MAX_DESCRIPTION_IMAGES) {
             throw new BusinessException(ProductErrorCode.TOO_MANY_DESCRIPTION_IMAGES);
         }
-        keys.forEach(key -> checkKey(sellerId, saved, key));
+        keys.stream()
+                .filter(key -> isOwnKey(sellerId, key) || !saved.contains(key))
+                .forEach(key -> checkKey(sellerId, saved, key));
+    }
+
+    /** 이 판매자가 업로드 URL로 받은 모양의 키인지 (product-images/{판매자 ID}/{uuid}.{확장자}). 이런 키만 믿고, 그리고, 지운다. */
+    public static boolean isOwnKey(Long sellerId, String key) {
+        String prefix = imagePrefix(sellerId);
+        return key != null && key.startsWith(prefix) && IMAGE_FILE.matcher(key.substring(prefix.length())).matches();
     }
 
     /** 설명에서 이미지 줄의 키를 순서대로(중복 없이) 뽑는다. */
@@ -108,21 +120,24 @@ public class ProductImageResolver {
         return keys;
     }
 
-    /** before에 있다가 after에서 빠진 이미지를 커밋된 뒤 지운다. (롤백되면 이전 이미지를 계속 써야 하므로) */
-    public void deleteRemovedImagesAfterCommit(Set<String> before, Set<String> after) {
-        before.stream().filter(key -> !after.contains(key)).forEach(this::deleteAfterCommit);
+    /**
+     * before에 있다가 after에서 빠진 이미지를 커밋된 뒤 지운다. (롤백되면 이전 이미지를 계속 써야 하므로)
+     * 이 판매자의 키만 지운다. 예전 설명에 남의 키(다른 사람 프로필 사진 등)가 적혀 있었어도 그 파일은 건드리지 않는다.
+     */
+    public void deleteRemovedImagesAfterCommit(Long sellerId, Set<String> before, Set<String> after) {
+        before.stream()
+                .filter(key -> !after.contains(key))
+                .filter(key -> isOwnKey(sellerId, key))
+                .forEach(this::deleteAfterCommit);
     }
 
+    /** 내 키인지 먼저 보고, 이 상품에 이미 저장된 키면 저장소 확인(존재·형식·크기)만 건너뛴다. */
     private void checkKey(Long sellerId, Collection<String> saved, String key) {
-        if (key == null) {
+        if (!isOwnKey(sellerId, key)) {
             throw new BusinessException(ProductErrorCode.IMAGE_NOT_UPLOADED);
         }
         if (saved.contains(key)) {
             return;
-        }
-        String prefix = imagePrefix(sellerId);
-        if (!key.startsWith(prefix) || !IMAGE_FILE.matcher(key.substring(prefix.length())).matches()) {
-            throw new BusinessException(ProductErrorCode.IMAGE_NOT_UPLOADED);
         }
         FileStorage.StoredFile file = fileStorage.find(key)
                 .orElseThrow(() -> new BusinessException(ProductErrorCode.IMAGE_NOT_UPLOADED));

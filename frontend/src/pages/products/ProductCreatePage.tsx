@@ -15,6 +15,7 @@ import {
 } from '@/lib/auction';
 import { useCategories } from '@/lib/use-categories';
 import { ProductFields } from '@/components/product/ProductFields';
+import { useProductImageUploading } from '@/components/product/use-product-image-upload';
 import { applyProductChange, productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
 
 /** 등록 뒤 경매: later는 상품만 등록(방송 중에 스튜디오에서 시작), schedule은 시작·마감 시각을 정해 바로 경매 등록 */
@@ -33,6 +34,7 @@ export function ProductCreatePage() {
   const [choice, setChoice] = useState<AuctionChoice>('later');
   const [condition, setCondition] = useState<AuctionConditionValues>(EMPTY_AUCTION_CONDITION);
   const [conditionErrors, setConditionErrors] = useState<AuctionConditionErrors>({});
+  const uploading = useProductImageUploading();
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -62,6 +64,8 @@ export function ProductCreatePage() {
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
+    // 올리는 중인 이미지는 아직 values에 없어 상품에 붙지 않으므로 끝날 때까지 등록하지 않는다.
+    if (uploading) return;
     const nextErrors = validateProductForm(values);
     const nextConditionErrors = choice === 'schedule' ? validateAuctionCondition(condition, 'schedule', new Date()) : {};
     setErrors(nextErrors);
@@ -122,8 +126,8 @@ export function ProductCreatePage() {
             <Link to="/me/products" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
               취소
             </Link>
-            <Button type="submit" size="lg" loading={mutation.isPending}>
-              {choice === 'schedule' ? '상품 등록하고 경매 열기' : '상품 등록'}
+            <Button type="submit" size="lg" loading={mutation.isPending} disabled={uploading}>
+              {uploading ? '이미지 올리는 중' : choice === 'schedule' ? '상품 등록하고 경매 열기' : '상품 등록'}
             </Button>
           </div>
         </form>

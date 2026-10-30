@@ -26,6 +26,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
@@ -52,9 +53,12 @@ public class ProductService {
     }
 
     //내 상품 조회(삭제된 상품은 제외) + 상품 마다 경매 상태
+    //status: 이 상태만(없으면 전부), categoryId: 이 카테고리만(대분류면 그 아래 소분류까지, 없으면 전부)
     @Transactional(readOnly = true)
-    public Page<ProductResponse> myProducts(Long sellerId, Pageable pageable) {
-        Page<Product> products = productRepository.findBySellerIdAndStatusNot(sellerId, Status.DELETED, pageable);
+    public Page<ProductResponse> myProducts(Long sellerId, Long categoryId, Status status, Pageable pageable) {
+        // 거르지 않을 때도 IN 목록이 비지 않게 쓰지 않는 값 하나를 넣는다. (allCategories가 참이면 보지 않는다)
+        List<Long> categoryIds = categoryId == null ? List.of(-1L) : categoryWithChildren(categoryId);
+        Page<Product> products = productRepository.findMine(sellerId, Status.DELETED, status, categoryId == null, categoryIds, pageable);
 
         //이번 페이지 상품들의 id만 모으기
         List<Long> productIds = products.getContent().stream().map(Product::getId).toList();
@@ -131,13 +135,21 @@ public class ProductService {
         }
         // 판매된 상품은 주문이 대표 이미지 주소를 그대로 들고 있어 빠진 이미지도 지우지 않는다.
         if (product.getStatus() != Status.SOLD) {
-            imageResolver.deleteRemovedImagesAfterCommit(before,
+            imageResolver.deleteRemovedImagesAfterCommit(sellerId, before,
                     ProductImageResolver.usedKeys(product.getImageKeys(), product.getDescription()));
         }
 
         return ProductResponse.from(product, fileStorage::publicUrl);
 
     }
+    //카테고리 거르기 : 고른 카테고리 + 그 아래 소분류 (상품은 소분류에만 있으므로 대분류를 고르면 소분류 상품이 나와야 한다)
+    private List<Long> categoryWithChildren(Long categoryId) {
+        List<Long> ids = new ArrayList<>();
+        ids.add(categoryId);
+        categoryRepository.findByParentId(categoryId).forEach(child -> ids.add(child.getId()));
+        return ids;
+    }
+
     //카테고리 조회시 하위가 있을시 대분류에 생성 수정시 예외처리
     private Category findCategory(Long categoryId) {
         Category category = categoryRepository.findById(categoryId).orElseThrow(

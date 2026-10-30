@@ -5,6 +5,7 @@ import com.example.ddangddangddang.domain.product.dto.request.ProductRequest;
 import com.example.ddangddangddang.domain.product.dto.response.ProductImageUploadResponse;
 import com.example.ddangddangddang.domain.product.dto.request.UpdateRequest;
 import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
+import com.example.ddangddangddang.domain.product.entity.Status;
 import com.example.ddangddangddang.domain.product.service.ProductService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
@@ -28,11 +29,14 @@ public class ProductController {
     private final ProductService categoryService;
 
     // 내 판매 상품 목록 조회(삭제된 상품은 조회X)
+    // categoryId: 이 카테고리만(대분류면 그 아래 소분류까지), status: 이 상태만(ACTIVE면 판매 중). 둘 다 없으면 전부
     @GetMapping("/users/me/products")
     ResponseEntity<ApiResponse<Page<ProductResponse>>> myProducts(@AuthenticationPrincipal AuthUser authUser,
+                                                                  @RequestParam(required = false) Long categoryId,
+                                                                  @RequestParam(required = false) Status status,
                                                                   @ParameterObject @PageableDefault(size = 10, sort = "createdAt",
                                                                           direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.ok(categoryService.myProducts(authUser.id(), pageable)));
+        return ResponseEntity.ok(ApiResponse.ok(categoryService.myProducts(authUser.id(), categoryId, status, pageable)));
     }
     // 상품 상세 조회(삭제된 상품은 조회X, 인증 없이)
     @GetMapping("/products/{productId}")

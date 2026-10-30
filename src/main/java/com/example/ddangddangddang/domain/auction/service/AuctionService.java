@@ -63,7 +63,7 @@ public class AuctionService {
         //저장(일반 경매라 라이브 null)
         Auction save = auctionRepository.save(new Auction(product, null, request.startPrice(), request.bidUnit(), request.buyNowPrice(), request.startAt(), request.endAt()));
 
-        return AuctionResponse.from(save);
+        return AuctionResponse.from(save, this::imageUrl);
 
     }
 
@@ -74,7 +74,7 @@ public class AuctionService {
                 () -> new BusinessException(AuctionErrorCode.NOT_FOUND)
         );
 
-        return AuctionResponse.from(auction);
+        return AuctionResponse.from(auction, this::imageUrl);
     }
 
     //경매 취소(본인 경매이며 대기OR진행 중이며 입찰이 0건일시에만 취소가 가능합니다)
@@ -136,7 +136,7 @@ public class AuctionService {
         //커밋 뒤 시청 화면 경매 목록 갱신 + 채팅 안내
         eventPublisher.publishEvent(LiveAuctionEvent.of(save, LiveAuctionEvent.Type.STARTED));
 
-        return AuctionResponse.from(save);
+        return AuctionResponse.from(save, this::imageUrl);
     }
 
     // 방송에 올리기 : 이미 만든 시작 전·진행 중 경매를 방송 화면에 보여준다. 경매 일정·상태는 바꾸지 않는다.
@@ -155,7 +155,7 @@ public class AuctionService {
         LiveStream current = auction.getLiveStream();
         //이미 이 방송에 올라가 있으면(그 뒤 끝났더라도) 그대로 돌려준다
         if (current != null && current.getId().equals(liveStream.getId())) {
-            return AuctionResponse.from(auction);
+            return AuctionResponse.from(auction, this::imageUrl);
         }
 
         //새로 올리거나 옮길 때만 : 시작 전이거나 진행 중(마감 시각 전)인지
@@ -172,7 +172,7 @@ public class AuctionService {
         flushWithVersionCheck(auction);
         eventPublisher.publishEvent(LiveAuctionEvent.of(auction, LiveAuctionEvent.Type.SHOWN));
 
-        return AuctionResponse.from(auction);
+        return AuctionResponse.from(auction, this::imageUrl);
     }
 
     // 이 방송에 올라간 경매(누구나) : 최신순, 끝난 경매도 포함
@@ -181,27 +181,27 @@ public class AuctionService {
         if (!liveStreamRepository.existsById(liveId)) {
             throw new BusinessException(LiveStreamErrorCode.NOT_FOUND);
         }
-        return auctionRepository.findTop50ByLiveStreamIdOrderByIdDesc(liveId).stream().map(AuctionResponse::from).toList();
+        return auctionRepository.findTop50ByLiveStreamIdOrderByIdDesc(liveId).stream().map(auction -> AuctionResponse.from(auction, this::imageUrl)).toList();
     }
 
     // 내 시작 전·진행 중 경매 : 스튜디오에서 방송에 올릴 경매를 고를 때 쓴다
     @Transactional(readOnly = true)
     public List<AuctionResponse> myOpenAuctions(Long sellerId) {
         return auctionRepository.findTop50ByProductSellerIdAndStatusInOrderByIdDesc(sellerId, List.of(AuctionStatus.READY, AuctionStatus.ONGOING))
-                .stream().map(AuctionResponse::from).toList();
+                .stream().map(auction -> AuctionResponse.from(auction, this::imageUrl)).toList();
     }
 
     //목록 조회 및 검색(조건이 없을시 상태가 대기,진행 중인 경매들 중 최신순으로 정렬)
     @Transactional(readOnly = true)
     public Page<AuctionListResponse> searchAuctions(AuctionSearchCondition condition, Pageable pageable){
-        return auctionRepository.search(condition, pageable).map(item -> item.withThumbnailKeyResolved(fileStorage::publicUrl));
+        return auctionRepository.search(condition, pageable).map(item -> item.withThumbnailKeyResolved(this::imageUrl));
     }
 
     //인기 경매 : 진행 중인 경매 중 입찰 횟수 많은 순 조회(개수 1~50 제한)
     @Transactional(readOnly = true)
     public List<AuctionListResponse> popularAuctions(int size){
        int limit= Math.min(Math.max(size,1),50);
-        return auctionRepository.findPopular(limit).stream().map(item -> item.withThumbnailKeyResolved(fileStorage::publicUrl)).toList();
+        return auctionRepository.findPopular(limit).stream().map(item -> item.withThumbnailKeyResolved(this::imageUrl)).toList();
     }
 
     //상품의 경매 이력(판매자 본인만). 이상품으로 열었던 경매 전부(유찰,취소 포함)
@@ -219,7 +219,7 @@ public class AuctionService {
         }
 
         return auctionRepository.findTop50ByProductIdOrderByIdDesc(productId)
-                .stream().map(AuctionResponse::from).toList();
+                .stream().map(auction -> AuctionResponse.from(auction, this::imageUrl)).toList();
     }
 
     // 동시 같은 경매 수정시 먼저 반영 요청을 성공후 나머지는 409 CONCURRENT_UPDATE 응답
@@ -277,5 +277,10 @@ public class AuctionService {
         if (buyNowPrice != null && buyNowPrice <= startPrice) {
             throw new BusinessException(AuctionErrorCode.INVALID_BUY_NOW_PRICE);
         }
+    }
+
+    // 상품 대표 이미지 키 → 화면에서 보여 줄 주소
+    private String imageUrl(String key) {
+        return fileStorage.publicUrl(key);
     }
 }

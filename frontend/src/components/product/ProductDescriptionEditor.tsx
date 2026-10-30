@@ -34,17 +34,19 @@ export function ProductDescriptionEditor({ description, imageUrls, onChange, err
   const caret = useRef<{ index: number; position: number }>(undefined);
   const [problem, setProblem] = useState<string>();
 
-  const upload = useProductImageUpload((image) =>
+  const upload = useProductImageUpload((image) => {
+    // 넣을 자리는 여기서 한 번만 꺼낸다. 아래 계산 함수는 React가 두 번 부를 수 있어 그 안에서 ref를 바꾸면 안 된다.
+    const at = caret.current;
+    caret.current = undefined;
     onChange((prev) => {
       const current = parseDescription(prev.description);
-      const at = caret.current ?? { index: current.length - 1, position: Number.MAX_SAFE_INTEGER };
-      caret.current = undefined;
+      const place = at ?? { index: current.length - 1, position: Number.MAX_SAFE_INTEGER };
       return {
-        description: serializeDescription(insertImage(current, at.index, at.position, image.key)),
+        description: serializeDescription(insertImage(current, place.index, place.position, image.key)),
         descriptionImageUrls: { ...prev.descriptionImageUrls, [image.key]: image.url },
       };
-    }),
-  );
+    });
+  });
 
   const update = (next: DescriptionBlock[]) => onChange({ description: serializeDescription(next) });
   const imageCount = descriptionImageKeys(description).length;

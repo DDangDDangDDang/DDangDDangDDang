@@ -185,6 +185,21 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("배포 전 설명에 남의 키가 적혀 있던 상품: 다른 정보는 수정되고, 그 줄을 빼도 남의 파일은 지우지 않으며, 이미지로 그리지도 않는다")
+    void legacyForeignDescriptionKey() {
+        String foreign = "profile-images/8/0f8fad5b-d9cb-469f-a165-70867728950e.jpg";
+        Product product = savedProduct(List.of(KEY_A), "예전 설명\n![](" + foreign + ")");
+
+        ProductResponse kept = productService.updateProduct(SELLER_ID, PRODUCT_ID, new UpdateRequest(null, "새 이름", null, null));
+        assertThat(kept.descriptionImages()).isEmpty();
+
+        productService.updateProduct(SELLER_ID, PRODUCT_ID, new UpdateRequest(null, null, "새 설명", null));
+
+        assertThat(product.getDescription()).isEqualTo("새 설명");
+        then(fileStorage).should(never()).delete(anyString());
+    }
+
+    @Test
     @DisplayName("업로드 URL은 로그인한 사용자(판매자) ID 아래에 만든다")
     void createImageUpload() {
         given(fileStorage.presignUpload(anyString(), anyString(), anyLong(), any())).willReturn("https://upload");

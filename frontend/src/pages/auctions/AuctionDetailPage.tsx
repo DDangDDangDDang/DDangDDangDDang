@@ -99,6 +99,9 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
       <section aria-label="상품" className="flex min-w-0 flex-1 flex-col gap-5">
         {product.isPending ? (
           <Skeleton className="aspect-[4/3] w-full rounded-lg" />
+        ) : product.isError ? (
+          // 못 불러온 것을 "이미지 없음"으로 보이지 않게 오류와 다시 시도를 보여 준다.
+          <ErrorState message={`상품 이미지를 불러오지 못했어요. ${errorMessage(product.error)}`} onRetry={() => void product.refetch()} />
         ) : (
           <ProductGallery name={auction.productName ?? '상품'} images={product.data?.images} />
         )}

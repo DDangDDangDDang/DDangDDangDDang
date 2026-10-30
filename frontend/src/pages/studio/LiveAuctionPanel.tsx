@@ -1,14 +1,18 @@
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Gavel, MonitorPlay, Plus } from 'lucide-react';
 import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link } from 'react-router';
-import { errorMessage, isErrorCode, type Schema } from '@/api';
+import { api, call, errorMessage, isErrorCode, type Schema } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
 import { AuctionConditionFields } from '@/components/auction/AuctionConditionFields';
-import { Badge, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Dialog, ErrorState, Notice, Skeleton } from '@/components/ui';
+import { ProductImage } from '@/components/order/OrderBits';
+import { Badge, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Dialog, ErrorState, Notice, Pagination, Select, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { useCategories } from '@/lib/use-categories';
 import {
   auctionPhase,
   auctionStatusTab,
+  categoryFilterOptions,
   type AuctionStatusTab,
   EMPTY_AUCTION_CONDITION,
   featuredAuctions,
@@ -24,15 +28,38 @@ import type { LiveAuctions } from './use-live-auctions';
 
 type Product = Schema<'ProductResponse'>;
 
+/** 경매 상품 목록 한 페이지에 보여 줄 상품 수 */
+const PRODUCT_PAGE_SIZE = 10;
+
 /**
  * 경매 상품: 내 판매 중 상품 목록에서 [경매 시작] → 시작가·입찰 단위·진행 시간을 정해 방송 중 경매를 연다.
  * 미리 만든(시작 전·진행 중) 경매가 있는 상품은 [이 방송에 올리기]로 그 경매를 방송에 보여준다. (일정은 그대로)
  * [상품 등록]은 창으로 열어 스튜디오를 떠나지 않고 등록하고, 방송 중이면 그 상품의 경매 조건 입력을 바로 연다.
+ * 목록은 최신순으로 10개씩 페이지를 나누고, 카테고리(대분류를 고르면 그 아래 소분류까지)로 거를 수 있다.
  */
 export function LiveAuctionProducts({ live, auctions }: { live: boolean; auctions: LiveAuctions }) {
   const [selected, setSelected] = useState<number>();
   const [creating, setCreating] = useState(false);
-  const products = auctions.products;
+  const [page, setPage] = useState(0);
+  const [categoryId, setCategoryId] = useState('');
+  const categories = useCategories();
+  const products = useQuery({
+    queryKey: ['products', 'mine', 'studio', { page, categoryId }],
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/users/me/products', {
+          params: {
+            query: { status: 'ACTIVE', categoryId: categoryId ? Number(categoryId) : undefined, page, size: PRODUCT_PAGE_SIZE, sort: ['createdAt,desc'] },
+          },
+        }),
+      ),
+    // 페이지·카테고리를 바꾸는 동안 이전 목록을 그대로 두어 목록이 깜빡이지 않게 한다.
+    placeholderData: keepPreviousData,
+  });
+  const list = products.data?.content ?? [];
+  const totalPages = products.data?.totalPages ?? 0;
+  // 상품을 팔거나 지워 마지막 페이지가 비면 남은 마지막 페이지로 옮긴다.
+  if (!products.isPlaceholderData && totalPages > 0 && page >= totalPages) setPage(totalPages - 1);
 
   return (
     <Card aria-labelledby="studio-auction-title">
@@ -48,21 +75,36 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
       </CardHeader>
       <CardBody>
         {!live && <Notice className="mb-3">방송을 시작하면 상품을 골라 바로 경매를 열 수 있어요.</Notice>}
+        <div className="mb-2 w-60">
+          <Select
+            label="카테고리로 거르기"
+            hideLabel
+            options={[{ value: '', label: '전체 카테고리' }, ...categoryFilterOptions(categories.data ?? [])]}
+            value={categoryId}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              setPage(0);
+              setSelected(undefined);
+            }}
+          />
+        </div>
         {products.isPending ? (
           <div className="flex flex-col gap-2">
-            <Skeleton className="h-12" />
-            <Skeleton className="h-12" />
+            <Skeleton className="h-14" />
+            <Skeleton className="h-14" />
           </div>
         ) : products.isError ? (
           <ErrorState message={errorMessage(products.error)} onRetry={() => void products.refetch()} />
-        ) : (products.data ?? []).length === 0 ? (
+        ) : list.length === 0 ? (
           <div className="flex items-center gap-4 rounded-md bg-neutral-25 px-4 py-4">
             <Gavel className="size-6 shrink-0 text-neutral-400" aria-hidden="true" />
-            <p className="text-body text-neutral-700">경매에 올릴 판매 중인 상품이 없어요. [상품 등록]으로 바로 등록할 수 있어요.</p>
+            <p className="text-body text-neutral-700">
+              {categoryId ? '이 카테고리에는 판매 중인 상품이 없어요. 다른 카테고리를 골라 보세요.' : '경매에 올릴 판매 중인 상품이 없어요. [상품 등록]으로 바로 등록할 수 있어요.'}
+            </p>
           </div>
         ) : (
-          <ul className="divide-y divide-neutral-100">
-            {(products.data ?? []).map((product) => (
+          <ul aria-label="경매에 올릴 상품" className={cn('divide-y divide-neutral-100', products.isPlaceholderData && 'opacity-60')}>
+            {list.map((product) => (
               <li key={product.id} className="py-3">
                 <ProductRow
                   product={product}
@@ -77,8 +119,27 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
             ))}
           </ul>
         )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          label="경매 상품 페이지"
+          onChange={(next) => {
+            setPage(next);
+            setSelected(undefined);
+          }}
+        />
       </CardBody>
-      <ProductCreateDialog open={creating} live={live} onClose={() => setCreating(false)} onCreated={(productId) => live && setSelected(productId)} />
+      <ProductCreateDialog
+        open={creating}
+        live={live}
+        onClose={() => setCreating(false)}
+        onCreated={(productId) => {
+          // 새 상품은 최신순 첫 페이지 맨 위에 있으므로 거르기를 풀고 첫 페이지로 간다.
+          setCategoryId('');
+          setPage(0);
+          if (live) setSelected(productId);
+        }}
+      />
     </Card>
   );
 }
@@ -125,9 +186,12 @@ function ProductRow({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col">
-          <strong className="truncate text-body font-semibold">{product.name || '이름 없는 상품'}</strong>
-          <span className="text-caption text-neutral-500">{product.categoryName ?? ''}</span>
+        <div className="flex min-w-0 items-center gap-3">
+          <ProductImage src={product.thumbnailUrl} alt={product.name || '상품'} className="size-12" />
+          <div className="flex min-w-0 flex-col">
+            <strong className="truncate text-body font-semibold">{product.name || '이름 없는 상품'}</strong>
+            <span className="text-caption text-neutral-500">{product.categoryName ?? ''}</span>
+          </div>
         </div>
         {activeAuction ? (
           <ActiveAuction auction={activeAuction} live={live} auctions={auctions} />
