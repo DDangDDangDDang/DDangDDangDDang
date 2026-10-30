@@ -8,6 +8,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -35,6 +38,17 @@ public class Product extends BaseTimeEntity {
     @Column(nullable = false,length = 20)
     private Status status;
 
+    // 상품 이미지 키. 첫 장이 대표 이미지다. (product-images/{판매자 ID}/ 아래, ProductImageResolver)
+    @ElementCollection
+    @CollectionTable(name = "product_images", joinColumns = @JoinColumn(name = "product_id"))
+    @OrderColumn(name = "sort_order")
+    @Column(name = "image_key", nullable = false, length = 200)
+    private List<String> imageKeys = new ArrayList<>();
+
+    // 대표 이미지 키(imageKeys의 첫 장). 경매 목록이 이미지 테이블을 조인하지 않고 바로 읽는다.
+    @Column(name = "thumbnail_key", length = 200)
+    private String thumbnailKey;
+
     //상품 생성시 항상 Status==ACTIVE 시작된다
     public Product(User seller, Category category, String name, String description) {
         this.seller = seller;
@@ -48,6 +62,13 @@ public class Product extends BaseTimeEntity {
         this.category = category;
         this.name = name;
         this.description = description;
+    }
+
+    //이미지 순서를 통째로 바꾼다. 대표 이미지도 첫 장으로 맞춘다.
+    public void changeImages(List<String> imageKeys) {
+        this.imageKeys.clear();
+        this.imageKeys.addAll(imageKeys);
+        this.thumbnailKey = imageKeys.isEmpty() ? null : imageKeys.get(0);
     }
 
     //상품 삭제(실제 삭제가 아닌 Status를 DELETED 전환)

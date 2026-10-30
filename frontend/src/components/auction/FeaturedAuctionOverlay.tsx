@@ -1,4 +1,5 @@
 import type { Schema } from '@/api';
+import { ProductImage } from '@/components/order/OrderBits';
 import { Button } from '@/components/ui';
 import { auctionPhase, featuredAuctions } from '@/lib/auction';
 import { cn } from '@/lib/cn';
@@ -37,7 +38,7 @@ export function FeaturedAuctionSlot({
 }
 
 /**
- * 판매자가 영상 위에 띄운 경매 하나. 상품명·현재가(시작 전이면 시작가)·입찰 수·남은 시간.
+ * 판매자가 영상 위에 띄운 경매 하나. 상품 대표 이미지·상품명·현재가(시작 전이면 시작가)·입찰 수·남은 시간.
  * 시청 화면과 스튜디오 미리보기가 같이 써서 판매자가 시청자에게 보이는 모습을 그대로 확인한다.
  * 영상 안에 있어 전체 화면에서도 보인다. 위치는 화면마다 className으로 정한다.
  */
@@ -55,9 +56,12 @@ export function FeaturedAuctionOverlay({ auction, onOpen, className }: Props) {
       className={cn('flex w-[320px] flex-col gap-2 rounded-lg bg-neutral-0/95 px-4 py-3 text-neutral-900 shadow-md', className)}
     >
       {/* 시작 시각("10월 22일 (목) 02:06 시작")이 길어 상품명은 한 줄을 다 쓰고, 시간은 아래 줄 오른쪽에 둔다. */}
-      <div className="flex min-w-0 items-center gap-1.5">
-        <AuctionPhaseBadge phase={phase} />
-        <strong className="truncate text-body font-semibold">{name}</strong>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <ProductImage src={auction.thumbnailUrl} alt={name} className="size-12" />
+        <div className="flex min-w-0 flex-col items-start gap-1">
+          <AuctionPhaseBadge phase={phase} />
+          <strong className="w-full truncate text-body font-semibold">{name}</strong>
+        </div>
       </div>
       <div className="flex items-end justify-between gap-2">
         <div className="flex flex-col">

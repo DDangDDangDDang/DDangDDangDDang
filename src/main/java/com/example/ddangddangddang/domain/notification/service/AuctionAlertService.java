@@ -14,6 +14,7 @@ import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.product.entity.Product;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.storage.FileStorage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
@@ -37,6 +38,7 @@ public class AuctionAlertService {
     private final AuctionRepository auctionRepository;
     private final AuctionAlertRepository auctionAlertRepository;
     private final TransactionTemplate transactionTemplate;
+    private final FileStorage fileStorage;
 
     static final int MAX_PAGE_SIZE = 50;
 
@@ -59,12 +61,13 @@ public class AuctionAlertService {
         return new CursorResponse<>(page.content().stream().filter(Objects::nonNull).toList(), page.nextCursor(), page.hasNext());
     }
 
-    private static AuctionListResponse toListItem(Auction auction) {
+    private AuctionListResponse toListItem(Auction auction) {
         Product product = auction.getProduct();
         boolean live = auction.getLiveStream() != null && auction.getLiveStream().getStatus() == LiveStreamStatus.LIVE;
         return new AuctionListResponse(auction.getId(), product.getId(), product.getName(),
                 product.getCategory() == null ? null : product.getCategory().getName(),
-                auction.getCurrentPrice(), auction.getBidCount(), auction.getStatus(), auction.getStartAt(), auction.getEndAt(), live, false);
+                auction.getCurrentPrice(), auction.getBidCount(), auction.getStatus(), auction.getStartAt(), auction.getEndAt(), live, false,
+                product.getThumbnailKey() == null ? null : fileStorage.publicUrl(product.getThumbnailKey()));
     }
 
     public AuctionAlertResponse get(Long userId, Long auctionId) {
