@@ -98,7 +98,7 @@ class LiveStreamThumbnailServiceTest {
     }
 
     @Test
-    @DisplayName("읽은 뒤 다른 요청이 먼저 썸네일을 바꿨으면 바꾸지 않고(LIVESTREAM_006), 이번에 올린 파일만 지운다")
+    @DisplayName("읽은 뒤 다른 요청이 먼저 썸네일을 바꿨으면 바꾸지 않고(LIVESTREAM_006), 같은 키로 겹친 요청일 수 있어 파일은 지우지 않는다")
     void changeConflict() {
         ReflectionTestUtils.setField(liveStream, "thumbnailKey", OLD_KEY);
         given(fileStorage.find(NEW_KEY)).willReturn(Optional.of(new FileStorage.StoredFile(30_000L, "image/jpeg")));
@@ -107,8 +107,7 @@ class LiveStreamThumbnailServiceTest {
         assertThatThrownBy(() -> thumbnailService.change(LIVE_STREAM_ID, SELLER_ID, NEW_KEY))
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(LiveStreamErrorCode.CONCURRENT_UPDATE);
-        then(fileStorage).should().delete(NEW_KEY);
-        then(fileStorage).should(never()).delete(OLD_KEY);
+        then(fileStorage).should(never()).delete(anyString());
     }
 
     @Test

@@ -68,8 +68,8 @@ public class LiveStreamThumbnailService {
             return;
         }
         if (liveStreamRepository.updateThumbnailKey(liveStreamId, thumbnailKey, previous) == 0) {
-            // 다른 요청이 먼저 썸네일을 바꿨다. 이번에 올린 파일은 쓰지 않으므로 지운다.
-            fileStorage.delete(thumbnailKey);
+            // 다른 요청이 먼저 썸네일을 바꿨다. 같은 키로 겹친 요청이면 그 파일이 이미 썸네일이므로 지우지 않는다.
+            // (쓰이지 않고 남는 파일은 1MB 이하 JPG 한 장이라 그대로 둔다)
             throw new BusinessException(LiveStreamErrorCode.CONCURRENT_UPDATE);
         }
         if (previous != null) {
