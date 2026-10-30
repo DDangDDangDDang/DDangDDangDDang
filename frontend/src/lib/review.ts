@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Schema } from '@/api';
+import { api, call, isErrorCode, type Schema } from '@/api';
 import { formatNumber } from './format';
 import { sellerProfileKey } from './use-seller';
 
@@ -40,22 +40,24 @@ export function isOwnStore(sellerId: number, userId?: number): boolean {
   return userId !== undefined && userId === sellerId;
 }
 
-/**
- * 주문에 내가 쓴 리뷰. 주문 응답에는 리뷰 id가 없어서, 이 화면에서 쓴 리뷰(수정·삭제용)나
- * "이미 썼음"(REVIEW_004)을 알게 된 경우만 기억해 둔다. 새로고침하면 사라진다.
- */
-export type OrderReviewState = { status: 'written'; review: Review } | { status: 'already' };
-
 export const orderReviewKey = (orderId: number) => ['order-review', orderId] as const;
 
+/** 주문에 내가 쓴 리뷰를 서버에서 불러온다. 아직 안 썼으면(REVIEW_001) 에러가 아니라 null. */
+export async function fetchOrderReview(orderId: number): Promise<Review | null> {
+  try {
+    return (await call(api.GET('/api/v1/reviews/orders/{orderId}', { params: { path: { orderId } } }))) ?? null;
+  } catch (error) {
+    if (isErrorCode(error, 'REVIEW_001')) return null;
+    throw error;
+  }
+}
+
+/** 주문에 내가 쓴 리뷰. 쓰거나 고치거나 지운 뒤에는 화면에서 setQueryData로 바로 바꾼다. */
 export function useOrderReview(orderId: number) {
-  return useQuery<OrderReviewState | null>({
+  return useQuery<Review | null>({
     queryKey: orderReviewKey(orderId),
-    // 서버에 묻지 않는다. 화면에서 setQueryData로만 채운다.
-    queryFn: () => null,
-    staleTime: Infinity,
-    gcTime: Infinity,
-  }).data;
+    queryFn: () => fetchOrderReview(orderId),
+  });
 }
 
 /** 리뷰를 쓰거나 고치거나 지운 뒤: 판매자 리뷰 목록과 구매자 만족도(프로필)를 다시 불러온다. */

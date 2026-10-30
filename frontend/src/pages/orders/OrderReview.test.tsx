@@ -10,6 +10,10 @@ type Request = { method: string; path: string; init?: { params?: { path?: { orde
 const state = vi.hoisted(() => ({
   status: 'SHIPPING' as 'SHIPPING' | 'COMPLETED',
   reviewed: false,
+  /** 서버에 저장된 내 리뷰 (없으면 GET이 REVIEW_001) */
+  saved: null as Record<string, unknown> | null,
+  /** 조회 실패를 흉내 낸다 */
+  getFails: false,
   requests: [] as Request[],
 }));
 
@@ -42,10 +46,25 @@ vi.mock('@/api', async (importOriginal) => {
         state.status = 'COMPLETED';
         return order();
       }
+      if (r.path === '/api/v1/reviews/orders/{orderId}') {
+        if (state.getFails) throw new original.ApiError('COMMON_999', '서버 내부 오류가 발생했습니다.', 500);
+        if (!state.saved) throw new original.ApiError('REVIEW_001', '리뷰가 존재하지 않습니다.', 404);
+        return state.saved;
+      }
       if (r.path === '/api/v1/reviews' && r.method === 'POST') {
         if (state.reviewed) throw new original.ApiError('REVIEW_004', '이 부문에는 이미 리뷰를 작성을 했습니다', 409);
         state.reviewed = true;
-        return { reviewId: 99, sellerId: 7, productName: '필름 카메라', ...r.init?.body, createdAt: '2026-10-29T10:00:00' };
+        state.saved = { reviewId: 99, sellerId: 7, productName: '필름 카메라', ...r.init?.body, createdAt: '2026-10-29T10:00:00' };
+        return state.saved;
+      }
+      if (r.path === '/api/v1/reviews/{reviewId}' && r.method === 'PATCH') {
+        state.saved = { ...state.saved, ...r.init?.body };
+        return state.saved;
+      }
+      if (r.path === '/api/v1/reviews/{reviewId}' && r.method === 'DELETE') {
+        state.saved = null;
+        state.reviewed = false;
+        return undefined;
       }
       return undefined;
     },
@@ -53,7 +72,7 @@ vi.mock('@/api', async (importOriginal) => {
 });
 
 function renderOrder() {
-  render(
+  return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={['/orders/10']}>
         <Routes>
@@ -71,6 +90,8 @@ describe('주문 리뷰 쓰기', () => {
   beforeEach(() => {
     state.status = 'SHIPPING';
     state.reviewed = false;
+    state.saved = null;
+    state.getFails = false;
     state.requests = [];
     HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
       this.open = true;
@@ -137,17 +158,76 @@ describe('주문 리뷰 쓰기', () => {
     expect(await screen.findByText('빠른 발송 감사합니다')).toBeInTheDocument();
   });
 
-  it('이미 리뷰를 쓴 주문이면(REVIEW_004) "이미 리뷰를 작성했어요"라고 안내한다', async () => {
+  it('이미 리뷰를 쓴 주문이면(REVIEW_004) 안내하고, 그 리뷰를 불러와 보여준다', async () => {
     state.status = 'COMPLETED';
     state.reviewed = true;
     renderOrder();
     await userEvent.click(await screen.findByRole('button', { name: '리뷰 쓰기' }));
+    // 화면을 연 뒤 다른 탭에서 리뷰를 썼다.
+    state.saved = { reviewId: 98, sellerId: 7, rating: 5, content: '다른 탭에서 쓴 리뷰', createdAt: '2026-10-29T09:00:00' };
     const dialog = await reviewDialog('리뷰 쓰기');
     await userEvent.click(within(dialog).getByRole('radio', { name: '3점' }));
     await userEvent.click(within(dialog).getByRole('button', { name: '리뷰 남기기' }));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('이미 리뷰를 작성했어요.');
     await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
-    expect(screen.getByText(/이미 리뷰를 작성했어요\. 판매자 프로필의 리뷰 탭/)).toBeInTheDocument();
+    // 다른 곳에서 쓴 리뷰를 다시 불러와 수정·삭제할 수 있다.
+    expect(await screen.findByRole('button', { name: '수정' })).toBeInTheDocument();
+    expect(screen.getByText('다른 탭에서 쓴 리뷰')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '리뷰 쓰기' })).toBeNull();
+  });
+
+  it('새로 열어도(새로고침) 서버에 있는 내 리뷰와 [수정]·[삭제]가 보인다', async () => {
+    state.status = 'COMPLETED';
+    state.saved = { reviewId: 99, sellerId: 7, rating: 4, content: '잘 받았어요', createdAt: '2026-10-29T10:00:00' };
+    renderOrder();
+    expect(await screen.findByText('잘 받았어요')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '별점 5점 만점에 4점' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '수정' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '삭제' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '리뷰 쓰기' })).toBeNull();
+  });
+
+  it('고친 리뷰는 다시 열어도 고친 내용이 보인다', async () => {
+    state.status = 'COMPLETED';
+    state.saved = { reviewId: 99, sellerId: 7, rating: 4, content: '잘 받았어요', createdAt: '2026-10-29T10:00:00' };
+    const first = renderOrder();
+    await userEvent.click(await screen.findByRole('button', { name: '수정' }));
+    const dialog = await reviewDialog('리뷰 수정');
+    const textbox = within(dialog).getByRole('textbox', { name: '내용 (선택)' });
+    await userEvent.clear(textbox);
+    await userEvent.type(textbox, '포장도 꼼꼼했어요');
+    await userEvent.click(within(dialog).getByRole('button', { name: '수정하기' }));
+    expect(await screen.findByText('포장도 꼼꼼했어요')).toBeInTheDocument();
+
+    first.unmount();
+    renderOrder();
+    expect(await screen.findByText('포장도 꼼꼼했어요')).toBeInTheDocument();
+  });
+
+  it('리뷰를 지우면 [리뷰 쓰기]로 돌아오고, 다시 열어도 그대로다', async () => {
+    state.status = 'COMPLETED';
+    state.reviewed = true;
+    state.saved = { reviewId: 99, sellerId: 7, rating: 4, content: '잘 받았어요', createdAt: '2026-10-29T10:00:00' };
+    const first = renderOrder();
+    await userEvent.click(await screen.findByRole('button', { name: '삭제' }));
+    await userEvent.click(within(screen.getByRole('dialog', { name: '리뷰를 삭제할까요?' })).getByRole('button', { name: '삭제' }));
+    expect(await screen.findByRole('button', { name: '리뷰 쓰기' })).toBeInTheDocument();
+    expect(screen.queryByText('잘 받았어요')).toBeNull();
+
+    first.unmount();
+    renderOrder();
+    expect(await screen.findByRole('button', { name: '리뷰 쓰기' })).toBeInTheDocument();
+  });
+
+  it('리뷰를 불러오지 못하면 안내와 [다시 시도]를 보여준다', async () => {
+    state.status = 'COMPLETED';
+    state.getFails = true;
+    renderOrder();
+    expect(await screen.findByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '리뷰 쓰기' })).toBeNull();
+
+    state.getFails = false;
+    await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByRole('button', { name: '리뷰 쓰기' })).toBeInTheDocument();
   });
 });
