@@ -3,10 +3,12 @@ import { cn } from '@/lib/cn';
 /**
  * 땅땅땅 로고 아이콘: 옆으로 휘두른 망치 머리가 바닥을 찍고, 닿은 자리에서 번개가 튀어 나간다. (리디자인 시안 헤더)
  * 장식이라 읽지 않는다. 이름 "땅땅땅"은 옆에 글자로 둔다.
+ * 그림은 32×32 좌표로 그리고, 위쪽 빈 곳을 빼고 그림만 보이게 잘라(viewBox y 9.5~31) 같은 높이에서 망치가 크게 보이게 한다.
+ * 손잡이 끝까지 다 보인다. (탭 아이콘 public/favicon.svg는 정사각형이라 손잡이 끝을 자른다)
  */
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" className={cn('size-8', className)}>
+    <svg viewBox="0 9.5 32 21.5" aria-hidden="true" className={cn('aspect-[32/21.5] h-[27px]', className)}>
       <rect x="9" y="11" width="10" height="16" rx="2" className="fill-brand-500" />
       <rect x="19" y="16.5" width="12" height="4" rx="1.5" className="fill-brand-500" />
       <g fill="none" strokeLinejoin="round" strokeLinecap="round" className="stroke-brand-500">
