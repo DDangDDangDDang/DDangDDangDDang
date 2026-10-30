@@ -21,6 +21,7 @@ import com.example.ddangddangddang.domain.product.entity.Status;
 import com.example.ddangddangddang.domain.product.exception.ProductErrorCode;
 import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.storage.FileStorage;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -45,6 +46,7 @@ public class AuctionService {
     private final ProductRepository productRepository;
     private final LiveStreamRepository liveStreamRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final FileStorage fileStorage;
 
     //경매(일반) 생성 : 본인 상품이고 판매 중이며 대기 or 진행 중인 경매가 아닐때 생성이 가능합니다
     public AuctionResponse auctionCreate(Long sellerId, AuctionCreateRequest request) {
@@ -192,14 +194,14 @@ public class AuctionService {
     //목록 조회 및 검색(조건이 없을시 상태가 대기,진행 중인 경매들 중 최신순으로 정렬)
     @Transactional(readOnly = true)
     public Page<AuctionListResponse> searchAuctions(AuctionSearchCondition condition, Pageable pageable){
-        return auctionRepository.search(condition, pageable);
+        return auctionRepository.search(condition, pageable).map(item -> item.withThumbnailKeyResolved(fileStorage::publicUrl));
     }
 
     //인기 경매 : 진행 중인 경매 중 입찰 횟수 많은 순 조회(개수 1~50 제한)
     @Transactional(readOnly = true)
     public List<AuctionListResponse> popularAuctions(int size){
        int limit= Math.min(Math.max(size,1),50);
-        return auctionRepository.findPopular(limit);
+        return auctionRepository.findPopular(limit).stream().map(item -> item.withThumbnailKeyResolved(fileStorage::publicUrl)).toList();
     }
 
     //상품의 경매 이력(판매자 본인만). 이상품으로 열었던 경매 전부(유찰,취소 포함)

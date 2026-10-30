@@ -6,8 +6,10 @@ import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.exception.CategoryErrorCode;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
+import com.example.ddangddangddang.domain.product.dto.request.ProductImageUploadRequest;
 import com.example.ddangddangddang.domain.product.dto.request.ProductRequest;
 import com.example.ddangddangddang.domain.product.dto.request.UpdateRequest;
+import com.example.ddangddangddang.domain.product.dto.response.ProductImageUploadResponse;
 import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
 import com.example.ddangddangddang.domain.product.entity.Product;
 import com.example.ddangddangddang.domain.product.entity.Status;
@@ -17,6 +19,7 @@ import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.storage.FileStorage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 
 @RequiredArgsConstructor
 @Service
@@ -34,6 +38,8 @@ public class ProductService {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final AuctionRepository auctionRepository;
+    private final ProductImageResolver imageResolver;
+    private final FileStorage fileStorage;
 
     //상품 상세 조회(삭제된 상품은 제외)
     @Transactional(readOnly = true)
@@ -41,7 +47,7 @@ public class ProductService {
         Product product = productRepository.findByIdAndStatusNot(productsId, Status.DELETED).orElseThrow(
                 () -> new BusinessException(ProductErrorCode.NOT_FOUND));
 
-        return ProductResponse.from(product);
+        return ProductResponse.from(product, fileStorage::publicUrl);
 
     }
 
@@ -61,7 +67,13 @@ public class ProductService {
                 latestAuctions.put(auction.getProduct().getId(),auction);
             }
         }
-        return products.map(product -> ProductResponse.from(product,latestAuctions.get(product.getId())));
+        return products.map(product -> ProductResponse.from(product, latestAuctions.get(product.getId()), fileStorage::publicUrl));
+    }
+
+    //상품 이미지 업로드 URL(갤러리·설명 속 이미지 공용). 올린 뒤 키를 상품 등록·수정 요청에 넣는다.
+    @Transactional(readOnly = true)
+    public ProductImageUploadResponse createImageUpload(Long sellerId, ProductImageUploadRequest request) {
+        return imageResolver.createUpload(sellerId, request.contentType(), request.contentLength());
     }
 
     //상품 생성(하위 카테고리 내에서만 생성(대분류에는 등록X))
@@ -69,9 +81,16 @@ public class ProductService {
         User seller = userRepository.findById(sellerId).orElseThrow(
                 () -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
         Category category = findCategory(request.categoryId());
-        Product save = productRepository.save(new Product(seller, category, request.name(), request.description()));
+        // 새 상품이라 저장된 이미지가 없다. 모두 내 키인지, 올라갔는지 확인한다.
+        Set<String> none = Set.of();
+        List<String> imageKeys = imageResolver.resolveImages(sellerId, none,
+                request.imageKeys() == null ? List.of() : request.imageKeys());
+        imageResolver.checkDescription(sellerId, none, request.description());
+        Product product = new Product(seller, category, request.name(), request.description());
+        product.changeImages(imageKeys);
+        Product save = productRepository.save(product);
 
-        return ProductResponse.from(save);
+        return ProductResponse.from(save, fileStorage::publicUrl);
 
     }
 
@@ -100,9 +119,23 @@ public class ProductService {
                 ? request.description()
                 : product.getDescription();
 
-        product.update(category, name, description);
+        // 지금 쓰는 이미지(갤러리 + 설명)는 다시 확인하지 않는다. 판매자가 순서만 바꾸거나 다른 상품 정보만 고칠 수 있게.
+        Set<String> before = ProductImageResolver.usedKeys(product.getImageKeys(), product.getDescription());
+        List<String> imageKeys = request.imageKeys() == null ? null
+                : imageResolver.resolveImages(sellerId, before, request.imageKeys());
+        imageResolver.checkDescription(sellerId, before, description);
 
-        return ProductResponse.from(product);
+        product.update(category, name, description);
+        if (imageKeys != null) {
+            product.changeImages(imageKeys);
+        }
+        // 판매된 상품은 주문이 대표 이미지 주소를 그대로 들고 있어 빠진 이미지도 지우지 않는다.
+        if (product.getStatus() != Status.SOLD) {
+            imageResolver.deleteRemovedImagesAfterCommit(before,
+                    ProductImageResolver.usedKeys(product.getImageKeys(), product.getDescription()));
+        }
+
+        return ProductResponse.from(product, fileStorage::publicUrl);
 
     }
     //카테고리 조회시 하위가 있을시 대분류에 생성 수정시 예외처리

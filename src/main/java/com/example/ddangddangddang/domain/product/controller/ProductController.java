@@ -1,6 +1,8 @@
 package com.example.ddangddangddang.domain.product.controller;
 
+import com.example.ddangddangddang.domain.product.dto.request.ProductImageUploadRequest;
 import com.example.ddangddangddang.domain.product.dto.request.ProductRequest;
+import com.example.ddangddangddang.domain.product.dto.response.ProductImageUploadResponse;
 import com.example.ddangddangddang.domain.product.dto.request.UpdateRequest;
 import com.example.ddangddangddang.domain.product.dto.response.ProductResponse;
 import com.example.ddangddangddang.domain.product.service.ProductService;
@@ -43,6 +45,16 @@ public class ProductController {
     ResponseEntity<ApiResponse<ProductResponse>> creation(@AuthenticationPrincipal AuthUser authUser,
                                                           @Valid @RequestBody ProductRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(categoryService.creation(authUser.id(), request)));
+    }
+
+    /**
+     * 상품 이미지(갤러리·설명 속 이미지)의 업로드 URL을 받는다. 올린 뒤 imageKey를 상품 등록·수정 요청의 imageKeys에 넣거나,
+     * 설명에 "![](imageKey)" 한 줄로 넣는다. JPG·PNG·WEBP·GIF, 10MB까지.
+     */
+    @PostMapping("/products/image-uploads")
+    ResponseEntity<ApiResponse<ProductImageUploadResponse>> createImageUpload(@AuthenticationPrincipal AuthUser authUser,
+                                                                              @Valid @RequestBody ProductImageUploadRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(categoryService.createImageUpload(authUser.id(), request)));
     }
 
     //상품 수정(본인만 수정 가능)
