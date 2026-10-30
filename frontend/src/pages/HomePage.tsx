@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Eye, Volume2, VolumeX } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { api, call, errorMessage, type Schema } from "@/api";
 import { AdBanner } from "@/components/ad/AdBanner";
@@ -29,6 +29,12 @@ import {
 import { cn } from "@/lib/cn";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { HomeHero } from "@/pages/home/HomeHero";
+import {
+  fitSideSlots,
+  MIN_SIDE_SLOTS,
+  sideColumnWidth,
+  useHeroSize,
+} from "@/pages/home/hero-layout";
 import { useHoverIntent } from "@/lib/use-hover-intent";
 import { usePrefersReducedMotion } from "@/lib/use-reduced-motion";
 import { THUMBNAIL_INTERVAL_MS } from "@/lib/live-thumbnail";
@@ -68,7 +74,13 @@ function LiveHome() {
   if (query.isPending) {
     return (
       <div className="flex flex-col gap-12">
-        <Skeleton className="aspect-[21/8] rounded-lg" />
+        <div className="grid grid-cols-[2fr_1fr] gap-3">
+          <Skeleton className="aspect-video rounded-lg" />
+          <div className="flex flex-col gap-3">
+            <Skeleton className="flex-1 rounded-lg" />
+            <Skeleton className="flex-1 rounded-lg" />
+          </div>
+        </div>
         <AdBanner placement="home-top" />
         <Section title="지금 인기 라이브">
           <CardGrid>
@@ -98,7 +110,7 @@ function LiveHome() {
   return (
     <div className="flex flex-col gap-12">
       {featured ? (
-        <FeaturedLive card={featured} others={others.slice(0, 4)} />
+        <FeaturedLive card={featured} others={others} />
       ) : (
         <div className="rounded-lg border border-neutral-100 bg-neutral-0">
           <EmptyState
@@ -161,21 +173,53 @@ function LiveHome() {
 }
 
 /**
- * 맨 위 대표 라이브 (치지직처럼 화면을 나눠 여러 방송을 함께 보여 준다).
- * 가장 많이 보는 방송을 왼쪽 큰 칸(가로 2칸 × 세로 2칸)에, 그다음 방송 4개를 오른쪽 작은 칸에 둔다.
- * 다른 방송이 없으면 오른쪽에 대표 방송 정보를 보여 준다.
+ * 맨 위 대표 라이브 (치지직 홈처럼): 가장 많이 보는 방송을 왼쪽에 크게, 그다음 인기 방송을 오른쪽에 작은 카드로 세로로 쌓는다.
+ * 오른쪽 카드 수는 화면 크기에 맞춰 2~4개이고, 오른쪽 열 높이가 큰 화면(16:9) 높이와 같도록 열 너비를 정한다.
+ * 다른 방송이 적으면 있는 만큼만 보여 준다.
  */
 function FeaturedLive({ card, others }: { card: Card; others: Card[] }) {
+  const ref = useRef<HTMLElement>(null);
+  const { width, viewportHeight } = useHeroSize(ref);
+  // 카드가 1개뿐이어도 오른쪽 열이 큰 화면만큼 커지지 않도록 최소 2칸 크기로 둔다.
+  const slots = Math.min(
+    fitSideSlots(width, viewportHeight),
+    Math.max(MIN_SIDE_SLOTS, others.length),
+  );
+  const side = others.slice(0, slots);
   return (
-    <section aria-label="대표 라이브" className="grid grid-cols-4 gap-3">
+    <section
+      ref={ref}
+      aria-label="대표 라이브"
+      className="grid gap-3"
+      style={{
+        gridTemplateColumns:
+          width > 0
+            ? `minmax(0, 1fr) ${sideColumnWidth(width, slots)}px`
+            : "minmax(0, 2fr) minmax(0, 1fr)",
+      }}
+    >
       <FeaturedMain card={card} />
-      {others.length > 0 ? (
-        others.map((other) => (
+      <div className="flex min-h-0 flex-col gap-3">
+        {side.map((other) => (
           <FeaturedTile key={other.liveStreamId} card={other} />
-        ))
-      ) : (
-        <FeaturedInfo card={card} />
-      )}
+        ))}
+        {side.length === 0 && (
+          <Link
+            to="/lives?status=SCHEDULED"
+            className="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-neutral-200 p-4 text-center text-body text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"
+          >
+            <span>지금은 다른 라이브가 없어요</span>
+            <span className="text-label font-semibold text-brand-700">
+              방송 예정 보기
+            </span>
+          </Link>
+        )}
+        {/* 카드가 칸 수보다 적으면 남은 칸을 비워 둔다. (카드가 늘어나지 않게) */}
+        {side.length > 0 &&
+          Array.from({ length: slots - side.length }, (_, i) => (
+            <div key={i} aria-hidden="true" className="flex-1" />
+          ))}
+      </div>
     </section>
   );
 }
@@ -204,7 +248,7 @@ function FeaturedMain({ card }: { card: Card }) {
 
   return (
     <div
-      className="relative col-span-2 row-span-2 min-w-0"
+      className="relative min-w-0"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -215,7 +259,7 @@ function FeaturedMain({ card }: { card: Card }) {
         <button
           type="button"
           onClick={toggleSound}
-          className="absolute top-3 right-3 flex items-center gap-1.5 rounded-md bg-stage/70 px-3 py-2 text-label font-semibold text-white hover:bg-stage/90"
+          className="absolute top-4 right-4 flex items-center gap-1.5 rounded-md bg-stage/70 px-3 py-2 text-label font-semibold text-white hover:bg-stage/90"
         >
           {soundOn ? (
             <Volume2 className="size-4" aria-hidden="true" />
@@ -232,7 +276,7 @@ function FeaturedMain({ card }: { card: Card }) {
   );
 }
 
-/** 대표 라이브 오른쪽 작은 칸. 방송 카드처럼 마우스를 잠시 올려 두면 소리 없이 미리 보여 준다. */
+/** 대표 라이브 오른쪽 인기 방송 카드. 방송 카드처럼 마우스를 잠시 올려 두면 소리 없이 미리 보여 준다. */
 function FeaturedTile({ card }: { card: Card }) {
   const { hovered, onMouseEnter, onMouseLeave } = useHoverIntent();
   const { videoTrack } = useStreamPreview(
@@ -241,7 +285,7 @@ function FeaturedTile({ card }: { card: Card }) {
   );
   return (
     <div
-      className="min-w-0"
+      className="min-h-0 min-w-0 flex-1"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -254,6 +298,7 @@ function FeaturedTile({ card }: { card: Card }) {
 
 /**
  * 대표 라이브 칸 하나: 썸네일(또는 미리보기 영상) 위에 LIVE·시청자 수를 위에, 판매자·제목을 아래에 겹쳐 그린다.
+ * 큰 칸은 제목을 크게 쓰고 판매자 옆에 해시태그와 시작 시각을 함께 보여 준다.
  * children(미리보기 영상)은 썸네일과 글자 사이에 깔린다.
  */
 function TileLink({
@@ -267,6 +312,7 @@ function TileLink({
 }) {
   const seller = card.sellerNickname || "판매자";
   const title = card.title || "제목 없는 방송";
+  const hasTags = !!card.hashtags && card.hashtags.length > 0;
   return (
     <Link
       to={`/lives/${card.liveStreamId}`}
@@ -277,10 +323,16 @@ function TileLink({
       <LiveThumbnail
         name={seller}
         imageUrl={card.thumbnailUrl}
-        className={cn("rounded-none", big && "h-full")}
+        // 큰 칸은 16:9로 영역 높이를 정하고, 작은 칸은 오른쪽 열을 나눠 채운다.
+        className={cn("rounded-none", !big && "aspect-auto h-full")}
       >
         {children}
-        <div className="absolute top-3 left-3 flex gap-1.5">
+        <div
+          className={cn(
+            "absolute flex gap-1.5",
+            big ? "top-4 left-4" : "top-2.5 left-2.5",
+          )}
+        >
           <Badge variant="live">LIVE</Badge>
           <Badge className="bg-stage/70 font-semibold text-white">
             <Eye className="size-3.5" aria-hidden="true" />
@@ -289,59 +341,51 @@ function TileLink({
           </Badge>
           {card.recorded && <RecordedBadge />}
         </div>
-        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2.5 bg-linear-to-t from-stage/90 to-transparent px-3 pt-8 pb-3">
-          <SellerAvatar name={seller} size={big ? "md" : "sm"} live />
-          <span className="flex min-w-0 flex-col text-left">
+        <div
+          className={cn(
+            "absolute inset-x-0 bottom-0 flex items-center bg-linear-to-t from-stage/90 via-stage/50 to-transparent",
+            big ? "gap-3.5 px-6 pt-20 pb-5" : "gap-2.5 px-3 pt-8 pb-3",
+          )}
+        >
+          <SellerAvatar name={seller} size={big ? "lg" : "md"} live />
+          <span className="flex min-w-0 flex-col gap-0.5 text-left">
             <span
               className={cn(
                 "truncate font-bold text-white",
-                big ? "text-body-lg" : "text-body",
+                big ? "text-title-lg tracking-tight" : "text-body",
               )}
             >
               {title}
             </span>
-            <span className="truncate text-caption text-neutral-700">
-              {seller}
+            <span
+              className={cn(
+                "flex min-w-0 items-center gap-1.5 text-neutral-700",
+                big ? "text-body" : "text-caption",
+              )}
+            >
+              <span className="truncate">{seller}</span>
+              {big && hasTags && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <Hashtags
+                    tags={card.hashtags}
+                    className="flex-nowrap overflow-hidden text-body whitespace-nowrap"
+                  />
+                </>
+              )}
+              {big && card.startedAt && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="shrink-0">
+                    {formatDateTime(card.startedAt)} 시작
+                  </span>
+                </>
+              )}
             </span>
           </span>
         </div>
       </LiveThumbnail>
     </Link>
-  );
-}
-
-/** 다른 방송이 없을 때 대표 라이브 오른쪽에 보여 주는 방송 정보 */
-function FeaturedInfo({ card }: { card: Card }) {
-  const seller = card.sellerNickname || "판매자";
-  return (
-    <div className="col-span-2 row-span-2 flex min-w-0 flex-col gap-4 rounded-lg border border-neutral-100 bg-neutral-0 p-6">
-      <div className="flex items-center gap-3">
-        <SellerAvatar name={seller} size="md" live />
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate font-bold">{seller}</span>
-          {card.startedAt && (
-            <span className="text-caption text-neutral-500">
-              {formatDateTime(card.startedAt)} 시작
-            </span>
-          )}
-        </span>
-      </div>
-      <h1 className="line-clamp-3 text-title-lg font-bold tracking-tight">
-        {card.title || "제목 없는 방송"}
-      </h1>
-      <Hashtags tags={card.hashtags} />
-      <Link
-        to={`/lives/${card.liveStreamId}`}
-        state={{ sellerNickname: card.sellerNickname }}
-        className={buttonVariants({
-          variant: "primary",
-          size: "lg",
-          className: "mt-auto w-full",
-        })}
-      >
-        방송 보기
-      </Link>
-    </div>
   );
 }
 
