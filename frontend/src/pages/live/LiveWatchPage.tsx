@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Gift, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router';
+import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-router';
 import { ApiError, api, call, errorMessage, isErrorCode, useSession, type ChatMessage, type Schema } from '@/api';
 import { BidDialog } from '@/components/auction/BidDialog';
 import { useLoginGuard } from '@/components/auth/use-login-guard';
@@ -22,6 +22,8 @@ import { applyChatMessage } from '@/lib/live-room';
 import { LiveVideo } from './LiveVideo';
 import { useLiveRealtime } from '@/lib/use-live-realtime';
 import { useWatchStream } from '@/components/watch/watch-context';
+import { readBroadcastOwner } from '@/lib/broadcast-owner';
+import { shouldOpenStudio } from '@/lib/seller-watch';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
 
@@ -77,10 +79,15 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
 
   const liveStream = query.data;
   const isLive = liveStream?.status === 'LIVE';
+  // 방송 중인 판매자가 송출하는 탭에서 자기 방송에 시청자 경로로 들어오면 스튜디오로 보낸다.
+  // (스튜디오 [시청 화면 열기]로 연 탭, 송출을 맡지 않은 다른 탭은 제외: 그 탭이 스튜디오를 열면 송출을 빼앗는다)
+  const [searchParams] = useSearchParams();
+  const userId = useSession()?.user.userId;
+  const openStudio = shouldOpenStudio(liveStream, userId, readBroadcastOwner(), searchParams);
   // 방송 영상·소리는 앱 전체에서 이어 본다. 이 화면을 떠나도 방송 중이면 오른쪽 아래 작은 플레이어에서 이어지고, 돌아오면 다시 접속하지 않는다.
-  // 내(판매자) 방송은 떠나면 끊는다. (작은 플레이어를 띄우지 않음)
+  // 내(판매자) 방송은 떠나면 끊는다. (작은 플레이어를 띄우지 않음) 스튜디오로 보낼 때는 시청자로 접속하지 않는다.
   const { video, muted, toggleSound } = useWatchStream(
-    { liveStreamId, title: liveStream?.title, live: isLive, sellerId: liveStream?.sellerId },
+    { liveStreamId, title: liveStream?.title, live: isLive && !openStudio, sellerId: liveStream?.sellerId },
     refetchLiveStream,
   );
   // 선물·입찰·낙찰 효과음은 방송 소리를 켠 시청자에게만 낸다. (소리를 꺼 둔 사람에게 갑자기 소리가 나지 않게)
@@ -99,6 +106,7 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
   if (!liveStream) return <NotFound />;
+  if (openStudio) return <Navigate to="/studio" replace />;
 
   return (
     <div className="flex flex-col gap-4">

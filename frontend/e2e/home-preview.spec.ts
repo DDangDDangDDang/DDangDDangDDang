@@ -47,8 +47,10 @@ test.describe('홈 방송 미리보기', () => {
         endAfter = true;
       }
       await expect(studio.getByText('LIVE 송출 중')).toBeVisible({ timeout: 20_000 });
-      const watchHref = (await studio.getByRole('link', { name: '시청 화면 열기' }).getAttribute('href')) ?? '';
-      expect(watchHref).toMatch(/^\/lives\/\d+$/);
+      // 스튜디오 링크는 판매자가 시청자 화면을 확인하는 표시(?viewer=1)가 붙는다. 카드 주소는 표시 없는 시청 경로다.
+      const studioHref = (await studio.getByRole('link', { name: '시청 화면 열기' }).getAttribute('href')) ?? '';
+      expect(studioHref).toMatch(/^\/lives\/\d+\?viewer=1$/);
+      const watchHref = studioHref.split('?')[0];
       liveStreamId = watchHref.split('/').pop();
       const viewerCount = studio.getByText(/^시청\s*[\d,]+\s*명$/).first();
       await expect(viewerCount).toHaveText(/시청\s*0\s*명/);

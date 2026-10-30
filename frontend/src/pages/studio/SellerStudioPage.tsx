@@ -23,6 +23,7 @@ import { useOverlayLayoutEditing } from './use-overlay-layout-editing';
 import { OverlayLayoutEditor } from './OverlayLayoutEditor';
 import { DonationSoundToggle } from '@/components/donation/DonationSoundToggle';
 import { useStudioDonationSound } from '@/lib/donation-sound';
+import { sellerViewerPath } from '@/lib/seller-watch';
 import { useLiveAuctions } from './use-live-auctions';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
@@ -372,8 +373,8 @@ function StudioHeader({ liveStream, viewerCount, editing, onEdit }: { liveStream
           </span>
         )}
         <span>{time}</span>
-        {isLive && (
-          <Link to={`/lives/${liveStream.id}`} target="_blank" rel="noreferrer" className="text-info-700 underline-offset-2 hover:underline">
+        {isLive && liveStream.id !== undefined && (
+          <Link to={sellerViewerPath(liveStream.id)} target="_blank" rel="noreferrer" className="text-info-700 underline-offset-2 hover:underline">
             시청 화면 열기
           </Link>
         )}
