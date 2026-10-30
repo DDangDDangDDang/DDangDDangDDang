@@ -31,6 +31,7 @@ import { formatDateTime, formatNumber } from "@/lib/format";
 import { HomeHero } from "@/pages/home/HomeHero";
 import { useHoverIntent } from "@/lib/use-hover-intent";
 import { usePrefersReducedMotion } from "@/lib/use-reduced-motion";
+import { THUMBNAIL_INTERVAL_MS } from "@/lib/live-thumbnail";
 
 type Card = Schema<"LiveStreamCard">;
 
@@ -60,6 +61,8 @@ function LiveHome() {
           params: { query: { size: SECTION_SIZE } },
         }),
       ),
+    // 방송 썸네일(판매자 화면 캡처)이 1분마다 바뀌므로 홈을 보고 있으면 같은 간격으로 새로 불러온다.
+    refetchInterval: THUMBNAIL_INTERVAL_MS,
   });
 
   if (query.isPending) {
@@ -273,6 +276,7 @@ function TileLink({
     >
       <LiveThumbnail
         name={seller}
+        imageUrl={card.thumbnailUrl}
         className={cn("rounded-none", big && "h-full")}
       >
         {children}

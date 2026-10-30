@@ -8,6 +8,7 @@ import { ACTIVE_STREAM_KEY, BroadcastContext, START_STREAM_KEY, type ActiveLiveS
 import { useLocalMedia } from './use-local-media';
 import { useRecordedVideo } from './use-recorded-video';
 import { usePublisher } from './use-publisher';
+import { useThumbnailCapture } from './use-thumbnail-capture';
 
 /**
  * 판매자 송출을 앱 전체에 하나만 둔다. (AppLayout)
@@ -60,6 +61,11 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   const recorded = useRecordedVideo(mediaWanted && sourceKind === 'recorded');
   const media = sourceKind === 'recorded' ? recorded : camera;
   const publisher = usePublisher(liveStreamId ?? 0, publishing, { camera: media.camera.track, microphone: media.microphone.track }, reload);
+  // 송출 화면을 1분마다 캡처해 방송 카드 썸네일로 올린다. 화면을 끄면 마지막 썸네일을 그대로 둔다.
+  useThumbnailCapture(
+    publishing && publisher.phase === 'connected' ? liveStreamId : undefined,
+    media.camera.enabled ? media.camera.track?.mediaStreamTrack : undefined,
+  );
 
   // 녹화 영상을 송출하는지 방송 정보(recorded)에 맞춘다. 시청자·구독자에게 "녹화 영상"으로 보이게.
   // 송출을 맡은 탭만 맞춘다. (다른 탭이 서로 덮어쓰지 않게) 새로고침하면 고른 파일은 사라져 카메라로 돌아온다.

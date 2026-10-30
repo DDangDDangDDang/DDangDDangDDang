@@ -1,12 +1,12 @@
 # 사용자가 올리는 파일(프로필 사진) 저장소. 앱이 APP_STORAGE_TYPE=s3로 이 버킷을 쓴다. (StorageProperties)
 # - 브라우저가 앱이 만든 미리 서명된 주소로 버킷에 직접 올린다(PUT). 그래서 사이트 주소에서 오는 PUT을 CORS로 허용한다.
 # - 화면은 버킷 주소(https://{bucket}.s3.{region}.amazonaws.com/{key})로 사진을 바로 보여 준다.
-#   그래서 profile-images/(프로필 사진)·overlay-images/(방송 화면 이미지 박스) 아래만 누구나 읽을 수 있게 열고, 목록 보기·쓰기는 막아 둔다.
+#   그래서 profile-images/(프로필 사진)·overlay-images/(방송 화면 이미지 박스)·live-thumbnails/(방송 카드 썸네일) 아래만 누구나 읽을 수 있게 열고, 목록 보기·쓰기는 막아 둔다.
 # - 운영과 dev는 버킷을 나눈다. dev 서버는 dev 버킷만, 운영 서버(EC2·ECS)는 운영 버킷만 쓸 수 있다.
 
 locals {
   # 공개로 읽을 수 있는 키 앞부분. 앱의 UserService.profileImagePrefix(프로필 사진), OverlayBoxResolver.imagePrefix(방송 화면 이미지 박스)와 같아야 한다.
-  public_upload_prefixes = ["profile-images/", "overlay-images/"]
+  public_upload_prefixes = ["profile-images/", "overlay-images/", "live-thumbnails/"]
 
   ec2_origin = local.ec2_https ? "https://${var.domain_name}" : "http://${local.ec2_public_ip}"
 

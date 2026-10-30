@@ -5,6 +5,7 @@ import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -23,6 +24,11 @@ public interface LiveStreamRepository extends JpaRepository<LiveStream, Long> {
     Optional<LiveStream> findByActiveSellerId(Long sellerId);
 
     boolean existsByActiveSellerId(Long sellerId);
+
+    // 방송 썸네일만 바꾼다. 판매자가 1분마다 올리므로 버전을 올리지 않아, 같은 때 방송 정보를 고쳐도 충돌하지 않는다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update LiveStream s set s.thumbnailKey = :thumbnailKey where s.id = :id")
+    int updateThumbnailKey(@Param("id") Long id, @Param("thumbnailKey") String thumbnailKey);
 
     // 시청자 수 집계 대상 (진행 중인 방송 전체)
     List<LiveStream> findAllByStatus(LiveStreamStatus status);
