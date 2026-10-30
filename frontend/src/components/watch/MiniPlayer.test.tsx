@@ -17,18 +17,25 @@ vi.mock('@/pages/live/use-live-video', () => ({
   },
 }));
 vi.mock('@/components/broadcast/broadcast-context', () => ({ useBroadcast: () => ({ publishing: false }) }));
+// 로그인한 사용자. 판매자(1번)로 로그인하면 9번 방송이 내 방송이다.
+const auth = vi.hoisted(() => ({ userId: 1 as number | undefined }));
+vi.mock('@/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api')>()),
+  useSession: () => (auth.userId === undefined ? null : { accessToken: 't', user: { userId: auth.userId } }),
+}));
 
-function WatchPage({ id, live, mine }: { id: number; live: boolean; mine?: boolean }) {
-  useWatchStream({ liveStreamId: id, title: `방송 ${id}`, live, mine }, () => undefined);
+function WatchPage({ id, live, sellerId }: { id: number; live: boolean; sellerId?: number }) {
+  useWatchStream({ liveStreamId: id, title: `방송 ${id}`, live, sellerId }, () => undefined);
   return <p>시청 화면 {id}</p>;
 }
 
 /** 시청 화면을 열고 닫는 버튼 (화면 이동 대신) */
 function Harness() {
-  const [page, setPage] = useState<{ id: number; live: boolean; mine?: boolean } | null>({ id: 7, live: true });
+  const [page, setPage] = useState<{ id: number; live: boolean; sellerId?: number } | null>({ id: 7, live: true });
+  const [, setLogins] = useState(0);
   return (
     <WatchProvider>
-      {page && <WatchPage id={page.id} live={page.live} mine={page.mine} />}
+      {page && <WatchPage id={page.id} live={page.live} sellerId={page.sellerId} />}
       <button type="button" onClick={() => setPage(null)}>
         다른 화면으로
       </button>
@@ -38,8 +45,17 @@ function Harness() {
       <button type="button" onClick={() => setPage({ id: 8, live: false })}>
         8번 예정 방송으로
       </button>
-      <button type="button" onClick={() => setPage({ id: 9, live: true, mine: true })}>
+      <button type="button" onClick={() => setPage({ id: 9, live: true, sellerId: 1 })}>
         내 9번 방송으로
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          auth.userId = 1;
+          setLogins((count) => count + 1);
+        }}
+      >
+        판매자로 로그인
       </button>
       <MiniPlayer />
     </WatchProvider>
@@ -52,6 +68,7 @@ describe('시청자 작은 플레이어', () => {
   beforeEach(() => {
     video.calls = [];
     video.roomClosed = undefined;
+    auth.userId = 1;
   });
 
   it('방송 중에 시청 화면을 떠나면 작은 플레이어에서 이어 보고, 돌아오면 다시 접속하지 않고 작은 플레이어를 숨긴다', async () => {
@@ -119,5 +136,21 @@ describe('시청자 작은 플레이어', () => {
     await userEvent.click(screen.getByRole('button', { name: '7번 방송으로' }));
     await userEvent.click(screen.getByRole('button', { name: '다른 화면으로' }));
     expect(screen.getByRole('complementary', { name: '보던 방송' })).toHaveTextContent('방송 7');
+  });
+
+  it('손님으로 보다가 작은 플레이어가 뜬 뒤 그 방송의 판매자로 로그인하면 작은 플레이어를 닫고 연결을 끊는다', async () => {
+    auth.userId = undefined;
+    render(
+      <MemoryRouter>
+        <Harness />
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: '내 9번 방송으로' }));
+    await userEvent.click(screen.getByRole('button', { name: '다른 화면으로' }));
+    expect(screen.getByRole('complementary', { name: '보던 방송' })).toHaveTextContent('방송 9');
+
+    await userEvent.click(screen.getByRole('button', { name: '판매자로 로그인' }));
+    expect(screen.queryByRole('complementary', { name: '보던 방송' })).not.toBeInTheDocument();
+    expect(video.calls.at(-1)).toMatchObject({ enabled: false });
   });
 });

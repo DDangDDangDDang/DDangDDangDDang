@@ -113,6 +113,17 @@ test.describe('방송 시청', () => {
     await page.getByRole('button', { name: '채팅 전송' }).click();
     await expect(page.getByRole('list', { name: '채팅 메시지' }).getByText(content)).toBeVisible();
     await expect(chatInput).toHaveValue('');
+  });
+
+  test('다른 판매자의 방송을 보다가 다른 화면으로 가면 작은 플레이어에서 이어 본다', async ({ page }) => {
+    // 판매자 계정이 따로 없으면 시청자 계정의 방송이라 작은 플레이어가 뜨지 않는다. (아래 판매자 테스트)
+    test.skip(seller.email === viewer.email, 'E2E_SELLER_EMAIL, E2E_SELLER_PASSWORD 환경변수가 필요합니다.');
+    if (!prepared) throw new Error('방송이 준비되지 않았습니다.');
+    const { stream } = prepared;
+
+    await loginOnPage(page, viewer);
+    await page.goto(`/lives/${stream.id}`);
+    await expect(page.getByRole('heading', { level: 1, name: stream.title })).toBeVisible();
 
     // 시청 중에 다른 화면(헤더 [경매])으로 가면 이 탭에서 옮겨 가고, 방송은 오른쪽 아래 작은 플레이어에서 이어진다.
     await page.getByRole('navigation', { name: '내 메뉴' }).getByRole('link', { name: '경매', exact: true }).click();

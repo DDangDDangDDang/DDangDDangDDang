@@ -6,8 +6,8 @@ export type WatchSession = {
   liveStreamId: number;
   title?: string;
   live: boolean;
-  /** 로그인한 사용자가 이 방송의 판매자인지. 내 방송은 화면을 떠나면 끊고 작은 플레이어를 띄우지 않는다. */
-  mine?: boolean;
+  /** 방송의 판매자. 로그인한 사용자의 방송이면 화면을 떠날 때 끊고 작은 플레이어를 띄우지 않는다. */
+  sellerId?: number;
 };
 
 /**
@@ -18,6 +18,8 @@ export type Watch = {
   session?: WatchSession;
   /** 이 방송의 시청 화면이 열려 있는지 (열려 있으면 작은 플레이어를 숨긴다) */
   pageOpen: boolean;
+  /** 로그인한 사용자가 이 방송의 판매자인지. (내 방송은 작은 플레이어로 이어 보지 않는다) */
+  mine: boolean;
   video: ReturnType<typeof useLiveVideo>;
   /** 방송 소리를 꺼 두었는지. 브라우저는 사용자가 누르기 전에는 소리를 막으므로 음소거로 시작한다. */
   muted: boolean;
@@ -50,7 +52,7 @@ export function useWatchStream(session: WatchSession, onRoomClosed: () => void) 
   useEffect(() => {
     onRoomClosedRef.current = onRoomClosed;
   });
-  const { liveStreamId, title, live, mine } = session;
+  const { liveStreamId, title, live, sellerId } = session;
 
   useEffect(() => {
     open({ liveStreamId, live: false }, () => onRoomClosedRef.current());
@@ -58,8 +60,8 @@ export function useWatchStream(session: WatchSession, onRoomClosed: () => void) 
   }, [liveStreamId, open, leave]);
 
   useEffect(() => {
-    update({ liveStreamId, title, live, mine });
-  }, [liveStreamId, title, live, mine, update]);
+    update({ liveStreamId, title, live, sellerId });
+  }, [liveStreamId, title, live, sellerId, update]);
 
   return watch;
 }
