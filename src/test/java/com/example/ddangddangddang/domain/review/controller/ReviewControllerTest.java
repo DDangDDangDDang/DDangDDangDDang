@@ -227,6 +227,34 @@ class ReviewControllerTest {
                 .andExpect(jsonPath("$.data.trust.reviewCount").value(3));
     }
 
+    @Test
+    @DisplayName("주문 화면에서 내가 쓴 리뷰를 다시 찾을 수 있고, 안 썼으면 REVIEW_001, 남의 주문이면 REVIEW_006")
+    void myOrderReview() throws Exception {
+        Member buyer = signupAndLogin();
+        Member seller = signupAndLogin();
+        Member other = signupAndLogin();
+        Long orderId = completedOrder(buyer, seller, "루기아 V");
+
+        mockMvc.perform(get("/api/v1/reviews/orders/{orderId}", orderId).header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("REVIEW_001"));
+
+        Long reviewId = longValue(writeReview(buyer, orderId, 4, "좋아요"), "$.data.reviewId");
+
+        mockMvc.perform(get("/api/v1/reviews/orders/{orderId}", orderId).header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.reviewId").value(reviewId))
+                .andExpect(jsonPath("$.data.rating").value(4))
+                .andExpect(jsonPath("$.data.createdAt").exists());
+
+        mockMvc.perform(get("/api/v1/reviews/orders/{orderId}", orderId).header(HttpHeaders.AUTHORIZATION, other.bearer()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("REVIEW_006"));
+
+        mockMvc.perform(get("/api/v1/reviews/orders/{orderId}", orderId))
+                .andExpect(status().isUnauthorized());
+    }
+
     private MockHttpServletRequestBuilder sellerReviews(Long sellerId) {
         return get("/api/v1/reviews").param("sellerId", String.valueOf(sellerId));
     }

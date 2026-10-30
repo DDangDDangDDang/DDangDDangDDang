@@ -66,5 +66,12 @@ public class ReviewController {
         return ResponseEntity.noContent().build();
     }
 
+    // 내 주무의 리뷰 조회(주문 화면에서 수정,삭제할 리뷰 찾기)
+    @GetMapping("/orders/{orderId}")
+    ResponseEntity<ApiResponse<ReviewResponse>> getMyOrderReview(@AuthenticationPrincipal AuthUser authUser,
+                                                                 @PathVariable Long orderId){
+        return ResponseEntity.ok(ApiResponse.ok(reviewService.getMyOrderReview(authUser.id(),orderId)));
+    }
+
 
 }
