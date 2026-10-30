@@ -84,7 +84,23 @@ test.describe('방송 시청', () => {
     }
   });
 
+  test('방송 중인 판매자가 시청자 경로로 자기 방송에 들어가면 스튜디오로 가고, 스튜디오의 [시청 화면 열기]로는 시청자 화면을 본다', async ({ page }) => {
+    if (!prepared) throw new Error('방송이 준비되지 않았습니다.');
+    const { stream } = prepared;
+
+    await loginOnPage(page, seller);
+    await page.goto(`/lives/${stream.id}`);
+    await expect(page).toHaveURL(/\/studio$/);
+    await expect(page.getByRole('link', { name: '시청 화면 열기' })).toBeVisible();
+
+    await page.goto(`/lives/${stream.id}?viewer=1`);
+    await expect(page.getByRole('heading', { level: 1, name: stream.title })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/lives/${stream.id}\\?viewer=1$`));
+  });
+
   test('로그인하고 홈에서 방송을 찾아 들어가 채팅을 보낸다', async ({ page }) => {
+    // 판매자 계정이 따로 없으면 시청자 계정의 방송이라 시청 화면 대신 스튜디오로 간다. (위 테스트)
+    test.skip(seller.email === viewer.email, 'E2E_SELLER_EMAIL, E2E_SELLER_PASSWORD 환경변수가 필요합니다.');
     if (!prepared) throw new Error('방송이 준비되지 않았습니다.');
     const { stream } = prepared;
 
@@ -267,8 +283,10 @@ test.describe('판매자 송출', () => {
         endAfter = true;
       }
       await expect(studio.getByText('LIVE 송출 중')).toBeVisible({ timeout: 20_000 });
-      const watchHref = await studio.getByRole('link', { name: '시청 화면 열기' }).getAttribute('href');
-      expect(watchHref).toMatch(/^\/lives\/\d+$/);
+      // 스튜디오 링크는 판매자가 시청자 화면을 확인하는 표시(?viewer=1)가 붙는다. 시청자는 표시 없는 시청 경로로 들어온다.
+      const studioHref = await studio.getByRole('link', { name: '시청 화면 열기' }).getAttribute('href');
+      expect(studioHref).toMatch(/^\/lives\/\d+\?viewer=1$/);
+      const watchHref = studioHref?.split('?')[0];
 
       // 시청자: 같은 방송에서 판매자 영상이 재생된다.
       if (waitedBeforeStart) {
