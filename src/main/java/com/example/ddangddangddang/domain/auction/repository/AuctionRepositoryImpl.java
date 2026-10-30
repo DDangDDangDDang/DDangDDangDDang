@@ -46,7 +46,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         List<AuctionListResponse> content =queryFactory
                 .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,
                         auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,
-                        onLive(liveStream), promoted(boost)))
+                        onLive(liveStream), promoted(boost), product.thumbnailKey))
                 .from(auction)
                 .join(auction.product,product)
                 .join(product.category,category)
@@ -94,7 +94,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         QAuctionBoost boost = QAuctionBoost.auctionBoost;
 
         return queryFactory
-                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,onLive(liveStream),promoted(boost))).
+                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,onLive(liveStream),promoted(boost),product.thumbnailKey)).
                 from(auction)
                 .join(auction.product, product)
                 .join(product.category,category)

@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.livestream.service;
 
+import com.example.ddangddangddang.global.storage.FileStorage;
 import com.example.ddangddangddang.domain.donation.service.PowerSellers;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCard;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamHomeResponse;
@@ -55,11 +56,14 @@ class LiveStreamHomeServiceTest {
     @Mock
     private PowerSellers powerSellers;
 
+    @Mock
+    private FileStorage fileStorage;
+
     // 카드 만들기(닉네임·시청자 수 붙이기)는 실제 객체로 두고, 그 안의 저장소만 가짜로 둔다.
     @BeforeEach
     void setUp() {
         homeService = new LiveStreamHomeService(liveStreamRepository, statsRepository,
-                new LiveStreamCardAssembler(statsRepository, userRepository, powerSellers));
+                new LiveStreamCardAssembler(statsRepository, userRepository, powerSellers, fileStorage));
     }
 
     @Test

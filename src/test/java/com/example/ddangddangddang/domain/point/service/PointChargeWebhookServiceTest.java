@@ -9,10 +9,10 @@ import com.example.ddangddangddang.domain.point.infra.PaymentStatus;
 import com.example.ddangddangddang.domain.point.repository.PointChargeRepository;
 import com.example.ddangddangddang.domain.point.repository.PointHistoryRepository;
 import com.example.ddangddangddang.domain.point.repository.PointWalletRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -36,7 +36,6 @@ class PointChargeWebhookServiceTest {
     private static final String PAYMENT_ID = "point-charge-test";
     private static final long AMOUNT = 10_000L;
 
-    @InjectMocks
     private PointChargeService pointChargeService;
 
     @Mock
@@ -51,12 +50,19 @@ class PointChargeWebhookServiceTest {
     @Mock
     private PaymentGateway paymentGateway;
 
+    @BeforeEach
+    void setUp() {
+        PointChargeProcessor processor =
+                new PointChargeProcessor(pointChargeRepository, pointWalletRepository, pointHistoryRepository);
+        pointChargeService = new PointChargeService(pointChargeRepository, paymentGateway, null, processor);
+    }
+
     @Test
     @DisplayName("결제 완료 웹훅이면 본인 확인 없이 포트원 재조회 후 포인트를 지급한다")
     void paid() {
         PointCharge charge = pendingCharge();
         PointWallet wallet = wallet();
-        given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+        givenCharge(charge);
         given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.PAID, AMOUNT));
         given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
 
@@ -71,7 +77,7 @@ class PointChargeWebhookServiceTest {
     @Test
     @DisplayName("우리 충전 요청이 아닌 결제면 포트원을 조회하지 않고 무시한다")
     void unknownPayment() {
-        given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.empty());
+        given(pointChargeRepository.findByPaymentId(PAYMENT_ID)).willReturn(Optional.empty());
 
         boolean handled = pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
 
@@ -84,7 +90,7 @@ class PointChargeWebhookServiceTest {
     void alreadyCompleted() {
         PointCharge charge = pendingCharge();
         charge.complete();
-        given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+        given(pointChargeRepository.findByPaymentId(PAYMENT_ID)).willReturn(Optional.of(charge));
 
         boolean handled = pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
 
@@ -97,7 +103,7 @@ class PointChargeWebhookServiceTest {
     @DisplayName("웹훅 본문과 관계없이 포트원 조회 결과가 실패면 FAILED로 처리한다")
     void failedByPortOne() {
         PointCharge charge = pendingCharge();
-        given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+        givenCharge(charge);
         given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.FAILED, AMOUNT));
 
         pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
@@ -110,12 +116,18 @@ class PointChargeWebhookServiceTest {
     @DisplayName("결제창만 열린 상태(READY) 웹훅이면 PENDING을 유지한다")
     void ready() {
         PointCharge charge = pendingCharge();
-        given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+        givenCharge(charge);
         given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.READY, AMOUNT));
 
         pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
 
         assertThat(charge.isPending()).isTrue();
+    }
+
+    // 처음엔 락 없이 읽고, 결과를 반영할 때(PointChargeProcessor) 락을 걸고 다시 읽는다
+    private void givenCharge(PointCharge charge) {
+        given(pointChargeRepository.findByPaymentId(PAYMENT_ID)).willReturn(Optional.of(charge));
+        given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
     }
 
     private PointCharge pendingCharge() {

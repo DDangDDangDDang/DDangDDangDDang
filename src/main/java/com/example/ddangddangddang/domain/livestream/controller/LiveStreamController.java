@@ -10,10 +10,14 @@ import com.example.ddangddangddang.domain.livestream.dto.LiveStreamUpdateRequest
 import com.example.ddangddangddang.domain.livestream.dto.OverlayImageUploadRequest;
 import com.example.ddangddangddang.domain.livestream.dto.OverlayImageUploadResponse;
 import com.example.ddangddangddang.domain.livestream.dto.OverlayLayoutRequest;
+import com.example.ddangddangddang.domain.livestream.dto.ThumbnailChangeRequest;
+import com.example.ddangddangddang.domain.livestream.dto.ThumbnailUploadRequest;
+import com.example.ddangddangddang.domain.livestream.dto.ThumbnailUploadResponse;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamHomeService;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamListService;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
+import com.example.ddangddangddang.domain.livestream.service.LiveStreamThumbnailService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
@@ -32,6 +36,7 @@ public class LiveStreamController {
     private final LiveStreamService liveStreamService;
     private final LiveStreamHomeService liveStreamHomeService;
     private final LiveStreamListService liveStreamListService;
+    private final LiveStreamThumbnailService thumbnailService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -122,6 +127,31 @@ public class LiveStreamController {
             @PathVariable Long liveStreamId,
             @Valid @RequestBody OverlayImageUploadRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(liveStreamService.createOverlayImageUpload(liveStreamId, authUser.id(), request)));
+    }
+
+    /**
+     * 방송 카드 썸네일(송출 화면 캡처)의 업로드 URL을 받는다. 올린 뒤 PUT /{liveStreamId}/thumbnail로 바꾼다.
+     * 1MB 이하 JPG. 방송 주인만, 방송 중에만 받을 수 있다.
+     */
+    @PostMapping("/{liveStreamId}/thumbnail-uploads")
+    public ResponseEntity<ApiResponse<ThumbnailUploadResponse>> createThumbnailUpload(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @Valid @RequestBody ThumbnailUploadRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(thumbnailService.createUpload(liveStreamId, authUser.id(), request)));
+    }
+
+    /**
+     * 올린 썸네일을 방송 카드 썸네일로 바꾼다. 앞의 썸네일은 지운다. (방송 중에만)
+     */
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PutMapping("/{liveStreamId}/thumbnail")
+    public ResponseEntity<Void> changeThumbnail(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @Valid @RequestBody ThumbnailChangeRequest request) {
+        thumbnailService.change(liveStreamId, authUser.id(), request.thumbnailKey());
+        return ResponseEntity.noContent().build();
     }
 
     /**

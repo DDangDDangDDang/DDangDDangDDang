@@ -227,24 +227,37 @@
     }
   }
   /*
-   * 홈 배너 망치(HomeHero): 옆으로 들어 올린 망치가 바닥을 내리치고, 닿은 자리에서 번개·금·충격파가 터진다.
-   * 모두 2.6초 한 바퀴로 맞춰 70% 지점에서 망치가 바닥에 닿는다.
+   * 홈 배너 망치(HomeHero): 옆으로 들어 올린 망치가 바닥을 빠르게 세 번(땅·땅·땅) 내리친다.
+   * 모두 3.2초 한 바퀴로 맞춰 35%·49%·63% 지점에서 망치가 바닥에 닿는다. 닿을 때마다 "땅" 글자가 하나씩 생겨
+   * 세 번째에 "땅땅땅"이 완성되고, 그때 번개·바닥 금이 터진다. 충격파는 닿을 때마다 퍼진다.
    */
-  --animate-hammer-swing: hammer-swing 2.6s cubic-bezier(0.55, 0, 0.35, 1) infinite;
+  --animate-hammer-swing: hammer-swing 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
   @keyframes hammer-swing {
     0% {
       transform: rotate(62deg);
     }
-    50% {
+    25% {
       transform: rotate(72deg);
     }
-    70% {
+    35% {
       transform: rotate(0deg);
     }
-    74% {
+    42% {
+      transform: rotate(26deg);
+    }
+    49% {
+      transform: rotate(0deg);
+    }
+    56% {
+      transform: rotate(26deg);
+    }
+    63% {
+      transform: rotate(0deg);
+    }
+    66% {
       transform: rotate(5deg);
     }
-    78%,
+    69%,
     86% {
       transform: rotate(0deg);
     }
@@ -253,41 +266,46 @@
       transform: rotate(62deg);
     }
   }
-  --animate-hammer-bolt: hammer-bolt 2.6s linear infinite;
+  /* 번개: 세 번째로 닿을 때 터진다 */
+  --animate-hammer-bolt: hammer-bolt 3.2s linear infinite;
   @keyframes hammer-bolt {
     0%,
-    70% {
+    63% {
       opacity: 0;
     }
-    71% {
+    64% {
       opacity: 1;
     }
-    74% {
+    67% {
       opacity: 0.2;
     }
-    76% {
+    69% {
       opacity: 1;
     }
-    86% {
+    80% {
       opacity: 0.8;
     }
-    92%,
+    88%,
     100% {
       opacity: 0;
     }
   }
-  /* 바닥 금이 닿은 자리에서 양옆으로 그어진다 (선 길이 160 기준) */
-  --animate-hammer-crack: hammer-crack 2.6s ease-out infinite;
+  /* 바닥 금이 세 번째로 닿은 자리에서 양옆으로 그어진다 (선 길이 160 기준) */
+  --animate-hammer-crack: hammer-crack 3.2s ease-out infinite;
   @keyframes hammer-crack {
     0%,
-    69% {
+    62% {
       opacity: 0;
       stroke-dashoffset: 160;
     }
-    71% {
+    64% {
       opacity: 1;
     }
-    82% {
+    75% {
+      opacity: 1;
+      stroke-dashoffset: 0;
+    }
+    92% {
       opacity: 1;
       stroke-dashoffset: 0;
     }
@@ -296,40 +314,107 @@
       stroke-dashoffset: 0;
     }
   }
-  --animate-hammer-wave: hammer-wave 2.6s ease-out infinite;
+  /* 충격파: 닿을 때마다 퍼지고, 세 번째가 가장 크다 */
+  --animate-hammer-wave: hammer-wave 3.2s ease-out infinite;
   @keyframes hammer-wave {
     0%,
-    69% {
+    34.9% {
       opacity: 0;
       transform: scale(0.2);
     }
-    71% {
-      opacity: 0.9;
+    35% {
+      opacity: 0.8;
+      transform: scale(0.3);
     }
-    95%,
+    45%,
+    48.9% {
+      opacity: 0;
+      transform: scale(1.1);
+    }
+    49% {
+      opacity: 0.8;
+      transform: scale(0.3);
+    }
+    59%,
+    62.9% {
+      opacity: 0;
+      transform: scale(1.2);
+    }
+    63% {
+      opacity: 1;
+      transform: scale(0.3);
+    }
+    82%,
     100% {
       opacity: 0;
-      transform: scale(1.6);
+      transform: scale(1.7);
     }
   }
-  /* "땅!" 글자가 튀어나왔다 사라진다 */
-  --animate-hammer-ding: hammer-ding 2.6s ease-out infinite;
-  @keyframes hammer-ding {
+  /* "땅" 글자 세 개: 망치가 닿을 때마다 하나씩 튀어나오고, 셋이 함께 있다가 다음 바퀴 전에 사라진다 */
+  --animate-hammer-ding-1: hammer-ding-1 3.2s ease-out infinite;
+  @keyframes hammer-ding-1 {
     0%,
-    70% {
+    34.9% {
       opacity: 0;
       transform: scale(0.6);
     }
-    74% {
+    38% {
       opacity: 1;
-      transform: scale(1.08);
+      transform: scale(1.15);
     }
-    90% {
+    42%,
+    88% {
       opacity: 1;
       transform: scale(1);
     }
+    96%,
     100% {
       opacity: 0;
+      transform: scale(1);
+    }
+  }
+  --animate-hammer-ding-2: hammer-ding-2 3.2s ease-out infinite;
+  @keyframes hammer-ding-2 {
+    0%,
+    48.9% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    52% {
+      opacity: 1;
+      transform: scale(1.15);
+    }
+    56%,
+    88% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    96%,
+    100% {
+      opacity: 0;
+      transform: scale(1);
+    }
+  }
+  --animate-hammer-ding-3: hammer-ding-3 3.2s ease-out infinite;
+  @keyframes hammer-ding-3 {
+    0%,
+    62.9% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    66% {
+      opacity: 1;
+      transform: scale(1.3);
+    }
+    71%,
+    88% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    96%,
+    100% {
+      opacity: 0;
+      transform: scale(1);
     }
   }
   @keyframes donation-pop {

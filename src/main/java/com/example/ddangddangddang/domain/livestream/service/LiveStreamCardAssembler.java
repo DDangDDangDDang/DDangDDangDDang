@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.repository.LiveViewerStatsRepository;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
+import com.example.ddangddangddang.global.storage.FileStorage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -29,6 +30,7 @@ public class LiveStreamCardAssembler {
     private final UserRepository userRepository;
     // 카드에 파워 판매자 배지를 붙이려고 도네이션 도메인을 읽기만 한다.
     private final PowerSellers powerSellers;
+    private final FileStorage fileStorage;
 
     public List<LiveStreamCard> toCards(List<LiveStream> streams) {
         if (streams.isEmpty()) {
@@ -60,7 +62,8 @@ public class LiveStreamCardAssembler {
                 .map(stream -> new LiveStreamCard(stream.getId(), stream.getTitle(), stream.getHashtagList(), stream.getStatus(), stream.getSellerId(),
                         nicknames.get(stream.getSellerId()), stream.getScheduledStartAt(), stream.getStartedAt(),
                         stream.getEndedAt(), viewerCounts.getOrDefault(stream.getId(), 0),
-                        viewerIncreases.getOrDefault(stream.getId(), 0), stream.isRecorded(), power.contains(stream.getSellerId())))
+                        viewerIncreases.getOrDefault(stream.getId(), 0), stream.isRecorded(), power.contains(stream.getSellerId()),
+                        stream.getThumbnailKey() == null ? null : fileStorage.publicUrl(stream.getThumbnailKey())))
                 .toList();
     }
 }

@@ -111,6 +111,12 @@ public class LiveStream extends BaseTimeEntity {
     @Column(name = "active_seller_id")
     private Long activeSellerId;
 
+    // 방송 카드 썸네일: 송출 중인 판매자 화면을 주기적으로 캡처한 이미지의 저장소 키 (live-thumbnails/{방송 ID}/...)
+    // 화면 주소는 FileStorage.publicUrl로 만든다. 아직 캡처하지 않았으면 null (카드에 판매자 이름 첫 글자를 보여 준다)
+    // 자주 바뀌므로 엔티티 변경 대신 LiveStreamRepository.updateThumbnailKey로 고친다. (낙관적 락 버전을 올리지 않는다)
+    @Column(name = "thumbnail_key")
+    private String thumbnailKey;
+
     // 시작 버튼 연타, 여러 서버에서 동시에 상태를 바꾸는 경우 한 건만 성공시키기 위한 낙관적 락
     @Version
     private Long version;

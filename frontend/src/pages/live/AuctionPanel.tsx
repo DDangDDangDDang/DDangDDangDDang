@@ -1,6 +1,7 @@
 import { Gavel } from 'lucide-react';
 import { errorMessage } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
+import { ProductImage } from '@/components/order/OrderBits';
 import { Button, Card, CardBody, CardHeader, CardTitle, ErrorState, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { cn } from '@/lib/cn';
@@ -54,15 +55,18 @@ export function AuctionPanel({ liveStreamId, onOpen }: { liveStreamId: number; o
                   key={auction.id}
                   className={cn('flex flex-col gap-2 rounded-md px-3 py-3', phase === 'ONGOING' ? 'border border-brand-200 bg-brand-50' : 'bg-neutral-25')}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <AuctionPhaseBadge phase={phase} />
+                  <div className="flex items-center gap-3">
+                    <ProductImage src={auction.thumbnailUrl} alt={auction.productName || '상품'} className="size-14" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <AuctionPhaseBadge phase={phase} />
+                        {/* 상품명이 길어도 남은 시간은 한 줄로 */}
+                        <span className="shrink-0 whitespace-nowrap">
+                          <AuctionTime status={auction.status} startAt={auction.startAt} endAt={auction.endAt} />
+                        </span>
+                      </div>
                       <strong className="truncate text-body font-semibold">{auction.productName || '이름 없는 상품'}</strong>
-                    </span>
-                    {/* 상품명이 길어도 남은 시간은 한 줄로 */}
-                    <span className="shrink-0 whitespace-nowrap">
-                      <AuctionTime status={auction.status} startAt={auction.startAt} endAt={auction.endAt} />
-                    </span>
+                    </div>
                   </div>
                   <div className="flex items-end justify-between gap-2">
                     <div className="flex flex-col">

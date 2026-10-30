@@ -30,7 +30,9 @@ public enum LiveStreamErrorCode implements ErrorCode {
     OVERLAY_TEXT_REQUIRED(HttpStatus.BAD_REQUEST, "LIVESTREAM_019", "텍스트 박스에 넣을 글자를 입력해 주세요."),
     OVERLAY_IMAGE_NOT_UPLOADED(HttpStatus.BAD_REQUEST, "LIVESTREAM_020", "이미지가 올라가지 않았습니다. 이미지를 다시 올려 주세요."),
     UNSUPPORTED_OVERLAY_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "LIVESTREAM_021", "이미지는 JPG, PNG, WEBP, GIF 파일만 올릴 수 있습니다."),
-    OVERLAY_IMAGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "LIVESTREAM_022", "이미지는 5MB까지 올릴 수 있습니다.");
+    OVERLAY_IMAGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "LIVESTREAM_022", "이미지는 5MB까지 올릴 수 있습니다."),
+    THUMBNAIL_NOT_UPLOADED(HttpStatus.BAD_REQUEST, "LIVESTREAM_023", "썸네일이 올라가지 않았습니다. 다시 올려 주세요."),
+    INVALID_THUMBNAIL(HttpStatus.BAD_REQUEST, "LIVESTREAM_024", "썸네일은 1MB 이하의 JPG 이미지만 올릴 수 있습니다.");
 
     private final HttpStatus status;
     private final String code;

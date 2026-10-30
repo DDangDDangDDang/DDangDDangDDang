@@ -5,6 +5,7 @@ import com.example.ddangddangddang.domain.auth.dto.LoginResult;
 import com.example.ddangddangddang.domain.auth.dto.SignupRequest;
 import com.example.ddangddangddang.domain.auth.dto.SignupResponse;
 import com.example.ddangddangddang.domain.auth.exception.AuthErrorCode;
+import com.example.ddangddangddang.domain.auth.repository.LoginAttemptRepository;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository.RotateResult;
 import com.example.ddangddangddang.domain.user.entity.User;
@@ -72,6 +73,9 @@ class AuthServiceTest {
 
     @Mock
     private VerificationService verificationService;
+
+    @Mock
+    private LoginAttemptRepository loginAttemptRepository;
 
     @Nested
     @DisplayName("회원가입")
@@ -182,10 +186,11 @@ class AuthServiceTest {
             assertThat(result.response().user().userId()).isEqualTo(1L);
             assertThat(result.refreshToken()).isEqualTo("refresh-token");
             verify(refreshTokenRepository).save(1L, "refresh-token", Duration.ofDays(14));
+            verify(loginAttemptRepository).clearFailures(request.email());
         }
 
         @Test
-        @DisplayName("이메일이 없으면 LOGIN_FAILED 예외가 발생한다")
+        @DisplayName("이메일이 없으면 LOGIN_FAILED 예외가 발생하고 실패 횟수를 센다 (있는 이메일과 똑같이)")
         void emailNotFound() {
             given(userRepository.findByEmail(request.email())).willReturn(Optional.empty());
 
@@ -193,6 +198,37 @@ class AuthServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(AuthErrorCode.LOGIN_FAILED);
+            verify(loginAttemptRepository).increaseFailureCount(request.email(), AuthService.LOGIN_FAILURE_WINDOW);
+        }
+
+        @Test
+        @DisplayName("실패가 5번 쌓인 이메일의 6번째 시도는 비밀번호를 비교하지 않고 AUTH_010으로 막는다")
+        void tooManyFailures() {
+            given(loginAttemptRepository.increaseFailureCount(request.email(), AuthService.LOGIN_FAILURE_WINDOW))
+                    .willReturn((long) AuthService.MAX_LOGIN_FAILURES + 1);
+
+            assertThatThrownBy(() -> authService.login(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(AuthErrorCode.TOO_MANY_LOGIN_FAILURES);
+            verify(userRepository, never()).findByEmail(anyString());
+            verify(passwordEncoder, never()).matches(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("실패가 4번이면 5번째 시도는 아직 비밀번호를 비교한다")
+        void belowFailureLimit() {
+            User user = createUser(1L);
+            given(loginAttemptRepository.increaseFailureCount(request.email(), AuthService.LOGIN_FAILURE_WINDOW))
+                    .willReturn((long) AuthService.MAX_LOGIN_FAILURES);
+            given(userRepository.findByEmail(request.email())).willReturn(Optional.of(user));
+            given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(true);
+            given(jwtProvider.createAccessToken(user)).willReturn("access-token");
+            given(jwtProvider.createRefreshToken(1L)).willReturn("refresh-token");
+            given(jwtProvider.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
+            given(jwtProvider.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
+
+            assertThat(authService.login(request).response().accessToken()).isEqualTo("access-token");
         }
 
         @Test
@@ -207,6 +243,8 @@ class AuthServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(AuthErrorCode.LOGIN_FAILED);
             verify(refreshTokenRepository, never()).save(anyLong(), anyString(), any());
+            verify(loginAttemptRepository).increaseFailureCount(request.email(), AuthService.LOGIN_FAILURE_WINDOW);
+            verify(loginAttemptRepository, never()).clearFailures(anyString());
         }
 
         @Test

@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.livestream.controller;
 
+import com.example.ddangddangddang.domain.auth.repository.LoginAttemptRepository;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamCreateRequest;
@@ -71,6 +72,10 @@ class LiveStreamControllerTest {
 
     @MockitoBean
     private RefreshTokenRepository refreshTokenRepository;
+
+    // 로그인 시도 횟수(Redis). 기본값 0이라 제한에 걸리지 않는다.
+    @MockitoBean
+    private LoginAttemptRepository loginAttemptRepository;
 
     @MockitoBean
     private TokenBlacklistRepository tokenBlacklistRepository;

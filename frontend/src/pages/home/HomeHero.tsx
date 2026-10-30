@@ -4,8 +4,16 @@ import { cn } from '@/lib/cn';
 /** 겹쳐 그리는 번개·금·충격파가 망치와 함께 같은 기준(그림 전체)으로 움직이게 한다 */
 const VIEW_BOX = '[transform-box:view-box]';
 
+/** "땅" 글자 세 개: 왼쪽 아래에서 오른쪽 위로 조금씩 올라가며 놓는다. 마지막 글자에만 느낌표 */
+const DINGS = [
+  { x: 20, y: 130, text: '땅', animation: 'animate-hammer-ding-1' },
+  { x: 100, y: 115, text: '땅', animation: 'animate-hammer-ding-2' },
+  { x: 180, y: 100, text: '땅!', animation: 'animate-hammer-ding-3' },
+];
+
 /**
  * 홈 맨 위 브랜드 배너: 왼쪽에 서비스 소개 문구, 제목("번개처럼 낙찰.") 끝에서 20px 오른쪽에 망치 애니메이션.
+ * 망치는 빠르게 세 번 내리치고, 닿을 때마다 "땅"이 하나씩 생겨 "땅땅땅"이 된다.
  * 크기는 2048×320 비율이라 폭에 따라 높이가 함께 줄어든다. (최소 폭 1280px에서도 글자가 넘치지 않는 높이)
  * 망치 그림은 배너 폭에 맞춰 커지고 줄어들어 배너 높이 안에 들어간다.
  * 브라우저 글자 크기를 키워 내용이 그 높이를 넘으면 배너가 내용만큼 늘어난다. (overflow-hidden을 두면 aspect-ratio가 높이를 고정해 글자가 잘린다)
@@ -62,13 +70,20 @@ function HammerStrike() {
         <polyline points="312,380 368,368 358,356 438,352 428,340 530,344" strokeWidth="5" className="stroke-brand-500" />
         <polyline points="368,368 404,374 420,366" strokeWidth="3" className="stroke-brand-300" />
       </g>
-      <text
-        x="40"
-        y="120"
-        className="animate-hammer-ding origin-center fill-brand-500 text-[50px] font-bold opacity-0 [transform-box:fill-box] motion-reduce:animate-none motion-reduce:opacity-100"
-      >
-        땅!
-      </text>
+      {/* 망치가 닿을 때마다 "땅"이 하나씩 생겨 세 번째에 "땅땅땅"이 완성된다. (애니메이션은 index.css hammer-ding-1~3) */}
+      {DINGS.map((ding) => (
+        <text
+          key={ding.animation}
+          x={ding.x}
+          y={ding.y}
+          className={cn(
+            'origin-center fill-brand-500 text-[64px] font-bold opacity-0 [transform-box:fill-box] motion-reduce:animate-none motion-reduce:opacity-100',
+            ding.animation,
+          )}
+        >
+          {ding.text}
+        </text>
+      ))}
       <g className={cn('animate-hammer-swing origin-[480px_307px] motion-reduce:animate-none', VIEW_BOX)}>
         {/* 손잡이: 가죽끈을 감은 나무 자루, 끝에 손목 고리 */}
         <rect x="315" y="294" width="172" height="26" rx="5" className="fill-hammer-wood" />

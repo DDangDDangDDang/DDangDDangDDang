@@ -9,6 +9,7 @@ import com.example.ddangddangddang.domain.seller.entity.SellerSubscription;
 import com.example.ddangddangddang.domain.seller.exception.SellerErrorCode;
 import com.example.ddangddangddang.domain.seller.repository.SellerSubscriptionRepository;
 import com.example.ddangddangddang.domain.user.entity.User;
+import com.example.ddangddangddang.domain.user.service.UserService;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
@@ -44,6 +45,7 @@ public class SubscriptionService {
     private final LiveStreamRepository liveStreamRepository;
     private final SellerVerification sellerVerification;
     private final TransactionTemplate transactionTemplate;
+    private final UserService userService;
 
     /** 구독한다. 이미 구독 중이면 그대로 둔다. (버튼 연타·다른 탭) */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -92,7 +94,7 @@ public class SubscriptionService {
                     LiveStream stream = live.get(id);
                     return new SubscribedSellerResponse(id, user == null ? null : user.getNickname(), verified.contains(id),
                             stream == null ? null : stream.getId(), stream == null ? null : stream.getTitle(),
-                            stream != null && stream.isRecorded());
+                            stream != null && stream.isRecorded(), user == null ? null : userService.profileImageUrl(user));
                 })
                 // 정렬이 안정적이라 같은 그룹 안에서는 최근 구독순이 유지된다.
                 .sorted(Comparator.comparing((SubscribedSellerResponse s) -> s.liveStreamId() == null))

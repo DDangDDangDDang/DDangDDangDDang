@@ -47,8 +47,10 @@ test.describe('홈 방송 미리보기', () => {
         endAfter = true;
       }
       await expect(studio.getByText('LIVE 송출 중')).toBeVisible({ timeout: 20_000 });
-      const watchHref = (await studio.getByRole('link', { name: '시청 화면 열기' }).getAttribute('href')) ?? '';
-      expect(watchHref).toMatch(/^\/lives\/\d+$/);
+      // 스튜디오 링크는 판매자가 시청자 화면을 확인하는 표시(?viewer=1)가 붙는다. 카드 주소는 표시 없는 시청 경로다.
+      const studioHref = (await studio.getByRole('link', { name: '시청 화면 열기' }).getAttribute('href')) ?? '';
+      expect(studioHref).toMatch(/^\/lives\/\d+\?viewer=1$/);
+      const watchHref = studioHref.split('?')[0];
       liveStreamId = watchHref.split('/').pop();
       const viewerCount = studio.getByText(/^시청\s*[\d,]+\s*명$/).first();
       await expect(viewerCount).toHaveText(/시청\s*0\s*명/);
@@ -89,6 +91,24 @@ test.describe('홈 방송 미리보기', () => {
       // 떠나면 바로 끊고 썸네일로 돌아온다.
       await guest.mouse.move(0, 0);
       await expect(cardPreview).toHaveCount(0);
+
+      // 마우스를 올리지 않아도 판매자 송출 화면을 캡처한 썸네일이 카드에 나온다. (송출 연결 몇 초 뒤 첫 썸네일을 올린다)
+      const thumbnail = card.locator('img[src*="live-thumbnails/"]');
+      await expect
+        .poll(
+          async () => {
+            await guest.reload();
+            await expect(card).toBeVisible();
+            return thumbnail.count();
+          },
+          { timeout: 30_000, intervals: [2_000] },
+        )
+        .toBeGreaterThan(0);
+      // 이미지를 실제로 불러왔다. (주소만 있고 깨진 이미지가 아니다)
+      await expect
+        .poll(() => thumbnail.evaluate((element) => (element as unknown as { naturalWidth: number }).naturalWidth), { timeout: 10_000 })
+        .toBeGreaterThan(0);
+      await test.info().attach('홈 방송 카드 썸네일', { body: await guest.screenshot(), contentType: 'image/png' });
 
       // 이 방송이 대표 라이브면, 동작 줄이기를 켜지 않은 사람에게는 자동으로 미리보기가 나오고 [소리 켜기]가 보인다.
       const autoContext = await browser.newContext();
