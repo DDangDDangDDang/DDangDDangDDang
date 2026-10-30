@@ -171,10 +171,30 @@ class ProductImageResolverTest {
     @Test
     @DisplayName("빠진 이미지만 지운다 (트랜잭션 밖이면 바로)")
     void deleteRemoved() {
-        resolver.deleteRemovedImagesAfterCommit(SELLER_ID, Set.of(KEY_A, KEY_B), Set.of(KEY_B));
+        resolver.deleteRemovedImagesAfterCommit(SELLER_ID, Set.of(KEY_A, KEY_B), Set.of(KEY_B), key -> false);
 
         then(fileStorage).should().delete(KEY_A);
         then(fileStorage).should(never()).delete(KEY_B);
+    }
+
+    @Test
+    @DisplayName("다른 상품도 쓰는 키는 빠져도 지우지 않는다")
+    void keyUsedElsewhereKept() {
+        resolver.deleteRemovedImagesAfterCommit(SELLER_ID, Set.of(KEY_A, KEY_B), Set.of(), KEY_B::equals);
+
+        then(fileStorage).should().delete(KEY_A);
+        then(fileStorage).should(never()).delete(KEY_B);
+    }
+
+    @Test
+    @DisplayName("설명 이미지 20장 제한은 이미지 줄 수로 센다 (같은 이미지를 21줄 넣어도 막는다)")
+    void descriptionImageLimitCountsLines() {
+        String repeated = String.join("\n", java.util.Collections.nCopies(21, "![](" + KEY_A + ")"));
+
+        assertThatThrownBy(() -> resolver.checkDescription(SELLER_ID, Set.of(KEY_A), repeated))
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ProductErrorCode.TOO_MANY_DESCRIPTION_IMAGES);
+        resolver.checkDescription(SELLER_ID, Set.of(KEY_A), String.join("\n", java.util.Collections.nCopies(20, "![](" + KEY_A + ")")));
     }
 
     @Test
@@ -190,7 +210,7 @@ class ProductImageResolverTest {
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ProductErrorCode.IMAGE_NOT_UPLOADED);
         // 수정에서 그 줄을 빼도 남의 파일은 지우지 않는다.
-        resolver.deleteRemovedImagesAfterCommit(SELLER_ID, saved, Set.of());
+        resolver.deleteRemovedImagesAfterCommit(SELLER_ID, saved, Set.of(), key -> false);
 
         then(fileStorage).should().delete(KEY_A);
         then(fileStorage).should(never()).delete(foreign);

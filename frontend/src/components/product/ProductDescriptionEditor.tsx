@@ -4,7 +4,7 @@ import { errorMessage } from '@/api';
 import { Button, Notice, Textarea } from '@/components/ui';
 import {
   DESCRIPTION_IMAGE_MAX_COUNT,
-  descriptionImageKeys,
+  descriptionImageCount,
   descriptionTextLength,
   insertImage,
   parseDescription,
@@ -49,7 +49,7 @@ export function ProductDescriptionEditor({ description, imageUrls, onChange, err
   });
 
   const update = (next: DescriptionBlock[]) => onChange({ description: serializeDescription(next) });
-  const imageCount = descriptionImageKeys(description).length;
+  const imageCount = descriptionImageCount(description);
   const full = imageCount >= DESCRIPTION_IMAGE_MAX_COUNT;
 
   function handleFile(event: ChangeEvent<HTMLInputElement>) {

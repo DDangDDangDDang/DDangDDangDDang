@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  descriptionImageCount,
   descriptionImageKeys,
   descriptionTextLength,
   insertImage,
@@ -64,5 +65,13 @@ describe('descriptionImageKeys / descriptionTextLength', () => {
     const description = `가나\n![](${A})\n다\n![](${A})`;
     expect(descriptionImageKeys(description)).toEqual([A]);
     expect(descriptionTextLength(description)).toBe(3);
+  });
+
+  it('이미지 장수는 줄 수로 센다 (같은 이미지를 두 줄 넣으면 2장)', () => {
+    expect(descriptionImageCount(`가
+![](${A})
+다
+![](${A})`)).toBe(2);
+    expect(descriptionImageCount(undefined)).toBe(0);
   });
 });

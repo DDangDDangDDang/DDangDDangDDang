@@ -16,6 +16,7 @@ import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -107,6 +108,32 @@ class MyProductsFilterTest {
     @DisplayName("판매 중(ACTIVE)만 고르면 판매 완료 상품은 빠진다")
     void activeOnly() {
         assertThat(mine(null, Status.ACTIVE, 0).getTotalElements()).isEqualTo(14);
+    }
+
+    @Test
+    @DisplayName("다른 상품이 쓰는 이미지 키 찾기: 같은 판매자의 다른 상품 갤러리·설명만 본다 (이 상품은 빼고)")
+    void imageKeyUsedElsewhere() {
+        String key = "product-images/" + seller.getId() + "/0f8fad5b-d9cb-469f-a165-70867728950e.png";
+        Product mine = productRepository.save(new Product(seller, film, "이 상품", null));
+        mine.changeImages(List.of(key));
+        Product other = productRepository.save(new Product(seller, film, "다른 상품", null));
+        productRepository.flush();
+
+        // 이 상품만 쓰면 다른 상품에는 없다.
+        assertThat(productRepository.existsImageKeyInOtherProduct(seller.getId(), mine.getId(), key)).isFalse();
+        assertThat(productRepository.existsKeyInOtherDescription(seller.getId(), mine.getId(), key)).isFalse();
+
+        // 다른 상품 갤러리가 쓰면 찾는다.
+        other.changeImages(List.of(key));
+        productRepository.flush();
+        assertThat(productRepository.existsImageKeyInOtherProduct(seller.getId(), mine.getId(), key)).isTrue();
+
+        // 다른 상품 설명에 들어 있어도 찾는다.
+        other.changeImages(List.of());
+        other.update(film, "다른 상품", "설명\n![](" + key + ")");
+        productRepository.flush();
+        assertThat(productRepository.existsImageKeyInOtherProduct(seller.getId(), mine.getId(), key)).isFalse();
+        assertThat(productRepository.existsKeyInOtherDescription(seller.getId(), mine.getId(), key)).isTrue();
     }
 
     @Test

@@ -1,5 +1,5 @@
 import type { Schema } from '@/api';
-import { DESCRIPTION_IMAGE_MAX_COUNT, descriptionImageKeys, descriptionTextLength } from '@/lib/product-description';
+import { DESCRIPTION_IMAGE_MAX_COUNT, descriptionImageCount, descriptionTextLength } from '@/lib/product-description';
 import { PRODUCT_IMAGE_MAX_COUNT, type ProductImage } from '@/lib/product-image';
 
 /*
@@ -52,7 +52,7 @@ export function validateProductForm(values: ProductFormValues): ProductFormError
   if (!name) errors.name = '상품명을 입력해 주세요.';
   else if (name.length > PRODUCT_NAME_MAX_LENGTH) errors.name = `상품명은 ${PRODUCT_NAME_MAX_LENGTH}자 이하로 입력해 주세요.`;
   if (descriptionTextLength(values.description) > PRODUCT_DESCRIPTION_MAX_LENGTH) errors.description = `상품 설명은 ${PRODUCT_DESCRIPTION_MAX_LENGTH}자 이하로 입력해 주세요.`;
-  else if (descriptionImageKeys(values.description).length > DESCRIPTION_IMAGE_MAX_COUNT) errors.description = `설명에는 이미지를 ${DESCRIPTION_IMAGE_MAX_COUNT}장까지 넣을 수 있어요.`;
+  else if (descriptionImageCount(values.description) > DESCRIPTION_IMAGE_MAX_COUNT) errors.description = `설명에는 이미지를 ${DESCRIPTION_IMAGE_MAX_COUNT}장까지 넣을 수 있어요.`;
   if (values.images.length > PRODUCT_IMAGE_MAX_COUNT) errors.images = `상품 이미지는 ${PRODUCT_IMAGE_MAX_COUNT}장까지 올릴 수 있어요.`;
   return errors;
 }

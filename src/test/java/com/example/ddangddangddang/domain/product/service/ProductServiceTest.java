@@ -148,6 +148,18 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("빠진 이미지라도 같은 판매자의 다른 상품(갤러리·설명)이 쓰고 있으면 지우지 않는다")
+    void imageUsedByOtherProductKept() {
+        savedProduct(List.of(KEY_A, KEY_B), "설명");
+        given(productRepository.existsImageKeyInOtherProduct(SELLER_ID, PRODUCT_ID, KEY_A)).willReturn(true);
+
+        productService.updateProduct(SELLER_ID, PRODUCT_ID, new UpdateRequest(null, null, null, List.of()));
+
+        then(fileStorage).should(never()).delete(KEY_A);
+        then(fileStorage).should().delete(KEY_B);
+    }
+
+    @Test
     @DisplayName("imageKeys를 보내지 않으면 이미지는 그대로 둔다")
     void updateWithoutImageKeysKeepsImages() {
         Product product = savedProduct(List.of(KEY_A, KEY_B), "설명");

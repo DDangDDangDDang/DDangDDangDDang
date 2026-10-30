@@ -135,8 +135,11 @@ public class ProductService {
         }
         // 판매된 상품은 주문이 대표 이미지 주소를 그대로 들고 있어 빠진 이미지도 지우지 않는다.
         if (product.getStatus() != Status.SOLD) {
+            // 같은 판매자가 한 키를 다른 상품에도 넣었을 수 있으므로, 다른 상품이 쓰는 키는 지우지 않는다.
             imageResolver.deleteRemovedImagesAfterCommit(sellerId, before,
-                    ProductImageResolver.usedKeys(product.getImageKeys(), product.getDescription()));
+                    ProductImageResolver.usedKeys(product.getImageKeys(), product.getDescription()),
+                    key -> productRepository.existsImageKeyInOtherProduct(sellerId, product.getId(), key)
+                            || productRepository.existsKeyInOtherDescription(sellerId, product.getId(), key));
         }
 
         return ProductResponse.from(product, fileStorage::publicUrl);

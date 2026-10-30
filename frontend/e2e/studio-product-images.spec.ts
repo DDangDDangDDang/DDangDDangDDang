@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
 /*
  * 상품 대표 이미지가 방송 쪽 화면에 나오는지
@@ -67,7 +67,7 @@ test.describe('방송 화면의 상품 대표 이미지', () => {
       if (total > 10) await expect(pages).toBeVisible();
       else await expect(pages).toBeHidden();
       // 방금 만든 상품은 최신순 첫 페이지 맨 위 (경매가 열려 '이 방송에서 경매 중')
-      await expect(list.getByRole('img', { name })).toHaveAttribute('src', image.url);
+      await expectLoaded(list.getByRole('img', { name }), image.url);
 
       await studio.getByLabel('카테고리로 거르기').selectOption(String(leaf?.id));
       await expect(list.getByRole('img', { name })).toBeVisible();
@@ -99,8 +99,8 @@ test.describe('방송 화면의 상품 대표 이미지', () => {
       // 시청 화면: 영상 위 경매와 이 방송의 경매
       await watch.goto(`/lives/${liveStreamId}`);
       const overlay = watch.getByRole('region', { name: '영상 위 경매' });
-      await expect(overlay.getByRole('img', { name })).toHaveAttribute('src', image.url);
-      await expect(watch.getByRole('list', { name: '이 방송의 경매' }).getByRole('img', { name })).toHaveAttribute('src', image.url);
+      await expectLoaded(overlay.getByRole('img', { name }), image.url);
+      await expectLoaded(watch.getByRole('list', { name: '이 방송의 경매' }).getByRole('img', { name }), image.url);
       await watch.screenshot({ path: 'test-results/watch-auction-thumbnail.png' });
     } finally {
       await endActive(request, await apiLogin(request, seller).catch(() => ''));
@@ -109,6 +109,12 @@ test.describe('방송 화면의 상품 대표 이미지', () => {
     }
   });
 });
+
+/** 이미지 주소가 맞고, 실제로 불러와졌는지 (읽기가 막혀 깨진 이미지면 naturalWidth가 0) */
+async function expectLoaded(image: Locator, url: string) {
+  await expect(image).toHaveAttribute('src', url);
+  await expect.poll(() => image.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+}
 
 /** 상품 이미지 업로드: 업로드 URL을 받아 올린다. */
 async function uploadImage(request: APIRequestContext, token: string, file: Buffer) {

@@ -49,7 +49,7 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
       call(
         api.GET('/api/v1/users/me/products', {
           params: {
-            query: { status: 'ACTIVE', categoryId: categoryId ? Number(categoryId) : undefined, page, size: PRODUCT_PAGE_SIZE, sort: ['createdAt,desc'] },
+            query: { status: 'ACTIVE', categoryId: categoryId ? Number(categoryId) : undefined, page, size: PRODUCT_PAGE_SIZE, sort: ['createdAt,desc', 'id,desc'] },
           },
         }),
       ),
@@ -75,18 +75,30 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
       </CardHeader>
       <CardBody>
         {!live && <Notice className="mb-3">방송을 시작하면 상품을 골라 바로 경매를 열 수 있어요.</Notice>}
-        <div className="mb-2 w-60">
-          <Select
-            label="카테고리로 거르기"
-            hideLabel
-            options={[{ value: '', label: '전체 카테고리' }, ...categoryFilterOptions(categories.data ?? [])]}
-            value={categoryId}
-            onChange={(e) => {
-              setCategoryId(e.target.value);
-              setPage(0);
-              setSelected(undefined);
-            }}
-          />
+        <div className="mb-2 flex items-center gap-3">
+          <div className="w-60">
+            <Select
+              label="카테고리로 거르기"
+              hideLabel
+              options={[{ value: '', label: '전체 카테고리' }, ...categoryFilterOptions(categories.data ?? [])]}
+              value={categoryId}
+              disabled={categories.isPending}
+              onChange={(e) => {
+                setCategoryId(e.target.value);
+                setPage(0);
+                setSelected(undefined);
+              }}
+            />
+          </div>
+          {/* 카테고리를 못 불러오면 '전체 카테고리'만 남으므로, 이유와 다시 시도를 보여 준다. (목록은 전체로 계속 보인다) */}
+          {categories.isError && (
+            <div role="alert" className="flex items-center gap-2 text-label text-red-300">
+              카테고리를 불러오지 못했어요.
+              <Button size="sm" variant="outline" onClick={() => void categories.refetch()}>
+                다시 시도
+              </Button>
+            </div>
+          )}
         </div>
         {products.isPending ? (
           <div className="flex flex-col gap-2">

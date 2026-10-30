@@ -24,6 +24,16 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Page<Product> findMine(@Param("sellerId") Long sellerId, @Param("deleted") Status deleted, @Param("status") Status status,
                            @Param("allCategories") boolean allCategories, @Param("categoryIds") List<Long> categoryIds,
                            Pageable pageable);
+    // 이미지 삭제 전 확인 : 이 판매자의 다른 상품(삭제·판매 포함) 갤러리가 이 키를 쓰는지
+    @Query("select count(p) > 0 from Product p join p.imageKeys k"
+            + " where p.seller.id = :sellerId and p.id <> :productId and k = :key")
+    boolean existsImageKeyInOtherProduct(@Param("sellerId") Long sellerId, @Param("productId") Long productId, @Param("key") String key);
+
+    // 이미지 삭제 전 확인 : 이 판매자의 다른 상품 설명에 이 키가 들어 있는지 (키는 uuid라 %·_ 가 없어 LIKE로 찾는다)
+    @Query("select count(p) > 0 from Product p"
+            + " where p.seller.id = :sellerId and p.id <> :productId and p.description like concat('%', :key, '%')")
+    boolean existsKeyInOtherDescription(@Param("sellerId") Long sellerId, @Param("productId") Long productId, @Param("key") String key);
+
     // 카테고리 삭제 검증 : 카테고리 삭제전 카테고리 내 상품이 있는지 조회
     boolean existsByCategoryId(Long categoryId);
 

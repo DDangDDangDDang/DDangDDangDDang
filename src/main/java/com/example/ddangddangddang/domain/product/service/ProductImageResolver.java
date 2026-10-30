@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -83,11 +84,11 @@ public class ProductImageResolver {
      * 막으면 그 상품은 설명을 고치기 전까지 다른 정보도 수정할 수 없게 된다.
      */
     public void checkDescription(Long sellerId, Collection<String> saved, String description) {
-        List<String> keys = descriptionImageKeys(description);
-        if (keys.size() > MAX_DESCRIPTION_IMAGES) {
+        // 장수는 이미지 줄 수로 센다. 같은 이미지를 여러 줄 넣어도 화면에는 줄마다 그려지기 때문이다.
+        if (descriptionImageLineCount(description) > MAX_DESCRIPTION_IMAGES) {
             throw new BusinessException(ProductErrorCode.TOO_MANY_DESCRIPTION_IMAGES);
         }
-        keys.stream()
+        descriptionImageKeys(description).stream()
                 .filter(key -> isOwnKey(sellerId, key) || !saved.contains(key))
                 .forEach(key -> checkKey(sellerId, saved, key));
     }
@@ -100,17 +101,26 @@ public class ProductImageResolver {
 
     /** 설명에서 이미지 줄의 키를 순서대로(중복 없이) 뽑는다. */
     public static List<String> descriptionImageKeys(String description) {
+        return List.copyOf(new LinkedHashSet<>(descriptionImageLines(description)));
+    }
+
+    /** 설명의 이미지 줄 수 (같은 키가 여러 줄이면 그만큼 센다) */
+    static int descriptionImageLineCount(String description) {
+        return descriptionImageLines(description).size();
+    }
+
+    private static List<String> descriptionImageLines(String description) {
         if (description == null || description.isEmpty()) {
             return List.of();
         }
-        Set<String> keys = new LinkedHashSet<>();
+        List<String> keys = new ArrayList<>();
         for (String line : description.split("\\R")) {
             Matcher matcher = DESCRIPTION_IMAGE_LINE.matcher(line.strip());
             if (matcher.matches()) {
                 keys.add(matcher.group(1));
             }
         }
-        return List.copyOf(keys);
+        return keys;
     }
 
     /** 상품이 쓰는 이미지 키 전부 (갤러리 + 설명) */
@@ -123,11 +133,14 @@ public class ProductImageResolver {
     /**
      * before에 있다가 after에서 빠진 이미지를 커밋된 뒤 지운다. (롤백되면 이전 이미지를 계속 써야 하므로)
      * 이 판매자의 키만 지운다. 예전 설명에 남의 키(다른 사람 프로필 사진 등)가 적혀 있었어도 그 파일은 건드리지 않는다.
+     *
+     * @param usedElsewhere 다른 상품(삭제·판매된 상품 포함)도 쓰는 키인지. 쓰면 지우지 않는다.
      */
-    public void deleteRemovedImagesAfterCommit(Long sellerId, Set<String> before, Set<String> after) {
+    public void deleteRemovedImagesAfterCommit(Long sellerId, Set<String> before, Set<String> after, Predicate<String> usedElsewhere) {
         before.stream()
                 .filter(key -> !after.contains(key))
                 .filter(key -> isOwnKey(sellerId, key))
+                .filter(key -> !usedElsewhere.test(key))
                 .forEach(this::deleteAfterCommit);
     }
 

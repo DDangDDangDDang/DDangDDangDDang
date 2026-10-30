@@ -6,10 +6,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { LiveAuctionProducts } from './LiveAuctionPanel';
 import type { LiveAuctions } from './use-live-auctions';
 
-type Query = { status?: string; categoryId?: number; page?: number; size?: number };
+type Query = { status?: string; categoryId?: number; page?: number; size?: number; sort?: string[] };
 type Request = { path: string; query?: Query };
 // 판매 중 상품 23개 = 10개씩 3페이지. 받은 요청의 조건을 남겨 둔다.
-const state = vi.hoisted(() => ({ queries: [] as Query[] }));
+const state = vi.hoisted(() => ({ queries: [] as Query[], categoriesFailed: false, refetchCategories: (() => undefined) as () => void }));
 
 vi.mock('@/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api')>()),
@@ -33,7 +33,10 @@ vi.mock('@/api', async (importOriginal) => ({
   },
 }));
 vi.mock('@/lib/use-categories', () => ({
-  useCategories: () => ({ data: [{ id: 1, name: '카메라', children: [{ id: 11, name: '렌즈' }] }] }),
+  useCategories: () =>
+    state.categoriesFailed
+      ? { isError: true, data: undefined, refetch: state.refetchCategories }
+      : { data: [{ id: 1, name: '카메라', children: [{ id: 11, name: '렌즈' }] }] },
 }));
 
 function renderProducts() {
@@ -48,13 +51,30 @@ function renderProducts() {
 }
 
 describe('스튜디오 경매 상품 목록', () => {
+  it('카테고리를 못 불러오면 이유와 다시 시도를 보여 주고, 목록은 전체로 계속 보인다', async () => {
+    state.queries = [];
+    state.categoriesFailed = true;
+    state.refetchCategories = vi.fn();
+    try {
+      renderProducts();
+
+      expect(await screen.findByRole('list', { name: '경매에 올릴 상품' })).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent('카테고리를 불러오지 못했어요.');
+      await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+      expect(state.refetchCategories).toHaveBeenCalled();
+    } finally {
+      state.categoriesFailed = false;
+    }
+  });
+
   it('판매 중인 상품을 10개씩 페이지로 보여 주고, 대표 이미지를 붙이며, 카테고리로 거른다', async () => {
     state.queries = [];
     renderProducts();
 
     const list = await screen.findByRole('list', { name: '경매에 올릴 상품' });
     expect(list.querySelectorAll(':scope > li')).toHaveLength(10);
-    expect(state.queries[0]).toMatchObject({ status: 'ACTIVE', page: 0, size: 10 });
+    // 등록 시각이 같아도 페이지가 겹치거나 빠지지 않게 id를 보조 정렬로 둔다.
+    expect(state.queries[0]).toMatchObject({ status: 'ACTIVE', page: 0, size: 10, sort: ['createdAt,desc', 'id,desc'] });
     expect(screen.getByRole('img', { name: '상품 1' })).toHaveAttribute('src', 'https://cdn/thumb-0.png');
 
     // 다음 페이지

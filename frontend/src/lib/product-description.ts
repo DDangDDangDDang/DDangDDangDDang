@@ -54,6 +54,11 @@ export function descriptionImageKeys(description: string | undefined): string[] 
   return [...new Set(keys)];
 }
 
+/** 설명 속 이미지 줄 수. 같은 이미지를 여러 줄 넣으면 줄마다 그려지므로 그만큼 센다. (20장 제한, 서버와 같다) */
+export function descriptionImageCount(description: string | undefined): number {
+  return parseDescription(description).filter((block) => block.type === 'image').length;
+}
+
 /** 이미지 줄을 뺀 글자 수 (글자 수 제한·표시용) */
 export function descriptionTextLength(description: string | undefined): number {
   return parseDescription(description)
