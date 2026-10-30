@@ -4,7 +4,7 @@ import { THUMBNAIL_INTERVAL_MS } from '@/lib/live-thumbnail';
 import { FIRST_CAPTURE_DELAY_MS, useThumbnailCapture } from './use-thumbnail-capture';
 
 // 화면 캡처와 서버·저장소 요청은 하지 않고, 어떤 순서로 무엇을 보냈는지만 기록한다.
-const state = vi.hoisted(() => ({ requests: [] as string[], captureFails: false }));
+const state = vi.hoisted(() => ({ requests: [] as string[], captureFails: false, uploadDelayMs: 0 }));
 vi.mock('@/lib/live-thumbnail', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/live-thumbnail')>()),
   captureJpeg: async () => (state.captureFails ? undefined : new Blob(['jpg'], { type: 'image/jpeg' })),
@@ -21,6 +21,7 @@ vi.mock('@/api', async (importOriginal) => ({
   },
   uploadToSignedUrl: async (url: string) => {
     state.requests.push(`UPLOAD ${url}`);
+    if (state.uploadDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, state.uploadDelayMs));
   },
 }));
 
@@ -38,6 +39,7 @@ describe('송출 화면 썸네일 올리기', () => {
     vi.useFakeTimers();
     state.requests = [];
     state.captureFails = false;
+    state.uploadDelayMs = 0;
   });
   afterEach(() => vi.useRealTimers());
 
@@ -65,6 +67,19 @@ describe('송출 화면 썸네일 올리기', () => {
     rerender({ id: undefined });
     await advance(THUMBNAIL_INTERVAL_MS * 2);
     expect(state.requests).toHaveLength(3);
+  });
+
+  it('앞 차례 업로드가 끝나지 않았으면 다음 차례는 건너뛴다', async () => {
+    state.uploadDelayMs = THUMBNAIL_INTERVAL_MS * 1.5;
+    renderHook(() => useThumbnailCapture(7, track));
+    await advance(FIRST_CAPTURE_DELAY_MS + THUMBNAIL_INTERVAL_MS);
+    // 첫 업로드가 아직 끝나지 않아 1분 차례의 캡처는 보내지 않았다.
+    expect(state.requests.filter((request) => request.startsWith('POST'))).toHaveLength(1);
+
+    await advance(THUMBNAIL_INTERVAL_MS);
+    expect(state.requests.filter((request) => request.startsWith('PUT'))).toHaveLength(1);
+    await advance(THUMBNAIL_INTERVAL_MS);
+    expect(state.requests.filter((request) => request.startsWith('POST'))).toHaveLength(2);
   });
 
   it('화면을 캡처하지 못하면 아무것도 보내지 않는다', async () => {

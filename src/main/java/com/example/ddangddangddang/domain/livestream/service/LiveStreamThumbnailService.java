@@ -67,7 +67,11 @@ public class LiveStreamThumbnailService {
         if (thumbnailKey.equals(previous)) {
             return;
         }
-        liveStreamRepository.updateThumbnailKey(liveStreamId, thumbnailKey);
+        if (liveStreamRepository.updateThumbnailKey(liveStreamId, thumbnailKey, previous) == 0) {
+            // 다른 요청이 먼저 썸네일을 바꿨다. 이번에 올린 파일은 쓰지 않으므로 지운다.
+            fileStorage.delete(thumbnailKey);
+            throw new BusinessException(LiveStreamErrorCode.CONCURRENT_UPDATE);
+        }
         if (previous != null) {
             deleteAfterCommit(previous);
         }

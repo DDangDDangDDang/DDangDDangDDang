@@ -144,6 +144,7 @@ public class LiveStreamController {
     /**
      * 올린 썸네일을 방송 카드 썸네일로 바꾼다. 앞의 썸네일은 지운다. (방송 중에만)
      */
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @PutMapping("/{liveStreamId}/thumbnail")
     public ResponseEntity<Void> changeThumbnail(
             @AuthenticationPrincipal AuthUser authUser,

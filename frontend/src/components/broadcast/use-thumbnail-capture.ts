@@ -27,7 +27,17 @@ export function useThumbnailCapture(liveStreamId: number | undefined, track: Med
       if (cancelled) return;
       await call(api.PUT('/api/v1/live-streams/{liveStreamId}/thumbnail', { params, body: { thumbnailKey: signed.thumbnailKey } }));
     };
-    const capture = () => void upload().catch(() => undefined);
+    // 한 번에 하나만 올린다. 앞 차례가 늦게 끝나 새 썸네일을 옛 화면으로 되돌리지 않게.
+    let uploading = false;
+    const capture = () => {
+      if (uploading) return;
+      uploading = true;
+      void upload()
+        .catch(() => undefined)
+        .finally(() => {
+          uploading = false;
+        });
+    };
 
     const first = setTimeout(capture, FIRST_CAPTURE_DELAY_MS);
     const timer = setInterval(capture, THUMBNAIL_INTERVAL_MS);

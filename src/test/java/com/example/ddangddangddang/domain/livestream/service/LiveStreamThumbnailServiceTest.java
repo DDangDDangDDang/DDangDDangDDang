@@ -90,11 +90,25 @@ class LiveStreamThumbnailServiceTest {
     void change() {
         ReflectionTestUtils.setField(liveStream, "thumbnailKey", OLD_KEY);
         given(fileStorage.find(NEW_KEY)).willReturn(Optional.of(new FileStorage.StoredFile(30_000L, "image/jpeg")));
+        given(liveStreamRepository.updateThumbnailKey(LIVE_STREAM_ID, NEW_KEY, OLD_KEY)).willReturn(1);
 
         thumbnailService.change(LIVE_STREAM_ID, SELLER_ID, NEW_KEY);
 
-        then(liveStreamRepository).should().updateThumbnailKey(LIVE_STREAM_ID, NEW_KEY);
         then(fileStorage).should().delete(OLD_KEY);
+    }
+
+    @Test
+    @DisplayName("읽은 뒤 다른 요청이 먼저 썸네일을 바꿨으면 바꾸지 않고(LIVESTREAM_006), 이번에 올린 파일만 지운다")
+    void changeConflict() {
+        ReflectionTestUtils.setField(liveStream, "thumbnailKey", OLD_KEY);
+        given(fileStorage.find(NEW_KEY)).willReturn(Optional.of(new FileStorage.StoredFile(30_000L, "image/jpeg")));
+        given(liveStreamRepository.updateThumbnailKey(LIVE_STREAM_ID, NEW_KEY, OLD_KEY)).willReturn(0);
+
+        assertThatThrownBy(() -> thumbnailService.change(LIVE_STREAM_ID, SELLER_ID, NEW_KEY))
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(LiveStreamErrorCode.CONCURRENT_UPDATE);
+        then(fileStorage).should().delete(NEW_KEY);
+        then(fileStorage).should(never()).delete(OLD_KEY);
     }
 
     @Test
@@ -114,6 +128,6 @@ class LiveStreamThumbnailServiceTest {
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(LiveStreamErrorCode.INVALID_THUMBNAIL);
         then(fileStorage).should().delete(NEW_KEY);
-        then(liveStreamRepository).should(never()).updateThumbnailKey(anyLong(), anyString());
+        then(liveStreamRepository).should(never()).updateThumbnailKey(anyLong(), anyString(), any());
     }
 }
