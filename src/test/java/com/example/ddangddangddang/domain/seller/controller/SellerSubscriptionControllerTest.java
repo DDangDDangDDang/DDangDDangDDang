@@ -116,7 +116,16 @@ class SellerSubscriptionControllerTest {
         mockMvc.perform(get("/api/v1/users/me/subscriptions").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
                 .andExpect(jsonPath("$.data[0].sellerId").value(seller.id()))
                 .andExpect(jsonPath("$.data[0].nickname").value(seller.nickname()))
+                .andExpect(jsonPath("$.data[0].profileImageUrl").doesNotExist())
                 .andExpect(jsonPath("$.data[0].liveStreamId").doesNotExist());
+
+        // 판매자가 프로필 사진을 정하면 구독 목록에도 그 사진이 나온다.
+        String imageKey = "profile-images/" + seller.id() + "/0f8fad5b-d9cb-469f-a165-70867728950e.png";
+        User sellerUser = userRepository.findById(seller.id()).orElseThrow();
+        sellerUser.changeProfileImage(imageKey);
+        userRepository.save(sellerUser);
+        mockMvc.perform(get("/api/v1/users/me/subscriptions").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data[0].profileImageUrl").value(org.hamcrest.Matchers.endsWith(imageKey)));
 
         Long liveStreamId = startLive(seller, "구독 알림 방송");
 
