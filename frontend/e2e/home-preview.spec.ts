@@ -90,6 +90,24 @@ test.describe('홈 방송 미리보기', () => {
       await guest.mouse.move(0, 0);
       await expect(cardPreview).toHaveCount(0);
 
+      // 마우스를 올리지 않아도 판매자 송출 화면을 캡처한 썸네일이 카드에 나온다. (송출 연결 몇 초 뒤 첫 썸네일을 올린다)
+      const thumbnail = card.locator('img[src*="live-thumbnails/"]');
+      await expect
+        .poll(
+          async () => {
+            await guest.reload();
+            await expect(card).toBeVisible();
+            return thumbnail.count();
+          },
+          { timeout: 30_000, intervals: [2_000] },
+        )
+        .toBeGreaterThan(0);
+      // 이미지를 실제로 불러왔다. (주소만 있고 깨진 이미지가 아니다)
+      await expect
+        .poll(() => thumbnail.evaluate((element) => (element as unknown as { naturalWidth: number }).naturalWidth), { timeout: 10_000 })
+        .toBeGreaterThan(0);
+      await test.info().attach('홈 방송 카드 썸네일', { body: await guest.screenshot(), contentType: 'image/png' });
+
       // 이 방송이 대표 라이브면, 동작 줄이기를 켜지 않은 사람에게는 자동으로 미리보기가 나오고 [소리 켜기]가 보인다.
       const autoContext = await browser.newContext();
       try {

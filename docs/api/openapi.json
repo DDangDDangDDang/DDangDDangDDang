@@ -616,6 +616,56 @@
         }
       }
     },
+    "/api/v1/live-streams/{liveStreamId}/thumbnail" : {
+      "put" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamChangeThumbnail",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ThumbnailChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/live-streams/{liveStreamId}/overlay-layout" : {
       "put" : {
         "tags" : [ "live-stream-controller" ],
@@ -2264,6 +2314,63 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseLiveStreamResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/live-streams/{liveStreamId}/thumbnail-uploads" : {
+      "post" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamCreateThumbnailUpload",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ThumbnailUploadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseThumbnailUploadResponse"
                 }
               }
             }
@@ -7555,6 +7662,16 @@
           }
         }
       },
+      "ThumbnailChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "thumbnailKey" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "thumbnailKey" ]
+      },
       "OverlayBoxRequest" : {
         "type" : "object",
         "properties" : {
@@ -8665,6 +8782,50 @@
           }
         },
         "required" : [ "title" ]
+      },
+      "ThumbnailUploadRequest" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "contentLength" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        },
+        "required" : [ "contentLength", "contentType" ]
+      },
+      "ApiResponseThumbnailUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/ThumbnailUploadResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "ThumbnailUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "uploadUrl" : {
+            "type" : "string"
+          },
+          "thumbnailKey" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
       },
       "ApiResponseLiveStreamTokenResponse" : {
         "type" : "object",
@@ -10816,6 +10977,9 @@
           },
           "powerSeller" : {
             "type" : "boolean"
+          },
+          "thumbnailUrl" : {
+            "type" : "string"
           }
         }
       },
@@ -11900,6 +12064,14 @@
     "code" : "LIVESTREAM_022",
     "status" : 400,
     "message" : "이미지는 5MB까지 올릴 수 있습니다."
+  }, {
+    "code" : "LIVESTREAM_023",
+    "status" : 400,
+    "message" : "썸네일이 올라가지 않았습니다. 다시 올려 주세요."
+  }, {
+    "code" : "LIVESTREAM_024",
+    "status" : 400,
+    "message" : "썸네일은 1MB 이하의 JPG 이미지만 올릴 수 있습니다."
   }, {
     "code" : "NOTIFICATION_001",
     "status" : 404,

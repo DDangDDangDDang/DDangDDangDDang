@@ -12,6 +12,7 @@ import java.util.List;
  * sellerNickname: 탈퇴 등으로 회원을 찾지 못하면 null
  * recorded: 카메라 대신 미리 녹화한 영상을 내보내는 방송 (카드에 "녹화 영상" 표시)
  * powerSeller: 판매자가 파워 판매자 (카드에 파워 판매자 배지)
+ * thumbnailUrl: 송출 중인 화면을 캡처한 썸네일 주소 (1분마다 바뀐다. 아직 없으면 null → 판매자 이름 첫 글자)
  */
 public record LiveStreamCard(
         Long liveStreamId,
@@ -27,6 +28,7 @@ public record LiveStreamCard(
         int viewerCount,
         int viewerIncrease,
         boolean recorded,
-        boolean powerSeller
+        boolean powerSeller,
+        String thumbnailUrl
 ) {
 }

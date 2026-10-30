@@ -1,5 +1,5 @@
 import { CalendarClock, Eye, TrendingUp } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { Schema } from '@/api';
 import { SellerAvatar } from '@/components/seller/SellerAvatar';
@@ -20,7 +20,7 @@ type Card = Schema<'LiveStreamCard'>;
 /**
  * 방송 카드 (홈, 방송 목록). 누르면 방송 시청 화면으로 간다. 방송 중이면 마우스를 올려 두는 동안 미리보기 영상을 보여 준다.
  * 썸네일 위에 LIVE·시청자 수·방송 시간을 겹쳐 보여 주고, 아래에 판매자 프로필·제목·해시태그를 둔다.
- * 방송 썸네일은 아직 API에 없어 판매자 이름 첫 글자를 크게 그린다.
+ * 방송 중인 카드는 판매자 송출 화면을 1분마다 캡처한 썸네일을 보여 준다. (아직 없으면 판매자 이름 첫 글자)
  */
 export function LiveStreamCard({ card, showIncrease = false }: { card: Card; showIncrease?: boolean }) {
   const isLive = card.status === 'LIVE';
@@ -37,7 +37,7 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
       onMouseEnter={isLive ? onMouseEnter : undefined}
       onMouseLeave={onMouseLeave}
     >
-      <LiveThumbnail name={seller} className="transition-shadow group-hover:ring-2 group-hover:ring-brand-500 group-hover:ring-offset-2 group-hover:ring-offset-neutral-25">
+      <LiveThumbnail name={seller} imageUrl={isLive ? card.thumbnailUrl : undefined} className="transition-shadow group-hover:ring-2 group-hover:ring-brand-500 group-hover:ring-offset-2 group-hover:ring-offset-neutral-25">
         <PreviewVideo track={videoTrack} />
         <div className="absolute top-2.5 left-2.5 flex gap-1.5">
           {isLive ? (
@@ -78,16 +78,24 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
 }
 
 /**
- * 방송 썸네일 자리. 실제 썸네일이 생기기 전까지 판매자 이름 첫 글자를 어두운 바탕에 크게 그린다.
- * 같은 판매자는 늘 같은 바탕색이 나오도록 이름으로 색을 고른다.
+ * 방송 썸네일 자리. 송출 화면을 캡처한 썸네일(imageUrl)이 있으면 그 이미지를, 없거나 불러오지 못하면 판매자 이름 첫 글자를 어두운 바탕에 크게 그린다.
+ * 같은 판매자는 늘 같은 바탕색이 나오도록 이름으로 색을 고른다. 미리보기 영상 등(children)은 그 위에 겹친다.
  */
-export function LiveThumbnail({ name, className, children }: { name: string; className?: string; children?: ReactNode }) {
+export function LiveThumbnail({ name, imageUrl, className, children }: { name: string; imageUrl?: string; className?: string; children?: ReactNode }) {
   const tone = THUMB_TONES[[...name].reduce((sum, ch) => sum + (ch.codePointAt(0) ?? 0), 0) % THUMB_TONES.length];
+  // 불러오지 못한 주소. 썸네일이 새로 바뀌면(1분마다 다른 주소) 다시 시도한다.
+  const [failedUrl, setFailedUrl] = useState<string>();
+  const showImage = imageUrl !== undefined && imageUrl !== failedUrl;
   return (
     <div className={cn('relative flex aspect-video items-center justify-center overflow-hidden rounded-lg', tone, className)}>
-      <span aria-hidden="true" className="text-display font-bold text-neutral-900/25">
-        {[...name][0]}
-      </span>
+      {showImage ? (
+        // 제목·판매자는 카드에 글자로 있으므로 장식 이미지로 둔다.
+        <img src={imageUrl} alt="" onError={() => setFailedUrl(imageUrl)} className="absolute inset-0 size-full object-cover" />
+      ) : (
+        <span aria-hidden="true" className="text-display font-bold text-neutral-900/25">
+          {[...name][0]}
+        </span>
+      )}
       {children}
     </div>
   );
