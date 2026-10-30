@@ -21,15 +21,21 @@ export function OrderReviewSection({ order, prompted = false }: { order: Order; 
   const query = useOrderReview(orderId);
   const [dialog, setDialog] = useState<'prompt' | 'write' | null>(prompted ? 'prompt' : null);
   const [deleting, setDeleting] = useState(false);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
   const written = query.data ?? undefined;
   const empty = query.isSuccess && query.data === null;
 
-  const setReview = (next: Review | null) => queryClient.setQueryData(orderReviewKey(orderId), next);
+  // 먼저 시작한 조회가 늦게 끝나 방금 바꾼 값을 덮지 않도록, 진행 중인 조회를 취소한 뒤 바꾼다.
+  const setReview = async (next: Review | null) => {
+    await queryClient.cancelQueries({ queryKey: orderReviewKey(orderId) });
+    queryClient.setQueryData(orderReviewKey(orderId), next);
+  };
 
   const remove = useMutation({
     mutationFn: () => call(api.DELETE('/api/v1/reviews/{reviewId}', { params: { path: { reviewId: written?.reviewId ?? 0 } } })),
-    onSuccess: () => {
-      setReview(null);
+    onSuccess: async () => {
+      await setReview(null);
+      setAlreadyReviewed(false);
       setDeleting(false);
       refreshSeller(order.sellerId);
     },
@@ -69,6 +75,7 @@ export function OrderReviewSection({ order, prompted = false }: { order: Order; 
         </div>
       )}
       {empty && <p className="text-body text-neutral-500">판매자와의 거래는 어떠셨나요? 별점만 남겨도 다른 구매자에게 도움이 돼요.</p>}
+      {alreadyReviewed && written && <Notice tone="info">이미 작성한 리뷰가 있어요. 아래 리뷰를 고치거나 지울 수 있어요.</Notice>}
       {written && (
         <div className="flex flex-col gap-1.5 rounded-md bg-neutral-25 px-4 py-3">
           <StarRating rating={written.rating ?? 0} />
@@ -85,12 +92,16 @@ export function OrderReviewSection({ order, prompted = false }: { order: Order; 
         closeLabel={dialog === 'prompt' ? '건너뛰기' : '취소'}
         onClose={() => setDialog(null)}
         onSaved={(review) => {
-          setReview(review);
+          void setReview(review);
           setDialog(null);
           refreshSeller(review.sellerId ?? order.sellerId);
         }}
-        // 다른 탭 등에서 이미 쓴 리뷰: 서버에서 다시 불러와 수정·삭제할 수 있게 한다.
-        onAlreadyReviewed={() => void queryClient.invalidateQueries({ queryKey: orderReviewKey(orderId) })}
+        // 다른 탭 등에서 이미 쓴 리뷰: 쓰던 초안으로 그 리뷰를 덮지 않도록 창을 닫고, 서버 리뷰를 불러와 보여준다.
+        onAlreadyReviewed={() => {
+          setDialog(null);
+          setAlreadyReviewed(true);
+          void queryClient.invalidateQueries({ queryKey: orderReviewKey(orderId) });
+        }}
       />
       <ConfirmDialog
         open={deleting}

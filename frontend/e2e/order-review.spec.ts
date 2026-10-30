@@ -5,25 +5,32 @@ import { expect, test, type APIRequestContext } from '@playwright/test';
  * 리뷰 없음 → 쓰기 → F5 → 수정 → F5 → 삭제 → F5
  *
  * 로컬 백엔드가 떠 있어야 하고, 구매자(E2E_EMAIL)에게 구매 확정한 주문이 하나 있어야 한다. (frontend/README.md "E2E 테스트")
- * 그 주문에 이미 리뷰가 있으면 API로 지우고 시작한다.
+ * 리뷰가 없는 주문을 골라 쓰고 지우므로, 이미 있던 리뷰는 건드리지 않는다.
  */
 
 const buyer = { email: process.env.E2E_EMAIL ?? '', password: process.env.E2E_PASSWORD ?? '' };
 
 type Data<T> = { data?: T };
 
+/** 구매 확정했고 아직 리뷰가 없는 주문. 있던 리뷰는 건드리지 않는다. */
 async function completedOrderWithoutReview(request: APIRequestContext): Promise<number | undefined> {
   const login = await request.post('/api/v1/auth/login', { data: buyer });
+  await expect(login, '구매자로 로그인하지 못했습니다.').toBeOK();
   const token = ((await login.json()) as Data<{ accessToken?: string }>).data?.accessToken;
+  expect(token, '로그인 응답에 토큰이 없습니다.').toBeTruthy();
   const headers = { Authorization: `Bearer ${token}` };
-  const orders = await request.get('/api/v1/orders', { headers, params: { role: 'BUYER', status: 'COMPLETED', size: 1 } });
-  const orderId = ((await orders.json()) as Data<{ content?: { orderId?: number }[] }>).data?.content?.[0]?.orderId;
-  if (orderId === undefined) return undefined;
 
-  const review = await request.get(`/api/v1/reviews/orders/${orderId}`, { headers });
-  const reviewId = review.ok() ? ((await review.json()) as Data<{ reviewId?: number }>).data?.reviewId : undefined;
-  if (reviewId !== undefined) await request.delete(`/api/v1/reviews/${reviewId}`, { headers });
-  return orderId;
+  const orders = await request.get('/api/v1/orders', { headers, params: { role: 'BUYER', status: 'COMPLETED', size: 50 } });
+  await expect(orders, '주문 목록을 불러오지 못했습니다.').toBeOK();
+  const content = ((await orders.json()) as Data<{ content?: { orderId?: number }[] }>).data?.content ?? [];
+
+  for (const { orderId } of content) {
+    if (orderId === undefined) continue;
+    const review = await request.get(`/api/v1/reviews/orders/${orderId}`, { headers });
+    if (review.status() === 404 && ((await review.json()) as { error?: { code?: string } }).error?.code === 'REVIEW_001') return orderId;
+    await expect(review, '주문 리뷰를 불러오지 못했습니다.').toBeOK();
+  }
+  return undefined;
 }
 
 test.describe('주문 리뷰 새로고침', () => {
@@ -31,7 +38,7 @@ test.describe('주문 리뷰 새로고침', () => {
 
   test('쓴 리뷰는 새로고침해도 보이고, 고치거나 지운 결과도 유지된다', async ({ page, request }) => {
     const orderId = await completedOrderWithoutReview(request);
-    test.skip(orderId === undefined, '구매 확정한 주문이 없습니다.');
+    test.skip(orderId === undefined, '리뷰를 안 쓴 구매 확정 주문이 없습니다.');
 
     await page.goto('/login');
     await page.getByLabel('이메일').fill(buyer.email);
