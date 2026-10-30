@@ -84,18 +84,31 @@ test.describe('방송 시청', () => {
     }
   });
 
-  test('방송 중인 판매자가 시청자 경로로 자기 방송에 들어가면 스튜디오로 가고, 스튜디오의 [시청 화면 열기]로는 시청자 화면을 본다', async ({ page }) => {
+  test('송출하는 탭에서 시청자 경로로 자기 방송에 들어가면 스튜디오로 가고, 다른 탭은 시청 화면을 보여 주며 송출을 빼앗지 않는다', async ({ page }) => {
     if (!prepared) throw new Error('방송이 준비되지 않았습니다.');
     const { stream } = prepared;
 
+    // 스튜디오를 연 탭이 송출을 맡는다.
     await loginOnPage(page, seller);
+    await page.goto('/studio');
+    await expect(page.getByText('LIVE 송출 중')).toBeVisible({ timeout: 20_000 });
     await page.goto(`/lives/${stream.id}`);
     await expect(page).toHaveURL(/\/studio$/);
-    await expect(page.getByRole('link', { name: '시청 화면 열기' })).toBeVisible();
+    await expect(page.getByText('LIVE 송출 중')).toBeVisible({ timeout: 20_000 });
 
-    await page.goto(`/lives/${stream.id}?viewer=1`);
-    await expect(page.getByRole('heading', { level: 1, name: stream.title })).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`/lives/${stream.id}\\?viewer=1$`));
+    // 다른 탭(경매 상세·홈 카드 등에서 연 탭)은 스튜디오로 보내지 않는다. 보내면 그 탭이 송출을 맡아 서로 빼앗는다.
+    const other = await page.context().newPage();
+    try {
+      await other.goto(`/lives/${stream.id}`);
+      await expect(other.getByRole('heading', { level: 1, name: stream.title })).toBeVisible();
+      await expect(other).toHaveURL(new RegExp(`/lives/${stream.id}$`));
+      // 스튜디오의 [시청 화면 열기]로 연 탭도 시청자 화면을 본다.
+      await other.goto(`/lives/${stream.id}?viewer=1`);
+      await expect(other.getByRole('heading', { level: 1, name: stream.title })).toBeVisible();
+    } finally {
+      await other.close();
+    }
+    await expect(page.getByText('LIVE 송출 중')).toBeVisible();
   });
 
   test('로그인하고 홈에서 방송을 찾아 들어가 채팅을 보낸다', async ({ page }) => {

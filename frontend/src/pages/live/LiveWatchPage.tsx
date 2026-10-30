@@ -22,6 +22,7 @@ import { applyChatMessage } from '@/lib/live-room';
 import { LiveVideo } from './LiveVideo';
 import { useLiveRealtime } from '@/lib/use-live-realtime';
 import { useWatchStream } from '@/components/watch/watch-context';
+import { readBroadcastOwner } from '@/lib/broadcast-owner';
 import { shouldOpenStudio } from '@/lib/seller-watch';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
@@ -78,10 +79,11 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
 
   const liveStream = query.data;
   const isLive = liveStream?.status === 'LIVE';
-  // 방송 중인 판매자가 자기 방송에 시청자 경로로 들어오면 스튜디오로 보낸다. (스튜디오 [시청 화면 열기]로 연 탭은 제외)
+  // 방송 중인 판매자가 송출하는 탭에서 자기 방송에 시청자 경로로 들어오면 스튜디오로 보낸다.
+  // (스튜디오 [시청 화면 열기]로 연 탭, 송출을 맡지 않은 다른 탭은 제외: 그 탭이 스튜디오를 열면 송출을 빼앗는다)
   const [searchParams] = useSearchParams();
   const userId = useSession()?.user.userId;
-  const openStudio = shouldOpenStudio(liveStream, userId, searchParams);
+  const openStudio = shouldOpenStudio(liveStream, userId, readBroadcastOwner(), searchParams);
   // 방송 영상·소리는 앱 전체에서 이어 본다. 이 화면을 떠나도 방송 중이면 오른쪽 아래 작은 플레이어에서 이어지고, 돌아오면 다시 접속하지 않는다.
   // 내(판매자) 방송은 떠나면 끊는다. (작은 플레이어를 띄우지 않음) 스튜디오로 보낼 때는 시청자로 접속하지 않는다.
   const { video, muted, toggleSound } = useWatchStream(
