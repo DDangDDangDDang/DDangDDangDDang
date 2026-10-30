@@ -45,6 +45,28 @@ export function StudioStage({
   const showVideo = camera.track && camera.enabled;
   const soundLabel = recordedMode ? "영상 소리" : "마이크";
   const pictureLabel = recordedMode ? "영상 화면" : "카메라";
+  const soundOn = microphone.enabled && !!microphone.track;
+  const pictureOn = camera.enabled && !!camera.track;
+  const soundToggle = (
+    <StageToggle
+      on={soundOn}
+      label={soundOn ? `${soundLabel} 끄기` : `${soundLabel} 켜기`}
+      disabled={microphone.starting}
+      onClick={() => onToggle("microphone")}
+    >
+      {soundOn ? <Mic className="size-5" aria-hidden="true" /> : <MicOff className="size-5" aria-hidden="true" />}
+    </StageToggle>
+  );
+  const pictureToggle = (
+    <StageToggle
+      on={pictureOn}
+      label={pictureOn ? `${pictureLabel} 끄기` : `${pictureLabel} 켜기`}
+      disabled={camera.starting}
+      onClick={() => onToggle("camera")}
+    >
+      {pictureOn ? <Video className="size-5" aria-hidden="true" /> : <VideoOff className="size-5" aria-hidden="true" />}
+    </StageToggle>
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -84,57 +106,34 @@ export function StudioStage({
           )}
         {showOverlay && overlay}
 
-        <div className="absolute bottom-4 left-4 z-10 flex gap-2">
-          <StageToggle
-            on={microphone.enabled && !!microphone.track}
-            label={
-              microphone.enabled && microphone.track
-                ? `${soundLabel} 끄기`
-                : `${soundLabel} 켜기`
-            }
-            disabled={microphone.starting}
-            onClick={() => onToggle("microphone")}
-          >
-            {microphone.enabled && microphone.track ? (
-              <Mic className="size-5" aria-hidden="true" />
-            ) : (
-              <MicOff className="size-5" aria-hidden="true" />
-            )}
-          </StageToggle>
-          <StageToggle
-            on={camera.enabled && !!camera.track}
-            label={
-              camera.enabled && camera.track ? `${pictureLabel} 끄기` : `${pictureLabel} 켜기`
-            }
-            disabled={camera.starting}
-            onClick={() => onToggle("camera")}
-          >
-            {camera.enabled && camera.track ? (
-              <Video className="size-5" aria-hidden="true" />
-            ) : (
-              <VideoOff className="size-5" aria-hidden="true" />
-            )}
-          </StageToggle>
-        </div>
       </div>
 
+      {/* 켜기/끄기 버튼은 영상 밖에 둔다. 영상 위에 두면 시청자에게 보이는 경매 카드·박스를 가려 미리보기가 달라진다. */}
       {recordedMode ? (
-        <RecordedFileField source={source.recorded} />
+        <div className="flex items-start gap-3">
+          <div className="flex shrink-0 gap-2">
+            {pictureToggle}
+            {soundToggle}
+          </div>
+          <div className="min-w-0 flex-1">
+            <RecordedFileField source={source.recorded} />
+          </div>
+        </div>
       ) : (
-      <div className="grid grid-cols-2 gap-4">
-        <DeviceSelect
-          kind="camera"
-          label="카메라"
-          device={camera}
-          onSelect={onSelectDevice}
-        />
-        <DeviceSelect
-          kind="microphone"
-          label="마이크"
-          device={microphone}
-          onSelect={onSelectDevice}
-        />
-      </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <DeviceSelect kind="camera" label="카메라" device={camera} onSelect={onSelectDevice} />
+            </div>
+            {pictureToggle}
+          </div>
+          <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <DeviceSelect kind="microphone" label="마이크" device={microphone} onSelect={onSelectDevice} />
+            </div>
+            {soundToggle}
+          </div>
+        </div>
       )}
       {microphone.error && <Notice tone="error">{microphone.error}</Notice>}
       {camera.error && camera.track && (
@@ -462,8 +461,11 @@ function StageToggle({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex size-11 items-center justify-center rounded-md text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-        on ? "bg-stage/70 hover:bg-stage" : "bg-brand-800 hover:bg-brand-900",
+        "flex size-11 shrink-0 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        // 켜져 있으면 보통 버튼, 꺼져 있으면 눈에 띄게 (색만이 아니라 아이콘도 바뀐다)
+        on
+          ? "border border-neutral-200 bg-neutral-0 text-neutral-900 hover:bg-neutral-50"
+          : "bg-brand-800 text-white hover:bg-brand-900",
       )}
     >
       {children}
