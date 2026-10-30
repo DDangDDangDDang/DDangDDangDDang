@@ -115,6 +115,20 @@ public class ReviewService {
         review.deleteReply();
     }
 
+    // 내 주무의 리뷰 조회 (주문 화면에서 수정,삭제할 리뷰 찾기)
+    public ReviewResponse getMyOrderReview(Long userId,Long orderId){
+        Order order = orderRepository.findById(orderId).orElseThrow(
+                () -> new BusinessException(OrderErrorCode.ORDER_NOT_FOUND)
+        );
+        if (!order.isBuyer(userId)){
+            throw new BusinessException(ReviewErrorCode.NOT_ORDER_BUYER);
+        }
+        Review review = reviewRepository.findByOrderId(orderId).orElseThrow(
+                () -> new BusinessException(ReviewErrorCode.REVIEW_NOT_FOUND)
+        );
+        return ReviewResponse.from(review);
+    }
+
     private Review findReview(Long reviewId){
         return reviewRepository.findById(reviewId).orElseThrow(
                 ()-> new BusinessException(ReviewErrorCode.REVIEW_NOT_FOUND)
