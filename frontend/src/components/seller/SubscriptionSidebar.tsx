@@ -75,7 +75,7 @@ function SubscribedRow({ seller, collapsed }: { seller: Subscribed; collapsed: b
 
   const body = (
     <>
-      <SellerAvatar name={name} verified={seller.verifiedSeller} size="sm" live={live} />
+      <SellerAvatar name={name} imageUrl={seller.profileImageUrl} verified={seller.verifiedSeller} size="sm" live={live} />
       {/* 접힌 메뉴에서도 방송 중임을 색만이 아니라 글자로 보여 준다. */}
       {collapsed && live && (
         <span aria-hidden="true" className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-sm bg-red-500 px-1 text-caption leading-none font-bold text-white">

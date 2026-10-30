@@ -10161,6 +10161,9 @@
           },
           "liveRecorded" : {
             "type" : "boolean"
+          },
+          "profileImageUrl" : {
+            "type" : "string"
           }
         }
       },

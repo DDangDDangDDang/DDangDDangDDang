@@ -5,6 +5,7 @@ package com.example.ddangddangddang.domain.seller.dto;
  * liveStreamId·liveTitle: 지금 방송 중이면 그 방송, 아니면 null
  * liveRecorded: 지금 방송이 미리 녹화한 영상이면 true (방송 중이 아니면 false)
  * nickname: 탈퇴 등으로 회원을 찾지 못하면 null
+ * profileImageUrl: 프로필 이미지 주소 (없으면 null, 화면은 닉네임 첫 글자를 보여 준다)
  */
 public record SubscribedSellerResponse(
         Long sellerId,
@@ -12,6 +13,7 @@ public record SubscribedSellerResponse(
         boolean verifiedSeller,
         Long liveStreamId,
         String liveTitle,
-        boolean liveRecorded
+        boolean liveRecorded,
+        String profileImageUrl
 ) {
 }
