@@ -144,7 +144,7 @@ test.describe('방송 시청', () => {
   });
 
   test('판매자가 자기 방송의 시청 화면을 떠나면 작은 플레이어를 띄우지 않는다', async ({ page }) => {
-    test.skip(seller.email === viewer.email, 'E2E_SELLER_EMAIL, E2E_SELLER_PASSWORD 환경변수가 필요합니다.');
+    // 판매자 계정이 따로 없으면 시청자 계정이 방송을 열었으므로, 그 계정으로 확인한다.
     if (!prepared) throw new Error('방송이 준비되지 않았습니다.');
     const { stream } = prepared;
 
