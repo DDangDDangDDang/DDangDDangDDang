@@ -16,6 +16,7 @@ public record AuctionListResponse(
         AuctionStatus status,
         LocalDateTime startAt,
         LocalDateTime endAt,
-        boolean live //라이브 경매 여부
+        boolean live, //라이브 경매 여부
+        boolean buyNowOnly //입찰 없이 즉시구매로만 파는 경매. true면 currentPrice가 즉시구매가
 ) {
 }

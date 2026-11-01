@@ -2,7 +2,7 @@ import { Gavel } from 'lucide-react';
 import { errorMessage } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
 import { Button, Card, CardBody, CardHeader, CardTitle, ErrorState, Skeleton } from '@/components/ui';
-import { auctionPhase } from '@/lib/auction';
+import { auctionPhase, auctionPriceLabel } from '@/lib/auction';
 import { cn } from '@/lib/cn';
 import { formatNumber, formatPoint } from '@/lib/format';
 import { useLiveStreamAuctions, WATCH_AUCTION_REFRESH_MS } from '@/lib/use-live-stream-auctions';
@@ -66,19 +66,21 @@ export function AuctionPanel({ liveStreamId, onOpen }: { liveStreamId: number; o
                   </div>
                   <div className="flex items-end justify-between gap-2">
                     <div className="flex flex-col">
-                      <span className="text-caption text-neutral-500">{phase === 'READY' ? '시작가' : '현재가'}</span>
+                      <span className="text-caption text-neutral-500">{auctionPriceLabel(phase, auction.buyNowOnly)}</span>
                       <span className="num text-title-md font-bold">{formatPoint(auction.currentPrice ?? auction.startPrice ?? 0)}</span>
-                      <span className="text-caption text-neutral-500">
-                        입찰 <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
-                      </span>
+                      {!auction.buyNowOnly && (
+                        <span className="text-caption text-neutral-500">
+                          입찰 <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
+                        </span>
+                      )}
                     </div>
                     <Button
                       size="sm"
                       variant={phase === 'ONGOING' ? 'primary' : 'outline'}
-                      aria-label={`${auction.productName || '상품'} ${phase === 'ONGOING' ? '입찰하기' : '경매 보기'}`}
+                      aria-label={`${auction.productName || '상품'} ${phase === 'ONGOING' ? (auction.buyNowOnly ? '구매하기' : '입찰하기') : '경매 보기'}`}
                       onClick={() => auction.id && onOpen(auction.id, phase === 'ONGOING')}
                     >
-                      {phase === 'ONGOING' ? '입찰하기' : '경매 보기'}
+                      {phase === 'ONGOING' ? (auction.buyNowOnly ? '구매하기' : '입찰하기') : '경매 보기'}
                     </Button>
                   </div>
                 </li>

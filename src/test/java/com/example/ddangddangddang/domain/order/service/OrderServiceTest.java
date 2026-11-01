@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.order.service;
 
+import com.example.ddangddangddang.domain.order.commission.CommissionPolicy;
 import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
@@ -51,6 +52,9 @@ class OrderServiceTest {
 
     @Mock
     private PointService pointService;
+
+    @Mock
+    private CommissionPolicy commissionPolicy;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;

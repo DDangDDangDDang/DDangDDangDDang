@@ -120,6 +120,8 @@ export function durationLabel(seconds: number): string {
 
 /** 경매 조건 입력. 금액은 입력 문자열, 시각은 datetime-local 값 */
 export type AuctionConditionValues = {
+  /** 즉시구매만 판매: 켜면 시작가·최소 입찰 단위 없이 즉시구매가로만 판다 (서버에는 두 값을 빼고 보낸다) */
+  buyNowOnly: boolean;
   startPrice: string;
   bidUnit: string;
   buyNowPrice: string;
@@ -129,7 +131,7 @@ export type AuctionConditionValues = {
 };
 export type AuctionConditionErrors = Partial<Record<keyof AuctionConditionValues, string>>;
 
-export const EMPTY_AUCTION_CONDITION: AuctionConditionValues = { startPrice: '', bidUnit: '', buyNowPrice: '', startAt: '', endAt: '', durationSec: '60' };
+export const EMPTY_AUCTION_CONDITION: AuctionConditionValues = { buyNowOnly: false, startPrice: '', bidUnit: '', buyNowPrice: '', startAt: '', endAt: '', durationSec: '60' };
 
 /**
  * 경매 조건을 검사한다. schedule은 시작·마감 시각을 정하는 경매, live는 방송 중에 바로 시작하는 경매.
@@ -138,12 +140,18 @@ export const EMPTY_AUCTION_CONDITION: AuctionConditionValues = { startPrice: '',
 export function validateAuctionCondition(values: AuctionConditionValues, mode: 'schedule' | 'live', now: Date): AuctionConditionErrors {
   const errors: AuctionConditionErrors = {};
   const startPrice = parseAmount(values.startPrice);
-  const bidUnit = parseAmount(values.bidUnit);
   const buyNowPrice = parseAmount(values.buyNowPrice);
 
-  if (!startPrice) errors.startPrice = '시작가를 입력해 주세요.';
-  if (!bidUnit) errors.bidUnit = '최소 입찰 단위를 입력해 주세요.';
-  if (buyNowPrice !== undefined && startPrice && buyNowPrice <= startPrice) errors.buyNowPrice = '즉시구매가는 시작가보다 커야 해요.';
+  // 즉시구매만 판매([즉시구매만 판매] 버튼)면 시작가·입찰 단위를 보지 않고 즉시구매가만 필수다. (서버: AuctionService.priceVerification)
+  if (values.buyNowOnly) {
+    if (buyNowPrice === undefined) errors.buyNowPrice = '즉시구매만 판매하려면 즉시구매가를 입력해 주세요.';
+  } else {
+    const startError = amountError(values.startPrice, '시작가');
+    const unitError = amountError(values.bidUnit, '최소 입찰 단위');
+    if (startError) errors.startPrice = startError;
+    if (unitError) errors.bidUnit = unitError;
+    if (buyNowPrice !== undefined && startPrice && buyNowPrice <= startPrice) errors.buyNowPrice = '즉시구매가는 시작가보다 커야 해요.';
+  }
 
   if (mode === 'schedule') {
     const startAt = values.startAt ? new Date(values.startAt) : undefined;
@@ -161,8 +169,9 @@ export function validateAuctionCondition(values: AuctionConditionValues, mode: '
 export function toAuctionCreateRequest(productId: number, values: AuctionConditionValues): Schema<'AuctionCreateRequest'> {
   return {
     productId,
-    startPrice: parseAmount(values.startPrice) ?? 0,
-    bidUnit: parseAmount(values.bidUnit) ?? 0,
+    // 즉시구매만 판매면 시작가·입찰 단위를 보내지 않는다 (서버에 즉시구매 전용으로 저장)
+    startPrice: values.buyNowOnly ? undefined : parseAmount(values.startPrice),
+    bidUnit: values.buyNowOnly ? undefined : parseAmount(values.bidUnit),
     buyNowPrice: parseAmount(values.buyNowPrice),
     startAt: fromDateTimeInput(values.startAt) ?? '',
     endAt: fromDateTimeInput(values.endAt) ?? '',
@@ -172,11 +181,31 @@ export function toAuctionCreateRequest(productId: number, values: AuctionConditi
 export function toLiveAuctionCreateRequest(productId: number, values: AuctionConditionValues): Schema<'LiveAuctionCreateRequest'> {
   return {
     productId,
-    startPrice: parseAmount(values.startPrice) ?? 0,
-    bidUnit: parseAmount(values.bidUnit) ?? 0,
+    startPrice: values.buyNowOnly ? undefined : parseAmount(values.startPrice),
+    bidUnit: values.buyNowOnly ? undefined : parseAmount(values.bidUnit),
     buyNowPrice: parseAmount(values.buyNowPrice),
     durationSec: Number(values.durationSec),
   };
+}
+
+/** 시작가·최소 입찰 단위 입력 오류. 비었으면 "입력해 주세요", 0이면 "0원일 수 없어요" */
+function amountError(raw: string, label: string): string | undefined {
+  if (raw.trim() === '') return `${label}를 입력해 주세요.`;
+  const amount = parseAmount(raw);
+  if (amount === 0) return `${label}는 0원일 수 없어요.`;
+  if (!amount) return `${label}를 입력해 주세요.`;
+  return undefined;
+}
+
+/**
+ * 가격 옆에 붙일 이름. 즉시구매 전용 경매(buyNowOnly)는 입찰이 없어 "현재가" 대신 즉시구매가, 팔렸으면 판매가.
+ * 입찰 경매는 시작 전이면 시작가, 끝났으면 낙찰가, 그 밖에는 현재가.
+ */
+export function auctionPriceLabel(phase: AuctionPhase | undefined, buyNowOnly: boolean | undefined): string {
+  if (buyNowOnly) return phase === 'ENDED' ? '판매가' : '즉시구매가';
+  if (phase === 'READY') return '시작가';
+  if (phase === 'ENDED') return '낙찰가';
+  return '현재가';
 }
 
 /** 금액 입력칸에 보여줄 값: 숫자만 남기고 천 단위 구분 */

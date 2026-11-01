@@ -317,7 +317,8 @@ function AuctionList({
           const phase = auctionPhase(auction, now);
           const priceLabel = sellerAuctionPriceLabel(auction.status);
           // 고른 가격이 응답에 없으면 0 P처럼 보이지 않게 -로 둔다.
-          const price = priceLabel === '시작가' ? auction.startPrice : auction.currentPrice;
+          // 즉시구매 전용은 시작가가 없어 현재가(= 즉시구매가)를 보여준다.
+          const price = priceLabel === '시작가' ? (auction.startPrice ?? auction.currentPrice) : auction.currentPrice;
           return (
             <li key={auction.auctionId}>
               <Link to={`/auctions/${auction.auctionId}`} onClick={onNavigate} className="flex items-center justify-between gap-3 px-1 py-3 hover:bg-neutral-25">

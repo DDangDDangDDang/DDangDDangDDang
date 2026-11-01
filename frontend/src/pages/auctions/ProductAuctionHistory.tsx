@@ -95,7 +95,10 @@ function HistoryRow({ auction, current, now }: { auction: Auction; current: bool
   );
 }
 
-/** 금액이 응답에 없으면 0 P처럼 보이지 않게 -로 */
-function pointOrDash(amount?: number): string {
-  return amount === undefined ? '-' : formatPoint(amount);
+/**
+ * 금액이 없으면 0 P처럼 보이지 않게 -로.
+ * 서버는 값이 없을 때 필드를 빼지 않고 null로 보낸다(즉시구매 전용 경매의 시작가 등). 그래서 undefined와 null을 모두 거른다.
+ */
+function pointOrDash(amount?: number | null): string {
+  return amount == null ? '-' : formatPoint(amount);
 }

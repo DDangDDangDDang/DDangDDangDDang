@@ -46,10 +46,10 @@ public class Auction extends BaseTimeEntity {
     @JoinColumn(name = "live_stream_id")
     private LiveStream liveStream;
 
-    @Column(nullable = false)
+    //시작가·최소 입찰 단위. 둘 다 null이면 입찰 없이 즉시구매로만 파는 경매다 (isBuyNowOnly)
+    //컬럼을 NULL 허용으로 바꾼 뒤에 생긴 규칙이라, 기존 DB는 db/backfill/auctions_buy_now_only.sql을 실행해야 한다
     private Long startPrice;
 
-    @Column(nullable = false)
     private Long bidUnit;
 
     private Long buyNowPrice;
@@ -96,7 +96,8 @@ public class Auction extends BaseTimeEntity {
         this.startPrice = startPrice;
         this.bidUnit = bidUnit;
         this.buyNowPrice = buyNowPrice;
-        this.currentPrice = startPrice;
+        //즉시구매 전용은 현재가를 즉시구매가로 둔다. 목록의 가격 검색·정렬이 현재가 기준이라 그대로 동작한다
+        this.currentPrice = startPrice != null ? startPrice : buyNowPrice;
         this.bidCount = 0;
         this.extendCount =0;
         this.status = AuctionStatus.READY;
@@ -147,8 +148,14 @@ public class Auction extends BaseTimeEntity {
 
     // ===== 입찰 · 즉시구매  =====
 
+    /** 입찰 없이 즉시구매로만 파는 경매인지. 시작가·입찰 단위 없이 즉시구매가만 있다 (입찰·마감 연장 없음) */
+    public boolean isBuyNowOnly() {
+        return this.startPrice == null;
+    }
+
     /** 다음 입찰이 넘어야 하는 최소 금액. 첫 입찰은 시작가부터, 이후는 현재가 + 입찰 단위 */
     public long minimumBidAmount() {
+        requireBidding();
         return this.bidCount == 0 ? this.startPrice : this.currentPrice + this.bidUnit;
     }
 
@@ -158,6 +165,7 @@ public class Auction extends BaseTimeEntity {
      */
     public void validateBid(Long bidderId, long amount, LocalDateTime now) {
         validateOpen(now);
+        requireBidding();
         if (isSeller(bidderId)) {
             throw new BusinessException(AuctionErrorCode.SELLER_CANNOT_BID);
         }
@@ -180,7 +188,15 @@ public class Auction extends BaseTimeEntity {
      * (현재가를 기준으로 삼아, 규칙 도입 전에 단위와 맞지 않게 들어간 입찰이 있어도 다음 입찰이 막히지 않는다)
      */
     public long bidBasePrice() {
+        requireBidding();
         return this.bidCount == 0 ? this.startPrice : this.currentPrice;
+    }
+
+    /** 즉시구매 전용 경매에는 입찰할 수 없다 (화면을 거치지 않은 요청 대비) */
+    private void requireBidding() {
+        if (isBuyNowOnly()) {
+            throw new BusinessException(AuctionErrorCode.BIDDING_NOT_AVAILABLE);
+        }
     }
 
     // ===== 마감 재시도 =====

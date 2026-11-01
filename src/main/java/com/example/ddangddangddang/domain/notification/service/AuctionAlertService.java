@@ -64,7 +64,8 @@ public class AuctionAlertService {
         boolean live = auction.getLiveStream() != null && auction.getLiveStream().getStatus() == LiveStreamStatus.LIVE;
         return new AuctionListResponse(auction.getId(), product.getId(), product.getName(),
                 product.getCategory() == null ? null : product.getCategory().getName(),
-                auction.getCurrentPrice(), auction.getBidCount(), auction.getStatus(), auction.getStartAt(), auction.getEndAt(), live);
+                auction.getCurrentPrice(), auction.getBidCount(), auction.getStatus(), auction.getStartAt(), auction.getEndAt(), live,
+                auction.isBuyNowOnly());
     }
 
     public AuctionAlertResponse get(Long userId, Long auctionId) {

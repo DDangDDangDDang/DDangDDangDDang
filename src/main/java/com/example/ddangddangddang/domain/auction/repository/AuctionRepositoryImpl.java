@@ -43,7 +43,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         List<AuctionListResponse> content =queryFactory
                 .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,
                         auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,
-                        onLive(liveStream)))
+                        onLive(liveStream),auction.startPrice.isNull()))
                 .from(auction)
                 .join(auction.product,product)
                 .join(product.category,category)
@@ -89,7 +89,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         QLiveStream liveStream = QLiveStream.liveStream;
 
         return queryFactory
-                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,onLive(liveStream))).
+                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,onLive(liveStream),auction.startPrice.isNull())).
                 from(auction)
                 .join(auction.product, product)
                 .join(product.category,category)

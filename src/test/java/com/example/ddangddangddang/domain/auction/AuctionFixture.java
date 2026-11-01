@@ -39,6 +39,15 @@ public final class AuctionFixture {
         return ongoing(now, java.time.Duration.ofHours(1), BUY_NOW_PRICE);
     }
 
+    /** 입찰 없이 즉시구매로만 파는 진행 중 경매 (시작가·입찰 단위 없음, 현재가 = 즉시구매가) */
+    public static Auction buyNowOnly(LocalDateTime now) {
+        Auction auction = ongoing(now, java.time.Duration.ofHours(1), BUY_NOW_PRICE);
+        ReflectionTestUtils.setField(auction, "startPrice", null);
+        ReflectionTestUtils.setField(auction, "bidUnit", null);
+        ReflectionTestUtils.setField(auction, "currentPrice", BUY_NOW_PRICE);
+        return auction;
+    }
+
     /** 이미 누군가 입찰한 상태로 만든다 */
     public static void bidBy(Auction auction, Long bidderId, long amount) {
         ReflectionTestUtils.setField(auction, "highestBidderId", bidderId);

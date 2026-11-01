@@ -35,8 +35,15 @@ export function BidDialog({
   showDetailLink?: boolean;
   realtime?: boolean;
 }) {
+  // 창 제목: 즉시구매 전용 경매면 "즉시 구매". 입찰 창 안쪽과 같은 쿼리라 한 번만 불러온다.
+  const auction = useQuery({
+    queryKey: auctionKey(auctionId ?? 0),
+    queryFn: () => call(api.GET('/api/v1/auctions/{auctionId}', { params: { path: { auctionId: auctionId ?? 0 } } })),
+    enabled: auctionId !== undefined,
+  });
+  const buyNowOnly = auction.data?.buyNowOnly === true;
   return (
-    <Dialog open={auctionId !== undefined} onClose={onClose} title="입찰하기" className="w-[480px]">
+    <Dialog open={auctionId !== undefined} onClose={onClose} title={buyNowOnly ? '즉시 구매' : '입찰하기'} className="w-[480px]">
       {/* 다른 경매를 열면 입력을 처음부터 시작한다. */}
       {auctionId !== undefined && <BidForm key={auctionId} auctionId={auctionId} showDetailLink={showDetailLink} realtime={realtime} />}
     </Dialog>
@@ -147,11 +154,14 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
 
       <dl className="grid grid-cols-3 gap-2 rounded-md bg-neutral-25 px-4 py-3">
         <div className="col-span-3 flex flex-col">
-          <dt className="text-caption text-neutral-500">{(auction.bidCount ?? 0) === 0 ? '시작가' : '현재가'}</dt>
+          <dt className="text-caption text-neutral-500">{auction.buyNowOnly ? '즉시구매가' : (auction.bidCount ?? 0) === 0 ? '시작가' : '현재가'}</dt>
           <dd aria-live="polite" className="num text-price-lg font-bold">
             {formatPoint(auction.currentPrice ?? auction.startPrice ?? 0)}
           </dd>
         </div>
+        {/* 즉시구매 전용은 입찰 수·입찰 단위가 없다. */}
+        {!auction.buyNowOnly && (
+          <>
         <div className="flex flex-col">
           <dt className="text-caption text-neutral-500">입찰 수</dt>
           <dd className="text-body font-semibold">
@@ -162,6 +172,8 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
           <dt className="text-caption text-neutral-500">최소 입찰 단위</dt>
           <dd className="num text-body font-semibold">{formatPoint(unit)}</dd>
         </div>
+          </>
+        )}
         <div className="flex flex-col">
           <dt className="text-caption text-neutral-500">내 사용 가능 포인트</dt>
           <dd className="num text-body font-semibold">{balance === undefined ? '-' : formatPoint(balance)}</dd>
@@ -177,6 +189,23 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
           </Link>
           에서 확인하세요.
         </Notice>
+      ) : ongoing && auction.buyNowOnly ? (
+        // 즉시구매 전용: 입찰 칸 없이 즉시 구매만
+        auction.buyNowPrice ? (
+          <BuyNowSection
+            price={auction.buyNowPrice}
+            balance={balance}
+            confirming={confirmBuyNow}
+            pending={buyNow.isPending}
+            error={buyNow.isError ? errorMessage(buyNow.error) : undefined}
+            onAsk={() => {
+              buyNow.reset();
+              setConfirmBuyNow(true);
+            }}
+            onCancel={() => setConfirmBuyNow(false)}
+            onConfirm={() => buyNow.mutate()}
+          />
+        ) : null
       ) : ongoing ? (
         <>
           <div role="group" aria-label="금액 빠르게 정하기" className="grid grid-cols-4 gap-2">
@@ -278,7 +307,15 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
           ) : null}
         </>
       ) : (
-        <Notice>{phase === 'READY' ? '경매가 시작되면 입찰할 수 있어요.' : '입찰이 끝난 경매예요.'}</Notice>
+        <Notice>
+          {auction.buyNowOnly
+            ? phase === 'READY'
+              ? '경매가 시작되면 구매할 수 있어요.'
+              : '판매가 끝난 경매예요.'
+            : phase === 'READY'
+              ? '경매가 시작되면 입찰할 수 있어요.'
+              : '입찰이 끝난 경매예요.'}
+        </Notice>
       )}
 
       <BidWarning />

@@ -27,7 +27,9 @@ public record AuctionResponse(
         AuctionStatus status,
         LocalDateTime startAt,
         LocalDateTime endAt,
-        LocalDateTime canceledAt
+        LocalDateTime canceledAt,
+        // 입찰 없이 즉시구매로만 파는 경매. true면 startPrice·bidUnit이 null이고 currentPrice가 즉시구매가다
+        boolean buyNowOnly
 ) {
 
     public static AuctionResponse from(Auction auction){
@@ -48,7 +50,8 @@ public record AuctionResponse(
                 auction.getStatus(),
                 auction.getStartAt(),
                 auction.getEndAt(),
-                auction.getCanceledAt()
+                auction.getCanceledAt(),
+                auction.isBuyNowOnly()
         );
     }
 }
