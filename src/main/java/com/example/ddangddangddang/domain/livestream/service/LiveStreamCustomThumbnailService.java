@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.util.Map;
@@ -45,6 +46,7 @@ public class LiveStreamCustomThumbnailService {
 
     private final LiveStreamRepository liveStreamRepository;
     private final FileStorage fileStorage;
+    private final TransactionTemplate transactionTemplate;
 
     /** 썸네일 업로드 URL. 키에 방송 ID를 넣어, 다른 방송에 올린 이미지를 가져다 쓰지 못하게 한다. */
     @Transactional(readOnly = true)
@@ -61,24 +63,32 @@ public class LiveStreamCustomThumbnailService {
 
     /**
      * 올린 이미지를 썸네일로 쓴다. 이 방송의 키인지, 저장소에 실제로 올라갔는지, 형식·크기가 맞는지 다시 확인한다.
+     * 저장소 조회(S3 HEAD)는 DB 커넥션을 잡지 않도록 트랜잭션 밖에서 하고, 트랜잭션 안에서 방송을 다시 읽어 바꾼다.
      * 앞에 올린 썸네일은 커밋된 뒤 지운다. (롤백되면 앞의 썸네일을 계속 써야 하므로)
      */
-    @Transactional
     public LiveStreamResponse change(Long liveStreamId, Long sellerId, String thumbnailKey) {
-        LiveStream liveStream = findById(liveStreamId);
-        liveStream.validateOverlayEditable(sellerId);
+        LiveStream before = findById(liveStreamId);
+        before.validateOverlayEditable(sellerId);
         String prefix = prefix(liveStreamId);
         if (!thumbnailKey.startsWith(prefix) || !FILE.matcher(thumbnailKey.substring(prefix.length())).matches()) {
             throw new BusinessException(LiveStreamErrorCode.THUMBNAIL_NOT_UPLOADED);
         }
-        if (!thumbnailKey.equals(liveStream.getCustomThumbnailKey())) {
+        boolean verified = !thumbnailKey.equals(before.getCustomThumbnailKey());
+        if (verified) {
             FileStorage.StoredFile file = fileStorage.find(thumbnailKey)
                     .orElseThrow(() -> new BusinessException(LiveStreamErrorCode.THUMBNAIL_NOT_UPLOADED));
             if (file.size() > MAX_BYTES || !EXTENSIONS.containsKey(file.contentType())) {
                 throw new BusinessException(LiveStreamErrorCode.INVALID_CUSTOM_THUMBNAIL);
             }
         }
-        return replace(liveStream, sellerId, thumbnailKey);
+        return transactionTemplate.execute(status -> {
+            LiveStream liveStream = findById(liveStreamId);
+            // 이미 쓰던 키라 저장소 확인을 건너뛰었는데 그 사이 다른 창이 바꿨다면, 그 키의 파일은 이미 지워졌을 수 있다.
+            if (!verified && !thumbnailKey.equals(liveStream.getCustomThumbnailKey())) {
+                throw new BusinessException(LiveStreamErrorCode.CONCURRENT_UPDATE);
+            }
+            return replace(liveStream, sellerId, thumbnailKey);
+        });
     }
 
     /** 직접 올린 썸네일을 지운다. 카드는 다시 송출 화면 자동 캡처를 쓴다. */

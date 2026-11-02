@@ -9,6 +9,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 import com.example.ddangddangddang.domain.livestream.dto.LiveStreamResponse;
@@ -25,11 +27,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class LiveStreamCustomThumbnailServiceTest {
@@ -49,12 +54,18 @@ class LiveStreamCustomThumbnailServiceTest {
     @Mock
     private FileStorage fileStorage;
 
+    @Mock
+    private TransactionTemplate transactionTemplate;
+
     private LiveStream liveStream;
 
     @BeforeEach
     void setUp() {
         liveStream = LiveStream.create(SELLER_ID, "테스트 방송", "설명");
         ReflectionTestUtils.setField(liveStream, "id", LIVE_STREAM_ID);
+        // 트랜잭션 없이 콜백만 실행한다.
+        lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation ->
+                invocation.<TransactionCallback<?>>getArgument(0).doInTransaction(null));
     }
 
     private void stubFind() {
@@ -111,6 +122,10 @@ class LiveStreamCustomThumbnailServiceTest {
         then(liveStreamRepository).should().saveAndFlush(liveStream);
         then(fileStorage).should().delete(OLD_KEY);
         then(fileStorage).should(never()).delete(AUTO_KEY);
+        // 저장소 조회는 트랜잭션을 열기 전에 끝낸다.
+        InOrder order = inOrder(fileStorage, transactionTemplate);
+        order.verify(fileStorage).find(NEW_KEY);
+        order.verify(transactionTemplate).execute(any());
     }
 
     @Test
@@ -124,6 +139,23 @@ class LiveStreamCustomThumbnailServiceTest {
 
         then(fileStorage).should(never()).find(anyString());
         then(fileStorage).should(never()).delete(anyString());
+        then(liveStreamRepository).should(never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("이미 쓰던 키라 저장소 확인을 건너뛰었는데 그 사이 다른 썸네일로 바뀌었으면 LIVESTREAM_006으로 막는다")
+    void changeSameKeyReplacedMeanwhile() {
+        LiveStream reread = LiveStream.create(SELLER_ID, "테스트 방송", "설명");
+        ReflectionTestUtils.setField(reread, "id", LIVE_STREAM_ID);
+        ReflectionTestUtils.setField(reread, "customThumbnailKey", OLD_KEY);
+        ReflectionTestUtils.setField(liveStream, "customThumbnailKey", NEW_KEY);
+        given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream), Optional.of(reread));
+
+        assertThatThrownBy(() -> customThumbnailService.change(LIVE_STREAM_ID, SELLER_ID, NEW_KEY))
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(LiveStreamErrorCode.CONCURRENT_UPDATE);
+        assertThat(reread.getCustomThumbnailKey()).isEqualTo(OLD_KEY);
+        then(fileStorage).should(never()).find(anyString());
         then(liveStreamRepository).should(never()).saveAndFlush(any());
     }
 
