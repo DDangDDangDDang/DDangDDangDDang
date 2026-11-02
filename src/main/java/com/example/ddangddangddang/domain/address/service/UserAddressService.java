@@ -43,7 +43,7 @@ public class UserAddressService {
 
     // 내 기본 배송지(주문시 자동 채우기용, 저장된 배송지 없을시 data: null)
     public UserAddressResponse getDefaultAddress(Long userId) {
-        return userAddressRepository.findByUserIdAndIsDefaultTrue(userId)
+        return userAddressRepository.findFirstByUserIdAndIsDefaultTrueOrderByIdDesc(userId)
                 .map(UserAddressResponse::from)
                 .orElse(null);
     }
@@ -79,10 +79,7 @@ public class UserAddressService {
     @Transactional
     public UserAddressResponse changeDefaultAddress(Long userId, Long addressId){
         UserAddress myAddress = findMyAddress(userId, addressId);
-        if (myAddress.isDefault()){
-            return UserAddressResponse.from(myAddress);
-        }
-        userAddressRepository.findByUserIdAndIsDefaultTrue(userId).ifPresent(UserAddress::cancelDefault);
+        userAddressRepository.findByUserIdAndIsDefaultTrue(userId).forEach(UserAddress::cancelDefault);
         myAddress.makeDefault();
         return UserAddressResponse.from(myAddress);
     }
