@@ -63,7 +63,6 @@ export function AuctionCard({ auction }: { auction: ListItem }) {
         <ProductImage src={auction.thumbnailUrl} alt={auction.productName ?? '상품'} className="aspect-square w-full rounded-md" />
         <div className="absolute top-3 left-3 flex gap-1.5">
           <AuctionPhaseBadge phase={phase} />
-<AuctionPhaseBadge phase={phase} />
           {auction.buyNowOnly && <Badge variant="outline">즉시구매</Badge>}
           {auction.promoted && (
             <Badge variant="promo">
