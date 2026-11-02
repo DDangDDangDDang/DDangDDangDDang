@@ -2,6 +2,8 @@ package com.example.ddangddangddang.domain.order.dto;
 
 import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
+import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
+import com.example.ddangddangddang.domain.order.entity.OrderDelayStatus;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 
 import java.time.LocalDateTime;
@@ -27,7 +29,13 @@ public record OrderResponse(
         String trackingNo,
         LocalDateTime createdAt,
         LocalDateTime shippedAt,
-        LocalDateTime completedAt
+        LocalDateTime completedAt,
+        LocalDateTime addressDeadlineAt,  // 배송지 입력 기한. 도입 전 주문은 null
+        LocalDateTime shipDeadlineAt,     // 발송 기한. 배송지 입력 전이나 도입 전 주문은 null
+        OrderDelayStatus delayStatus,     // 지연 신청 전이면 null
+        String delayReason,
+        OrderCancelReason cancelReason,
+        LocalDateTime canceledAt
 ) {
 
     public static OrderResponse from(Order order) {
@@ -52,7 +60,13 @@ public record OrderResponse(
                 order.getTrackingNo(),
                 order.getCreatedAt(),
                 order.getShippedAt(),
-                order.getCompletedAt()
+                order.getCompletedAt(),
+                order.getAddressDeadlineAt(),
+                order.getShipDeadlineAt(),
+                order.getDelayStatus(),
+                order.getDelayReason(),
+                order.getCancelReason(),
+                order.getCanceledAt()
         );
     }
 }
