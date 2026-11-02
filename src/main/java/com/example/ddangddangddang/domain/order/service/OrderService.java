@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.order.service;
 
+import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.order.commission.CommissionPolicy;
 import com.example.ddangddangddang.domain.order.commission.SaleContext;
 import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
@@ -8,6 +9,8 @@ import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.event.OrderCanceledEvent;
 import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
+import com.example.ddangddangddang.domain.order.event.OrderDelayRequestedEvent;
+import com.example.ddangddangddang.domain.order.event.OrderDelayRespondedEvent;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.point.service.PointService;
@@ -39,6 +42,7 @@ public class OrderService {
     private final CommissionPolicy commissionPolicy;
     private final PointService pointService;
     private final ApplicationEventPublisher eventPublisher;
+    private final ChatContentFilter contentFilter;
 
     /**
      * 낙찰 주문을 만든다. API가 아니라 경매 도메인이 호출하는 내부 메서드다.
@@ -181,6 +185,56 @@ public class OrderService {
         eventPublisher.publishEvent(new OrderCanceledEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
                 order.getSellerId(), order.getProductName(), reason));
         return true;
+    }
+
+    /**
+     * 판매자가 발송 지연을 신청한다. 사유는 메신저로 그대로 전달되므로, 외부 거래 유도를 여기서 막는다.
+     */
+    @Transactional
+    public OrderResponse requestDelay(Long userId, Long orderId, String reason) {
+        Order order = findOrderForUpdate(orderId);
+        if (!order.isSeller(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_SELLER_DELAY);
+        }
+        String stripped = reason.strip();
+        if (contentFilter.findViolation(stripped).isPresent()) {
+            throw new BusinessException(OrderErrorCode.DELAY_REASON_NOT_ALLOWED);
+        }
+        order.requestDelay(stripped, LocalDateTime.now());
+        eventPublisher.publishEvent(new OrderDelayRequestedEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), stripped));
+        return OrderResponse.from(order);
+    }
+
+    /** 구매자가 지연을 승인하면 발송 기한이 7일 늘어난다. */
+    @Transactional
+    public OrderResponse approveDelay(Long userId, Long orderId) {
+        Order order = findOrderForDelayResponse(userId, orderId);
+        order.approveDelay(LocalDateTime.now());
+        publishDelayResponded(order, true);
+        return OrderResponse.from(order);
+    }
+
+    /** 구매자가 지연을 거절하면 기존 기한대로 진행한다. */
+    @Transactional
+    public OrderResponse rejectDelay(Long userId, Long orderId) {
+        Order order = findOrderForDelayResponse(userId, orderId);
+        order.rejectDelay(LocalDateTime.now());
+        publishDelayResponded(order, false);
+        return OrderResponse.from(order);
+    }
+
+    private Order findOrderForDelayResponse(Long userId, Long orderId) {
+        Order order = findOrderForUpdate(orderId);
+        if (!order.isBuyer(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_BUYER_DELAY);
+        }
+        return order;
+    }
+
+    private void publishDelayResponded(Order order, boolean approved) {
+        eventPublisher.publishEvent(new OrderDelayRespondedEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), approved));
     }
 
     private Order findOrderForUpdate(Long orderId) {
