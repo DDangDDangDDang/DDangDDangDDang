@@ -478,4 +478,14 @@ class OrderControllerTest {
             return "Bearer " + accessToken;
         }
     }
+
+    @Test
+    @DisplayName("지연 사유가 비어 있으면 400으로 거부한다")
+    void delayRequest_blankReason_returns400() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/orders/1/delay-request")
+                        .header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"  \"}"))
+                .andExpect(status().isBadRequest());
+    }
 }

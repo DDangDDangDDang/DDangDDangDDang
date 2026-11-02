@@ -24,10 +24,12 @@ const LIVE_TAB: Tab = {
 const TABS: Tab[] = [
   LIVE_TAB,
   { status: "SCHEDULED", label: "방송 예정", empty: "예정된 방송이 없어요" },
-  { status: "ENDED", label: "지난 방송", empty: "끝난 방송이 없어요" },
 ];
 
-/** 방송 목록: 상태별(방송 중·예정·지난 방송) + 검색(제목·설명·판매자 닉네임). 스크롤하면 계속 불러온다. */
+/**
+ * 방송 목록: 상태별(방송 중·예정) + 검색(제목·설명·판매자 닉네임). 스크롤하면 계속 불러온다.
+ * 탭에 없는 상태(예전 지난 방송 주소 ?status=ENDED 등)로 들어오면 방송 중 탭을 보여 준다.
+ */
 export function LiveListPage() {
   const [params, setParams] = useSearchParams();
   const tab = TABS.find((t) => t.status === params.get("status")) ?? LIVE_TAB;

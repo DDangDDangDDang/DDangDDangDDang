@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.order.controller;
 
 import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
+import com.example.ddangddangddang.domain.order.dto.OrderDelayRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
 import com.example.ddangddangddang.domain.order.dto.OrderShipRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderSummaryResponse;
@@ -73,5 +74,28 @@ public class OrderController {
             @PathVariable Long orderId,
             @Valid @RequestBody OrderAddressRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(orderService.registerDeliveryAddress(authUser.id(), orderId, request)));
+    }
+
+    /** 판매자의 발송 지연 신청. 주문당 한 번, 구매자에게 메신저로 안내한다. */
+    @PostMapping("/{orderId}/delay-request")
+    public ResponseEntity<ApiResponse<OrderResponse>> requestDelay(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long orderId,
+            @Valid @RequestBody OrderDelayRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(orderService.requestDelay(authUser.id(), orderId, request.reason())));
+    }
+
+    @PostMapping("/{orderId}/delay-request/approve")
+    public ResponseEntity<ApiResponse<OrderResponse>> approveDelay(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long orderId) {
+        return ResponseEntity.ok(ApiResponse.ok(orderService.approveDelay(authUser.id(), orderId)));
+    }
+
+    @PostMapping("/{orderId}/delay-request/reject")
+    public ResponseEntity<ApiResponse<OrderResponse>> rejectDelay(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long orderId) {
+        return ResponseEntity.ok(ApiResponse.ok(orderService.rejectDelay(authUser.id(), orderId)));
     }
 }

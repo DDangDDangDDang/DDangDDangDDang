@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.user.service;
 
 import com.example.ddangddangddang.domain.user.entity.NicknameBadge;
+import com.example.ddangddangddang.domain.user.entity.NicknameBadgeKind;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.entity.UserBadge;
 import com.example.ddangddangddang.domain.user.repository.UserBadgeRepository;
@@ -72,7 +73,7 @@ class NicknameBadgeCacheTest {
         userBadgeService.equip(userId, NicknameBadge.HALO);
         assertThat(nicknameBadges.equipped(userId).badge()).isEqualTo(NicknameBadge.HALO);
 
-        userBadgeService.equip(userId, null);
+        userBadgeService.unequip(userId, NicknameBadgeKind.SKIN);
         assertThat(nicknameBadges.equipped(userId).badge()).isNull();
     }
 }

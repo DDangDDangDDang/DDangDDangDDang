@@ -81,6 +81,8 @@ public class SellerProfileService {
                 powerSellers.is(sellerId),
                 approved == null ? null : approved.getStoreName(),
                 approved == null ? null : approved.getIntroduction(),
+                approved == null ? null : approved.getReturnAddress(),
+                approved == null ? null : approved.getContactPhone(),
                 approved == null ? null : approved.getReviewedAt(),
                 seller.getCreatedAt(),
                 subscriptionService.countSubscribers(sellerId),

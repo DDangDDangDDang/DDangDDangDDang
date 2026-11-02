@@ -141,6 +141,14 @@ public class PointService {
         record(wallet, PointHistoryType.SETTLE, amount, PointReferenceType.ORDER, orderId);
     }
 
+    /** 주문 취소: 구매자에게 낙찰 금액을 환불한다. */
+    @Transactional
+    public void refundOrder(Long buyerId, long amount, Long orderId) {
+        PointWallet wallet = findWalletForUpdate(buyerId);
+        wallet.refundOrder(amount);
+        record(wallet, PointHistoryType.ORDER_REFUND, amount, PointReferenceType.ORDER, orderId);
+    }
+
     // private 메서드 추가
     private PointWallet findWalletForUpdate(Long userId) {
         return pointWalletRepository.findByUserIdForUpdate(userId)

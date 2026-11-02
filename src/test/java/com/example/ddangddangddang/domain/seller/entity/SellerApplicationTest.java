@@ -47,12 +47,26 @@ class SellerApplicationTest {
         SellerApplication application = SellerApplication.create(1L, "상점", "소개", "1234567890");
         application.approve(NOW);
 
-        application.updateStore("새 상점", "새 소개");
+        application.updateStore("새 상점", "새 소개", null, null);
 
         assertThat(application.getStoreName()).isEqualTo("새 상점");
         assertThat(application.getIntroduction()).isEqualTo("새 소개");
         assertThat(application.isApproved()).isTrue();
         assertThat(application.getBusinessNumber()).isEqualTo("1234567890");
+    }
+
+    @Test
+    @DisplayName("반품 주소·문의 연락처는 값이 있을 때만 바꾸고, 정산 계좌는 상점 정보 수정으로 바뀌지 않는다")
+    void updateStoreContact() {
+        SellerApplication application = SellerApplication.create(1L, "상점", "소개");
+        application.submitSellerInfo("004", "123456789012", "홍길동", "서울시 중구", "0212345678");
+        application.approve(NOW);
+
+        application.updateStore("상점", "소개", "부산시 해운대구", null);
+
+        assertThat(application.getReturnAddress()).isEqualTo("부산시 해운대구");
+        assertThat(application.getContactPhone()).isEqualTo("0212345678");
+        assertThat(application.getAccountNumber()).isEqualTo("123456789012");
     }
 
     @Test
@@ -62,9 +76,9 @@ class SellerApplicationTest {
         SellerApplication rejected = SellerApplication.create(2L, "상점", "소개");
         rejected.reject("사유", NOW);
 
-        assertThatThrownBy(() -> pending.updateStore("새 상점", "새 소개"))
+        assertThatThrownBy(() -> pending.updateStore("새 상점", "새 소개", null, null))
                 .extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(SellerErrorCode.NOT_VERIFIED_SELLER);
-        assertThatThrownBy(() -> rejected.updateStore("새 상점", "새 소개"))
+        assertThatThrownBy(() -> rejected.updateStore("새 상점", "새 소개", null, null))
                 .extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(SellerErrorCode.NOT_VERIFIED_SELLER);
         assertThat(pending.getStoreName()).isEqualTo("상점");
     }

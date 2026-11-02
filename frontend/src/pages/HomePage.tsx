@@ -118,10 +118,10 @@ function LiveHome() {
             description="판매자가 방송을 시작하면 여기에 크게 나와요. 아래 예정된 방송과 경매를 둘러보세요."
             action={
               <Link
-                to="/lives?status=ENDED"
+                to="/lives?status=SCHEDULED"
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
-                지난 방송 보기
+                방송 예정 보기
               </Link>
             }
           />
@@ -347,7 +347,7 @@ function TileLink({
             big ? "gap-3.5 px-6 pt-20 pb-5" : "gap-2.5 px-3 pt-8 pb-3",
           )}
         >
-          <SellerAvatar name={seller} size={big ? "lg" : "md"} live />
+          <SellerAvatar name={seller} imageUrl={card.sellerProfileImageUrl} size={big ? "lg" : "md"} live />
           <span className="flex min-w-0 flex-col gap-0.5 text-left">
             <span
               className={cn(

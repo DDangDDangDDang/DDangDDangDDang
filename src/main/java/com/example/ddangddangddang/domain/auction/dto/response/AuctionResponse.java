@@ -4,6 +4,7 @@ import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
+import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
 import com.example.ddangddangddang.domain.product.entity.Product;
 import jakarta.persistence.*;
 
@@ -32,7 +33,9 @@ public record AuctionResponse(
         // 상품 대표 이미지 주소. 이미지가 없으면 null (방송 화면 경매 정보·스튜디오에 보여 준다)
         String thumbnailUrl,
         // 입찰 없이 즉시구매로만 파는 경매. true면 startPrice·bidUnit이 null이고 currentPrice가 즉시구매가다
-        boolean buyNowOnly
+        boolean buyNowOnly,
+        // 낙찰 뒤 주문이 취소된 사유. 판매자 본인의 경매 이력에서만 채우고 그 밖에는 null
+        OrderCancelReason orderCancelReason
 ) {
 
     /** @param imageUrl 저장소 키를 화면에서 보여 줄 주소로 바꾼다 (FileStorage::publicUrl) */
@@ -56,7 +59,13 @@ public record AuctionResponse(
                 auction.getEndAt(),
                 auction.getCanceledAt(),
                 product.getThumbnailKey() == null ? null : imageUrl.apply(product.getThumbnailKey()),
-                auction.isBuyNowOnly()
+                auction.isBuyNowOnly(),
+                null
         );
+    }
+
+    public AuctionResponse withOrderCancelReason(OrderCancelReason reason) {
+        return new AuctionResponse(id, productId, productName, sellerId, sellerName, liveStreamId, live, startPrice, bidUnit,
+                buyNowPrice, currentPrice, bidCount, status, startAt, endAt, canceledAt, thumbnailUrl, buyNowOnly, reason);
     }
 }

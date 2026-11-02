@@ -1,13 +1,16 @@
 package com.example.ddangddangddang.domain.order.service;
 
-import com.example.ddangddangddang.domain.address.service.UserAddressService;
+import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.order.commission.CommissionPolicy;
 import com.example.ddangddangddang.domain.order.commission.SaleContext;
 import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
+import com.example.ddangddangddang.domain.order.event.OrderCanceledEvent;
 import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
+import com.example.ddangddangddang.domain.order.event.OrderDelayRequestedEvent;
+import com.example.ddangddangddang.domain.order.event.OrderDelayRespondedEvent;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.point.service.PointService;
@@ -21,10 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
 import com.example.ddangddangddang.domain.order.dto.OrderSummaryResponse;
 import com.example.ddangddangddang.domain.order.entity.OrderRole;
+import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -37,7 +42,7 @@ public class OrderService {
     private final CommissionPolicy commissionPolicy;
     private final PointService pointService;
     private final ApplicationEventPublisher eventPublisher;
-    private final UserAddressService userAddressService;
+    private final ChatContentFilter contentFilter;
 
     /**
      * 낙찰 주문을 만든다. API가 아니라 경매 도메인이 호출하는 내부 메서드다.
@@ -158,6 +163,80 @@ public class OrderService {
         return OrderResponse.from(order);
     }
 
+    /**
+     * 기한을 넘긴 주문을 취소하고 구매자에게 전액 환불한다. 스케줄러가 건별로 호출한다.
+     *
+     * 주문을 잠근 뒤 상태와 기한을 다시 확인하므로, 그 사이 발송됐거나 이미 취소된 주문은 건너뛴다.
+     * 정산 전 취소라 판매자 정산금·수수료·마일리지는 건드릴 것이 없다.
+     *
+     * @return 이번 호출로 취소했으면 true
+     */
+    @Transactional
+    public boolean cancelOverdue(Long orderId, OrderCancelReason reason) {
+        Order order = findOrderForUpdate(orderId);
+        LocalDateTime now = LocalDateTime.now();
+        boolean overdue = reason == OrderCancelReason.BUYER_NO_ADDRESS
+                ? order.isAddressOverdue(now) : order.isShipOverdue(now);
+        if (order.getStatus() != OrderStatus.ESCROW || !overdue) {
+            return false;
+        }
+        order.cancel(reason, now);
+        pointService.refundOrder(order.getBuyerId(), order.getFinalPrice(), order.getId());
+        eventPublisher.publishEvent(new OrderCanceledEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), reason));
+        return true;
+    }
+
+    /**
+     * 판매자가 발송 지연을 신청한다. 사유는 메신저로 그대로 전달되므로, 외부 거래 유도를 여기서 막는다.
+     */
+    @Transactional
+    public OrderResponse requestDelay(Long userId, Long orderId, String reason) {
+        Order order = findOrderForUpdate(orderId);
+        if (!order.isSeller(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_SELLER_DELAY);
+        }
+        String stripped = reason.strip();
+        if (contentFilter.findViolation(stripped).isPresent()) {
+            throw new BusinessException(OrderErrorCode.DELAY_REASON_NOT_ALLOWED);
+        }
+        order.requestDelay(stripped, LocalDateTime.now());
+        eventPublisher.publishEvent(new OrderDelayRequestedEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), stripped));
+        return OrderResponse.from(order);
+    }
+
+    /** 구매자가 지연을 승인하면 발송 기한이 7일 늘어난다. */
+    @Transactional
+    public OrderResponse approveDelay(Long userId, Long orderId) {
+        Order order = findOrderForDelayResponse(userId, orderId);
+        order.approveDelay(LocalDateTime.now());
+        publishDelayResponded(order, true);
+        return OrderResponse.from(order);
+    }
+
+    /** 구매자가 지연을 거절하면 기존 기한대로 진행한다. */
+    @Transactional
+    public OrderResponse rejectDelay(Long userId, Long orderId) {
+        Order order = findOrderForDelayResponse(userId, orderId);
+        order.rejectDelay(LocalDateTime.now());
+        publishDelayResponded(order, false);
+        return OrderResponse.from(order);
+    }
+
+    private Order findOrderForDelayResponse(Long userId, Long orderId) {
+        Order order = findOrderForUpdate(orderId);
+        if (!order.isBuyer(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_BUYER_DELAY);
+        }
+        return order;
+    }
+
+    private void publishDelayResponded(Order order, boolean approved) {
+        eventPublisher.publishEvent(new OrderDelayRespondedEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), approved));
+    }
+
     private Order findOrderForUpdate(Long orderId) {
         return orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
@@ -175,7 +254,6 @@ public class OrderService {
         }
         order.registerDeliveryAddress(request.receiverName(), request.receiverPhone(),
                 request.address(), request.deliveryMemo());
-        userAddressService.saveAsDefaultIfNone(userId,request.receiverName(),request.receiverPhone(),request.address(),request.deliveryMemo());
         return OrderResponse.from(order);
     }
 }

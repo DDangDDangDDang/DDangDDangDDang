@@ -65,7 +65,7 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
         {isLive && card.startedAt && <Elapsed startedAt={card.startedAt} />}
       </LiveThumbnail>
       <div className="flex min-w-0 gap-2.5">
-        <SellerAvatar name={seller} size="md" />
+        <SellerAvatar name={seller} imageUrl={card.sellerProfileImageUrl} size="md" />
         <div className="flex min-w-0 flex-col gap-0.5">
           <strong className="line-clamp-2 text-body-lg leading-snug font-semibold group-hover:text-white">{card.title || '제목 없는 방송'}</strong>
           <span className="text-label text-neutral-500">{seller}</span>

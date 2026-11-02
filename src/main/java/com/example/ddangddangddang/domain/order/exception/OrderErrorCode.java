@@ -24,7 +24,13 @@ public enum OrderErrorCode implements ErrorCode {
     TRACKING_UNSUPPORTED_COURIER(HttpStatus.BAD_REQUEST, "ORDER_013", "배송 조회를 지원하지 않는 택배사입니다."),
     TRACKING_NOT_FOUND(HttpStatus.NOT_FOUND, "ORDER_014", "아직 조회되는 배송 정보가 없습니다. 잠시 후 다시 확인해 주세요."),
     TRACKING_PROVIDER_ERROR(HttpStatus.BAD_GATEWAY, "ORDER_015", "배송 조회 서비스와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."),
-    TRACKING_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "ORDER_016", "배송 조회가 설정되지 않았습니다.");
+    TRACKING_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "ORDER_016", "배송 조회가 설정되지 않았습니다."),
+    DEADLINE_PASSED(HttpStatus.CONFLICT, "ORDER_017", "기한이 지나 처리할 수 없습니다."),
+    CANNOT_REQUEST_DELAY(HttpStatus.CONFLICT, "ORDER_018", "배송지가 입력된 발송 전 주문에서 한 번만 지연을 신청할 수 있습니다."),
+    CANNOT_RESPOND_DELAY(HttpStatus.CONFLICT, "ORDER_019", "응답을 기다리는 지연 신청이 없습니다."),
+    NOT_ORDER_BUYER_DELAY(HttpStatus.FORBIDDEN, "ORDER_020", "구매자만 지연 신청에 응답할 수 있습니다."),
+    NOT_ORDER_SELLER_DELAY(HttpStatus.FORBIDDEN, "ORDER_021", "판매자만 지연을 신청할 수 있습니다."),
+    DELAY_REASON_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "ORDER_022", "지연 사유에 쓸 수 없는 내용이 있습니다.");
 
     private final HttpStatus status;
     private final String code;

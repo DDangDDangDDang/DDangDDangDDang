@@ -12,6 +12,7 @@ const ICONS: Record<NotificationType, LucideIcon> = {
   AUCTION_CANCELED: Ban,
   AUCTION_WON: Trophy,
   AUCTION_SOLD: PackageCheck,
+  ORDER_CANCELED: Ban,
   AUCTION_FAILED: Gavel,
   AUCTION_ENDED: Gavel,
   DONATION_POINT_EARNED: Gift,

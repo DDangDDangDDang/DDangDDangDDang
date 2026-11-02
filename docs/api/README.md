@@ -100,7 +100,9 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `previousAmount` | number \| null | `BID`에만 있음. 이 입찰 직전의 현재가 (첫 입찰이면 시작가). 오른 비율로 이펙트 크기를 정함 |
 | `auctionId` | number \| null | `BID`·`AUCTION_SOLD`에만 있음 |
 | `productName` | string \| null | `BID`·`AUCTION_SOLD`에만 있음 |
-| `badge` | `"ANGEL_WINGS"` \| `"DEVIL_WINGS"` \| `"HALO"` \| `"STAR"` \| null | `CHAT`에만 있음. 보낸 사람이 장착한 닉네임 뱃지 (없으면 null). 닉네임을 꾸며서 보여 줌 |
+| `badge` | 문자열 \| null | `CHAT`에만 있음. 보낸 사람이 장착한 채팅 스킨 (`ANGEL_WINGS`, `DEVIL_WINGS`, `HALO`, `STAR`, 없으면 null). 닉네임을 꾸며서 보여 줌 |
+| `title` | 문자열 \| null | `CHAT`에만 있음. 장착한 채팅 뱃지 (`TITLE_BID_KING`, `TITLE_WIN_MASTER`, `TITLE_REGULAR`, `TITLE_BIG_SPENDER`, 없으면 null). 닉네임 앞에 칭호로 보여 줌 |
+| `color` | 문자열 \| null | `CHAT`에만 있음. 장착한 닉네임 색상 (`COLOR_GOLD`, `COLOR_MINT`, `COLOR_CORAL`, `COLOR_PURPLE`, 없으면 null) |
 | `targetMessageId` | string \| null | `MESSAGE_HIDDEN`·`MESSAGE_RESTORED`에만 있음. 가리거나 되돌릴 메시지의 `messageId` |
 
 - `DONATION`은 `POST /api/v1/live-streams/{id}/donations`가 커밋된 뒤에 옵니다. 방송 화면 한쪽에 "`nickname`님이 `amount` P를 선물했어요" 이펙트를 띄우고, 채팅에도 한 줄 남깁니다.
@@ -194,6 +196,14 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 | `AUCTION_WON` | 낙찰자 (즉시 구매 포함) |
 | `AUCTION_SOLD` / `AUCTION_FAILED` | 판매자 (낙찰됨 / 유찰) |
 | `AUCTION_ENDED` | 그 밖의 알림 받기 + 입찰한 회원 |
+
+### 주문 안내 메시지
+
+주문 진행 안내는 일반 `DmEvent` 메시지로 온다. 서버가 판매자·구매자 이름으로 대신 보내며, 내용은 `[경매 #{auctionId} · {상품명}]`으로 시작한다.
+
+- 발송 지연 신청(`POST /api/v1/orders/{orderId}/delay-request`): 판매자 → 구매자
+- 승인·거절(`.../approve`, `.../reject`): 구매자 → 판매자
+- 기한 초과 주문 취소: 판매자 → 구매자
 
 ### 실시간 메시지를 바꿀 때
 
