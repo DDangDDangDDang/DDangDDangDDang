@@ -128,6 +128,7 @@ jobs:
             VITE_GOOGLE_CLIENT_ID=${{ vars.VITE_GOOGLE_CLIENT_ID }}
             VITE_PORTONE_STORE_ID=${{ vars.VITE_PORTONE_STORE_ID }}
             VITE_PORTONE_CHANNEL_KEY=${{ vars.VITE_PORTONE_CHANNEL_KEY }}
+            VITE_PORTONE_IDENTITY_CHANNEL_KEY=${{ vars.VITE_PORTONE_IDENTITY_CHANNEL_KEY }}
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_WEB_REPOSITORY }}:${{ github.sha }}
           cache-from: type=gha,scope=web-${{ needs.check.outputs.environment }}
