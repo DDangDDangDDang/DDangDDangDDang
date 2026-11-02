@@ -55,3 +55,16 @@ describe('방송 카드 썸네일', () => {
     expect(image()).toBeNull();
   });
 });
+
+describe('방송 카드 판매자 프로필', () => {
+  it('판매자 프로필 이미지가 있으면 첫 글자 대신 이미지를 보여 준다', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <LiveStreamCard card={{ ...card, thumbnailUrl: undefined, status: 'ENDED', sellerProfileImageUrl: 'https://cdn.test/profile-images/1/a.png' }} />
+      </MemoryRouter>,
+    );
+    expect(container.querySelector('img[src="https://cdn.test/profile-images/1/a.png"]')).not.toBeNull();
+    // 썸네일 자리만 첫 글자이고, 아래 판매자 프로필은 이미지다.
+    expect(screen.getAllByText('윤')).toHaveLength(1);
+  });
+});

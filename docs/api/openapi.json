@@ -12005,6 +12005,9 @@
           },
           "thumbnailUrl" : {
             "type" : "string"
+          },
+          "sellerProfileImageUrl" : {
+            "type" : "string"
           }
         }
       },

@@ -14,6 +14,7 @@ import java.util.List;
  * powerSeller: 판매자가 파워 판매자 (카드에 파워 판매자 배지)
  * thumbnailUrl: 카드 썸네일 주소. 판매자가 직접 올린 썸네일이 먼저이고, 없으면 방송 중일 때 송출 화면을 캡처한 썸네일(1분마다 바뀐다).
  *   둘 다 없거나 끝난 방송의 캡처뿐이면 null → 판매자 이름 첫 글자
+ * sellerProfileImageUrl: 판매자 프로필 이미지 주소 (없거나 회원을 찾지 못하면 null → 화면은 닉네임 첫 글자)
  */
 public record LiveStreamCard(
         Long liveStreamId,
@@ -30,6 +31,7 @@ public record LiveStreamCard(
         int viewerIncrease,
         boolean recorded,
         boolean powerSeller,
-        String thumbnailUrl
+        String thumbnailUrl,
+        String sellerProfileImageUrl
 ) {
 }
