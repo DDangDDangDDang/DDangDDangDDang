@@ -11,6 +11,7 @@ import { cn } from '@/lib/cn';
 import { formatDate, formatDateTime, formatDotDate, formatMileage, formatNumber, formatPoint } from '@/lib/format';
 import {
   formatBroadcastDuration,
+  formatContactPhone,
   formatShippingTime,
   SELLER_AUCTION_TABS,
   sellerAuctionEmpty,
@@ -113,6 +114,23 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
         </span>
         {profile.introduction && <p className="mt-1 text-body whitespace-pre-line text-neutral-700">{profile.introduction}</p>}
         {profile.bio && <p className="mt-1 text-body whitespace-pre-line text-neutral-500">{profile.bio}</p>}
+        {/* 인증 판매자가 공개한 반품·교환 주소와 고객 문의 연락처 */}
+        {(profile.returnAddress || profile.contactPhone) && (
+          <dl className="mt-2 grid grid-cols-[96px_1fr] gap-y-1 text-label">
+            {profile.contactPhone && (
+              <>
+                <dt className="text-neutral-500">문의 연락처</dt>
+                <dd className="num text-neutral-700">{formatContactPhone(profile.contactPhone)}</dd>
+              </>
+            )}
+            {profile.returnAddress && (
+              <>
+                <dt className="text-neutral-500">반품·교환 주소</dt>
+                <dd className="text-neutral-700">{profile.returnAddress}</dd>
+              </>
+            )}
+          </dl>
+        )}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <SubscribeButton sellerId={sellerId} subscribed={profile.subscribed ?? false} />
@@ -328,7 +346,8 @@ function AuctionList({
           const phase = auctionPhase(auction, now);
           const priceLabel = sellerAuctionPriceLabel(auction.status);
           // 고른 가격이 응답에 없으면 0 P처럼 보이지 않게 -로 둔다.
-          const price = priceLabel === '시작가' ? auction.startPrice : auction.currentPrice;
+          // 즉시구매 전용은 시작가가 없어 현재가(= 즉시구매가)를 보여준다.
+          const price = priceLabel === '시작가' ? (auction.startPrice ?? auction.currentPrice) : auction.currentPrice;
           return (
             <li key={auction.auctionId}>
               <Link to={`/auctions/${auction.auctionId}`} onClick={onNavigate} className="flex items-center justify-between gap-3 px-1 py-3 hover:bg-neutral-25">

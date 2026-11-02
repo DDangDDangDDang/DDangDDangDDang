@@ -117,6 +117,37 @@ class AuctionBidRuleTest {
     }
 
     @Nested
+    @DisplayName("즉시구매 전용 경매")
+    class BuyNowOnly {
+
+        @Test
+        @DisplayName("시작가 없이 만들면 즉시구매 전용이고 현재가는 즉시구매가다")
+        void created() {
+            Auction auction = new Auction(AuctionFixture.ongoing(NOW).getProduct(), null, null, null, 50_000L, NOW, NOW.plusHours(1));
+
+            assertThat(auction.isBuyNowOnly()).isTrue();
+            assertThat(auction.getCurrentPrice()).isEqualTo(50_000L);
+            assertThat(AuctionFixture.ongoing(NOW).isBuyNowOnly()).isFalse();
+        }
+
+        @Test
+        @DisplayName("입찰은 거절하고 즉시구매는 된다")
+        void onlyBuyNow() {
+            Auction auction = AuctionFixture.buyNowOnly(NOW);
+
+            assertError(() -> auction.validateBid(BIDDER, 20_000L, NOW), AuctionErrorCode.BIDDING_NOT_AVAILABLE);
+            assertThatCode(() -> auction.validateBuyNow(BIDDER, NOW)).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("끝난 즉시구매 전용 경매는 입찰보다 경매 종료를 먼저 알린다")
+        void closedFirst() {
+            Auction auction = AuctionFixture.buyNowOnly(NOW);
+            assertError(() -> auction.validateBid(BIDDER, 20_000L, auction.getEndAt().plusSeconds(1)), AuctionErrorCode.AUCTION_TIME_OVER);
+        }
+    }
+
+    @Nested
     @DisplayName("마감 재시도")
     class CloseRetry {
 

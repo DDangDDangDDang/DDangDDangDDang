@@ -4,8 +4,9 @@ import jakarta.validation.constraints.*;
 
 public record LiveAuctionCreateRequest(
         @NotNull Long productId,
-        @NotNull @Positive Long startPrice,
-        @NotNull @Positive Long bidUnit,
+        // 시작가·최소 입찰 단위: 둘 다 비우면 입찰 없이 즉시구매로만 파는 경매 (즉시구매가 필수)
+        @Positive Long startPrice,
+        @Positive Long bidUnit,
         @Positive Long buyNowPrice,
         // 진행 시간(초): 30초 ~ 3일. 방송이 끝나도 경매는 정한 시간까지 이어진다.
         @NotNull

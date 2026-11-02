@@ -30,7 +30,9 @@ public record AuctionResponse(
         LocalDateTime endAt,
         LocalDateTime canceledAt,
         // 상품 대표 이미지 주소. 이미지가 없으면 null (방송 화면 경매 정보·스튜디오에 보여 준다)
-        String thumbnailUrl
+        String thumbnailUrl,
+        // 입찰 없이 즉시구매로만 파는 경매. true면 startPrice·bidUnit이 null이고 currentPrice가 즉시구매가다
+        boolean buyNowOnly
 ) {
 
     /** @param imageUrl 저장소 키를 화면에서 보여 줄 주소로 바꾼다 (FileStorage::publicUrl) */
@@ -53,7 +55,8 @@ public record AuctionResponse(
                 auction.getStartAt(),
                 auction.getEndAt(),
                 auction.getCanceledAt(),
-                product.getThumbnailKey() == null ? null : imageUrl.apply(product.getThumbnailKey())
+                product.getThumbnailKey() == null ? null : imageUrl.apply(product.getThumbnailKey()),
+                auction.isBuyNowOnly()
         );
     }
 }

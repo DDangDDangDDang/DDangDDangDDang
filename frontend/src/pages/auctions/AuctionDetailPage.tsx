@@ -14,7 +14,7 @@ import { ProductDescription } from '@/components/product/ProductDescription';
 import { ProductGallery } from '@/components/product/ProductGallery';
 import { SellerIdentity } from '@/components/seller/SellerIdentity';
 import { Badge, Button, buttonVariants, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
-import { auctionPhase, secondsUntil, type AuctionPhase } from '@/lib/auction';
+import { auctionPhase, auctionPriceLabel, secondsUntil, type AuctionPhase } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint, formatRemaining } from '@/lib/format';
 import { useMyBid } from '@/lib/use-my-bid';
 import { useNow } from '@/lib/use-now';
@@ -91,8 +91,10 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
   const open = phase === 'READY' || phase === 'ONGOING';
   const cancelable = isMine && open && (auction.bidCount ?? 0) === 0;
 
-  const priceLabel = phase === 'ENDED' ? '낙찰가' : phase === 'READY' ? '시작가' : '현재가';
-  const result = phase ? RESULT_TEXT[phase] : undefined;
+  // 즉시구매 전용: 시작가·입찰 단위 없이 즉시구매가만 있는 경매. 입찰 기록·내 입찰 상태·입찰 수를 보여주지 않는다.
+  const buyNowOnly = auction.buyNowOnly === true;
+  const priceLabel = auctionPriceLabel(phase, buyNowOnly);
+  const result = phase ? (buyNowOnly ? BUY_NOW_ONLY_RESULT_TEXT[phase] : RESULT_TEXT[phase]) : undefined;
 
   return (
     <div className="flex items-start gap-8">
@@ -130,7 +132,7 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
           </CardBody>
         </Card>
         {/* 시작 전 경매는 입찰이 있을 수 없으니 기록을 보여주지 않는다. */}
-        {phase !== 'READY' && phase !== 'CANCELED' && <BidHistory auctionId={auctionId} bidCount={auction.bidCount ?? 0} />}
+        {!buyNowOnly && phase !== 'READY' && phase !== 'CANCELED' && <BidHistory auctionId={auctionId} bidCount={auction.bidCount ?? 0} />}
         {/* 판매자 본인일 때만: 이 상품으로 열었던 경매 전부 (남이면 그리지도, 부르지도 않는다) */}
         {isMine && productId !== undefined && auction.id !== undefined && <ProductAuctionHistory productId={productId} currentAuctionId={auction.id} />}
       </section>
@@ -174,13 +176,13 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
             {phase === 'ONGOING' && <TimeProgress startAt={auction.startAt} endAt={auction.endAt} now={now} />}
 
             {phase === 'CLOSING' && <Notice>마감됐어요. 낙찰 결과를 정리하고 있어요.</Notice>}
-            {!isMine && <MyBidStatus myBid={myBid.data} />}
+            {!isMine && !buyNowOnly && <MyBidStatus myBid={myBid.data} />}
             {!isMine && phase === 'ONGOING' && (
               <Button size="lg" onClick={() => guard(() => setBidOpen(true))}>
-                입찰하기
+                {buyNowOnly ? '즉시 구매' : '입찰하기'}
               </Button>
             )}
-            {!isMine && phase === 'READY' && <Notice>경매가 시작되면 입찰할 수 있어요.</Notice>}
+            {!isMine && phase === 'READY' && <Notice>경매가 시작되면 {buyNowOnly ? '구매' : '입찰'}할 수 있어요.</Notice>}
             {/* 시작 전·진행 중 경매는 알림 받기로 시작·마감 임박·취소·결과를 알림으로 받는다. (내 경매는 결과를 따로 알려 줌) */}
             {!isMine && open && <AuctionAlertButton auctionId={auctionId} requireLogin={guard} />}
           </CardBody>
@@ -228,11 +230,17 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
 
         {/* 부가 정보는 작게 */}
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 border-t border-neutral-100 px-1 pt-4 text-label">
-          <Row label="입찰 수">
-            <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
-          </Row>
-          <Row label="시작가">{formatPoint(auction.startPrice ?? 0)}</Row>
-          <Row label="최소 입찰 단위">{formatPoint(auction.bidUnit ?? 0)}</Row>
+          {buyNowOnly ? (
+            <Row label="판매 방식">즉시구매만</Row>
+          ) : (
+            <>
+              <Row label="입찰 수">
+                <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
+              </Row>
+              <Row label="시작가">{formatPoint(auction.startPrice ?? 0)}</Row>
+              <Row label="최소 입찰 단위">{formatPoint(auction.bidUnit ?? 0)}</Row>
+            </>
+          )}
           <Row label="즉시구매가">{auction.buyNowPrice ? formatPoint(auction.buyNowPrice) : '없음'}</Row>
           <Row label="시작">{auction.startAt ? formatDateTime(auction.startAt) : '-'}</Row>
           <Row label="마감">{auction.endAt ? formatDateTime(auction.endAt) : '-'}</Row>
@@ -263,6 +271,13 @@ function AuctionDetail({ auctionId }: { auctionId: number }) {
     </div>
   );
 }
+
+/** 즉시구매 전용 경매의 결과 문구 (입찰이 없어 낙찰·유찰 대신 판매·미판매) */
+const BUY_NOW_ONLY_RESULT_TEXT: Partial<Record<AuctionPhase, string>> = {
+  ENDED: '판매된 경매예요.',
+  FAILED: '아무도 구매하지 않고 끝난 경매예요.',
+  CANCELED: '판매자가 취소한 경매예요.',
+};
 
 /** 끝난 경매는 결과를 가격 위에 한 줄로 크게 알린다. */
 const RESULT_TEXT: Partial<Record<AuctionPhase, string>> = {

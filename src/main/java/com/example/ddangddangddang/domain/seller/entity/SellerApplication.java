@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 /**
  * 판매자 신청. 회원당 하나이고, 반려되면 같은 신청을 고쳐 다시 낸다.
  * 승인(APPROVED)된 회원은 판매자 인증 마크가 붙고 판매자 프로필을 보여 준다.
- * 지금은 인증 전에도 상품 판매·방송을 할 수 있다. (인증은 시청자에게 보여 주는 신뢰 표시)
+ * 신청할 때 정산 계좌(예금주 = 본인인증 실명)와 반품 주소·고객 문의 연락처를 함께 받는다.
  */
 @Entity
 @Table(
@@ -28,6 +28,10 @@ public class SellerApplication extends BaseTimeEntity {
     public static final int STORE_NAME_MAX_LENGTH = 30;
     public static final int INTRODUCTION_MAX_LENGTH = 500;
     public static final int REJECT_REASON_MAX_LENGTH = 200;
+    public static final int ACCOUNT_NUMBER_MAX_LENGTH = 20;
+    public static final int ACCOUNT_HOLDER_MAX_LENGTH = 30;
+    public static final int RETURN_ADDRESS_MAX_LENGTH = 200;
+    public static final int CONTACT_PHONE_MAX_LENGTH = 11;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,6 +52,24 @@ public class SellerApplication extends BaseTimeEntity {
     @Column(name = "business_number", length = BusinessNumber.LENGTH)
     private String businessNumber;
 
+    // 판매 대금 정산 계좌 (은행 코드 3자리, 하이픈을 뺀 계좌번호, 예금주). 예금주는 본인인증 실명과 같아야 한다.
+    // 신청한 본인과 관리자만 본다. 정산 계좌를 받기 전에 낸 신청은 null
+    @Column(name = "bank_code", length = 3)
+    private String bankCode;
+
+    @Column(name = "account_number", length = ACCOUNT_NUMBER_MAX_LENGTH)
+    private String accountNumber;
+
+    @Column(name = "account_holder", length = ACCOUNT_HOLDER_MAX_LENGTH)
+    private String accountHolder;
+
+    // 반품·교환 받을 주소와 고객 문의 연락처(하이픈 없는 숫자). 인증되면 판매자 프로필에 공개한다. 받기 전에 낸 신청은 null
+    @Column(name = "return_address", length = RETURN_ADDRESS_MAX_LENGTH)
+    private String returnAddress;
+
+    @Column(name = "contact_phone", length = CONTACT_PHONE_MAX_LENGTH)
+    private String contactPhone;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private SellerApplicationStatus status;
@@ -55,6 +77,13 @@ public class SellerApplication extends BaseTimeEntity {
     // 반려 사유. 반려됐을 때만 있다.
     @Column(name = "reject_reason", length = REJECT_REASON_MAX_LENGTH)
     private String rejectReason;
+
+    // 신청할 때 동의한 판매자 이용약관·개인정보 수집 동의서 버전과 동의한 시각. 약관 동의를 받기 전에 낸 신청은 null
+    @Column(name = "terms_version", length = SellerTerms.VERSION_MAX_LENGTH)
+    private String termsVersion;
+
+    @Column(name = "terms_agreed_at")
+    private LocalDateTime termsAgreedAt;
 
     // 승인·반려한 시각. 승인된 회원은 이 시각이 판매자 인증일이다.
     @Column(name = "reviewed_at")
@@ -99,13 +128,41 @@ public class SellerApplication extends BaseTimeEntity {
         this.reviewedAt = null;
     }
 
-    /** 인증받은 판매자의 상점 이름·소개 수정. 다시 심사받지 않고 바로 바뀐다. (심사 대상인 사업자등록번호는 바꿀 수 없다) */
-    public void updateStore(String storeName, String introduction) {
+    /**
+     * 인증받은 판매자의 상점 정보 수정. 다시 심사받지 않고 바로 바뀐다. (심사 대상인 사업자등록번호·정산 계좌는 바꿀 수 없다)
+     * 반품 주소·문의 연락처는 null이면 그대로 둔다.
+     */
+    public void updateStore(String storeName, String introduction, String returnAddress, String contactPhone) {
         if (!isApproved()) {
             throw new BusinessException(SellerErrorCode.NOT_VERIFIED_SELLER);
         }
         this.storeName = storeName;
         this.introduction = introduction;
+        if (returnAddress != null) {
+            this.returnAddress = returnAddress;
+        }
+        if (contactPhone != null) {
+            this.contactPhone = contactPhone;
+        }
+    }
+
+    /**
+     * 신청(재신청 포함)할 때 받는 정산 계좌와 반품 주소·문의 연락처.
+     * accountNumber: 하이픈을 뺀 숫자, contactPhone: 하이픈 없는 숫자 (서비스에서 정리한 값)
+     */
+    public void submitSellerInfo(String bankCode, String accountNumber, String accountHolder,
+                                 String returnAddress, String contactPhone) {
+        this.bankCode = bankCode;
+        this.accountNumber = accountNumber;
+        this.accountHolder = accountHolder;
+        this.returnAddress = returnAddress;
+        this.contactPhone = contactPhone;
+    }
+
+    /** 신청(재신청 포함)할 때 동의한 약관 버전을 남긴다. 다시 신청하면 새로 동의한 버전으로 바뀐다. */
+    public void agreeTerms(String version, LocalDateTime now) {
+        this.termsVersion = version;
+        this.termsAgreedAt = now;
     }
 
     public void approve(LocalDateTime now) {

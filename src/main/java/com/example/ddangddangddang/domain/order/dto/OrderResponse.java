@@ -15,6 +15,9 @@ public record OrderResponse(
         String productName,
         String productImageUrl,
         long finalPrice,
+        int commissionRateBps,  // 판매 수수료율(bp, 500 = 5%)
+        long commission,        // 판매 수수료
+        long settlementAmount,  // 판매자가 받을 금액 = finalPrice - commission
         OrderStatus status,
         String receiverName,
         String receiverPhone,
@@ -37,6 +40,9 @@ public record OrderResponse(
                 order.getProductName(),
                 order.getProductImageUrl(),
                 order.getFinalPrice(),
+                order.getCommissionRateBps(),
+                order.getCommission(),
+                order.getSettlementAmount(),
                 order.getStatus(),
                 order.getReceiverName(),
                 order.getReceiverPhone(),

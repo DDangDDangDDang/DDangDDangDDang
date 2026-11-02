@@ -1,7 +1,7 @@
 import type { Schema } from '@/api';
 import { ProductImage } from '@/components/order/OrderBits';
 import { Button } from '@/components/ui';
-import { auctionPhase, featuredAuctions } from '@/lib/auction';
+import { auctionPhase, auctionPriceLabel, featuredAuctions } from '@/lib/auction';
 import { cn } from '@/lib/cn';
 import { formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
@@ -65,19 +65,21 @@ export function FeaturedAuctionOverlay({ auction, onOpen, className }: Props) {
       </div>
       <div className="flex items-end justify-between gap-2">
         <div className="flex flex-col">
-          <span className="text-caption text-neutral-500">{phase === 'READY' ? '시작가' : '현재가'}</span>
+          <span className="text-caption text-neutral-500">{auctionPriceLabel(phase, auction.buyNowOnly)}</span>
           <span className="num text-price-lg leading-tight font-bold">{formatPoint(auction.currentPrice ?? auction.startPrice ?? 0)}</span>
-          <span className="text-caption text-neutral-500">
-            입찰 <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
-          </span>
+          {!auction.buyNowOnly && (
+            <span className="text-caption text-neutral-500">
+              입찰 <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
+            </span>
+          )}
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <span className="whitespace-nowrap">
             <AuctionTime status={auction.status} startAt={auction.startAt} endAt={auction.endAt} />
           </span>
           {onOpen && auction.id !== undefined && (phase === 'READY' || ongoing) && (
-            <Button size="sm" variant={ongoing ? 'primary' : 'outline'} aria-label={`${name} ${ongoing ? '입찰하기' : '경매 보기'}`} onClick={() => auction.id && onOpen(auction.id, ongoing)}>
-              {ongoing ? '입찰하기' : '경매 보기'}
+            <Button size="sm" variant={ongoing ? 'primary' : 'outline'} aria-label={`${name} ${ongoing ? (auction.buyNowOnly ? '구매하기' : '입찰하기') : '경매 보기'}`} onClick={() => auction.id && onOpen(auction.id, ongoing)}>
+              {ongoing ? (auction.buyNowOnly ? '구매하기' : '입찰하기') : '경매 보기'}
             </Button>
           )}
         </div>

@@ -26,12 +26,26 @@ import {
 } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import { SELLER_APPLICATION_STATUS_LABEL } from "@/lib/labels";
+import { bankName } from "@/lib/exchange";
 import {
   businessNumberDigits,
+  EMPTY_SELLER_INFO,
   formatBusinessNumber,
+  formatContactPhone,
   isValidBusinessNumber,
+  validateSellerInfo,
+  type SellerInfoErrors,
+  type SellerInfoValues,
 } from "@/lib/seller";
+import { SELLER_TERMS_VERSION } from "@/lib/seller-terms";
 import { sellerProfileKey } from "@/lib/use-seller";
+import { SellerIdentityStep } from "./SellerIdentityStep";
+import { SellerInfoFields } from "./SellerInfoFields";
+import { MY_IDENTITY_KEY } from "@/lib/identity-verification";
+import {
+  SellerTermsAgreement,
+  type TermsAgreement,
+} from "./SellerTermsAgreement";
 
 type Application = Schema<"SellerApplicationResponse">;
 
@@ -140,6 +154,20 @@ function ApplicationCard({ application }: { application?: Application }) {
                 ? `사업자 (${formatBusinessNumber(application.businessNumber)})`
                 : "개인"}
             </dd>
+            <dt className="text-neutral-500">정산 계좌</dt>
+            <dd>
+              {application?.accountNumber
+                ? `${bankName(application.bankCode)} ${application.accountNumber} (${application.accountHolder ?? "-"})`
+                : "-"}
+            </dd>
+            <dt className="text-neutral-500">반품·교환 주소</dt>
+            <dd>{application?.returnAddress || "-"}</dd>
+            <dt className="text-neutral-500">문의 연락처</dt>
+            <dd className="num">
+              {application?.contactPhone
+                ? formatContactPhone(application.contactPhone)
+                : "-"}
+            </dd>
             <dt className="text-neutral-500">신청일</dt>
             <dd>
               {application?.createdAt
@@ -169,11 +197,34 @@ function ApplicationForm({ previous }: { previous?: Application }) {
       ? formatBusinessNumber(previous.businessNumber)
       : "",
   );
-  const [errors, setErrors] = useState<{
-    storeName?: string;
-    introduction?: string;
-    businessNumber?: string;
-  }>({});
+  // 판매자 이용약관·개인정보 수집 동의. 다시 신청할 때도 새로 동의받는다.
+  const [agreement, setAgreement] = useState<TermsAgreement>({
+    terms: false,
+    privacy: false,
+  });
+  // 정산 계좌·반품 주소·문의 연락처. 반려 뒤 다시 신청하면 전에 낸 값을 채워 둔다.
+  const [sellerInfo, setSellerInfo] = useState<SellerInfoValues>({
+    bankCode: previous?.bankCode ?? EMPTY_SELLER_INFO.bankCode,
+    accountNumber: previous?.accountNumber ?? EMPTY_SELLER_INFO.accountNumber,
+    accountHolder: previous?.accountHolder ?? EMPTY_SELLER_INFO.accountHolder,
+    returnAddress: previous?.returnAddress ?? EMPTY_SELLER_INFO.returnAddress,
+    contactPhone: previous?.contactPhone ?? EMPTY_SELLER_INFO.contactPhone,
+  });
+  const [errors, setErrors] = useState<
+    {
+      identity?: string;
+      storeName?: string;
+      introduction?: string;
+      businessNumber?: string;
+      agreement?: string;
+    } & SellerInfoErrors
+  >({});
+  // 신청 전 휴대폰 본인인증 (한 번 인증하면 반려 뒤 다시 신청할 때는 다시 하지 않는다)
+  const identityQuery = useQuery({
+    queryKey: MY_IDENTITY_KEY,
+    queryFn: () => call(api.GET("/api/v1/seller-applications/identity")),
+  });
+  const identity = identityQuery.data ?? undefined;
 
   const apply = useMutation({
     mutationFn: () =>
@@ -185,6 +236,14 @@ function ApplicationForm({ previous }: { previous?: Application }) {
             businessNumber: business
               ? businessNumberDigits(businessNumber)
               : undefined,
+            bankCode: sellerInfo.bankCode,
+            accountNumber: sellerInfo.accountNumber.trim(),
+            accountHolder: sellerInfo.accountHolder.trim(),
+            returnAddress: sellerInfo.returnAddress.trim(),
+            contactPhone: sellerInfo.contactPhone,
+            termsAgreed: agreement.terms,
+            privacyAgreed: agreement.privacy,
+            termsVersion: SELLER_TERMS_VERSION,
           },
         }),
       ),
@@ -199,25 +258,48 @@ function ApplicationForm({ previous }: { previous?: Application }) {
       // 다른 탭에서 이미 신청했거나 인증을 받았으면 지금 상태를 다시 불러온다.
       if (isErrorCode(error, "SELLER_001") || isErrorCode(error, "SELLER_002"))
         void queryClient.invalidateQueries({ queryKey: MY_APPLICATION_KEY });
+      if (isErrorCode(error, "SELLER_010"))
+        void queryClient.invalidateQueries({ queryKey: MY_IDENTITY_KEY });
       if (isErrorCode(error, "SELLER_007"))
         setErrors((prev) => ({ ...prev, businessNumber: errorMessage(error) }));
+      if (isErrorCode(error, "SELLER_016"))
+        setErrors((prev) => ({ ...prev, accountHolder: errorMessage(error) }));
+      if (isErrorCode(error, "SELLER_017"))
+        setErrors((prev) => ({ ...prev, accountNumber: errorMessage(error) }));
     },
   });
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const next: typeof errors = {};
+    const next: typeof errors = validateSellerInfo(
+      sellerInfo,
+      identity?.realName,
+    );
+    if (!identity?.realName)
+      next.identity = "먼저 휴대폰 본인인증을 해 주세요.";
     if (!storeName.trim()) next.storeName = "상점 이름을 입력해 주세요.";
     if (!introduction.trim())
       next.introduction = "어떤 상품을 파는지 소개해 주세요.";
     if (business && !isValidBusinessNumber(businessNumber))
       next.businessNumber = "사업자등록번호 10자리를 다시 확인해 주세요.";
+    if (!agreement.terms || !agreement.privacy)
+      next.agreement = "필수 약관에 모두 동의해야 신청할 수 있어요.";
     setErrors(next);
     if (Object.keys(next).length === 0) apply.mutate();
   };
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+      {identityQuery.isPending ? (
+        <Skeleton className="h-20 rounded-md" />
+      ) : identityQuery.isError ? (
+        <ErrorState
+          message={errorMessage(identityQuery.error)}
+          onRetry={() => void identityQuery.refetch()}
+        />
+      ) : (
+        <SellerIdentityStep identity={identity} error={errors.identity} />
+      )}
       <Input
         label={`상점 이름 (${STORE_NAME_MAX}자 이하)`}
         placeholder="예) 필름 카메라 상점"
@@ -283,7 +365,32 @@ function ApplicationForm({ previous }: { previous?: Application }) {
           </div>
         )}
       </fieldset>
-      {apply.isError && !isErrorCode(apply.error, "SELLER_007") && (
+      <SellerInfoFields
+        values={sellerInfo}
+        errors={errors}
+        realName={identity?.realName}
+        onChange={(patch) => {
+          setSellerInfo((prev) => ({ ...prev, ...patch }));
+          setErrors((prev) => {
+            const cleared = { ...prev };
+            for (const key of Object.keys(patch) as (keyof SellerInfoValues)[])
+              delete cleared[key];
+            return cleared;
+          });
+        }}
+      />
+      <SellerTermsAgreement
+        value={agreement}
+        onChange={(next) => {
+          setAgreement(next);
+          setErrors((prev) => ({ ...prev, agreement: undefined }));
+        }}
+        error={errors.agreement}
+      />
+      {apply.isError &&
+        !(["SELLER_007", "SELLER_016", "SELLER_017"] as const).some((code) =>
+          isErrorCode(apply.error, code),
+        ) && (
         <Notice tone="error">{errorMessage(apply.error)}</Notice>
       )}
       <Button type="submit" className="self-start" loading={apply.isPending}>

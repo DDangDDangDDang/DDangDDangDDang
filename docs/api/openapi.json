@@ -1419,6 +1419,90 @@
         }
       }
     },
+    "/api/v1/seller-applications/identity" : {
+      "get" : {
+        "tags" : [ "seller-application-controller" ],
+        "operationId" : "sellerApplicationGetMyIdentity",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSellerIdentityResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "seller-application-controller" ],
+        "operationId" : "sellerApplicationVerifyIdentity",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SellerIdentityRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSellerIdentityResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reviews" : {
       "get" : {
         "tags" : [ "review-controller" ],
@@ -7570,6 +7654,15 @@
             "type" : "string",
             "maxLength" : 500,
             "minLength" : 0
+          },
+          "returnAddress" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "contactPhone" : {
+            "type" : "string",
+            "pattern" : "^0\\d{8,10}$"
           }
         },
         "required" : [ "introduction", "storeName" ]
@@ -7605,6 +7698,13 @@
           "email" : {
             "type" : "string"
           },
+          "realName" : {
+            "type" : "string"
+          },
+          "birthDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
           "storeName" : {
             "type" : "string"
           },
@@ -7614,12 +7714,34 @@
           "businessNumber" : {
             "type" : "string"
           },
+          "bankCode" : {
+            "type" : "string"
+          },
+          "accountNumber" : {
+            "type" : "string"
+          },
+          "accountHolder" : {
+            "type" : "string"
+          },
+          "returnAddress" : {
+            "type" : "string"
+          },
+          "contactPhone" : {
+            "type" : "string"
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "PENDING", "APPROVED", "REJECTED" ]
           },
           "rejectReason" : {
             "type" : "string"
+          },
+          "termsVersion" : {
+            "type" : "string"
+          },
+          "termsAgreedAt" : {
+            "type" : "string",
+            "format" : "date-time"
           },
           "createdAt" : {
             "type" : "string",
@@ -8359,9 +8481,86 @@
             "type" : "string",
             "maxLength" : 20,
             "minLength" : 0
+          },
+          "bankCode" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^\\d{3}$"
+          },
+          "accountNumber" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[0-9-]{10,20}$"
+          },
+          "accountHolder" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "returnAddress" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "contactPhone" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^0\\d{8,10}$"
+          },
+          "termsAgreed" : {
+            "type" : "boolean"
+          },
+          "privacyAgreed" : {
+            "type" : "boolean"
+          },
+          "termsVersion" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
           }
         },
-        "required" : [ "introduction", "storeName" ]
+        "required" : [ "accountHolder", "accountNumber", "bankCode", "contactPhone", "introduction", "privacyAgreed", "returnAddress", "storeName", "termsAgreed", "termsVersion" ]
+      },
+      "SellerIdentityRequest" : {
+        "type" : "object",
+        "properties" : {
+          "identityVerificationId" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "identityVerificationId" ]
+      },
+      "ApiResponseSellerIdentityResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SellerIdentityResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "SellerIdentityResponse" : {
+        "type" : "object",
+        "properties" : {
+          "realName" : {
+            "type" : "string"
+          },
+          "birthDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "verifiedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
       },
       "ReviewCreateRequest" : {
         "type" : "object",
@@ -8867,7 +9066,7 @@
             "minimum" : 30
           }
         },
-        "required" : [ "bidUnit", "durationSec", "productId", "startPrice" ]
+        "required" : [ "durationSec", "productId" ]
       },
       "ApiResponseAuctionResponse" : {
         "type" : "object",
@@ -8949,6 +9148,9 @@
           },
           "thumbnailUrl" : {
             "type" : "string"
+          },
+          "buyNowOnly" : {
+            "type" : "boolean"
           }
         }
       },
@@ -9826,7 +10028,7 @@
             "format" : "date-time"
           }
         },
-        "required" : [ "bidUnit", "endAt", "productId", "startAt", "startPrice" ]
+        "required" : [ "endAt", "productId", "startAt" ]
       },
       "ApiResponseBuyNowResponse" : {
         "type" : "object",
@@ -10177,6 +10379,18 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "commissionRateBps" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "commission" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "settlementAmount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "ESCROW", "SHIPPING", "COMPLETED" ]
@@ -10499,6 +10713,9 @@
           },
           "thumbnailUrl" : {
             "type" : "string"
+          },
+          "buyNowOnly" : {
+            "type" : "boolean"
           }
         }
       },
@@ -10609,6 +10826,12 @@
             "type" : "string"
           },
           "introduction" : {
+            "type" : "string"
+          },
+          "returnAddress" : {
+            "type" : "string"
+          },
+          "contactPhone" : {
             "type" : "string"
           },
           "verifiedAt" : {
@@ -10999,6 +11222,10 @@
             "type" : "string"
           },
           "finalPrice" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "settlementAmount" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -11978,6 +12205,18 @@
     "status" : 400,
     "message" : "입찰 금액은 입찰 단위만큼씩 올려야 합니다."
   }, {
+    "code" : "AUCTION_021",
+    "status" : 400,
+    "message" : "즉시구매로만 살 수 있는 경매입니다."
+  }, {
+    "code" : "AUCTION_022",
+    "status" : 400,
+    "message" : "시작가와 최소 입찰 단위는 둘 다 입력하거나 둘 다 비워야 합니다."
+  }, {
+    "code" : "AUCTION_023",
+    "status" : 400,
+    "message" : "시작가와 최소 입찰 단위를 비우면 즉시구매가를 입력해야 합니다."
+  }, {
     "code" : "AUTH_001",
     "status" : 401,
     "message" : "인증 토큰이 필요합니다."
@@ -12561,6 +12800,42 @@
     "code" : "SELLER_008",
     "status" : 403,
     "message" : "판매자 인증을 받은 회원만 상점 정보를 바꿀 수 있습니다."
+  }, {
+    "code" : "SELLER_009",
+    "status" : 409,
+    "message" : "판매자 이용약관이 바뀌었습니다. 화면을 새로 고친 뒤 바뀐 약관에 다시 동의해 주세요."
+  }, {
+    "code" : "SELLER_010",
+    "status" : 400,
+    "message" : "판매자 신청 전에 휴대폰 본인인증을 해 주세요."
+  }, {
+    "code" : "SELLER_011",
+    "status" : 400,
+    "message" : "본인인증이 완료되지 않았습니다. 다시 인증해 주세요."
+  }, {
+    "code" : "SELLER_012",
+    "status" : 403,
+    "message" : "만 19세 이상만 판매자로 등록할 수 있습니다."
+  }, {
+    "code" : "SELLER_013",
+    "status" : 409,
+    "message" : "이미 다른 계정에서 본인인증한 명의입니다. 한 사람은 한 계정에서만 판매할 수 있습니다."
+  }, {
+    "code" : "SELLER_014",
+    "status" : 409,
+    "message" : "이 계정은 이미 다른 명의로 본인인증했습니다."
+  }, {
+    "code" : "SELLER_015",
+    "status" : 502,
+    "message" : "본인인증 결과를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요."
+  }, {
+    "code" : "SELLER_016",
+    "status" : 400,
+    "message" : "예금주는 본인인증한 이름과 같아야 합니다. 본인 명의 계좌를 입력해 주세요."
+  }, {
+    "code" : "SELLER_017",
+    "status" : 400,
+    "message" : "계좌번호를 다시 확인해 주세요."
   }, {
     "code" : "SHOP_001",
     "status" : 400,

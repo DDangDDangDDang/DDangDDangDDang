@@ -12,6 +12,7 @@ public record OrderSummaryResponse(
         String productName,
         String productImageUrl,
         long finalPrice,
+        long settlementAmount,  // 판매자가 받을 금액 (판매가 - 수수료)
         OrderStatus status,
         LocalDateTime createdAt
 ) {
@@ -23,6 +24,7 @@ public record OrderSummaryResponse(
                 order.getProductName(),
                 order.getProductImageUrl(),
                 order.getFinalPrice(),
+                order.getSettlementAmount(),
                 order.getStatus(),
                 order.getCreatedAt()
         );

@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.order.service;
 
+import com.example.ddangddangddang.domain.order.commission.CommissionPolicy;
+import com.example.ddangddangddang.domain.order.commission.SaleContext;
 import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.entity.Courier;
@@ -31,6 +33,7 @@ public class OrderService {
 
     private static final int MAX_PAGE_SIZE = 100;
     private final OrderRepository orderRepository;
+    private final CommissionPolicy commissionPolicy;
     private final PointService pointService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -48,13 +51,17 @@ public class OrderService {
             throw new BusinessException(OrderErrorCode.ORDER_ALREADY_EXISTS);
         }
 
+        // 판매 수수료율은 주문이 생길 때 정해 저장한다 (할인 규칙 포함, CommissionPolicy)
+        int commissionRateBps = commissionPolicy.rateBpsFor(
+                new SaleContext(command.auctionId(), command.sellerId(), command.buyerId(), command.finalPrice()));
         Order order = Order.create(
                 command.auctionId(),
                 command.buyerId(),
                 command.sellerId(),
                 command.productName(),
                 command.productImageUrl(),
-                command.finalPrice()
+                command.finalPrice(),
+                commissionRateBps
         );
         try {
             return orderRepository.saveAndFlush(order).getId();
@@ -142,7 +149,8 @@ public class OrderService {
             throw new BusinessException(OrderErrorCode.NOT_ORDER_BUYER);
         }
         order.confirm();
-        pointService.settle(order.getSellerId(), order.getFinalPrice(), order.getId());
+        // 판매가에서 수수료를 뗀 금액만 판매자에게 정산한다
+        pointService.settle(order.getSellerId(), order.getSettlementAmount(), order.getId());
         // 커밋 뒤 구매자에게 도네이션 포인트를 적립한다. (도네이션 도메인이 듣는다)
         eventPublisher.publishEvent(new OrderConfirmedEvent(order.getId(), order.getBuyerId(), order.getSellerId(), order.getFinalPrice()));
         return OrderResponse.from(order);

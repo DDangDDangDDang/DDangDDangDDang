@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.order.entity;
 
+import com.example.ddangddangddang.domain.order.commission.CommissionPolicy;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.global.entity.BaseTimeEntity;
 import com.example.ddangddangddang.global.exception.BusinessException;
@@ -70,6 +71,14 @@ public class Order extends BaseTimeEntity {
     @Column(nullable = false)
     private long finalPrice;
 
+    /** 판매 수수료율(bp, 500 = 5%). 주문이 생길 때 정한다. 수수료 도입 전 주문은 0 */
+    @Column(nullable = false)
+    private int commissionRateBps;
+
+    /** 판매 수수료(포인트). 구매 확정 때 판매가에서 이만큼 떼고 판매자에게 정산한다. 수수료 도입 전 주문은 0 */
+    @Column(nullable = false)
+    private long commission;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OrderStatus status;
@@ -102,7 +111,7 @@ public class Order extends BaseTimeEntity {
     private LocalDateTime completedAt;
 
     private Order(Long auctionId, Long buyerId, Long sellerId, String productName,
-                  String productImageUrl, long finalPrice) {
+                  String productImageUrl, long finalPrice, int commissionRateBps) {
         this.orderNo = UUID.randomUUID().toString();
         this.auctionId = auctionId;
         this.buyerId = buyerId;
@@ -110,12 +119,29 @@ public class Order extends BaseTimeEntity {
         this.productName = productName;
         this.productImageUrl = productImageUrl;
         this.finalPrice = finalPrice;
+        this.commissionRateBps = commissionRateBps;
+        this.commission = CommissionPolicy.commissionOf(finalPrice, commissionRateBps);
         this.status = OrderStatus.ESCROW;
     }
 
+    /** 수수료 없이 주문을 만든다 (수수료율 0, 테스트용) */
     public static Order create(Long auctionId, Long buyerId, Long sellerId, String productName,
                                String productImageUrl, long finalPrice) {
-        return new Order(auctionId, buyerId, sellerId, productName, productImageUrl, finalPrice);
+        return create(auctionId, buyerId, sellerId, productName, productImageUrl, finalPrice, 0);
+    }
+
+    /** 주문을 만든다. 수수료 = 판매가 × commissionRateBps / 10000 (원 미만 버림) */
+    public static Order create(Long auctionId, Long buyerId, Long sellerId, String productName,
+                               String productImageUrl, long finalPrice, int commissionRateBps) {
+        if (commissionRateBps < 0 || commissionRateBps >= CommissionPolicy.BPS_DENOMINATOR) {
+            throw new IllegalArgumentException("수수료율이 올바르지 않습니다: " + commissionRateBps);
+        }
+        return new Order(auctionId, buyerId, sellerId, productName, productImageUrl, finalPrice, commissionRateBps);
+    }
+
+    /** 판매자가 받을 금액 = 판매가 - 수수료. 구매 확정 때 이만큼 정산한다 */
+    public long getSettlementAmount() {
+        return this.finalPrice - this.commission;
     }
 
     /**
