@@ -91,3 +91,63 @@ export function sellerAuctionEmpty(tab: SellerAuctionTab, includeFailedAndCancel
     ? { title: '지난 경매가 없어요', description: '끝난 경매(낙찰·유찰·취소)가 여기에 쌓여요.' }
     : { title: '낙찰된 경매가 없어요', description: '유찰·취소된 경매는 "유찰·취소 포함"을 켜면 보여요.' };
 }
+
+/** 판매자 신청의 정산 계좌·반품 주소·고객 문의 연락처 입력 */
+export type SellerInfoValues = {
+  bankCode: string;
+  accountNumber: string;
+  accountHolder: string;
+  returnAddress: string;
+  contactPhone: string;
+};
+export type SellerInfoErrors = Partial<Record<keyof SellerInfoValues, string>>;
+
+export const EMPTY_SELLER_INFO: SellerInfoValues = { bankCode: '', accountNumber: '', accountHolder: '', returnAddress: '', contactPhone: '' };
+
+/** 서버와 같은 길이 제한 (SellerApplication) */
+export const ACCOUNT_HOLDER_MAX = 30;
+export const RETURN_ADDRESS_MAX = 200;
+
+/** 이름 비교: 띄어쓰기는 무시한다. (서버 SellerIdentity.isAccountHolder와 같은 규칙) */
+export function isSameName(a: string, b: string): boolean {
+  return a.replace(/\s/g, '') === b.replace(/\s/g, '');
+}
+
+/** 고객 문의 연락처: 휴대폰·일반 전화 모두, 하이픈 없는 숫자 9~11자리 (0으로 시작) */
+export function isValidContactPhone(digits: string): boolean {
+  return /^0\d{8,10}$/.test(digits);
+}
+
+/** 연락처에 하이픈: 서울(02) 번호와 그 밖의 번호를 나눠 붙인다. 형식이 맞지 않으면 그대로 */
+export function formatContactPhone(digits: string): string {
+  if (digits.startsWith('02')) {
+    if (digits.length === 9) return `02-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    if (digits.length === 10) return `02-${digits.slice(2, 6)}-${digits.slice(6)}`;
+    return digits;
+  }
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  return digits;
+}
+
+/**
+ * 정산 계좌·반품 주소·문의 연락처 검사. 서버 규칙: 은행 코드 숫자 3자리, 계좌번호 숫자·하이픈 10~20자,
+ * 예금주 30자 이하이고 본인인증 실명(realName)과 같아야 한다(SELLER_016). 실명을 모르면 서버가 검사한다.
+ */
+export function validateSellerInfo(values: SellerInfoValues, realName?: string): SellerInfoErrors {
+  const errors: SellerInfoErrors = {};
+  if (!/^\d{3}$/.test(values.bankCode)) errors.bankCode = '정산받을 은행을 골라 주세요.';
+
+  const account = values.accountNumber.trim();
+  if (!account) errors.accountNumber = '계좌번호를 입력해 주세요.';
+  else if (!/^[0-9-]{10,20}$/.test(account) || !/\d/.test(account)) errors.accountNumber = '계좌번호는 숫자와 하이픈(-)으로 10~20자예요.';
+
+  const holder = values.accountHolder.trim();
+  if (!holder) errors.accountHolder = '예금주를 입력해 주세요.';
+  else if (holder.length > ACCOUNT_HOLDER_MAX) errors.accountHolder = `예금주는 ${ACCOUNT_HOLDER_MAX}자 이하로 입력해 주세요.`;
+  else if (realName && !isSameName(holder, realName)) errors.accountHolder = `예금주는 본인인증한 이름(${realName})과 같아야 해요.`;
+
+  if (!values.returnAddress.trim()) errors.returnAddress = '반품·교환 받을 주소를 입력해 주세요.';
+  if (!isValidContactPhone(values.contactPhone)) errors.contactPhone = '연락처를 숫자로 다시 확인해 주세요. (예: 0212345678)';
+  return errors;
+}

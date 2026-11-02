@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
  * - bio: 회원 자기소개, profileImageUrl: 프로필 이미지 주소 (없으면 null)
  * - businessSeller: 사업자등록번호로 승인받은 사업자 판매자 (판매자 인증 배지 옆에 사업자 배지)
  * - verifiedSeller: 관리자가 판매자 신청을 승인한 회원. storeName·introduction·verifiedAt은 인증 회원만 있다. (아니면 null)
+ * - returnAddress·contactPhone: 인증 판매자의 반품·교환 주소와 고객 문의 연락처 (공개 정보). 인증 회원이 아니거나 받기 전에 인증된 판매자는 null
  * - subscribed: 내가 구독 중인지. 로그인하지 않았으면 false
  * - liveStreamId: 지금 방송 중이면 그 방송 (아니면 null)
  * - 방송: firstBroadcastAt(첫 방송 시작, 방송한 적 없으면 null), broadcastCount(시작한 방송 수), totalBroadcastSeconds(방송한 시간 합, 방송 중이면 지금까지)
@@ -24,6 +25,8 @@ public record SellerProfileResponse(
         boolean powerSeller,
         String storeName,
         String introduction,
+        String returnAddress,
+        String contactPhone,
         LocalDateTime verifiedAt,
         LocalDateTime joinedAt,
         long subscriberCount,
