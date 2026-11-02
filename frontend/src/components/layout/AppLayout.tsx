@@ -3,7 +3,6 @@ import {
   ChevronDown,
   CircleUser,
   Gift,
-  Menu,
   MessageCircle,
   Search,
   UserCog,
@@ -44,13 +43,6 @@ export function AppLayout() {
   const session = useSession();
   const { pathname } = useLocation();
   const showNav = !NO_NAV_PATHS.some((path) => matchPath(path, pathname));
-  const collapsedByPage = COLLAPSED_NAV_PATHS.some((path) =>
-    matchPath(path, pathname),
-  );
-  // 헤더의 메뉴 버튼으로 접고 편 상태는 그 화면에 있는 동안만 유지한다. 다른 화면으로 가면 화면 기본값으로 돌아간다.
-  const [toggled, setToggled] = useState<{ path: string; collapsed: boolean }>();
-  const collapsed =
-    toggled?.path === pathname ? toggled.collapsed : collapsedByPage;
 
   return (
     <BroadcastProvider>
@@ -60,16 +52,9 @@ export function AppLayout() {
             {session?.user.userId !== undefined && (
               <DmRealtime userId={session.user.userId} />
             )}
-            <AppHeader
-              onToggleNav={
-                showNav
-                  ? () => setToggled({ path: pathname, collapsed: !collapsed })
-                  : undefined
-              }
-              navCollapsed={collapsed}
-            />
+            <AppHeader />
             <div className="flex">
-              {showNav && <SideNav collapsed={collapsed} />}
+              {showNav && <SideNav />}
               <main className="min-w-0 flex-1 px-8 pt-6 pb-14">
                 <div className="mx-auto max-w-[1360px]">
                   <Outlet />
@@ -96,21 +81,7 @@ const NO_NAV_PATHS = [
   "/oauth/*",
 ];
 
-/** 왼쪽 메뉴를 접어 두는 화면: 영상·채팅처럼 본문이 넓어야 하는 화면 */
-const COLLAPSED_NAV_PATHS = [
-  "/lives/:liveStreamId",
-  "/studio",
-  "/messages",
-  "/messages/:userId",
-];
-
-function AppHeader({
-  onToggleNav,
-  navCollapsed,
-}: {
-  onToggleNav?: () => void;
-  navCollapsed: boolean;
-}) {
+function AppHeader() {
   const session = useSession();
   const navigate = useNavigate();
   // 로그인·회원가입 뒤 지금 보던 화면으로 돌아온다. (로그인·회원가입 화면 자체에서는 그대로)
@@ -126,17 +97,6 @@ function AppHeader({
     <header className="sticky top-0 z-30 border-b border-neutral-100 bg-neutral-25">
       <div className="flex h-16 items-center gap-4 px-4">
         <div className="flex w-[228px] shrink-0 items-center gap-2">
-          {onToggleNav && (
-            <button
-              type="button"
-              aria-label={navCollapsed ? "메뉴 펼치기" : "메뉴 접기"}
-              aria-expanded={!navCollapsed}
-              onClick={onToggleNav}
-              className="flex size-11 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900"
-            >
-              <Menu className="size-5" aria-hidden="true" />
-            </button>
-          )}
           <Link to="/" className="flex items-center gap-2.5 px-1">
             <BrandMark />
             <span className="text-logo font-bold tracking-tight text-brand-500">땅땅땅</span>
