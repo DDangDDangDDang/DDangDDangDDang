@@ -13,6 +13,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PointWalletTest {
 
     @Test
+    @DisplayName("주문 취소 환불은 사용 가능 포인트만 늘린다")
+    void refundOrder_increasesBalanceOnly() {
+        PointWallet wallet = walletWithBalance(1_000L);
+        wallet.hold(400L);
+
+        wallet.refundOrder(5_000L);
+
+        assertThat(wallet.getBalance()).isEqualTo(5_600L);
+        assertThat(wallet.getHeldBalance()).isEqualTo(400L);
+    }
+
+    @Test
     @DisplayName("홀딩하면 사용 가능 포인트가 홀딩 포인트로 옮겨진다")
     void hold() {
         PointWallet wallet = walletWithBalance(10_000L);

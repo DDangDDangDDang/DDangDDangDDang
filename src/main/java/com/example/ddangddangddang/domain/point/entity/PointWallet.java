@@ -110,6 +110,12 @@ public class PointWallet extends BaseTimeEntity {
         this.balance += amount;
     }
 
+    /** 주문 취소: 낙찰로 차감했던 포인트를 구매자의 사용 가능 포인트로 돌려준다 */
+    public void refundOrder(long amount) {
+        validateAmount(amount);
+        this.balance += amount;
+    }
+
     private void validateAmount(long amount) {
         if (amount <= 0) {
             throw new BusinessException(PointErrorCode.INVALID_AMOUNT);

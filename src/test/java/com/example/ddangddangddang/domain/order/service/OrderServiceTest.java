@@ -1,11 +1,16 @@
 package com.example.ddangddangddang.domain.order.service;
 
+import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
+import com.example.ddangddangddang.domain.livechat.moderation.ContentViolation;
 import com.example.ddangddangddang.domain.order.commission.CommissionPolicy;
 import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
 import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
+import com.example.ddangddangddang.domain.order.event.OrderDelayRespondedEvent;
+import com.example.ddangddangddang.domain.order.event.OrderDelayRequestedEvent;
+import com.example.ddangddangddang.domain.order.entity.OrderDelayStatus;
 import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
 import com.example.ddangddangddang.domain.order.entity.OrderRole;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
@@ -26,6 +31,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,6 +64,9 @@ class OrderServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private ChatContentFilter contentFilter;
 
     @Nested
     @DisplayName("주문 생성")
@@ -289,6 +298,94 @@ class OrderServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(OrderErrorCode.CANNOT_CONFIRM);
             verify(pointService, never()).settle(anyLong(), anyLong(), anyLong());
+        }
+    }
+
+    @Nested
+    @DisplayName("발송 지연 신청")
+    class Delay {
+
+        @Test
+        @DisplayName("판매자가 신청하면 대기 상태가 되고 메신저 안내 이벤트가 나간다")
+        void requestDelay_bySeller_setsPendingAndPublishesEvent() {
+            Order order = shippableOrder(1L);
+            given(orderRepository.findByIdForUpdate(1L)).willReturn(Optional.of(order));
+
+            OrderResponse response = orderService.requestDelay(SELLER_ID, 1L, "입고 지연");
+
+            assertThat(response.delayStatus()).isEqualTo(OrderDelayStatus.PENDING);
+            verify(eventPublisher).publishEvent(new OrderDelayRequestedEvent(1L, 100L, BUYER_ID, SELLER_ID, "아이패드", "입고 지연"));
+        }
+
+        @Test
+        @DisplayName("구매자는 지연을 신청할 수 없다")
+        void requestDelay_byBuyer_throwsNotOrderSellerDelay() {
+            given(orderRepository.findByIdForUpdate(1L)).willReturn(Optional.of(shippableOrder(1L)));
+
+            assertThatThrownBy(() -> orderService.requestDelay(BUYER_ID, 1L, "입고 지연"))
+                    .extracting("errorCode").isEqualTo(OrderErrorCode.NOT_ORDER_SELLER_DELAY);
+        }
+
+        @Test
+        @DisplayName("사유에 외부 거래 유도 문구가 있으면 거부하고 주문은 그대로다")
+        void requestDelay_contactInReason_throwsDelayReasonNotAllowed() {
+            Order order = shippableOrder(1L);
+            given(orderRepository.findByIdForUpdate(1L)).willReturn(Optional.of(order));
+            given(contentFilter.findViolation("010-1234-5678로 연락주세요"))
+                    .willReturn(Optional.of(ContentViolation.values()[0]));
+
+            assertThatThrownBy(() -> orderService.requestDelay(SELLER_ID, 1L, "010-1234-5678로 연락주세요"))
+                    .extracting("errorCode").isEqualTo(OrderErrorCode.DELAY_REASON_NOT_ALLOWED);
+            assertThat(order.getDelayStatus()).isNull();
+        }
+
+        @Test
+        @DisplayName("판매자는 지연 신청에 응답할 수 없다")
+        void approveDelay_bySeller_throwsNotOrderBuyerDelay() {
+            given(orderRepository.findByIdForUpdate(1L)).willReturn(Optional.of(pendingOrder(1L)));
+
+            assertThatThrownBy(() -> orderService.approveDelay(SELLER_ID, 1L))
+                    .extracting("errorCode").isEqualTo(OrderErrorCode.NOT_ORDER_BUYER_DELAY);
+        }
+
+        @Test
+        @DisplayName("기한이 지난 승인은 거부해 자동 취소를 뒤집지 못한다")
+        void approveDelay_afterDeadline_throwsDeadlinePassed() {
+            Order order = pendingOrder(1L);
+            ReflectionTestUtils.setField(order, "shipDeadlineAt", LocalDateTime.now().minusMinutes(1));
+            given(orderRepository.findByIdForUpdate(1L)).willReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.approveDelay(BUYER_ID, 1L))
+                    .extracting("errorCode").isEqualTo(OrderErrorCode.DEADLINE_PASSED);
+        }
+
+        @Test
+        @DisplayName("승인하면 기한이 늘고 결과 이벤트가 나간다")
+        void approveDelay_extendsAndPublishesEvent() {
+            Order order = pendingOrder(1L);
+            LocalDateTime before = order.getShipDeadlineAt();
+            given(orderRepository.findByIdForUpdate(1L)).willReturn(Optional.of(order));
+
+            orderService.approveDelay(BUYER_ID, 1L);
+
+            assertThat(order.getShipDeadlineAt()).isEqualTo(before.plusDays(7));
+            verify(eventPublisher).publishEvent(new OrderDelayRespondedEvent(1L, 100L, BUYER_ID, SELLER_ID, "아이패드", true));
+        }
+
+        @Test
+        @DisplayName("거절하면 결과 이벤트가 나간다")
+        void rejectDelay_publishesEventWithApprovedFalse() {
+            given(orderRepository.findByIdForUpdate(1L)).willReturn(Optional.of(pendingOrder(1L)));
+
+            orderService.rejectDelay(BUYER_ID, 1L);
+
+            verify(eventPublisher).publishEvent(new OrderDelayRespondedEvent(1L, 100L, BUYER_ID, SELLER_ID, "아이패드", false));
+        }
+
+        private Order pendingOrder(Long orderId) {
+            Order order = shippableOrder(orderId);
+            order.requestDelay("입고 지연", LocalDateTime.now());
+            return order;
         }
     }
 

@@ -2104,6 +2104,157 @@
         }
       }
     },
+    "/api/v1/orders/{orderId}/delay-request" : {
+      "post" : {
+        "tags" : [ "order-controller" ],
+        "operationId" : "orderRequestDelay",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrderDelayRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{orderId}/delay-request/reject" : {
+      "post" : {
+        "tags" : [ "order-controller" ],
+        "operationId" : "orderRejectDelay",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{orderId}/delay-request/approve" : {
+      "post" : {
+        "tags" : [ "order-controller" ],
+        "operationId" : "orderApproveDelay",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notifications/{notificationId}/read" : {
       "post" : {
         "tags" : [ "notification-controller" ],
@@ -6299,7 +6450,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND" ]
+            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND" ]
           }
         }, {
           "name" : "cursor",
@@ -6419,7 +6570,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED" ]
+            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED", "CANCELED" ]
           }
         }, {
           "name" : "cursor",
@@ -9239,6 +9390,135 @@
           }
         }
       },
+      "OrderDelayRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "reason" ]
+      },
+      "ApiResponseOrderResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/OrderResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "OrderResponse" : {
+        "type" : "object",
+        "properties" : {
+          "orderId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "orderNo" : {
+            "type" : "string"
+          },
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "buyerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sellerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "productName" : {
+            "type" : "string"
+          },
+          "productImageUrl" : {
+            "type" : "string"
+          },
+          "finalPrice" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "commissionRateBps" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "commission" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "settlementAmount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED", "CANCELED" ]
+          },
+          "receiverName" : {
+            "type" : "string"
+          },
+          "receiverPhone" : {
+            "type" : "string"
+          },
+          "address" : {
+            "type" : "string"
+          },
+          "deliveryMemo" : {
+            "type" : "string"
+          },
+          "courier" : {
+            "type" : "string",
+            "enum" : [ "CJ", "LOTTE", "HANJIN", "LOGEN", "POST", "ETC" ]
+          },
+          "trackingNo" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "shippedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "completedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "addressDeadlineAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "shipDeadlineAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "delayStatus" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "APPROVED", "REJECTED" ]
+          },
+          "delayReason" : {
+            "type" : "string"
+          },
+          "cancelReason" : {
+            "type" : "string",
+            "enum" : [ "BUYER_NO_ADDRESS", "SELLER_NOT_SHIPPED" ]
+          },
+          "canceledAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "ApiResponseNotificationResponse" : {
         "type" : "object",
         "properties" : {
@@ -9262,7 +9542,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_WON", "AUCTION_SOLD", "AUCTION_FAILED", "AUCTION_ENDED", "DONATION_POINT_EARNED", "DONATION_POINT_EXPIRING" ]
+            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_WON", "AUCTION_SOLD", "AUCTION_FAILED", "AUCTION_ENDED", "ORDER_CANCELED", "DONATION_POINT_EARNED", "DONATION_POINT_EXPIRING" ]
           },
           "sellerId" : {
             "type" : "integer",
@@ -9447,6 +9727,10 @@
           },
           "buyNowOnly" : {
             "type" : "boolean"
+          },
+          "orderCancelReason" : {
+            "type" : "string",
+            "enum" : [ "BUYER_NO_ADDRESS", "SELLER_NOT_SHIPPED" ]
           }
         }
       },
@@ -10743,101 +11027,6 @@
         },
         "required" : [ "courier", "trackingNo" ]
       },
-      "ApiResponseOrderResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/OrderResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "OrderResponse" : {
-        "type" : "object",
-        "properties" : {
-          "orderId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "orderNo" : {
-            "type" : "string"
-          },
-          "auctionId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "buyerId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sellerId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "productName" : {
-            "type" : "string"
-          },
-          "productImageUrl" : {
-            "type" : "string"
-          },
-          "finalPrice" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "commissionRateBps" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "commission" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "settlementAmount" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "status" : {
-            "type" : "string",
-            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED" ]
-          },
-          "receiverName" : {
-            "type" : "string"
-          },
-          "receiverPhone" : {
-            "type" : "string"
-          },
-          "address" : {
-            "type" : "string"
-          },
-          "deliveryMemo" : {
-            "type" : "string"
-          },
-          "courier" : {
-            "type" : "string",
-            "enum" : [ "CJ", "LOTTE", "HANJIN", "LOGEN", "POST", "ETC" ]
-          },
-          "trackingNo" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "shippedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "completedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
       "OrderAddressRequest" : {
         "type" : "object",
         "properties" : {
@@ -11540,7 +11729,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND" ]
+            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND" ]
           },
           "amount" : {
             "type" : "integer",
@@ -11658,7 +11847,11 @@
           },
           "status" : {
             "type" : "string",
-            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED" ]
+            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED", "CANCELED" ]
+          },
+          "cancelReason" : {
+            "type" : "string",
+            "enum" : [ "BUYER_NO_ADDRESS", "SELLER_NOT_SHIPPED" ]
           },
           "createdAt" : {
             "type" : "string",
@@ -13087,6 +13280,30 @@
     "code" : "ORDER_016",
     "status" : 503,
     "message" : "배송 조회가 설정되지 않았습니다."
+  }, {
+    "code" : "ORDER_017",
+    "status" : 409,
+    "message" : "기한이 지나 처리할 수 없습니다."
+  }, {
+    "code" : "ORDER_018",
+    "status" : 409,
+    "message" : "배송지가 입력된 발송 전 주문에서 한 번만 지연을 신청할 수 있습니다."
+  }, {
+    "code" : "ORDER_019",
+    "status" : 409,
+    "message" : "응답을 기다리는 지연 신청이 없습니다."
+  }, {
+    "code" : "ORDER_020",
+    "status" : 403,
+    "message" : "구매자만 지연 신청에 응답할 수 있습니다."
+  }, {
+    "code" : "ORDER_021",
+    "status" : 403,
+    "message" : "판매자만 지연을 신청할 수 있습니다."
+  }, {
+    "code" : "ORDER_022",
+    "status" : 400,
+    "message" : "지연 사유에 쓸 수 없는 내용이 있습니다."
   }, {
     "code" : "POINT_001",
     "status" : 404,

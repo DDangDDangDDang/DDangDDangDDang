@@ -207,6 +207,39 @@ public class DirectMessageService {
         return response;
     }
 
+    /**
+     * 주문 진행 안내를 서버가 대신 보낸다. (발송 지연 신청, 응답, 주문 취소)
+     *
+     * 거래에 꼭 필요한 안내라 차단·도배 한도·내용 필터를 적용하지 않는다. 사람이 쓴 사유는 주문 도메인이 신청할 때 검사한다.
+     * 보낸 사람이 직접 쓴 메시지가 아니므로 보낸 사람의 읽음 위치는 움직이지 않는다.
+     * clientMessageId를 고정해서, 같은 안내를 다시 보내도 한 번만 저장된다.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void sendOrderNotice(Long senderId, Long receiverId, String clientMessageId, String content) {
+        if (dmMessageRepository.findBySenderIdAndClientMessageId(senderId, clientMessageId).isPresent()) {
+            return;
+        }
+        DmRoom candidate = DmRoom.create(senderId, receiverId);
+        DmRoom room = dmRoomRepository.findByUser1IdAndUser2Id(candidate.getUser1Id(), candidate.getUser2Id())
+                .orElseGet(() -> createRoom(candidate));
+        Long roomId = room.getId();
+
+        DmMessage saved;
+        try {
+            saved = transactionTemplate.execute(status -> {
+                DmMessage message = dmMessageRepository.saveAndFlush(DmMessage.create(roomId, senderId, clientMessageId, content));
+                dmRoomRepository.updateLastMessage(roomId, message.getId(), preview(content), message.getCreatedAt());
+                return message;
+            });
+        } catch (DataIntegrityViolationException e) {
+            return; // 같은 안내가 거의 동시에 저장됐다
+        }
+
+        DmEvent event = DmEvent.message(DmMessageResponse.from(saved));
+        deliver(receiverId, event);
+        deliver(senderId, event);
+    }
+
     // 메시지 저장 트랜잭션의 결과. readMoved: 보낸 사람의 읽음 위치가 이 메시지로 바뀌었는지
     private record SendResult(DmMessage message, boolean readMoved) {
     }

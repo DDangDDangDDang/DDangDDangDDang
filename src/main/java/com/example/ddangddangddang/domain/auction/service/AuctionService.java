@@ -1,5 +1,11 @@
 package com.example.ddangddangddang.domain.auction.service;
 
+import java.util.stream.Collectors;
+import java.util.Map;
+import com.example.ddangddangddang.domain.order.repository.OrderRepository;
+import com.example.ddangddangddang.domain.order.entity.OrderStatus;
+import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
+import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.auction.dto.request.AuctionCreateRequest;
 import com.example.ddangddangddang.domain.auction.dto.request.AuctionSearchCondition;
 import com.example.ddangddangddang.domain.auction.dto.request.LiveAuctionCreateRequest;
@@ -43,6 +49,7 @@ import java.util.List;
 @Transactional
 public class AuctionService {
     private final AuctionRepository auctionRepository;
+    private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final LiveStreamRepository liveStreamRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -219,8 +226,14 @@ public class AuctionService {
             throw new BusinessException(ProductErrorCode.NOT_OWNER_AUCTION_HISTORY);
         }
 
-        return auctionRepository.findTop50ByProductIdOrderByIdDesc(productId)
-                .stream().map(auction -> AuctionResponse.from(auction, this::imageUrl)).toList();
+        List<Auction> auctions = auctionRepository.findTop50ByProductIdOrderByIdDesc(productId);
+        //낙찰됐다가 주문이 취소된 경매는 사유(낙찰취소, 제품 미발송)를 함께 보여준다
+        Map<Long, OrderCancelReason> cancelReasons = orderRepository
+                .findByAuctionIdInAndStatus(auctions.stream().map(Auction::getId).toList(), OrderStatus.CANCELED)
+                .stream().collect(Collectors.toMap(Order::getAuctionId, Order::getCancelReason));
+        return auctions.stream()
+                .map(auction -> AuctionResponse.from(auction, this::imageUrl).withOrderCancelReason(cancelReasons.get(auction.getId())))
+                .toList();
     }
 
     // 동시 같은 경매 수정시 먼저 반영 요청을 성공후 나머지는 409 CONCURRENT_UPDATE 응답

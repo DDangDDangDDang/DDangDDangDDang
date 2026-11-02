@@ -253,6 +253,23 @@ class PointServiceTest {
         }).toList();
     }
 
+    @Test
+    @DisplayName("주문 취소 환불은 구매자 잔액을 늘리고 ORDER_REFUND 내역을 주문 기준으로 남긴다")
+    void refundOrder_recordsOrderRefundHistory() {
+        PointWallet wallet = walletWithBalance(1L, 10L, 1_000L);
+        given(pointWalletRepository.findByUserIdForUpdate(10L)).willReturn(Optional.of(wallet));
+        given(pointHistoryRepository.save(any(PointHistory.class))).willAnswer(call -> call.getArgument(0));
+
+        pointService.refundOrder(10L, 5_000L, 77L);
+
+        assertThat(wallet.getBalance()).isEqualTo(6_000L);
+        org.mockito.ArgumentCaptor<PointHistory> history = org.mockito.ArgumentCaptor.forClass(PointHistory.class);
+        verify(pointHistoryRepository).save(history.capture());
+        assertThat(history.getValue().getType()).isEqualTo(PointHistoryType.ORDER_REFUND);
+        assertThat(history.getValue().getRefType()).isEqualTo(PointReferenceType.ORDER);
+        assertThat(history.getValue().getRefId()).isEqualTo(77L);
+    }
+
     private PointWallet walletWithBalance(Long walletId, Long userId, long balance) {
         PointWallet wallet = wallet(walletId, userId);
         ReflectionTestUtils.setField(wallet, "balance", balance);

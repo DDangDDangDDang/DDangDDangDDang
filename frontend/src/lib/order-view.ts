@@ -10,8 +10,9 @@ export type OrderRole = 'BUYER' | 'SELLER';
  * - WAITING_SHIPMENT: 낙찰됨, 배송지 있음 (발송 대기)
  * - SHIPPING: 배송 중
  * - COMPLETED: 구매 확정 완료 (판매자는 정산 완료)
+ * - CANCELED: 기한 초과로 취소, 구매자에게 환불
  */
-export type OrderStage = 'NEED_ADDRESS' | 'WAITING_SHIPMENT' | 'SHIPPING' | 'COMPLETED';
+export type OrderStage = 'NEED_ADDRESS' | 'WAITING_SHIPMENT' | 'SHIPPING' | 'COMPLETED' | 'CANCELED';
 
 /** 로그인한 회원이 이 주문의 구매자인지 판매자인지. 둘 다 아니면 null */
 export function orderRoleOf(order: Order, userId: number | undefined): OrderRole | null {
@@ -31,6 +32,8 @@ export function orderStage(order: Order): OrderStage {
       return 'SHIPPING';
     case 'COMPLETED':
       return 'COMPLETED';
+    case 'CANCELED':
+      return 'CANCELED';
     default:
       return hasDeliveryAddress(order) ? 'WAITING_SHIPMENT' : 'NEED_ADDRESS';
   }
