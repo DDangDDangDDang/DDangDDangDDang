@@ -49,7 +49,7 @@ export function AdBanner({ placement, ads, className }: { placement: AdPlacement
   if (list.length === 1 && first) {
     return <AdLink ad={first} style={style} className={cn(frame, 'bg-neutral-50 shadow-sm')} />;
   }
-  return <AdCarousel ads={list} style={style} className={cn(frame, 'bg-neutral-50 shadow-sm')} />;
+  return <AdCarousel key={list.map((ad) => ad.imageUrl).join('|')} ads={list} style={style} className={cn(frame, 'bg-neutral-50 shadow-sm')} />;
 }
 
 function AdLink({ ad, style, className, hidden = false }: { ad: Ad; style?: CSSProperties; className?: string; hidden?: boolean }) {
