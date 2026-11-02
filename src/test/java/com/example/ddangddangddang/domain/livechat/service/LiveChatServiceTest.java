@@ -76,7 +76,7 @@ class LiveChatServiceTest {
     void send() {
         given(chatRateLimitRepository.increment(SENDER.id(), LiveChatService.RATE_LIMIT_WINDOW))
                 .willReturn((long) LiveChatService.RATE_LIMIT_MAX_MESSAGES);
-        given(nicknameBadges.equipped(SENDER.id())).willReturn(new EquippedBadge(null));
+        given(nicknameBadges.equipped(SENDER.id())).willReturn(EquippedBadge.NONE);
 
         liveChatService.send(LIVE_STREAM_ID, SENDER, "  안녕하세요  ");
 
@@ -96,13 +96,15 @@ class LiveChatServiceTest {
     @DisplayName("보낸 사람이 장착한 닉네임 뱃지를 채팅 메시지에 담는다")
     void sendWithBadge() {
         given(chatRateLimitRepository.increment(SENDER.id(), LiveChatService.RATE_LIMIT_WINDOW)).willReturn(1L);
-        given(nicknameBadges.equipped(SENDER.id())).willReturn(new EquippedBadge(NicknameBadge.ANGEL_WINGS));
+        given(nicknameBadges.equipped(SENDER.id())).willReturn(new EquippedBadge(NicknameBadge.ANGEL_WINGS, NicknameBadge.TITLE_BID_KING, NicknameBadge.COLOR_MINT));
 
         liveChatService.send(LIVE_STREAM_ID, SENDER, "안녕하세요");
 
         ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
         then(stompBroadcaster).should().broadcast(eq("/topic/live-streams/10/chat"), captor.capture());
         assertThat(captor.getValue().badge()).isEqualTo(NicknameBadge.ANGEL_WINGS);
+        assertThat(captor.getValue().title()).isEqualTo(NicknameBadge.TITLE_BID_KING);
+        assertThat(captor.getValue().color()).isEqualTo(NicknameBadge.COLOR_MINT);
     }
 
     @Test
@@ -168,7 +170,7 @@ class LiveChatServiceTest {
     void withinLimitNotMuted() {
         given(chatRateLimitRepository.increment(SENDER.id(), LiveChatService.RATE_LIMIT_WINDOW))
                 .willReturn((long) LiveChatService.RATE_LIMIT_MAX_MESSAGES);
-        given(nicknameBadges.equipped(SENDER.id())).willReturn(new EquippedBadge(null));
+        given(nicknameBadges.equipped(SENDER.id())).willReturn(EquippedBadge.NONE);
 
         liveChatService.send(LIVE_STREAM_ID, SENDER, "안녕하세요");
 

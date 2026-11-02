@@ -196,9 +196,11 @@ class ShopControllerTest {
     @DisplayName("닉네임 뱃지는 사면 영구로 가지고 바로 장착된다. 같은 뱃지는 다시 살 수 없고, 가진 뱃지끼리 바꿔 끼거나 뺄 수 있다")
     void badges() throws Exception {
         Member member = signupAndLogin();
-        items(member).andExpect(jsonPath("$.data.length()").value(7))
+        items(member).andExpect(jsonPath("$.data.length()").value(15))
                 .andExpect(jsonPath("$.data[4].item").value("BADGE_STAR"))
                 .andExpect(jsonPath("$.data[4].badge").value("STAR"))
+                .andExpect(jsonPath("$.data[4].audience").value("BUYER"))
+                .andExpect(jsonPath("$.data[4].badgeKind").value("SKIN"))
                 .andExpect(jsonPath("$.data[4].price").value(5_000))
                 .andExpect(jsonPath("$.data[4].available").value(true));
 
@@ -215,7 +217,7 @@ class ShopControllerTest {
         buyBadge(member, "STAR").andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("USER_014"));
         wallet(member.bearer()).andExpect(jsonPath("$.data.balance").value(5_000));
         items(member).andExpect(jsonPath("$.data[4].available").value(false))
-                .andExpect(jsonPath("$.data[4].unavailableReason").value("이미 가지고 있어요. 내 뱃지에서 장착할 수 있어요."));
+                .andExpect(jsonPath("$.data[4].unavailableReason").value("이미 가지고 있어요. 내 꾸미기에서 장착할 수 있어요."));
 
         buyBadge(member, "HALO").andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.owned.length()").value(2))
@@ -231,6 +233,36 @@ class ShopControllerTest {
         equip(member, "null").andExpect(status().isOk()).andExpect(jsonPath("$.data.equipped").doesNotExist());
         myBadges(member).andExpect(jsonPath("$.data.owned.length()").value(2))
                 .andExpect(jsonPath("$.data.equipped").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("채팅 스킨·채팅 뱃지·닉네임 색상은 종류마다 하나씩 함께 장착하고, 종류별로 뺄 수 있다")
+    void equipByKind() throws Exception {
+        Member member = signupAndLogin();
+        items(member).andExpect(jsonPath("$.data[5].item").value("TITLE_BID_KING"))
+                .andExpect(jsonPath("$.data[5].badgeKind").value("TITLE"))
+                .andExpect(jsonPath("$.data[5].price").value(3_000))
+                .andExpect(jsonPath("$.data[9].item").value("COLOR_GOLD"))
+                .andExpect(jsonPath("$.data[9].badgeKind").value("COLOR"))
+                .andExpect(jsonPath("$.data[9].price").value(2_000))
+                .andExpect(jsonPath("$.data[13].audience").value("SELLER"))
+                .andExpect(jsonPath("$.data[14].audience").value("SELLER"));
+
+        earn(member, 10_000);
+        buyBadge(member, "STAR").andExpect(status().isOk());
+        buyBadge(member, "TITLE_BID_KING").andExpect(status().isOk());
+        buyBadge(member, "COLOR_MINT").andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.equipped").value("STAR"))
+                .andExpect(jsonPath("$.data.equippedTitle").value("TITLE_BID_KING"))
+                .andExpect(jsonPath("$.data.equippedColor").value("COLOR_MINT"));
+
+        // 종류를 골라 뺀다.
+        mockMvc.perform(put("/api/v1/users/me/badge").header(HttpHeaders.AUTHORIZATION, member.bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"kind\": \"TITLE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.equippedTitle").doesNotExist())
+                .andExpect(jsonPath("$.data.equipped").value("STAR"))
+                .andExpect(jsonPath("$.data.equippedColor").value("COLOR_MINT"));
     }
 
     @Test
@@ -279,9 +311,9 @@ class ShopControllerTest {
         for (int i = 0; i < AuctionBoost.MAX_ACTIVE; i++) {
             boostRepository.save(AuctionBoost.start(-(i + 1L) - System.nanoTime() % 1_000_000, 0L, now.minusMinutes(150 - i)));
         }
-        items(seller).andExpect(jsonPath("$.data[5].item").value("AUCTION_BOOST"))
-                .andExpect(jsonPath("$.data[5].available").value(false))
-                .andExpect(jsonPath("$.data[5].unavailableReason").value("지금은 위로 올릴 자리가 없어요. 약 30분 뒤에 올릴 수 있어요."));
+        items(seller).andExpect(jsonPath("$.data[13].item").value("AUCTION_BOOST"))
+                .andExpect(jsonPath("$.data[13].available").value(false))
+                .andExpect(jsonPath("$.data[13].unavailableReason").value("지금은 위로 올릴 자리가 없어요. 약 30분 뒤에 올릴 수 있어요."));
         boost(seller, auction(seller, "자리 없는 경매"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SHOP_003"))
                 .andExpect(jsonPath("$.error.message").value("지금은 위로 올릴 자리가 없어요. 약 30분 뒤에 올릴 수 있어요."));
@@ -294,27 +326,27 @@ class ShopControllerTest {
         Member seller = signupAndLogin();
         Member buyer = signupAndLogin();
         mileage(seller, 25_000);
-        items(seller).andExpect(jsonPath("$.data[6].item").value("POWER_SELLER"))
-                .andExpect(jsonPath("$.data[6].price").value(20_000))
-                .andExpect(jsonPath("$.data[6].available").value(false))
-                .andExpect(jsonPath("$.data[6].unavailableReason").value("판매자 인증을 받은 회원만 살 수 있어요."));
+        items(seller).andExpect(jsonPath("$.data[14].item").value("POWER_SELLER"))
+                .andExpect(jsonPath("$.data[14].price").value(20_000))
+                .andExpect(jsonPath("$.data[14].available").value(false))
+                .andExpect(jsonPath("$.data[14].unavailableReason").value("판매자 인증을 받은 회원만 살 수 있어요."));
         buyPower(seller).andExpect(status().isForbidden()).andExpect(jsonPath("$.error.code").value("DONATION_009"));
 
         // 인증했지만 판매 확정 19건
         SellerFixture.verify(sellerApplicationRepository, seller.id());
         completedSales(seller, buyer, 19);
-        items(seller).andExpect(jsonPath("$.data[6].unavailableReason").value("판매 확정 20건 이상부터 살 수 있어요. (지금 19건)"));
+        items(seller).andExpect(jsonPath("$.data[14].unavailableReason").value("판매 확정 20건 이상부터 살 수 있어요. (지금 19건)"));
         buyPower(seller).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("SHOP_005"))
                 .andExpect(jsonPath("$.error.message").value("판매 확정 20건 이상부터 살 수 있어요. (지금 19건)"));
 
         completedSales(seller, buyer, 1);
-        items(seller).andExpect(jsonPath("$.data[6].available").value(true));
+        items(seller).andExpect(jsonPath("$.data[14].available").value(true));
         buyPower(seller).andExpect(status().isOk());
         wallet(seller.bearer()).andExpect(jsonPath("$.data.balance").value(5_000));
         mockMvc.perform(get("/api/v1/sellers/{id}/profile", seller.id())).andExpect(jsonPath("$.data.powerSeller").value(true));
 
         // 영구라 한 번만 (마일리지는 빠지지 않음)
-        items(seller).andExpect(jsonPath("$.data[6].unavailableReason").value("이미 파워 판매자예요."));
+        items(seller).andExpect(jsonPath("$.data[14].unavailableReason").value("이미 파워 판매자예요."));
         buyPower(seller).andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SHOP_006"));
         wallet(seller.bearer()).andExpect(jsonPath("$.data.balance").value(5_000));
 

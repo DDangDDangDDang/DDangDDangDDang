@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.user.service;
 
 import com.example.ddangddangddang.domain.user.dto.MyBadgesResponse;
 import com.example.ddangddangddang.domain.user.entity.NicknameBadge;
+import com.example.ddangddangddang.domain.user.entity.NicknameBadgeKind;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.entity.UserBadge;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
@@ -61,15 +62,24 @@ public class UserBadgeService {
         return response(user);
     }
 
-    /** 가진 뱃지 중 하나를 장착한다. null이면 뺀다. 갖지 않은 뱃지면 USER_015 */
+    /** 가진 꾸미기를 그 종류의 자리에 장착한다. 다른 종류는 그대로 둔다. 갖지 않았으면 USER_015 */
     @Transactional
     @CacheEvict(cacheNames = CacheConfig.NICKNAME_BADGE, key = "#userId")
     public MyBadgesResponse equip(Long userId, NicknameBadge badge) {
         User user = findUser(userId);
-        if (badge != null && !userBadgeRepository.existsByUserIdAndBadge(userId, badge)) {
+        if (!userBadgeRepository.existsByUserIdAndBadge(userId, badge)) {
             throw new BusinessException(UserErrorCode.BADGE_NOT_OWNED);
         }
         user.equipBadge(badge);
+        return response(user);
+    }
+
+    /** 이 종류의 꾸미기를 뺀다. */
+    @Transactional
+    @CacheEvict(cacheNames = CacheConfig.NICKNAME_BADGE, key = "#userId")
+    public MyBadgesResponse unequip(Long userId, NicknameBadgeKind kind) {
+        User user = findUser(userId);
+        user.unequipBadge(kind);
         return response(user);
     }
 
@@ -77,7 +87,7 @@ public class UserBadgeService {
         List<NicknameBadge> owned = userBadgeRepository.findByUserIdOrderByIdAsc(user.getId()).stream()
                 .map(UserBadge::getBadge)
                 .toList();
-        return new MyBadgesResponse(owned, user.getEquippedBadge());
+        return new MyBadgesResponse(owned, user.getEquippedBadge(), user.getEquippedTitle(), user.getEquippedColor());
     }
 
     private User findUser(Long userId) {

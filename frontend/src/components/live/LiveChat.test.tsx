@@ -77,6 +77,7 @@ describe('LiveChat 닉네임 뱃지', () => {
       <LiveChat
         messages={[
           { ...base, messageId: 'a', senderId: 3, nickname: '천사팬', badge: 'ANGEL_WINGS' },
+          { ...base, messageId: 'c', senderId: 5, nickname: '칭호팬', title: 'TITLE_BID_KING', color: 'COLOR_MINT' },
           { ...base, messageId: 'b', senderId: 4, nickname: '보통팬', badge: null },
         ]}
         canChat
@@ -84,9 +85,11 @@ describe('LiveChat 닉네임 뱃지', () => {
         onSend={() => true}
       />,
     );
-    const [decorated, plain] = screen.getAllByRole('listitem');
+    const [decorated, titled, plain] = screen.getAllByRole('listitem');
     expect(decorated?.querySelector('[data-badge="ANGEL_WINGS"]')).not.toBeNull();
-    expect(decorated).toHaveTextContent('천사팬(천사 날개 뱃지)안녕하세요');
+    expect(decorated).toHaveTextContent('천사팬(천사 날개 스킨)안녕하세요');
+    expect(titled?.querySelector('[data-title="TITLE_BID_KING"]')).toHaveTextContent('입찰왕칭호팬');
+    expect(screen.getByText('칭호팬')).toHaveClass('text-nickname-mint');
     expect(plain?.querySelector('[data-badge]')).toBeNull();
     expect(plain).toHaveTextContent(/^보통팬안녕하세요$/);
   });
