@@ -31,7 +31,7 @@ describe('DonationEffects 효과음', () => {
   it('효과음을 켜 두면 새 선물이 뜰 때 한 번 울리고, 꺼 두면 소리 없이 이펙트만 보여 준다', () => {
     const { rerender } = render(<DonationEffects messages={[]} sound />);
     rerender(<DonationEffects messages={[gift('a', 1_000)]} sound />);
-    expect(screen.getByRole('status')).toHaveTextContent('필름팬님이 1,000 P를 선물했어요');
+    expect(screen.getByRole('status')).toHaveTextContent('필름팬님이 1,000 M을 선물했어요');
     expect(chime).toHaveBeenCalledTimes(1);
     expect(chime).toHaveBeenCalledWith(1_000);
 
@@ -48,7 +48,7 @@ describe('DonationEffects 효과음', () => {
     expect(chime).not.toHaveBeenCalled();
   });
 
-  it('선물이 클수록 별이 많고 화려하다: 1,000P 미만 작은 별 6개, 1,000P 이상 별·반짝이 12개와 테두리, 3,000P 이상 두 번 터지는 24개와 금색 빛', () => {
+  it('선물이 클수록 별이 많고 화려하다: 1,000M 미만 작은 별 6개, 1,000M 이상 별·반짝이 12개와 테두리, 3,000M 이상 두 번 터지는 24개와 금색 빛', () => {
     const burst = (amount: number) => {
       const { container, rerender, unmount } = render(<DonationEffects messages={[]} />);
       rerender(<DonationEffects messages={[gift(String(amount), amount)]} />);

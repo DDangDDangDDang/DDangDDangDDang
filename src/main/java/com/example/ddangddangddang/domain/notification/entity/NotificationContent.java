@@ -31,15 +31,20 @@ public record NotificationContent(String title, String body, String link) {
                     product + "이(가) " + point(notification.getPrice()) + "에 낙찰됐어요. 주문 내역에서 발송해 주세요.", auctionLink);
             case AUCTION_FAILED -> new NotificationContent("경매가 유찰됐어요", product + " 경매가 입찰 없이 끝났어요.", auctionLink);
             case AUCTION_ENDED -> new NotificationContent("경매가 끝났어요", product + " 경매가 마감됐어요.", auctionLink);
-            // 도네이션 포인트는 방송 중인 판매자에게 선물하므로 라이브 목록으로 보낸다.
-            case DONATION_POINT_EARNED -> new NotificationContent("도네이션 포인트 " + point(notification.getPrice()) + "가 적립됐어요",
+            // 도네이션 마일리지는 방송 중인 판매자에게 선물하므로 라이브 목록으로 보낸다.
+            case DONATION_POINT_EARNED -> new NotificationContent("도네이션 마일리지 " + mileage(notification.getPrice()) + "이 적립됐어요",
                     "구매 확정으로 적립했어요. 응원하는 판매자의 라이브 방송에서 선물해 보세요.", "/lives");
-            case DONATION_POINT_EXPIRING -> new NotificationContent("도네이션 포인트 " + point(notification.getPrice()) + "가 곧 사라져요",
+            case DONATION_POINT_EXPIRING -> new NotificationContent("도네이션 마일리지 " + mileage(notification.getPrice()) + "이 곧 사라져요",
                     "유효기간이 얼마 남지 않았어요. 사라지기 전에 응원하는 판매자에게 선물해 보세요.", "/lives");
         };
     }
 
     private static String point(Long price) {
         return price == null ? "-" : NumberFormat.getNumberInstance(Locale.KOREA).format(price) + "P";
+    }
+
+    /** 도네이션 마일리지는 현금 포인트(P)와 헷갈리지 않게 단위를 M으로 쓴다. */
+    private static String mileage(Long amount) {
+        return amount == null ? "-" : NumberFormat.getNumberInstance(Locale.KOREA).format(amount) + "M";
     }
 }

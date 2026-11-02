@@ -89,11 +89,11 @@ class DonationConcurrencyTest extends MySqlIntegrationTest {
 
         assertThat(success.get()).isEqualTo(5);
         assertThat(rejected).hasSize(5);
-        assertThat(walletRepository.findByUserId(GIVER).orElseThrow().getGiftableBalance()).isEqualTo(3_000);
-        assertThat(walletRepository.findByUserId(SELLER).orElseThrow().getReceivedBalance()).isEqualTo(5_000);
-        // 지갑 잔액은 적립 묶음의 남은 양 합계와 같다.
-        assertThat(lotRepository.findAll().stream().filter(l -> l.getUserId().equals(GIVER)).mapToLong(DonationPointLot::getRemaining).sum())
-                .isEqualTo(3_000);
+        assertThat(walletRepository.findByUserId(GIVER).orElseThrow().getBalance()).isEqualTo(3_000);
+        assertThat(walletRepository.findByUserId(SELLER).orElseThrow().getBalance()).isEqualTo(5_000);
+        // 지갑 잔액은 적립 묶음의 남은 양 합계와 같다. (판매자가 받은 마일리지도 묶음으로 쌓인다)
+        assertThat(remainingOf(GIVER)).isEqualTo(3_000);
+        assertThat(remainingOf(SELLER)).isEqualTo(5_000);
     }
 
     @Test
@@ -108,7 +108,7 @@ class DonationConcurrencyTest extends MySqlIntegrationTest {
 
         assertThat(rejected).isEmpty();
         assertThat(donationRepository.count()).isEqualTo(1);
-        assertThat(walletRepository.findByUserId(GIVER).orElseThrow().getGiftableBalance()).isEqualTo(1_500);
+        assertThat(walletRepository.findByUserId(GIVER).orElseThrow().getBalance()).isEqualTo(1_500);
     }
 
     @Test
@@ -128,8 +128,15 @@ class DonationConcurrencyTest extends MySqlIntegrationTest {
         });
 
         assertThat(rejected).isEmpty();
-        assertThat(walletRepository.findByUserId(SELLER).orElseThrow().getReceivedBalance()).isEqualTo(500);
-        assertThat(walletRepository.findByUserId(OTHER_SELLER).orElseThrow().getReceivedBalance()).isEqualTo(500);
+        // 5,000M에서 500M를 보내고 500M를 받았다.
+        assertThat(walletRepository.findByUserId(SELLER).orElseThrow().getBalance()).isEqualTo(5_000);
+        assertThat(walletRepository.findByUserId(OTHER_SELLER).orElseThrow().getBalance()).isEqualTo(5_000);
+        assertThat(remainingOf(SELLER)).isEqualTo(5_000);
+        assertThat(remainingOf(OTHER_SELLER)).isEqualTo(5_000);
+    }
+
+    private long remainingOf(Long userId) {
+        return lotRepository.findAll().stream().filter(l -> l.getUserId().equals(userId)).mapToLong(DonationPointLot::getRemaining).sum();
     }
 
     /** 다른 판매자와의 거래로 1,000P씩 count번 적립 */

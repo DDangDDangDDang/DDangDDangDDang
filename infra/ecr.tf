@@ -31,7 +31,8 @@ locals {
   # LiveKit Cloud: 서버 API는 https://, 브라우저 접속은 wss:// 같은 호스트를 쓴다.
   livekit_api_url = replace(var.livekit_url, "wss://", "https://")
 
-  common_app_environment = merge(var.app_environment, {
+  # 저장소 값(storage.tf)을 먼저 두어 tfvars의 app_environment로 덮어쓸 수 있게 한다. (APP_STORAGE_S3_PUBLIC_BASE_URL 등)
+  common_app_environment = merge(local.main_storage_environment, var.app_environment, {
     SPRING_PROFILES_ACTIVE = "prod"
     DDL_AUTO               = var.ddl_auto
     LIVEKIT_API_URL        = local.livekit_api_url

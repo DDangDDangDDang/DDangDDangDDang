@@ -81,6 +81,12 @@ public class LiveStream extends BaseTimeEntity {
     @Column(nullable = false)
     private boolean recorded;
 
+    // 채팅 AI 검토 결과를 어떻게 처리할지 (ChatModerationMode). 이미 있는 방송과 SQL로 직접 넣는 행은 알림만(ALERT)으로 본다.
+    @Enumerated(EnumType.STRING)
+    @ColumnDefault("'ALERT'")
+    @Column(name = "chat_moderation_mode", nullable = false, length = 20)
+    private ChatModerationMode chatModerationMode = ChatModerationMode.ALERT;
+
     // LiveKit 방 이름. 외부에 노출되므로 순번 ID 대신 UUID 사용
     @Column(name = "room_name", nullable = false, unique = true, length = 64)
     private String roomName;
@@ -104,6 +110,12 @@ public class LiveStream extends BaseTimeEntity {
     // (유니크 인덱스는 null을 여러 개 허용하므로 종료된 방송은 몇 개든 남을 수 있다)
     @Column(name = "active_seller_id")
     private Long activeSellerId;
+
+    // 방송 카드 썸네일: 송출 중인 판매자 화면을 주기적으로 캡처한 이미지의 저장소 키 (live-thumbnails/{방송 ID}/...)
+    // 화면 주소는 FileStorage.publicUrl로 만든다. 아직 캡처하지 않았으면 null (카드에 판매자 이름 첫 글자를 보여 준다)
+    // 자주 바뀌므로 엔티티 변경 대신 LiveStreamRepository.updateThumbnailKey로 고친다. (낙관적 락 버전을 올리지 않는다)
+    @Column(name = "thumbnail_key")
+    private String thumbnailKey;
 
     // 시작 버튼 연타, 여러 서버에서 동시에 상태를 바꾸는 경우 한 건만 성공시키기 위한 낙관적 락
     @Version
@@ -216,6 +228,19 @@ public class LiveStream extends BaseTimeEntity {
         return true;
     }
 
+    /**
+     * 채팅 AI 검토 처리 방식을 바꾼다. 방송 정보 수정(update)으로 주인·종료 여부를 확인한 뒤 호출한다.
+     *
+     * @return 실제로 바뀌었으면 true
+     */
+    public boolean changeChatModerationMode(ChatModerationMode mode) {
+        if (this.chatModerationMode == mode) {
+            return false;
+        }
+        this.chatModerationMode = mode;
+        return true;
+    }
+
     /** 영상 위에 띄운 경매 ID (띄운 순서, 없으면 빈 목록) */
     public List<Long> getFeaturedAuctionIds() {
         return Stream.of(featuredAuctionId, secondFeaturedAuctionId).filter(Objects::nonNull).toList();
@@ -272,15 +297,25 @@ public class LiveStream extends BaseTimeEntity {
      * @return 실제로 바뀌었으면 true
      */
     public boolean changeOverlayLayout(Long requesterId, OverlayLayout layout) {
-        validateOwner(requesterId);
-        if (status == LiveStreamStatus.ENDED) {
-            throw new BusinessException(LiveStreamErrorCode.ALREADY_ENDED);
-        }
+        validateOverlayEditable(requesterId);
         if (Objects.equals(layout, this.overlayLayout)) {
             return false;
         }
         this.overlayLayout = layout;
         return true;
+    }
+
+    /** 방송 화면 배치를 고칠 수 있는지: 방송 주인이고 종료 전이어야 한다. (이미지 박스 업로드 URL을 줄 때도 같은 조건) */
+    public void validateOverlayEditable(Long requesterId) {
+        validateOwner(requesterId);
+        if (status == LiveStreamStatus.ENDED) {
+            throw new BusinessException(LiveStreamErrorCode.ALREADY_ENDED);
+        }
+    }
+
+    /** 지금 화면 배치의 박스 (정하지 않았으면 빈 목록) */
+    public List<OverlayBox> overlayBoxes() {
+        return overlayLayout == null ? List.of() : overlayLayout.boxesOrEmpty();
     }
 
     private void setFeaturedAuctions(List<Long> ids) {

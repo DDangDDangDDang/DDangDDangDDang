@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 판매자가 받은 도네이션 포인트로 산 혜택 한 번. startsAt ~ endsAt 동안 효과가 있다.
- * 이미 같은 혜택이 진행 중일 때 또 사면, 진행 중인 혜택이 끝나는 시각부터 이어 붙인다. (기간이 겹치지 않음)
+ * 판매자가 도네이션 마일리지로 산 혜택 한 번. startsAt ~ endsAt 동안 효과가 있다.
+ * 파워 판매자는 영구라 endsAt이 PERMANENT_END다. (예전에 30일짜리로 산 것도 영구로 옮겼다: docs/migrations/2026-10-28-power-seller-permanent.sql)
  */
 @Getter
 @Entity
@@ -55,7 +55,11 @@ public class SellerPerk extends BaseTimeEntity {
         this.endsAt = endsAt;
     }
 
-    public static SellerPerk of(Long sellerId, SellerPerkType type, long price, LocalDateTime startsAt, LocalDateTime endsAt) {
-        return new SellerPerk(sellerId, type, price, startsAt, endsAt);
+    /** 끝나지 않는 혜택의 endsAt */
+    public static final LocalDateTime PERMANENT_END = LocalDateTime.of(9999, 12, 31, 0, 0);
+
+    /** 끝나지 않는 혜택 (파워 판매자) */
+    public static SellerPerk permanent(Long sellerId, SellerPerkType type, long price, LocalDateTime now) {
+        return new SellerPerk(sellerId, type, price, now, PERMANENT_END);
     }
 }

@@ -11,12 +11,14 @@ import io.livekit.server.AccessToken;
 import io.livekit.server.CanPublish;
 import io.livekit.server.CanPublishData;
 import io.livekit.server.CanSubscribe;
+import io.livekit.server.Hidden;
 import io.livekit.server.RoomJoin;
 import io.livekit.server.RoomName;
 import io.livekit.server.RoomServiceClient;
 import livekit.LivekitModels;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,6 +30,9 @@ import java.util.Set;
 @Component
 @EnableConfigurationProperties(LiveKitProperties.class)
 public class LiveKitMediaServerClient implements MediaServerClient {
+
+    // 미리보기 토큰은 받자마자 접속하므로 짧게 둔다. (토큰을 모아 두었다가 쓰지 못하게)
+    private static final Duration PREVIEW_TOKEN_TTL = Duration.ofMinutes(1);
 
     private final LiveKitProperties properties;
     private final RoomServiceClient roomServiceClient;
@@ -89,6 +94,21 @@ public class LiveKitMediaServerClient implements MediaServerClient {
                 new CanPublish(false),      // 시청자는 영상 송출 불가
                 new CanSubscribe(true),
                 new CanPublishData(false)   // 채팅은 별도 WebSocket으로 처리 예정
+        );
+        return token.toJwt();
+    }
+
+    @Override
+    public String createPreviewToken(String roomName, String identity) {
+        AccessToken token = newToken(identity, "미리보기");
+        token.setTtl(PREVIEW_TOKEN_TTL.toMillis());
+        token.addGrants(
+                new RoomJoin(true),
+                new RoomName(roomName),
+                new CanPublish(false),
+                new CanSubscribe(true),
+                new CanPublishData(false),
+                new Hidden(true)            // 판매자·시청자에게 참가자로 보이지 않는다.
         );
         return token.toJwt();
     }

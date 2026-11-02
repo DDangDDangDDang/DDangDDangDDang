@@ -11,6 +11,8 @@ public interface CategoryRepository extends JpaRepository<Category,Long> {
     List<Category> findAllByOrderBySortOrderAscIdAsc();
     //삭제: 하위 카테고리 있을시 삭제 금지
     boolean existsByParentId(Long parentId);
+    //하위 카테고리 (상품 카테고리 거르기에서 대분류를 고르면 소분류까지)
+    List<Category> findByParentId(Long parentId);
 
     //대분류 생성시 : 대분류,소분류에 있는지
     boolean existsByName(String name);

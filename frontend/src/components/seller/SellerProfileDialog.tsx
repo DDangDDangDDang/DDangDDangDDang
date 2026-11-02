@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Building2, CalendarDays, Clock, Gavel, Gift, PackageCheck, Radio, ShieldCheck, Truck, Users } from 'lucide-react';
+import { Building2, CalendarDays, Clock, Gavel, Gift, PackageCheck, Radio, ShieldCheck, Star, Truck } from 'lucide-react';
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, type Schema } from '@/api';
@@ -8,7 +8,7 @@ import { PowerSellerBadge } from '@/components/donation/PowerSellerBadge';
 import { Badge, buttonVariants, Dialog, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { cn } from '@/lib/cn';
-import { formatDate, formatDateTime, formatDotDate, formatNumber, formatPoint } from '@/lib/format';
+import { formatDate, formatDateTime, formatDotDate, formatMileage, formatNumber, formatPoint } from '@/lib/format';
 import {
   formatBroadcastDuration,
   formatShippingTime,
@@ -19,20 +19,28 @@ import {
   soldRate,
   type SellerAuctionTab,
 } from '@/lib/seller';
+import { satisfactionLabel } from '@/lib/review';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 import { useNow } from '@/lib/use-now';
 import { useSellerProfile } from '@/lib/use-seller';
 import { SellerAvatar } from './SellerAvatar';
+import { SellerReviewsTab } from './SellerReviewsTab';
 import { SubscribeButton } from './SubscribeButton';
 
 type Profile = Schema<'SellerProfileResponse'>;
-type Tab = 'info' | 'auctions';
+type Tab = 'info' | 'auctions' | 'reviews';
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'info', label: '기본 정보' },
+  { key: 'auctions', label: '경매 기록' },
+  { key: 'reviews', label: '리뷰' },
+];
 
 /** 경매 기록을 한 번에 불러오는 수 */
 const AUCTION_PAGE_SIZE = 10;
 
 /**
- * 판매자 프로필 창. 기본 탭(인증·구독자·방송 기록·신뢰 지표)과 경매 기록 탭(10개씩 이어서 불러오기).
+ * 판매자 프로필 창. 기본 탭(인증·구독자·방송 기록·신뢰 지표), 경매 기록 탭, 리뷰 탭(둘 다 10개씩 이어서 불러오기).
  * 창 안에서 구독·구독 취소할 수 있고, 방송 중이면 방송으로 바로 간다.
  */
 export function SellerProfileDialog({ sellerId, onClose }: { sellerId?: number; onClose: () => void }) {
@@ -53,15 +61,16 @@ export function SellerProfileDialog({ sellerId, onClose }: { sellerId?: number; 
         <div className="flex flex-col gap-5">
           <ProfileHeader profile={profile} sellerId={sellerId} onNavigate={onClose} />
           <div role="tablist" aria-label="판매자 프로필" className="flex gap-1 border-b border-neutral-100">
-            <TabButton selected={tab === 'info'} onClick={() => setTab('info')}>
-              기본 정보
-            </TabButton>
-            <TabButton selected={tab === 'auctions'} onClick={() => setTab('auctions')}>
-              경매 기록
-            </TabButton>
+            {TABS.map((item) => (
+              <TabButton key={item.key} selected={tab === item.key} onClick={() => setTab(item.key)}>
+                {item.label}
+              </TabButton>
+            ))}
           </div>
-          <div role="tabpanel" aria-label={tab === 'info' ? '기본 정보' : '경매 기록'}>
-            {tab === 'info' ? <InfoTab profile={profile} /> : <AuctionsTab sellerId={sellerId} onNavigate={onClose} />}
+          <div role="tabpanel" aria-label={TABS.find((item) => item.key === tab)?.label}>
+            {tab === 'info' && <InfoTab profile={profile} />}
+            {tab === 'auctions' && <AuctionsTab sellerId={sellerId} onNavigate={onClose} />}
+            {tab === 'reviews' && <SellerReviewsTab sellerId={sellerId} trust={profile.trust} />}
           </div>
         </div>
       ) : null}
@@ -72,7 +81,7 @@ export function SellerProfileDialog({ sellerId, onClose }: { sellerId?: number; 
 function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; sellerId: number; onNavigate: () => void }) {
   return (
     <div className="flex items-start gap-4">
-      <SellerAvatar name={profile.nickname} verified={profile.verifiedSeller} size="lg" />
+      <SellerAvatar name={profile.nickname} imageUrl={profile.profileImageUrl} verified={profile.verifiedSeller} size="lg" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <strong className="text-title-md font-bold">{profile.nickname || '판매자'}</strong>
@@ -89,7 +98,7 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
               사업자
             </Badge>
           )}
-          {/* 받은 도네이션 포인트로 파워 판매자를 산 판매자 */}
+          {/* 받은 도네이션 마일리지로 파워 판매자를 산 판매자 */}
           {profile.powerSeller && <PowerSellerBadge />}
           {profile.liveStreamId ? (
             <Badge variant="live">
@@ -103,6 +112,7 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
           구독자 <span className="num font-semibold text-neutral-900">{formatNumber(profile.subscriberCount ?? 0)}</span>명
         </span>
         {profile.introduction && <p className="mt-1 text-body whitespace-pre-line text-neutral-700">{profile.introduction}</p>}
+        {profile.bio && <p className="mt-1 text-body whitespace-pre-line text-neutral-500">{profile.bio}</p>}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <SubscribeButton sellerId={sellerId} subscribed={profile.subscribed ?? false} />
@@ -158,7 +168,8 @@ function InfoTab({ profile }: { profile: Profile }) {
           거래 신뢰도
         </h3>
         <dl className="grid grid-cols-3 gap-2">
-          <Stat icon={<Users className="size-4" aria-hidden="true" />} label="구독자" value={`${formatNumber(profile.subscriberCount ?? 0)}명`} />
+          {/* 구독자 수는 위 머리말에 있다. 여기서는 구매 확정한 구매자들이 남긴 별점 */}
+          <Stat icon={<Star className="size-4" aria-hidden="true" />} label="구매자 만족도" value={satisfactionLabel(trust)} hint="구매 확정한 구매자의 리뷰" />
           <Stat icon={<PackageCheck className="size-4" aria-hidden="true" />} label="거래 완료" value={`${formatNumber(trust?.completedOrderCount ?? 0)}건`} hint="구매자가 구매 확정한 거래" />
           <Stat
             icon={<Gavel className="size-4" aria-hidden="true" />}
@@ -173,12 +184,12 @@ function InfoTab({ profile }: { profile: Profile }) {
             value={profile.verifiedSeller ? (profile.verifiedAt ? `${formatDotDate(profile.verifiedAt)} 인증` : '인증') : '인증 전'}
             hint={profile.joinedAt ? `${formatDate(profile.joinedAt)} 가입` : undefined}
           />
-          {/* 시청자가 방송에서 도네이션 포인트로 응원한 기록. 구매 확정한 회원만 포인트가 있어, 실제로 거래한 사람들의 응원이다. */}
+          {/* 시청자가 방송에서 도네이션 마일리지로 응원한 기록. 구매 확정한 회원만 마일리지가 있어, 실제로 거래한 사람들의 응원이다. */}
           <Stat
             icon={<Gift className="size-4" aria-hidden="true" />}
             label="응원"
             value={`${formatNumber(trust?.donorCount ?? 0)}명`}
-            hint={`최근 ${formatNumber(trust?.donationWindowDays ?? 0)}일 · ${formatPoint(trust?.receivedDonationPoints ?? 0)} 받음`}
+            hint={`최근 ${formatNumber(trust?.donationWindowDays ?? 0)}일 · ${formatMileage(trust?.receivedDonationPoints ?? 0)} 받음`}
           />
         </dl>
       </section>

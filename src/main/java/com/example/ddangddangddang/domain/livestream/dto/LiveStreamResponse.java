@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.livestream.dto;
 
+import com.example.ddangddangddang.domain.livestream.entity.ChatModerationMode;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 
@@ -24,6 +25,8 @@ public record LiveStreamResponse(
         OverlayLayoutResponse overlayLayout,
         // 카메라 대신 미리 녹화한 영상을 내보내는 방송인지 (시청 화면에 "녹화 영상" 표시)
         boolean recorded,
+        // 채팅 AI 검토 처리 방식 (OFF / ALERT / AUTO_HIDE)
+        ChatModerationMode chatModerationMode,
         LiveStreamStatus status,
         LocalDateTime createdAt,
         LocalDateTime scheduledStartAt,
@@ -41,6 +44,7 @@ public record LiveStreamResponse(
                 liveStream.getFeaturedAuctionIds(),
                 OverlayLayoutResponse.from(liveStream.getOverlayLayout()),
                 liveStream.isRecorded(),
+                liveStream.getChatModerationMode(),
                 liveStream.getStatus(),
                 liveStream.getCreatedAt(),
                 liveStream.getScheduledStartAt(),

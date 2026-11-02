@@ -8,14 +8,32 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
     //상품 조회: 삭제된 상품 제외 조회
     Optional<Product> findByIdAndStatusNot(Long id, Status status);
-    // 내 판매 상품 조회 : 판매자가 나이면서 삭제되지 않은 상품(페이지 단위)
-    Page<Product> findBySellerIdAndStatusNot(Long sellerId, Status status, Pageable pageable);
+    // 내 판매 상품 조회 + 상태·카테고리 거르기 (스튜디오 경매 상품 목록). status가 null이면 상태 무관, allCategories면 카테고리 무관
+    @Query("select p from Product p where p.seller.id = :sellerId and p.status <> :deleted"
+            + " and (:status is null or p.status = :status)"
+            + " and (:allCategories = true or p.category.id in :categoryIds)")
+    Page<Product> findMine(@Param("sellerId") Long sellerId, @Param("deleted") Status deleted, @Param("status") Status status,
+                           @Param("allCategories") boolean allCategories, @Param("categoryIds") List<Long> categoryIds,
+                           Pageable pageable);
+    // 이미지 삭제 전 확인 : 이 판매자의 다른 상품(삭제·판매 포함) 갤러리가 이 키를 쓰는지
+    @Query("select count(p) > 0 from Product p join p.imageKeys k"
+            + " where p.seller.id = :sellerId and p.id <> :productId and k = :key")
+    boolean existsImageKeyInOtherProduct(@Param("sellerId") Long sellerId, @Param("productId") Long productId, @Param("key") String key);
+
+    // 이미지 삭제 전 확인 : 이 판매자의 다른 상품 설명에 이 키가 들어 있는지 (키는 uuid라 %·_ 가 없어 LIKE로 찾는다)
+    @Query("select count(p) > 0 from Product p"
+            + " where p.seller.id = :sellerId and p.id <> :productId and p.description like concat('%', :key, '%')")
+    boolean existsKeyInOtherDescription(@Param("sellerId") Long sellerId, @Param("productId") Long productId, @Param("key") String key);
+
     // 카테고리 삭제 검증 : 카테고리 삭제전 카테고리 내 상품이 있는지 조회
     boolean existsByCategoryId(Long categoryId);
 

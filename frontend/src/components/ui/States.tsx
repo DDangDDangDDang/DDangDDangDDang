@@ -29,7 +29,7 @@ export function EmptyState({ title, description, action }: { title: string; desc
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div role="alert" className="flex flex-col items-center gap-2 px-6 py-12 text-center">
-      <AlertCircle className="size-8 text-brand-500" aria-hidden="true" />
+      <AlertCircle className="size-8 text-red-300" aria-hidden="true" />
       <p className="text-body-lg font-semibold">{message}</p>
       {onRetry && (
         <Button variant="outline" size="sm" onClick={onRetry} className="mt-2">

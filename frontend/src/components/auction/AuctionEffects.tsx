@@ -16,6 +16,7 @@ import { DEFAULT_OVERLAY_LAYOUT, type OverlayPosition } from '@/lib/overlay-layo
  * 여러 개면 차례로 보여 준다. 움직임을 줄이도록 설정한 사용자에게는 흔들기·떨어지는 동전을 보여 주지 않는다.
  * 방송 화면 배치 영역(OVERLAY_AREA_CLASS)을 덮는 자리(absolute inset-0)에 두면 판매자가 정한 위치(bidPosition·soldPosition)에 놓는다.
  * 정하지 않으면 입찰은 위쪽 가운데, 낙찰은 가운데. compact면(작은 방송 창) 둘 다 아래쪽에 작게.
+ * 판매자가 숨긴 안내(hideBid·hideSold)는 보여 주지도, 소리를 내지도 않는다.
  */
 export function AuctionEffects({
   messages,
@@ -23,6 +24,8 @@ export function AuctionEffects({
   sound = false,
   bidPosition = DEFAULT_OVERLAY_LAYOUT.bid,
   soldPosition = DEFAULT_OVERLAY_LAYOUT.sold,
+  hideBid = false,
+  hideSold = false,
   className,
 }: {
   messages: ChatMessage[];
@@ -31,9 +34,13 @@ export function AuctionEffects({
   sound?: boolean;
   bidPosition?: OverlayPosition;
   soldPosition?: OverlayPosition;
+  hideBid?: boolean;
+  hideSold?: boolean;
   className?: string;
 }) {
-  const effect = useAuctionEffects(messages);
+  const current = useAuctionEffects(messages);
+  const hidden = current ? (current.kind === 'SOLD' ? hideSold : hideBid) : false;
+  const effect = hidden ? undefined : current;
   // 이펙트가 하나 뜰 때마다 한 번 효과음을 낸다. 보여 주는 동안 sound를 바꿔도 다시 울리지 않도록 이펙트가 바뀔 때만 실행한다.
   const soundRef = useRef(sound);
   useEffect(() => {
@@ -67,8 +74,8 @@ export function AuctionEffects({
 const BID_LOOK: Record<BidTier, { wave: number; coins: number; card: string }> = {
   normal: { wave: 560, coins: 0, card: 'bg-stage/85 ring-1 ring-neutral-200' },
   up10: { wave: 440, coins: 6, card: 'bg-stage/85 ring-2 ring-brand-500' },
-  up30: { wave: 340, coins: 10, card: 'bg-brand-500 ring-2 ring-gold-300' },
-  up50: { wave: 260, coins: 16, card: 'animate-donation-glow bg-brand-500 ring-2 ring-gold-300' },
+  up30: { wave: 340, coins: 10, card: 'bg-brand-800 ring-2 ring-gold-300' },
+  up50: { wave: 260, coins: 16, card: 'animate-donation-glow bg-brand-800 ring-2 ring-gold-300' },
 };
 
 export function BidNotice({ effect, compact }: { effect: Extract<AuctionEffect, { kind: 'BID' }>; compact: boolean }) {

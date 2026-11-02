@@ -6,7 +6,7 @@ const badgeVariants = cva('inline-flex h-5.5 items-center gap-1.5 rounded-sm px-
   variants: {
     variant: {
       /** LIVE, 진행 중 경매 */
-      live: 'bg-brand-500 text-white',
+      live: 'bg-red-500 text-white',
       /** 나의 상태: 내가 최고 입찰 */
       info: 'bg-info-50 text-info-700',
       /** 주의: 상위 입찰 있음, 오류 안내 */
@@ -15,6 +15,8 @@ const badgeVariants = cva('inline-flex h-5.5 items-center gap-1.5 rounded-sm px-
       neutral: 'bg-neutral-100 text-neutral-700',
       /** 대기 중 */
       outline: 'border border-neutral-200 text-neutral-700',
+      /** 홍보: 마일리지 상점의 경매 위로 올리기로 올라간 경매 */
+      promo: 'bg-brand-500 text-on-brand',
     },
   },
   defaultVariants: { variant: 'neutral' },

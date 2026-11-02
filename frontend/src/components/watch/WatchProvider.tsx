@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useSession } from '@/api';
 import { useLiveVideo } from '@/pages/live/use-live-video';
 import { WatchContext, type Watch, type WatchSession } from './watch-context';
 
@@ -10,7 +11,7 @@ const ENDED_NOTICE_MS = 5_000;
  * - 시청 화면이 방송을 열면(useWatchStream) 여기서 LiveKit에 접속한다. 화면을 떠나도 방송 중이면 연결과 소리를 그대로 두고
  *   작은 플레이어(MiniPlayer)로 이어 보여 준다. 같은 방송으로 돌아오면 다시 접속하지 않는다.
  * - 다른 방송의 시청 화면을 열면 그 방송으로 바꾼다. (한 번에 하나만 본다)
- * - 작은 플레이어의 [닫기]나 방송 종료로 연결을 끊는다. 방송 중이 아닌(예정·종료) 방송은 화면을 떠나면 바로 끊는다.
+ * - 작은 플레이어의 [닫기]나 방송 종료로 연결을 끊는다. 방송 중이 아닌(예정·종료) 방송과 내(판매자) 방송은 화면을 떠나면 바로 끊는다.
  */
 export function WatchProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<WatchSession>();
@@ -52,7 +53,7 @@ export function WatchProvider({ children }: { children: ReactNode }) {
 
   const leave = useCallback((id: number) => {
     setPageStreamId((current) => (current === id ? undefined : current));
-    // 방송 중이 아니면 이어 볼 것이 없으므로 끊는다.
+    // 방송 중이 아니면 이어 볼 것이 없으므로 끊는다. (내 방송은 아래 effect에서 끊는다)
     setSession((prev) => (prev?.liveStreamId === id && !prev.live ? undefined : prev));
   }, []);
 
@@ -60,6 +61,15 @@ export function WatchProvider({ children }: { children: ReactNode }) {
     setSession(undefined);
     setEnded(false);
   }, []);
+
+  // 내 방송은 판매자가 스튜디오·작은 방송 창에서 보므로, 시청 화면 밖에서는 끊는다.
+  // 손님으로 보다가 작은 플레이어가 뜬 뒤 판매자 계정으로 로그인한 경우도 여기서 끊는다.
+  const userId = useSession()?.user.userId;
+  const mine = session?.sellerId !== undefined && session.sellerId === userId;
+  const pageOpen = session !== undefined && pageStreamId === session.liveStreamId;
+  useEffect(() => {
+    if (mine && !pageOpen) close();
+  }, [mine, pageOpen, close]);
 
   useEffect(() => {
     if (!ended || pageStreamId !== undefined) return;
@@ -77,7 +87,8 @@ export function WatchProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Watch>(
     () => ({
       session,
-      pageOpen: session !== undefined && pageStreamId === session.liveStreamId,
+      pageOpen,
+      mine,
       video,
       muted,
       toggleSound,
@@ -87,7 +98,7 @@ export function WatchProvider({ children }: { children: ReactNode }) {
       leave,
       close,
     }),
-    [session, pageStreamId, video, muted, toggleSound, ended, open, update, leave, close],
+    [session, pageOpen, mine, video, muted, toggleSound, ended, open, update, leave, close],
   );
 
   return <WatchContext.Provider value={value}>{children}</WatchContext.Provider>;

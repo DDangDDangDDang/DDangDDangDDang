@@ -18,7 +18,7 @@ public class NoopChatModerator implements ChatModerator {
     }
 
     @Override
-    public List<ModerationFlag> review(List<ChatForReview> messages) {
+    public List<ModerationFlag> review(ReviewChannel channel, List<ChatForReview> messages) {
         return List.of();
     }
 }

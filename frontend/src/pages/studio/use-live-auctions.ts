@@ -9,13 +9,11 @@ type Auction = Schema<'AuctionResponse'>;
 
 /** 진행 중인 경매의 현재가·입찰 수를 이 간격으로 다시 불러온다. (입찰 실시간 메시지가 아직 없음) */
 const REFRESH_MS = 3000;
-/** 스튜디오에서 고를 수 있는 내 상품 수 */
-const PRODUCT_PAGE_SIZE = 50;
 /** 내 시작 전·진행 중 경매 (GET /users/me/auctions). 미리 만든 경매를 방송에 올릴 때 쓴다. */
 const MY_OPEN_AUCTIONS_KEY = ['auctions', 'mine', 'open'] as const;
 
 /**
- * 판매자 스튜디오의 방송 중 경매: 내 판매 중 상품 + 이 방송에 올라간 경매(최신순).
+ * 판매자 스튜디오의 방송 중 경매: 이 방송에 올라간 경매(최신순). 내 판매 중 상품 목록은 LiveAuctionProducts가 페이지로 불러온다.
  * - 새 경매: POST /lives/{id}/auctions (시작 즉시 진행 중)
  * - 미리 만든 경매: POST /lives/{id}/auctions/{auctionId} (방송에 올리기, 일정은 그대로)
  * - 취소: POST /auctions/{id}/cancel
@@ -23,12 +21,6 @@ const MY_OPEN_AUCTIONS_KEY = ['auctions', 'mine', 'open'] as const;
  */
 export function useLiveAuctions(liveStreamId: number, featuredAuctionIds?: number[]) {
   const queryClient = useQueryClient();
-
-  const products = useQuery({
-    queryKey: ['products', 'mine', 'studio'],
-    queryFn: () => call(api.GET('/api/v1/users/me/products', { params: { query: { page: 0, size: PRODUCT_PAGE_SIZE, sort: ['createdAt,desc'] } } })),
-    select: (page) => (page?.content ?? []).filter((product) => product.status === 'ACTIVE'),
-  });
 
   const liveQuery = useLiveStreamAuctions(liveStreamId, REFRESH_MS);
   const auctions = useMemo(() => liveQuery.data ?? [], [liveQuery.data]);
@@ -83,7 +75,7 @@ export function useLiveAuctions(liveStreamId: number, featuredAuctionIds?: numbe
     [auctions, mine.data],
   );
 
-  return { liveStreamId, featuredAuctionIds, products, auctions, loadingAuctions: liveQuery.isPending, start, show, cancel, feature, activeAuctionOf };
+  return { liveStreamId, featuredAuctionIds, auctions, loadingAuctions: liveQuery.isPending, start, show, cancel, feature, activeAuctionOf };
 }
 
 export type LiveAuctions = ReturnType<typeof useLiveAuctions>;

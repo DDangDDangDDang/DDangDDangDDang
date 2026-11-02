@@ -3,7 +3,7 @@ import { giftPresets, validateGift, type DonationStatus } from './donation';
 
 const status: DonationStatus = {
   sellerId: 2,
-  giftableBalance: 2_000,
+  balance: 2_000,
   monthlyLimit: 5_000,
   givenThisMonth: 4_000,
   remainingThisMonth: 1_000,
@@ -13,12 +13,12 @@ const status: DonationStatus = {
 };
 
 describe('donation', () => {
-  it('선물 금액: 비었거나, 최소·단위·최대를 벗어나거나, 이번 달 한도·포인트를 넘으면 이유를 알려 준다', () => {
-    expect(validateGift(undefined, status)).toBe('선물할 포인트를 입력해 주세요.');
-    expect(validateGift(150, status)).toBe('100 P부터 5,000 P까지 100 P 단위로 선물할 수 있어요.');
+  it('선물 금액: 비었거나, 최소·단위·최대를 벗어나거나, 이번 달 한도·마일리지를 넘으면 이유를 알려 준다', () => {
+    expect(validateGift(undefined, status)).toBe('선물할 마일리지를 입력해 주세요.');
+    expect(validateGift(150, status)).toBe('100 M부터 5,000 M까지 100 M 단위로 선물할 수 있어요.');
     expect(validateGift(5_100, status)).toContain('단위로 선물할 수 있어요');
-    expect(validateGift(1_500, status)).toBe('이 판매자에게는 이번 달 1,000 P까지 더 선물할 수 있어요.');
-    expect(validateGift(1_000, { ...status, giftableBalance: 500 })).toBe('선물할 포인트가 부족해요. 구매를 확정하면 도네이션 포인트가 쌓여요.');
+    expect(validateGift(1_500, status)).toBe('이 판매자에게는 이번 달 1,000 M까지 더 선물할 수 있어요.');
+    expect(validateGift(1_000, { ...status, balance: 500 })).toBe('마일리지가 부족해요. 구매·판매를 확정하면 도네이션 마일리지가 쌓여요.');
     expect(validateGift(1_000, status)).toBeUndefined();
   });
 

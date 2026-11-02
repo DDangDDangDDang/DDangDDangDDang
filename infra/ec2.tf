@@ -199,6 +199,8 @@ resource "aws_instance" "app" {
   # IMDSv2만 허용
   metadata_options {
     http_tokens = "required"
+    # 2: 서버 안 컨테이너(앱)도 서버 역할 자격 증명을 받아 S3를 쓸 수 있게 한다. (1이면 컨테이너에서 막힌다)
+    http_put_response_hop_limit = 2
   }
 
   root_block_device {

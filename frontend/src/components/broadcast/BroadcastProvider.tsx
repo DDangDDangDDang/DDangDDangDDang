@@ -2,12 +2,13 @@ import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, api, call, errorMessage, useSession, type ChatMessage, type ModerationAlert } from '@/api';
 import { readBroadcastOwner, writeBroadcastOwner } from '@/lib/broadcast-owner';
-import { appendChatMessage, prependModerationAlert } from '@/lib/live-room';
+import { applyChatMessage, prependModerationAlert } from '@/lib/live-room';
 import { useLiveRealtime } from '@/lib/use-live-realtime';
 import { ACTIVE_STREAM_KEY, BroadcastContext, START_STREAM_KEY, type ActiveLiveStream, type Broadcast, type VideoSource } from './broadcast-context';
 import { useLocalMedia } from './use-local-media';
 import { useRecordedVideo } from './use-recorded-video';
 import { usePublisher } from './use-publisher';
+import { useThumbnailCapture } from './use-thumbnail-capture';
 
 /**
  * 판매자 송출을 앱 전체에 하나만 둔다. (AppLayout)
@@ -60,6 +61,11 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   const recorded = useRecordedVideo(mediaWanted && sourceKind === 'recorded');
   const media = sourceKind === 'recorded' ? recorded : camera;
   const publisher = usePublisher(liveStreamId ?? 0, publishing, { camera: media.camera.track, microphone: media.microphone.track }, reload);
+  // 송출 화면을 1분마다 캡처해 방송 카드 썸네일로 올린다. 화면을 끄면 마지막 썸네일을 그대로 둔다.
+  useThumbnailCapture(
+    publishing && publisher.phase === 'connected' ? liveStreamId : undefined,
+    media.camera.enabled ? media.camera.track?.mediaStreamTrack : undefined,
+  );
 
   // 녹화 영상을 송출하는지 방송 정보(recorded)에 맞춘다. 시청자·구독자에게 "녹화 영상"으로 보이게.
   // 송출을 맡은 탭만 맞춘다. (다른 탭이 서로 덮어쓰지 않게) 새로고침하면 고른 파일은 사라져 카메라로 돌아온다.
@@ -131,7 +137,7 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   const realtimeStreamId = liveStreamId !== undefined && (ownerId === liveStreamId || studioOpen) ? liveStreamId : graceStreamId;
   const realtime = useLiveRealtime(realtimeStreamId, {
     onChat: (message) => {
-      setMessages((list) => appendChatMessage(list, message));
+      setMessages((list) => applyChatMessage(list, message));
       if (message.type === 'CHAT' && !studioOpenRef.current) setUnseen((prev) => ({ ...prev, chats: prev.chats + 1 }));
       // 서버 안내(방송 시작·종료 등)가 오면 방송 상태가 바뀌었을 수 있으므로 다시 불러온다.
       if (message.type === 'SYSTEM') reload();

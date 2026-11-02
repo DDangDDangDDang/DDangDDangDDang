@@ -7,5 +7,8 @@ package com.example.ddangddangddang.domain.auth.verification;
 public enum VerificationPurpose {
     SIGNUP_PHONE,
     FIND_EMAIL,
-    RESET_PASSWORD
+    RESET_PASSWORD,
+    // 로그인한 회원이 이메일·휴대폰 번호를 바꿀 때 새 이메일·번호가 본인 것인지 확인한다. (UserContactService)
+    CHANGE_EMAIL,
+    CHANGE_PHONE
 }

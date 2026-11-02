@@ -2,8 +2,9 @@ import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-quer
 import { useState, type FormEvent } from 'react';
 import { api, call, errorMessage } from '@/api';
 import { ProductFields } from '@/components/product/ProductFields';
+import { useProductImageUploading } from '@/components/product/use-product-image-upload';
 import { Button, Dialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
-import { productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
+import { applyProductChange, productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
 import { useCategories } from '@/lib/use-categories';
 
 /** 상품 등록 요청. 창이 요청 중인지 알 수 있게 이름을 붙인다. */
@@ -40,6 +41,7 @@ function CreateForm({ onClose, onCreated }: Pick<Props, 'onClose' | 'onCreated'>
   const categories = useCategories();
   const [values, setValues] = useState<ProductFormValues>(() => productFormValuesOf());
   const [errors, setErrors] = useState<ProductFormErrors>({});
+  const uploading = useProductImageUploading();
 
   const mutation = useMutation({
     mutationKey: CREATE_PRODUCT_KEY,
@@ -54,6 +56,8 @@ function CreateForm({ onClose, onCreated }: Pick<Props, 'onClose' | 'onCreated'>
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
+    // 올리는 중인 이미지는 아직 values에 없어 상품에 붙지 않으므로 끝날 때까지 등록하지 않는다.
+    if (uploading) return;
     const next = validateProductForm(values);
     setErrors(next);
     if (Object.keys(next).length === 0) mutation.mutate();
@@ -71,9 +75,11 @@ function CreateForm({ onClose, onCreated }: Pick<Props, 'onClose' | 'onCreated'>
         categories={categories.data ?? []}
         values={values}
         errors={errors}
-        onChange={(patch) => {
-          setValues((prev) => ({ ...prev, ...patch }));
-          setErrors((prev) => ({ ...prev, ...Object.fromEntries(Object.keys(patch).map((k) => [k, undefined])) }));
+        onChange={(change) => {
+          setValues((prev) => applyProductChange(prev, change));
+          // 이미지 업로드가 끝나 붙는 변경(함수)은 이미지·설명 오류만 지운다.
+          const keys = typeof change === 'function' ? ['images', 'description'] : Object.keys(change);
+          setErrors((prev) => ({ ...prev, ...Object.fromEntries(keys.map((k) => [k, undefined])) }));
         }}
       />
       {mutation.isError && <Notice tone="error">{errorMessage(mutation.error)}</Notice>}
@@ -81,8 +87,8 @@ function CreateForm({ onClose, onCreated }: Pick<Props, 'onClose' | 'onCreated'>
         <Button type="button" variant="outline" onClick={onClose} disabled={mutation.isPending}>
           취소
         </Button>
-        <Button type="submit" loading={mutation.isPending}>
-          상품 등록
+        <Button type="submit" loading={mutation.isPending} disabled={uploading}>
+          {uploading ? '이미지 올리는 중' : '상품 등록'}
         </Button>
       </div>
     </form>

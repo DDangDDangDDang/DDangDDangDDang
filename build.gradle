@@ -74,6 +74,10 @@ dependencies {
 
     // Mail
     implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+    // AWS S3 (프로필 이미지 업로드. app.storage.type=s3일 때만 사용)
+    implementation platform('software.amazon.awssdk:bom:2.31.0')
+    implementation 'software.amazon.awssdk:s3'
 }
 
 tasks.named('test') {

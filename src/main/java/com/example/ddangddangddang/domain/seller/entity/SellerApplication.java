@@ -99,6 +99,15 @@ public class SellerApplication extends BaseTimeEntity {
         this.reviewedAt = null;
     }
 
+    /** 인증받은 판매자의 상점 이름·소개 수정. 다시 심사받지 않고 바로 바뀐다. (심사 대상인 사업자등록번호는 바꿀 수 없다) */
+    public void updateStore(String storeName, String introduction) {
+        if (!isApproved()) {
+            throw new BusinessException(SellerErrorCode.NOT_VERIFIED_SELLER);
+        }
+        this.storeName = storeName;
+        this.introduction = introduction;
+    }
+
     public void approve(LocalDateTime now) {
         validatePending();
         this.status = SellerApplicationStatus.APPROVED;

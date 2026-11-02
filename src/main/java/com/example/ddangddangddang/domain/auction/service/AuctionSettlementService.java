@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.service.OrderService;
 import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.domain.product.entity.Product;
+import com.example.ddangddangddang.global.storage.FileStorage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -26,6 +27,7 @@ public class AuctionSettlementService {
     private final PointService pointService;
     private final OrderService orderService;
     private final BidRepository bidRepository;
+    private final FileStorage fileStorage;
 
     /** 마감 낙찰: 낙찰자의 홀딩 포인트를 차감하고 판매를 완료한다 */
     public Long settleWinningBid(Auction auction) {
@@ -48,7 +50,8 @@ public class AuctionSettlementService {
                 auction.getHighestBidderId(),
                 product.getSeller().getId(),
                 product.getName(),
-                null, // 상품 이미지 기능이 생기면 대표 이미지 URL을 넘긴다
+                // 대표 이미지 주소를 주문에 남긴다. (판매된 상품은 수정해도 빠진 이미지를 지우지 않는다, ProductService)
+                product.getThumbnailKey() == null ? null : fileStorage.publicUrl(product.getThumbnailKey()),
                 auction.getCurrentPrice()
         ));
     }

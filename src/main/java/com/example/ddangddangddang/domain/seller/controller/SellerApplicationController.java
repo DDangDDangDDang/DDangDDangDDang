@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.seller.controller;
 
 import com.example.ddangddangddang.domain.seller.dto.SellerApplicationRequest;
 import com.example.ddangddangddang.domain.seller.dto.SellerApplicationResponse;
+import com.example.ddangddangddang.domain.seller.dto.SellerStoreUpdateRequest;
 import com.example.ddangddangddang.domain.seller.service.SellerApplicationService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
@@ -24,6 +25,14 @@ public class SellerApplicationController {
             @AuthenticationPrincipal AuthUser authUser,
             @Valid @RequestBody SellerApplicationRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(applicationService.apply(authUser.id(), request)));
+    }
+
+    /** 인증받은 판매자의 상점 이름·소개 수정. 다시 심사받지 않는다. 인증받지 않았으면 SELLER_008 */
+    @PutMapping("/me/store")
+    public ResponseEntity<ApiResponse<SellerApplicationResponse>> updateStore(
+            @AuthenticationPrincipal AuthUser authUser,
+            @Valid @RequestBody SellerStoreUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(applicationService.updateStore(authUser.id(), request)));
     }
 
     /** 내 판매자 신청. 신청한 적이 없으면 data가 null이다. */

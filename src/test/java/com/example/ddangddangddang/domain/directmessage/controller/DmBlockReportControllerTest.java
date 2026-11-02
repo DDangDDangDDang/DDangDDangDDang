@@ -1,5 +1,8 @@
 package com.example.ddangddangddang.domain.directmessage.controller;
 
+import com.example.ddangddangddang.domain.directmessage.entity.DmModerationFlag;
+import com.example.ddangddangddang.domain.directmessage.repository.DmModerationFlagRepository;
+import com.example.ddangddangddang.domain.livechat.moderation.ModerationCategory;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.entity.UserRole;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
@@ -27,6 +30,9 @@ class DmBlockReportControllerTest extends DmApiTestSupport {
 
     @Autowired
     private JwtProvider jwtProvider;
+
+    @Autowired
+    private DmModerationFlagRepository dmModerationFlagRepository;
 
     @Nested
     @DisplayName("차단")
@@ -197,6 +203,33 @@ class DmBlockReportControllerTest extends DmApiTestSupport {
                             .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken()))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.error.code").value("DM_013"));
+        }
+
+        @Test
+        @DisplayName("관리자는 AI가 표시한 1:1 메시지 목록과 그 대화방의 메시지를 볼 수 있고, 없는 기록은 DM_014")
+        void adminViewsModerationFlag() throws Exception {
+            Long roomId = roomId(alice, bob.id());
+            sendAndGetId(alice, roomId, "사이즈 있나요?");
+            Long messageId = sendAndGetId(bob, roomId, "직거래하면 더 싸게 드려요");
+            Long flagId = dmModerationFlagRepository.save(DmModerationFlag.create(roomId, messageId, bob.id(),
+                    ModerationCategory.EXTERNAL_TRADE, "직거래를 제안합니다.")).getId();
+            String admin = "Bearer " + adminToken();
+
+            mockMvc.perform(get("/api/v1/admin/dm/moderation-flags").header(HttpHeaders.AUTHORIZATION, admin))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.content[0].flagId").value(flagId))
+                    .andExpect(jsonPath("$.data.content[0].categoryLabel").value("외부 거래 유도"))
+                    .andExpect(jsonPath("$.data.content[0].reason").value("직거래를 제안합니다."))
+                    .andExpect(jsonPath("$.data.content[0].content").value("직거래하면 더 싸게 드려요"));
+            mockMvc.perform(get("/api/v1/admin/dm/moderation-flags/" + flagId + "/messages").header(HttpHeaders.AUTHORIZATION, admin))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.content[0].content").value("직거래하면 더 싸게 드려요"))
+                    .andExpect(jsonPath("$.data.content[1].content").value("사이즈 있나요?"));
+            mockMvc.perform(get("/api/v1/admin/dm/moderation-flags/999999/messages").header(HttpHeaders.AUTHORIZATION, admin))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.error.code").value("DM_014"));
+            mockMvc.perform(get("/api/v1/admin/dm/moderation-flags").header(HttpHeaders.AUTHORIZATION, alice.bearer()))
+                    .andExpect(status().isForbidden());
         }
 
         // Access Token의 권한 클레임만으로 인증하므로, 관리자 권한을 가진 토큰을 직접 만든다.

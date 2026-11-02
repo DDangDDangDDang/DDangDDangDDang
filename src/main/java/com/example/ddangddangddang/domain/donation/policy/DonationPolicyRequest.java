@@ -18,15 +18,11 @@ public record DonationPolicyRequest(
         @NotNull Long maxGift,
         @NotNull Long monthlyGiftLimitPerSeller,
         @NotNull Integer trustWindowDays,
-        @NotNull Long powerSellerPrice,
-        @NotNull Integer powerSellerDays,
-        @NotNull Integer promotedLiveSlots,
         @Size(max = 200, message = "바꾼 이유는 200자 이하입니다.")
         String memo
 ) {
     DonationPolicy toPolicy() {
         return new DonationPolicy(earnRatePercent, maxEarnPerOrder, monthlyEarnLimit, pointValidDays, expiringNoticeDays,
-                minGift, giftUnit, maxGift, monthlyGiftLimitPerSeller, trustWindowDays, powerSellerPrice, powerSellerDays,
-                promotedLiveSlots);
+                minGift, giftUnit, maxGift, monthlyGiftLimitPerSeller, trustWindowDays);
     }
 }

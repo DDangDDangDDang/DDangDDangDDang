@@ -138,6 +138,7 @@ export function MyProductsPage() {
                   className="flex items-center gap-4 px-5 py-4"
                 >
                   <ProductImage
+                    src={product.thumbnailUrl}
                     alt={product.name ?? "상품"}
                     className="size-16"
                   />

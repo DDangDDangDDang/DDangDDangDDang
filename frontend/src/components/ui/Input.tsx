@@ -32,7 +32,7 @@ export function Input({ label, hideLabel = false, hint, error, suffix, id, class
           className={cn(
             'h-11 w-full rounded-md border border-neutral-400 bg-neutral-0 px-3.5 text-body text-neutral-900 placeholder:text-neutral-500',
             'disabled:bg-neutral-50 disabled:text-neutral-500',
-            error && 'border-brand-500',
+            error && 'border-red-500',
             suffix && 'pr-10',
             className,
           )}
@@ -45,7 +45,7 @@ export function Input({ label, hideLabel = false, hint, error, suffix, id, class
         )}
       </div>
       {error ? (
-        <p id={`${inputId}-error`} className="text-caption text-brand-700">
+        <p id={`${inputId}-error`} className="text-caption text-red-300">
           {error}
         </p>
       ) : (

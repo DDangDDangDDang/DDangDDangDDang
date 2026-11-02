@@ -15,8 +15,8 @@ final class ModerationPrompt {
     private ModerationPrompt() {
     }
 
-    static String userMessage(List<ChatForReview> messages) {
-        StringBuilder sb = new StringBuilder("다음 채팅을 검토해 주세요.\n<chat_messages>\n");
+    static String userMessage(ReviewChannel channel, List<ChatForReview> messages) {
+        StringBuilder sb = new StringBuilder("다음 ").append(channel.getDescription()).append("를 검토해 주세요.\n<chat_messages>\n");
         for (ChatForReview message : messages) {
             sb.append("{\"messageId\":\"").append(escape(message.messageId()))
                     .append("\",\"content\":\"").append(escape(message.content()))

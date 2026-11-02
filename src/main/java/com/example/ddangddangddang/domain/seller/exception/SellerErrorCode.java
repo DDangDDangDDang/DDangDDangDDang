@@ -15,7 +15,8 @@ public enum SellerErrorCode implements ErrorCode {
     ALREADY_REVIEWED(HttpStatus.CONFLICT, "SELLER_004", "이미 심사한 신청입니다."),
     CANNOT_SUBSCRIBE_SELF(HttpStatus.BAD_REQUEST, "SELLER_005", "자기 자신은 구독할 수 없습니다."),
     CONTENT_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "SELLER_006", "판매자 정보에 사용할 수 없는 내용이 포함되어 있습니다."),
-    INVALID_BUSINESS_NUMBER(HttpStatus.BAD_REQUEST, "SELLER_007", "사업자등록번호 10자리를 다시 확인해 주세요.");
+    INVALID_BUSINESS_NUMBER(HttpStatus.BAD_REQUEST, "SELLER_007", "사업자등록번호 10자리를 다시 확인해 주세요."),
+    NOT_VERIFIED_SELLER(HttpStatus.FORBIDDEN, "SELLER_008", "판매자 인증을 받은 회원만 상점 정보를 바꿀 수 있습니다.");
 
     private final HttpStatus status;
     private final String code;

@@ -3,6 +3,11 @@ export function formatPoint(amount: number): string {
   return `${amount.toLocaleString('ko-KR')} P`;
 }
 
+/** 도네이션 마일리지 금액: 1000 → "1,000 M" (현금 포인트 P와 헷갈리지 않게 단위를 따로 쓴다) */
+export function formatMileage(amount: number): string {
+  return `${amount.toLocaleString('ko-KR')} M`;
+}
+
 /** 숫자만 천 단위 구분: 1284 → "1,284" */
 export function formatNumber(value: number): string {
   return value.toLocaleString('ko-KR');

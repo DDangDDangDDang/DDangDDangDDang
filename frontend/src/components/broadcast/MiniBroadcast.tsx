@@ -143,7 +143,7 @@ function MiniToggle({ on, label, disabled, onClick, children }: { on: boolean; l
       onClick={onClick}
       className={cn(
         'flex size-9 shrink-0 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-        on ? 'bg-neutral-50 text-neutral-900 hover:bg-neutral-100' : 'bg-brand-500 text-white hover:bg-brand-600',
+        on ? 'bg-neutral-50 text-neutral-900 hover:bg-neutral-100' : 'bg-brand-800 text-white hover:bg-brand-900',
       )}
     >
       {children}

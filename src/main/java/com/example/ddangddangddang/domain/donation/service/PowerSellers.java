@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.donation.service;
 
+import com.example.ddangddangddang.domain.donation.entity.SellerPerk;
 import com.example.ddangddangddang.domain.donation.entity.SellerPerkType;
 import com.example.ddangddangddang.domain.donation.repository.SellerPerkRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,8 +12,8 @@ import java.util.Collection;
 import java.util.Set;
 
 /**
- * 지금 파워 판매자인지. 다른 도메인(방송 목록·방송 카드·판매자 프로필)이 읽기만 한다.
- * 파워 판매자는 판매자 상점에서 받은 도네이션 포인트로 산 혜택(SellerPerk)이 진행 중인 판매자다.
+ * 파워 판매자인지. 방송 카드·판매자 프로필이 읽는다. (라이브 목록 맨 위 노출은 없앴다)
+ * 파워 판매자는 마일리지 상점에서 영구 혜택(SellerPerk, endsAt = PERMANENT_END)을 산 판매자다. (ShopService가 grant로 만든다)
  */
 @Component
 @RequiredArgsConstructor
@@ -20,10 +21,6 @@ import java.util.Set;
 public class PowerSellers {
 
     private final SellerPerkRepository perkRepository;
-
-    public Set<Long> all() {
-        return perkRepository.findActiveSellerIds(SellerPerkType.POWER_SELLER, LocalDateTime.now());
-    }
 
     public Set<Long> among(Collection<Long> sellerIds) {
         if (sellerIds.isEmpty()) {
@@ -34,5 +31,16 @@ public class PowerSellers {
 
     public boolean is(Long sellerId) {
         return !among(Set.of(sellerId)).isEmpty();
+    }
+
+    /** 이미 파워 판매자 혜택을 산 적이 있는지 (영구라 한 번만 산다) */
+    public boolean owns(Long sellerId) {
+        return perkRepository.existsBySellerIdAndType(sellerId, SellerPerkType.POWER_SELLER);
+    }
+
+    /** 파워 판매자로 만든다 (영구). 마일리지 상점 결제와 같은 트랜잭션에서 부른다. (ShopService) */
+    @Transactional
+    public SellerPerk grant(Long sellerId, long price) {
+        return perkRepository.save(SellerPerk.permanent(sellerId, SellerPerkType.POWER_SELLER, price, LocalDateTime.now()));
     }
 }

@@ -19,12 +19,13 @@ import com.example.ddangddangddang.domain.point.repository.PointWalletRepository
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -38,6 +39,9 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -48,7 +52,6 @@ class PointChargeServiceTest {
     private static final String PAYMENT_ID = "point-charge-test";
     private static final long AMOUNT = 10_000L;
 
-    @InjectMocks
     private PointChargeService pointChargeService;
 
     @Mock
@@ -65,6 +68,13 @@ class PointChargeServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @BeforeEach
+    void setUp() {
+        PointChargeProcessor processor =
+                new PointChargeProcessor(pointChargeRepository, pointWalletRepository, pointHistoryRepository);
+        pointChargeService = new PointChargeService(pointChargeRepository, paymentGateway, userRepository, processor);
+    }
 
     @Nested
     @DisplayName("충전 요청 생성")
@@ -107,7 +117,7 @@ class PointChargeServiceTest {
         void success() {
             PointCharge charge = pendingCharge();
             PointWallet wallet = wallet();
-            given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+            givenCharge(charge);
             given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.PAID, AMOUNT));
             given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
 
@@ -129,7 +139,7 @@ class PointChargeServiceTest {
         @Test
         @DisplayName("충전 요청이 없으면 예외가 발생한다")
         void chargeNotFound() {
-            given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.empty());
+            given(pointChargeRepository.findByPaymentId(PAYMENT_ID)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> pointChargeService.completeCharge(USER_ID, PAYMENT_ID))
                     .isInstanceOf(BusinessException.class)
@@ -141,8 +151,7 @@ class PointChargeServiceTest {
         @Test
         @DisplayName("남의 충전 요청이면 포트원을 조회하지 않고 예외가 발생한다")
         void notOwner() {
-            given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID))
-                    .willReturn(Optional.of(pendingCharge()));
+            givenCharge(pendingCharge());
 
             assertThatThrownBy(() -> pointChargeService.completeCharge(2L, PAYMENT_ID))
                     .isInstanceOf(BusinessException.class)
@@ -158,7 +167,7 @@ class PointChargeServiceTest {
             charge.complete();
             PointWallet wallet = wallet();
             ReflectionTestUtils.setField(wallet, "balance", AMOUNT);
-            given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+            givenCharge(charge);
             given(pointWalletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
 
             PointChargeCompleteResponse response = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
@@ -174,7 +183,7 @@ class PointChargeServiceTest {
         @DisplayName("결제가 아직 진행 중이면 PENDING을 유지한다")
         void inProgress() {
             PointCharge charge = pendingCharge();
-            given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+            givenCharge(charge);
             given(paymentGateway.getPayment(PAYMENT_ID))
                     .willReturn(payment(PaymentStatus.VIRTUAL_ACCOUNT_ISSUED, AMOUNT));
 
@@ -189,7 +198,7 @@ class PointChargeServiceTest {
         @DisplayName("결제가 실패했으면 FAILED로 바꾸고 포인트를 지급하지 않는다")
         void paymentFailed() {
             PointCharge charge = pendingCharge();
-            given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+            givenCharge(charge);
             given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.FAILED, AMOUNT));
 
             PointChargeCompleteResponse response = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
@@ -203,21 +212,60 @@ class PointChargeServiceTest {
         @DisplayName("결제 금액이 다르면 결제를 취소하고 FAILED로 바꾼다")
         void amountMismatch() {
             PointCharge charge = pendingCharge();
-            given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+            givenCharge(charge);
             given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.PAID, 1_000L));
 
             PointChargeCompleteResponse response = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
 
             assertThat(response.status()).isEqualTo(PointChargeType.FAILED);
-            verify(paymentGateway).cancelPayment(eq(PAYMENT_ID), anyString());
             verify(pointWalletRepository, never()).findByUserIdForUpdate(anyLong());
+            // 취소는 락을 걸기 전(트랜잭션 밖)에 끝낸다
+            InOrder order = inOrder(paymentGateway, pointChargeRepository);
+            order.verify(paymentGateway).cancelPayment(eq(PAYMENT_ID), anyString());
+            order.verify(pointChargeRepository).findByPaymentIdForUpdate(PAYMENT_ID);
+        }
+
+        @Test
+        @DisplayName("금액이 다른 결제의 취소가 실패하면 PENDING으로 남겨 다음 조회 때 다시 처리한다")
+        void amountMismatchCancelFailed() {
+            PointCharge charge = pendingCharge();
+            givenCharge(charge);
+            given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.PAID, 1_000L));
+            willThrow(new BusinessException(PointErrorCode.PAYMENT_GATEWAY_ERROR))
+                    .given(paymentGateway).cancelPayment(eq(PAYMENT_ID), anyString());
+
+            assertThatThrownBy(() -> pointChargeService.completeCharge(USER_ID, PAYMENT_ID))
+                    .isInstanceOf(BusinessException.class);
+            assertThat(charge.isPending()).isTrue();
+            verify(pointChargeRepository, never()).findByPaymentIdForUpdate(anyString());
+        }
+
+        @Test
+        @DisplayName("포트원을 조회하는 사이 다른 경로(웹훅)가 먼저 완료했으면 포인트를 다시 지급하지 않는다")
+        void completedByOtherPathWhileQuerying() {
+            PointCharge beforeLock = pendingCharge();
+            PointCharge afterLock = pendingCharge();
+            afterLock.complete();
+            PointWallet wallet = wallet();
+            ReflectionTestUtils.setField(wallet, "balance", AMOUNT);
+            given(pointChargeRepository.findByPaymentId(PAYMENT_ID)).willReturn(Optional.of(beforeLock));
+            given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.PAID, AMOUNT));
+            given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(afterLock));
+            given(pointWalletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
+
+            PointChargeCompleteResponse response = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
+
+            assertThat(response.status()).isEqualTo(PointChargeType.COMPLETE);
+            assertThat(response.balance()).isEqualTo(AMOUNT);
+            assertThat(wallet.getBalance()).isEqualTo(AMOUNT);
+            verify(pointWalletRepository, never()).findByUserIdForUpdate(anyLong());
+            verify(pointHistoryRepository, never()).save(any());
         }
 
         @Test
         @DisplayName("지갑이 없으면 예외가 발생한다")
         void walletNotFound() {
-            given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID))
-                    .willReturn(Optional.of(pendingCharge()));
+            givenCharge(pendingCharge());
             given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(payment(PaymentStatus.PAID, AMOUNT));
             given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.empty());
 
@@ -226,6 +274,13 @@ class PointChargeServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(PointErrorCode.WALLET_NOT_FOUND);
         }
+    }
+
+    // 처음엔 락 없이 읽고, 결과를 반영할 때(PointChargeProcessor) 락을 걸고 다시 읽는다.
+    // 포트원 조회 전에 끝나는 경우(본인 아님·이미 처리됨)엔 두 번째 읽기가 없다.
+    private void givenCharge(PointCharge charge) {
+        given(pointChargeRepository.findByPaymentId(PAYMENT_ID)).willReturn(Optional.of(charge));
+        lenient().when(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).thenReturn(Optional.of(charge));
     }
 
     private PointCharge pendingCharge() {

@@ -241,12 +241,12 @@ variable "dev_livekit_url" {
 }
 
 variable "dev_app_environment" {
-  description = "dev 사이트의 비밀이 아닌 추가 환경변수. 문자·메일은 기본으로 끄고 서버 로그로 확인한다."
+  description = "dev 사이트의 비밀이 아닌 추가 환경변수. 문자·메일은 기본으로 끄고 서버 로그로 확인한다. AI 채팅 검토는 dev에서 먼저 켜 본다. (ddang-dev/app의 ANTHROPIC_API_KEY가 비어 있으면 서버가 알아서 끈다)"
   type        = map(string)
   default = {
     MAIL_ENABLED               = "false"
     SMS_ENABLED                = "false"
-    CHAT_MODERATION_AI_ENABLED = "false"
+    CHAT_MODERATION_AI_ENABLED = "true"
   }
 }
 
@@ -254,4 +254,21 @@ variable "github_dev_environment" {
   description = "dev 배포 워크플로가 쓰는 GitHub Environment 이름. 이 환경에서 실행된 작업만 dev 배포 역할을 받는다."
   type        = string
   default     = "development"
+}
+
+variable "developer_iam_users" {
+  description = "DB 터널(Session Manager 포트 포워딩)을 쓸 팀원 IAM 사용자 이름. ddang-developers 그룹에 넣는다. 액세스 키는 콘솔에서 만든다. (infra/team_access.tf)"
+  type        = list(string)
+  default     = []
+}
+
+variable "db_writer_iam_users" {
+  description = "운영 DB 수정용 계정(ddang_rw)을 쓸 팀원. developer_iam_users에도 있어야 한다. (터널 권한은 developers 그룹에서 받는다)"
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for u in var.db_writer_iam_users : contains(var.developer_iam_users, u)])
+    error_message = "db_writer_iam_users의 사용자는 developer_iam_users에도 넣어야 합니다."
+  }
 }
