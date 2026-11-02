@@ -41,6 +41,8 @@ export function SellerStudioPage() {
   });
   /** 방금 종료한 방송 제목. 방송 만들기 위에 안내로 보여준다. */
   const [endedTitle, setEndedTitle] = useState<string>();
+  /** 방송은 만들었지만 고른 썸네일을 올리지 못한 이유. 스튜디오 위에 안내로 보여준다. */
+  const [thumbnailError, setThumbnailError] = useState<string>();
 
   const reload = useCallback(() => void queryClient.invalidateQueries({ queryKey: ACTIVE_STREAM_KEY }), [queryClient]);
   // 방송 만들기는 판매자 인증을 받은 회원만 (서버도 LIVESTREAM_016으로 막는다)
@@ -59,8 +61,9 @@ export function SellerStudioPage() {
     return (
       <NoActiveStream
         endedTitle={endedTitle}
-        onCreated={(created) => {
+        onCreated={(created, error) => {
           setEndedTitle(undefined);
+          setThumbnailError(error);
           queryClient.setQueryData(ACTIVE_STREAM_KEY, created);
         }}
         onActiveExists={reload}
@@ -73,7 +76,9 @@ export function SellerStudioPage() {
       key={liveStream.id}
       liveStream={liveStream as LiveStream & { id: number }}
       onChange={(next) => queryClient.setQueryData(ACTIVE_STREAM_KEY, next)}
+      thumbnailError={thumbnailError}
       onEnded={(ended) => {
+        setThumbnailError(undefined);
         setEndedTitle(ended.title || '방송');
         queryClient.setQueryData(ACTIVE_STREAM_KEY, null);
       }}
@@ -103,7 +108,15 @@ function NeedSellerVerification() {
 }
 
 /** 데이터 없음: 종료되지 않은 방송이 없으면 새 방송을 만든다. */
-function NoActiveStream({ endedTitle, onCreated, onActiveExists }: { endedTitle?: string; onCreated: (liveStream: LiveStream) => void; onActiveExists: () => void }) {
+function NoActiveStream({
+  endedTitle,
+  onCreated,
+  onActiveExists,
+}: {
+  endedTitle?: string;
+  onCreated: (liveStream: LiveStream, thumbnailError?: string) => void;
+  onActiveExists: () => void;
+}) {
   const { idle } = useBroadcast();
   return (
     <div className="mx-auto flex max-w-[720px] flex-col gap-4">
@@ -125,11 +138,13 @@ function NoActiveStream({ endedTitle, onCreated, onActiveExists }: { endedTitle?
 type StudioProps = {
   liveStream: LiveStream & { id: number };
   onChange: (liveStream: LiveStream) => void;
+  /** 방송을 만들 때 고른 썸네일을 올리지 못한 이유 (방송 정보 수정에서 다시 올린다) */
+  thumbnailError?: string;
   onEnded: (liveStream: LiveStream) => void;
   reload: () => void;
 };
 
-function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
+function Studio({ liveStream, onChange, thumbnailError, onEnded, reload }: StudioProps) {
   const liveStreamId = liveStream.id;
   const isLive = liveStream.status === 'LIVE';
   const [editing, setEditing] = useState(false);
@@ -200,6 +215,10 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
         <section aria-labelledby="studio-title" className="flex min-w-0 flex-1 flex-col gap-4">
           <StudioHeader liveStream={liveStream} viewerCount={isLive ? publisher.viewerCount : undefined} editing={editing} onEdit={() => setEditing(true)} />
 
+          {thumbnailError && !liveStream.customThumbnailUrl && (
+            <Notice tone="error">방송은 만들었지만 썸네일을 올리지 못했어요. ({thumbnailError}) [방송 정보 수정]에서 다시 올려 주세요.</Notice>
+          )}
+
           {editing && (
             <Card aria-label="방송 정보 수정">
               <CardBody className="pt-5">
@@ -211,6 +230,7 @@ function Studio({ liveStream, onChange, onEnded, reload }: StudioProps) {
                     setEditing(false);
                   }}
                   onCancel={() => setEditing(false)}
+                  onThumbnailChange={onChange}
                 />
               </CardBody>
             </Card>

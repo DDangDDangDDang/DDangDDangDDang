@@ -37,7 +37,7 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
       onMouseEnter={isLive ? onMouseEnter : undefined}
       onMouseLeave={onMouseLeave}
     >
-      <LiveThumbnail name={seller} imageUrl={isLive ? card.thumbnailUrl : undefined} className="transition-shadow group-hover:ring-2 group-hover:ring-brand-500 group-hover:ring-offset-2 group-hover:ring-offset-neutral-25">
+      <LiveThumbnail name={seller} imageUrl={card.thumbnailUrl} className="transition-shadow group-hover:ring-2 group-hover:ring-brand-500 group-hover:ring-offset-2 group-hover:ring-offset-neutral-25">
         <PreviewVideo track={videoTrack} />
         <div className="absolute top-2.5 left-2.5 flex gap-1.5">
           {isLive ? (
@@ -78,14 +78,15 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
 }
 
 /**
- * 방송 썸네일 자리. 송출 화면을 캡처한 썸네일(imageUrl)이 있으면 그 이미지를, 없거나 불러오지 못하면 판매자 이름 첫 글자를 어두운 바탕에 크게 그린다.
+ * 방송 썸네일 자리. 썸네일(imageUrl: 판매자가 올린 이미지, 없으면 방송 중 송출 화면 캡처. 서버가 고른다)이 있으면 그 이미지를, 없거나 불러오지 못하면 판매자 이름 첫 글자를 어두운 바탕에 크게 그린다.
  * 같은 판매자는 늘 같은 바탕색이 나오도록 이름으로 색을 고른다. 미리보기 영상 등(children)은 그 위에 겹친다.
  */
-export function LiveThumbnail({ name, imageUrl, className, children }: { name: string; imageUrl?: string; className?: string; children?: ReactNode }) {
+export function LiveThumbnail({ name, imageUrl, className, children }: { name: string; imageUrl?: string | null; className?: string; children?: ReactNode }) {
   const tone = THUMB_TONES[[...name].reduce((sum, ch) => sum + (ch.codePointAt(0) ?? 0), 0) % THUMB_TONES.length];
   // 불러오지 못한 주소. 썸네일이 새로 바뀌면(1분마다 다른 주소) 다시 시도한다.
   const [failedUrl, setFailedUrl] = useState<string>();
-  const showImage = imageUrl !== undefined && imageUrl !== failedUrl;
+  // 서버는 썸네일이 없으면 null을 준다. (빈 주소로 img를 그리면 오류 없이 깨진 그림이 남는다)
+  const showImage = !!imageUrl && imageUrl !== failedUrl;
   return (
     <div className={cn('relative flex aspect-video items-center justify-center overflow-hidden rounded-lg', tone, className)}>
       {showImage ? (

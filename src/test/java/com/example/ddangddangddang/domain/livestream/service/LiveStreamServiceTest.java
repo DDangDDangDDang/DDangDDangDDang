@@ -291,7 +291,7 @@ class LiveStreamServiceTest {
         void chatModerationMode() {
             LiveStream liveStream = liveStream(true);
             given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
-            assertThat(LiveStreamResponse.from(liveStream).chatModerationMode()).isEqualTo(ChatModerationMode.ALERT);
+            assertThat(LiveStreamResponse.from(liveStream, null).chatModerationMode()).isEqualTo(ChatModerationMode.ALERT);
 
             LiveStreamResponse autoHide = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
                     new LiveStreamUpdateRequest(null, null, null, null, null, null, ChatModerationMode.AUTO_HIDE));
@@ -611,7 +611,7 @@ class LiveStreamServiceTest {
         @Test
         @DisplayName("정하지 않은 방송은 배치가 null이다 (화면은 기본 배치)")
         void defaultLayout() {
-            assertThat(LiveStreamResponse.from(liveStream(true)).overlayLayout()).isNull();
+            assertThat(LiveStreamResponse.from(liveStream(true), null).overlayLayout()).isNull();
         }
 
         @Test

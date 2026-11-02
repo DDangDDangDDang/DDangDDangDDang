@@ -27,13 +27,16 @@ public record LiveStreamResponse(
         boolean recorded,
         // 채팅 AI 검토 처리 방식 (OFF / ALERT / AUTO_HIDE)
         ChatModerationMode chatModerationMode,
+        // 판매자가 직접 올린 방송 카드 썸네일 주소. 없으면 null (카드는 방송 중 송출 화면 캡처를 쓴다)
+        String customThumbnailUrl,
         LiveStreamStatus status,
         LocalDateTime createdAt,
         LocalDateTime scheduledStartAt,
         LocalDateTime startedAt,
         LocalDateTime endedAt
 ) {
-    public static LiveStreamResponse from(LiveStream liveStream) {
+    /** @param customThumbnailUrl 직접 올린 썸네일의 화면 주소 (FileStorage.publicUrl, 없으면 null) */
+    public static LiveStreamResponse from(LiveStream liveStream, String customThumbnailUrl) {
         return new LiveStreamResponse(
                 liveStream.getId(),
                 liveStream.getSellerId(),
@@ -45,6 +48,7 @@ public record LiveStreamResponse(
                 OverlayLayoutResponse.from(liveStream.getOverlayLayout()),
                 liveStream.isRecorded(),
                 liveStream.getChatModerationMode(),
+                customThumbnailUrl,
                 liveStream.getStatus(),
                 liveStream.getCreatedAt(),
                 liveStream.getScheduledStartAt(),
