@@ -1292,6 +1292,90 @@
         }
       }
     },
+    "/api/v1/users/me/addresses" : {
+      "get" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressGetAddresses",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListUserAddressResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressCreateAddress",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UserAddressRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserAddressResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/shop/power-seller" : {
       "post" : {
         "tags" : [ "shop-controller" ],
@@ -5267,6 +5351,148 @@
         }
       }
     },
+    "/api/v1/users/me/addresses/{addressId}" : {
+      "delete" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressDeleteAddress",
+        "parameters" : [ {
+          "name" : "addressId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressUpdateAddress",
+        "parameters" : [ {
+          "name" : "addressId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UserAddressRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserAddressResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/addresses/{addressId}/default" : {
+      "patch" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressChangeDefaultAddress",
+        "parameters" : [ {
+          "name" : "addressId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserAddressResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reviews/{reviewId}" : {
       "delete" : {
         "tags" : [ "review-controller" ],
@@ -6196,6 +6422,44 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseCursorResponseAuctionListResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/addresses/default" : {
+      "get" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressGetDefaultAddress",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserAddressResponse"
                 }
               }
             }
@@ -9009,6 +9273,78 @@
         },
         "required" : [ "email" ]
       },
+      "UserAddressRequest" : {
+        "type" : "object",
+        "properties" : {
+          "addressName" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "receiverName" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "receiverPhone" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^0\\d{8,10}$"
+          },
+          "address" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "deliveryMemo" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "address", "addressName", "receiverName", "receiverPhone" ]
+      },
+      "ApiResponseUserAddressResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/UserAddressResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "UserAddressResponse" : {
+        "type" : "object",
+        "properties" : {
+          "addressId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "addressName" : {
+            "type" : "string"
+          },
+          "receiverName" : {
+            "type" : "string"
+          },
+          "receiverPhone" : {
+            "type" : "string"
+          },
+          "address" : {
+            "type" : "string"
+          },
+          "deliveryMemo" : {
+            "type" : "string"
+          },
+          "isDefault" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ApiResponseVoid" : {
         "type" : "object",
         "properties" : {
@@ -11507,6 +11843,23 @@
           }
         }
       },
+      "ApiResponseListUserAddressResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/UserAddressResponse"
+            }
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
       "ApiResponseListShopItemResponse" : {
         "type" : "object",
         "properties" : {
@@ -12927,6 +13280,18 @@
     }
   },
   "x-error-codes" : [ {
+    "code" : "ADDRESS_001",
+    "status" : 404,
+    "message" : "배송지가 존재하지 않습니다."
+  }, {
+    "code" : "ADDRESS_002",
+    "status" : 403,
+    "message" : "본인 배송지만 수정,삭제 가능합니다."
+  }, {
+    "code" : "ADDRESS_003",
+    "status" : 409,
+    "message" : "배송지는 최대 10개까지 저장가능합니다."
+  }, {
     "code" : "AD_001",
     "status" : 404,
     "message" : "광고를 찾을 수 없습니다."
