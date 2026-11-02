@@ -8,6 +8,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,6 +32,9 @@ import java.util.stream.Stream;
                 @Index(name = "idx_live_stream_status_ended", columnList = "status, ended_at")
         }
 )
+// 바뀐 칸만 UPDATE한다. 썸네일 자동 캡처(updateThumbnailKey)는 버전을 올리지 않는 벌크 업데이트라,
+// 모든 칸을 쓰면 그 사이 바뀐 thumbnail_key를 처음 읽은 옛 값(이미 지운 파일)으로 되돌린다.
+@DynamicUpdate
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LiveStream extends BaseTimeEntity {
