@@ -7,6 +7,7 @@ import { LoginPage } from '@/pages/auth/LoginPage';
 import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
 import { SignupPage } from '@/pages/auth/SignupPage';
 import { CategoryAdminPage } from '@/pages/admin/CategoryAdminPage';
+import { AdsAdminPage } from '@/pages/admin/AdsAdminPage';
 import { DmReportsPage } from '@/pages/admin/DmReportsPage';
 import { PointExchangesAdminPage } from '@/pages/admin/PointExchangesAdminPage';
 import { SellerApplicationsPage } from '@/pages/admin/SellerApplicationsPage';
@@ -98,6 +99,7 @@ export const router = createBrowserRouter([
           { path: '/admin/seller-applications', element: <SellerApplicationsPage /> },
           { path: '/admin/donation-policy', element: <DonationPolicyPage /> },
           { path: '/admin/point-exchanges', element: <PointExchangesAdminPage /> },
+          { path: '/admin/ads', element: <AdsAdminPage /> },
         ],
       },
 
