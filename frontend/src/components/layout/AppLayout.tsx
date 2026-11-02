@@ -243,7 +243,7 @@ function AccountMenu({
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1 rounded-md px-2 py-2 text-body font-semibold hover:bg-neutral-50"
       >
-        {nickname}
+        {nickname || "내 계정"}
         <ChevronDown
           className={`size-4 text-neutral-500 transition-transform ${open ? "rotate-180" : ""}`}
           aria-hidden="true"
