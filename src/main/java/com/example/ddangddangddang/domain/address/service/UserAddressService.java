@@ -6,7 +6,6 @@ import com.example.ddangddangddang.domain.address.entity.UserAddress;
 import com.example.ddangddangddang.domain.address.exception.UserAddressErrorCode;
 import com.example.ddangddangddang.domain.address.repository.UserAddressRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,6 +73,18 @@ public class UserAddressService {
             userAddressRepository.findFirstByUserIdAndIdNotOrderByIdDesc(userId,addressId).ifPresent(UserAddress::makeDefault);
         }
         userAddressRepository.delete(myAddress);
+    }
+
+    // 기본 배송지 설정(기존 기본 배송지 해제, 기본은 항상 하나)
+    @Transactional
+    public UserAddressResponse changeDefaultAddress(Long userId, Long addressId){
+        UserAddress myAddress = findMyAddress(userId, addressId);
+        if (myAddress.isDefault()){
+            return UserAddressResponse.from(myAddress);
+        }
+        userAddressRepository.findByUserIdAndIsDefaultTrue(userId).ifPresent(UserAddress::cancelDefault);
+        myAddress.makeDefault();
+        return UserAddressResponse.from(myAddress);
     }
 
     // 배송지를 찾고, 내 것인 아닌지

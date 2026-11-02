@@ -8,7 +8,6 @@ import com.example.ddangddangddang.global.security.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -54,6 +53,13 @@ public class UserAddressController {
                                                                    @PathVariable Long addressId){
         userAddressService.deleteAddress(authUser.id(),addressId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    // 기본 배송지 설정(기존 기본 배송지 해제, 기본은 항상 하나)
+    @PatchMapping("/{addressId}/default")
+    ResponseEntity<ApiResponse<UserAddressResponse>> changeDefaultAddress(@AuthenticationPrincipal AuthUser authUser,
+                                                                   @PathVariable Long addressId){
+        return ResponseEntity.ok(ApiResponse.ok(userAddressService.changeDefaultAddress(authUser.id(),addressId)));
     }
 
 }
