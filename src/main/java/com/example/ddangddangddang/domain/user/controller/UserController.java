@@ -13,6 +13,7 @@ import com.example.ddangddangddang.domain.user.dto.PhoneNumberChangeRequest;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageChangeRequest;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadRequest;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadResponse;
+import com.example.ddangddangddang.domain.user.entity.NicknameBadgeKind;
 import com.example.ddangddangddang.domain.user.service.UserBadgeService;
 import com.example.ddangddangddang.domain.user.service.UserContactService;
 import com.example.ddangddangddang.domain.user.service.UserService;
@@ -116,10 +117,14 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(userBadgeService.getMine(authUser.id())));
     }
 
-    /** 가진 뱃지 중 하나를 장착한다. badge가 null이면 뺀다. */
+    /** 가진 꾸미기를 장착한다. badge가 없으면 kind 종류를 뺀다. (kind도 없으면 채팅 스킨) */
     @PutMapping("/me/badge")
     public ResponseEntity<ApiResponse<MyBadgesResponse>> equipBadge(
             @AuthenticationPrincipal AuthUser authUser, @RequestBody BadgeEquipRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(userBadgeService.equip(authUser.id(), request.badge())));
+        if (request.badge() != null) {
+            return ResponseEntity.ok(ApiResponse.ok(userBadgeService.equip(authUser.id(), request.badge())));
+        }
+        NicknameBadgeKind kind = request.kind() != null ? request.kind() : NicknameBadgeKind.SKIN;
+        return ResponseEntity.ok(ApiResponse.ok(userBadgeService.unequip(authUser.id(), kind)));
     }
 }

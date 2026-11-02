@@ -1,16 +1,57 @@
 import { Star } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { NICKNAME_BADGE_LABEL, type NicknameBadge } from '@/lib/nickname-badge';
+import { NICKNAME_BADGE_LABEL, nicknameBadgeKindOf, type NicknameBadge } from '@/lib/nickname-badge';
+
+const COLOR_CLASS: Partial<Record<NicknameBadge, string>> = {
+  COLOR_GOLD: 'text-gold-300',
+  COLOR_MINT: 'text-nickname-mint',
+  COLOR_CORAL: 'text-nickname-coral',
+  COLOR_PURPLE: 'text-nickname-purple',
+};
 
 /**
- * 닉네임 뱃지로 꾸민 닉네임. 뱃지가 없으면 닉네임만 그린다.
- * - 천사 날개: 양옆에 하얀 날개 / 악마 날개: 양옆에 붉은 박쥐 날개
- * - 천사 링: 닉네임 위에 금빛 링 / 별: 앞에 별, 닉네임을 금빛으로
+ * 닉네임 꾸미기를 적용한 닉네임. 장착한 것이 없으면 닉네임만 그린다.
+ * - badge(채팅 스킨): 천사 날개는 양옆에 하얀 날개, 악마 날개는 양옆에 붉은 박쥐 날개, 천사 링은 위에 금빛 링, 별은 앞에 별 + 금빛 닉네임
+ * - title(채팅 뱃지): 닉네임 앞에 붙는 작은 칭호
+ * - color(닉네임 색상): 닉네임 글자색. 별 스킨의 금빛보다 우선한다
  * 장식은 화면 읽기에서 뱃지 이름으로 한 번만 읽힌다.
  */
-export function DecoratedNickname({ nickname, badge, className }: { nickname: string; badge?: NicknameBadge | null; className?: string }) {
+export function DecoratedNickname({
+  nickname,
+  badge,
+  title,
+  color,
+  className,
+}: {
+  nickname: string;
+  badge?: NicknameBadge | null;
+  title?: NicknameBadge | null;
+  color?: NicknameBadge | null;
+  className?: string;
+}) {
+  const colorClass = color ? COLOR_CLASS[color] : undefined;
+  const nameClass = cn(className, colorClass);
+  const name = <NicknameSkin nickname={nickname} badge={badge} className={nameClass} hasColor={Boolean(colorClass)} />;
+  if (!title) return name;
+  return (
+    <span data-title={title} className="inline-flex items-center gap-1 align-bottom">
+      <span className="rounded-sm border border-brand-200 bg-brand-50 px-1 text-caption leading-4 font-semibold text-brand-700">{NICKNAME_BADGE_LABEL[title]}</span>
+      {name}
+    </span>
+  );
+}
+
+/** 상점 미리 보기: 상품 하나만 적용한 닉네임 */
+export function NicknameBadgePreview({ nickname, badge }: { nickname: string; badge: NicknameBadge }) {
+  const kind = nicknameBadgeKindOf(badge);
+  return (
+    <DecoratedNickname nickname={nickname} badge={kind === 'SKIN' ? badge : undefined} title={kind === 'TITLE' ? badge : undefined} color={kind === 'COLOR' ? badge : undefined} />
+  );
+}
+
+function NicknameSkin({ nickname, badge, className, hasColor }: { nickname: string; badge?: NicknameBadge | null; className?: string; hasColor: boolean }) {
   if (!badge) return <span className={className}>{nickname}</span>;
-  const label = <span className="sr-only">({NICKNAME_BADGE_LABEL[badge]} 뱃지)</span>;
+  const label = <span className="sr-only">({NICKNAME_BADGE_LABEL[badge]} 스킨)</span>;
 
   if (badge === 'HALO') {
     return (
@@ -28,19 +69,19 @@ export function DecoratedNickname({ nickname, badge, className }: { nickname: st
     return (
       <span data-badge={badge} className="inline-flex items-center gap-0.5 align-bottom">
         <Star className="size-3 fill-current text-gold-300" aria-hidden="true" />
-        <span className={cn(className, 'text-gold-300')}>{nickname}</span>
+        <span className={cn(className, !hasColor && 'text-gold-300')}>{nickname}</span>
         {label}
       </span>
     );
   }
 
   const Wing = badge === 'ANGEL_WINGS' ? AngelWing : DevilWing;
-  const color = badge === 'ANGEL_WINGS' ? 'text-neutral-900' : 'text-red-300';
+  const wingColor = badge === 'ANGEL_WINGS' ? 'text-neutral-900' : 'text-red-300';
   return (
     <span data-badge={badge} className="inline-flex items-center gap-0.5 align-bottom">
-      <Wing className={cn('h-3 w-3.5 -scale-x-100', color)} />
+      <Wing className={cn('h-3 w-3.5 -scale-x-100', wingColor)} />
       <span className={className}>{nickname}</span>
-      <Wing className={cn('h-3 w-3.5', color)} />
+      <Wing className={cn('h-3 w-3.5', wingColor)} />
       {label}
     </span>
   );

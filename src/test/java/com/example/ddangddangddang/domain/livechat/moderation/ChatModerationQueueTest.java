@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.livechat.moderation;
 
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageResponse;
+import com.example.ddangddangddang.domain.user.service.EquippedBadge;
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageType;
 import com.example.ddangddangddang.domain.livechat.dto.ModerationAlert;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatModerator.ChatForReview;
@@ -247,7 +248,7 @@ class ChatModerationQueueTest {
     }
 
     private ChatMessageResponse chat(Long senderId, String nickname, String content) {
-        return ChatMessageResponse.chat(LIVE_STREAM_ID, senderId, nickname, null, content);
+        return ChatMessageResponse.chat(LIVE_STREAM_ID, senderId, nickname, EquippedBadge.NONE, content);
     }
 
     private LiveStreamResponse liveStream(ChatModerationMode mode) {
