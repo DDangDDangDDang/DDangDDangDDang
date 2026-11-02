@@ -57,4 +57,23 @@ public class UserAddressService {
         }
         userAddressRepository.save(UserAddress.create(userId,DEFAULT_ADDRESS_NAME,receiverName,receiverPhone,address,deliveryMemo,true));
     }
+
+    // 배송지 수정 (기본 여부는 바꾸지 않는다)
+    @Transactional
+    public UserAddressResponse updateAddress(Long userId,Long addressId,UserAddressRequest request){
+        UserAddress myAddress = findMyAddress(userId, addressId);
+        myAddress.update(request.addressName(),request.receiverName(),request.receiverPhone(),request.address(),request.deliveryMemo());
+        return UserAddressResponse.from(myAddress);
+    }
+
+    // 배송지를 찾고, 내 것인 아닌지
+    private UserAddress findMyAddress(Long userId, Long addressId){
+        UserAddress userAddress = userAddressRepository.findById(addressId).orElseThrow(
+                ()-> new BusinessException(UserAddressErrorCode.ADDRESS_NOT_FOUND)
+        );
+        if (!userAddress.isOwner(userId)){
+            throw new BusinessException(UserAddressErrorCode.NOT_ADDRESS_OWNER);
+        }
+        return userAddress;
+    }
 }

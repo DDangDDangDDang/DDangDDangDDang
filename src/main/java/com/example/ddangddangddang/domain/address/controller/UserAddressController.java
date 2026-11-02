@@ -39,4 +39,12 @@ public class UserAddressController {
     ResponseEntity<ApiResponse<UserAddressResponse>> getDefaultAddress(@AuthenticationPrincipal AuthUser authUser){
         return ResponseEntity.ok(ApiResponse.ok(userAddressService.getDefaultAddress(authUser.id())));
     }
+
+    // 배송지 수정
+    @PatchMapping("/{addressId}")
+    ResponseEntity<ApiResponse<UserAddressResponse>> updateAddress(@AuthenticationPrincipal AuthUser authUser,
+                                                                   @PathVariable Long addressId,
+                                                                   @Valid @RequestBody UserAddressRequest request){
+        return ResponseEntity.ok(ApiResponse.ok(userAddressService.updateAddress(authUser.id(),addressId,request)));
+    }
 }
