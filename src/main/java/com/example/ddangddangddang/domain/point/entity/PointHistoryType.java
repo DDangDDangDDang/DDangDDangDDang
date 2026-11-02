@@ -7,5 +7,6 @@ public enum PointHistoryType {
     PURCHASE,   // 낙찰 or 즉시구매
     SETTLE,     // 구매 확정
     EXCHANGE,
-    EXCHANGE_REFUND
+    EXCHANGE_REFUND,
+    ORDER_REFUND    // 기한 초과로 주문 취소: 낙찰 금액을 구매자에게 돌려줌
 }
