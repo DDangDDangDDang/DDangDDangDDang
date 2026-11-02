@@ -145,6 +145,7 @@ export function validateAuctionCondition(values: AuctionConditionValues, mode: '
   // 즉시구매만 판매([즉시구매만 판매] 버튼)면 시작가·입찰 단위를 보지 않고 즉시구매가만 필수다. (서버: AuctionService.priceVerification)
   if (values.buyNowOnly) {
     if (buyNowPrice === undefined) errors.buyNowPrice = '즉시구매만 판매하려면 즉시구매가를 입력해 주세요.';
+    else if (buyNowPrice === 0) errors.buyNowPrice = '즉시구매가는 0원일 수 없어요.';
   } else {
     const startError = amountError(values.startPrice, '시작가');
     const unitError = amountError(values.bidUnit, '최소 입찰 단위');
