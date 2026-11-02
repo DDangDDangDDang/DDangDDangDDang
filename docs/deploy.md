@@ -201,6 +201,7 @@ aws secretsmanager put-secret-value --secret-id ddang/app --secret-string file:/
 | `VITE_KAKAO_REST_API_KEY` | 카카오 REST API 키 (`KAKAO_CLIENT_ID`와 같은 값) |
 | `VITE_GOOGLE_CLIENT_ID` | 구글 클라이언트 ID (`GOOGLE_CLIENT_ID`와 같은 값) |
 | `VITE_PORTONE_STORE_ID` / `VITE_PORTONE_CHANNEL_KEY` | 포트원 콘솔의 상점 ID / 채널 키 (결제 사용 시) |
+| `VITE_PORTONE_IDENTITY_CHANNEL_KEY` | 포트원 콘솔의 **본인인증** 채널 키 (다날 등, CI·생년월일을 돌려주는 채널). 판매자 신청에 필수라 비어 있으면 아무도 판매자 신청을 할 수 없음 |
 
 4. **배포 대상**은 Environment가 아니라 **저장소 변수**로 넣습니다.
    **Settings → Secrets and variables → Actions → Variables → New repository variable**
