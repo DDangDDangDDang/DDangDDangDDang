@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.order.service;
 
+import com.example.ddangddangddang.domain.address.service.UserAddressService;
 import com.example.ddangddangddang.domain.order.commission.CommissionPolicy;
 import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
@@ -58,6 +59,9 @@ class OrderServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private UserAddressService userAddressService;
 
     @Nested
     @DisplayName("주문 생성")
@@ -164,6 +168,8 @@ class OrderServiceTest {
             assertThat(response.receiverName()).isEqualTo("홍길동");
             assertThat(response.address()).isEqualTo("서울시 강남구 테헤란로 1");
             assertThat(response.deliveryMemo()).isEqualTo("문 앞");
+            verify(userAddressService).saveAsDefaultIfNone(BUYER_ID,"홍길동", "01012345678","서울시 강남구 테헤란로 1", "문 앞");
+
         }
 
         @Test
@@ -175,6 +181,7 @@ class OrderServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(OrderErrorCode.NOT_ORDER_BUYER_ADDRESS);
+            verify(userAddressService, never()).saveAsDefaultIfNone(any(),any(),any(),any(),any());
         }
     }
 

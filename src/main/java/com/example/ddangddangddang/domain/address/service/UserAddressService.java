@@ -18,6 +18,7 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class UserAddressService {
     private static final int MAX_ADDRESS_COUNT = 10;
+    private static final String DEFAULT_ADDRESS_NAME = "기본 배송지";
 
     private final UserAddressRepository userAddressRepository;
 
@@ -46,5 +47,14 @@ public class UserAddressService {
         return userAddressRepository.findByUserIdAndIsDefaultTrue(userId)
                 .map(UserAddressResponse::from)
                 .orElse(null);
+    }
+
+    // 주문 배송지 입력 시, 저장된 배송지가 하나도 없으면 그 값을 기본 배송지로 저장
+    @Transactional
+    public void saveAsDefaultIfNone(Long userId, String receiverName, String receiverPhone,String address, String deliveryMemo){
+        if (userAddressRepository.countByUserId(userId)>0){
+            return;
+        }
+        userAddressRepository.save(UserAddress.create(userId,DEFAULT_ADDRESS_NAME,receiverName,receiverPhone,address,deliveryMemo,true));
     }
 }

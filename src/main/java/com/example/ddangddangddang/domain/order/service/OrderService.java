@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.order.service;
 
+import com.example.ddangddangddang.domain.address.service.UserAddressService;
 import com.example.ddangddangddang.domain.order.commission.CommissionPolicy;
 import com.example.ddangddangddang.domain.order.commission.SaleContext;
 import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
@@ -36,6 +37,7 @@ public class OrderService {
     private final CommissionPolicy commissionPolicy;
     private final PointService pointService;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserAddressService userAddressService;
 
     /**
      * 낙찰 주문을 만든다. API가 아니라 경매 도메인이 호출하는 내부 메서드다.
@@ -173,6 +175,7 @@ public class OrderService {
         }
         order.registerDeliveryAddress(request.receiverName(), request.receiverPhone(),
                 request.address(), request.deliveryMemo());
+        userAddressService.saveAsDefaultIfNone(userId,request.receiverName(),request.receiverPhone(),request.address(),request.deliveryMemo());
         return OrderResponse.from(order);
     }
 }
