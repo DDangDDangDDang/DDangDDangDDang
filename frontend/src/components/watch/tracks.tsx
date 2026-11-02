@@ -18,7 +18,7 @@ export function TrackVideo({ track, className, onPlaying }: { track: RemoteTrack
 }
 
 /** 방송 소리 트랙을 재생한다. */
-export function TrackAudio({ track, muted }: { track: RemoteTrack; muted: boolean }) {
+export function TrackAudio({ track, muted, volume = 1 }: { track: RemoteTrack; muted: boolean; volume?: number }) {
   const ref = useRef<HTMLAudioElement>(null);
   useEffect(() => {
     const element = ref.current;
@@ -32,6 +32,9 @@ export function TrackAudio({ track, muted }: { track: RemoteTrack; muted: boolea
   useEffect(() => {
     if (ref.current) ref.current.muted = muted;
   }, [track, muted]);
+  useEffect(() => {
+    if (ref.current) ref.current.volume = volume;
+  }, [track, volume]);
   // 처음 그릴 때부터 음소거 상태로 둔다. (attach()가 연결하면서 바로 재생을 시작하므로)
   return <audio ref={ref} autoPlay muted={muted} />;
 }

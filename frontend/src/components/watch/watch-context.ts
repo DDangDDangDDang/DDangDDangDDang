@@ -24,6 +24,10 @@ export type Watch = {
   /** 방송 소리를 꺼 두었는지. 브라우저는 사용자가 누르기 전에는 소리를 막으므로 음소거로 시작한다. */
   muted: boolean;
   toggleSound: () => void;
+  /** 방송 소리 크기 (0~1). 이 브라우저에 기억한다. */
+  volume: number;
+  /** 소리 크기를 바꾼다. 음소거 중에 올리면 소리를 켜고, 0으로 내리면 음소거한다. */
+  setVolume: (volume: number) => void;
   /** 작은 플레이어로 보던 중 방송이 끝났다. (잠깐 안내한 뒤 닫는다) */
   ended: boolean;
   open: (session: WatchSession, onRoomClosed: () => void) => void;

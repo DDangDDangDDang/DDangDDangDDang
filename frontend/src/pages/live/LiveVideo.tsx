@@ -6,12 +6,11 @@ import {
   RefreshCw,
   Video,
   VideoOff,
-  Volume2,
-  VolumeX,
 } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 import { errorMessage, type Schema } from "@/api";
 import { TrackAudio, TrackVideo } from "@/components/watch/tracks";
+import { VolumeControl } from "@/components/watch/VolumeControl";
 import { RecordedBadge } from "@/components/live/RecordedBadge";
 import { Badge, Button } from "@/components/ui";
 import { formatDateTime, formatNumber } from "@/lib/format";
@@ -26,18 +25,18 @@ type Props = {
   };
   /** 판매자가 영상 위에 띄운 경매. 영상 안에 그려 전체 화면에서도 보인다. */
   overlay?: ReactNode;
-  /** 방송 소리를 꺼 두었는지와 켜고 끄기. 시청 화면을 떠나도 소리 설정이 작은 플레이어로 이어지도록 앱 전체에서 관리한다. (WatchProvider) */
+  /** 방송 소리를 꺼 두었는지와 켜고 끄기, 소리 크기. 시청 화면을 떠나도 소리 설정이 작은 플레이어로 이어지도록 앱 전체에서 관리한다. (WatchProvider) */
   muted: boolean;
   onToggleSound: () => void;
+  volume: number;
+  onVolumeChange: (volume: number) => void;
 };
 
 /** 방송 영상 영역: 영상 + LIVE·녹화 영상·시청자 수 배지 + 소리·전체 화면 버튼. 방송 상태별 안내도 이 자리에 보여준다. */
-export function LiveVideo({ liveStream, video, overlay, muted, onToggleSound }: Props) {
+export function LiveVideo({ liveStream, video, overlay, muted, onToggleSound, volume, onVolumeChange }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const isLive = liveStream.status === "LIVE";
   const playing = isLive && video.phase === "connected" && video.videoTrack;
-
-  const toggleSound = onToggleSound;
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen();
@@ -51,7 +50,7 @@ export function LiveVideo({ liveStream, video, overlay, muted, onToggleSound }: 
     >
       {video.videoTrack && <TrackVideo track={video.videoTrack} />}
       {video.audioTracks.map((track) => (
-        <TrackAudio key={track.sid} track={track} muted={muted} />
+        <TrackAudio key={track.sid} track={track} muted={muted} volume={volume} />
       ))}
 
       {!playing && <StageMessage liveStream={liveStream} video={video} />}
@@ -81,16 +80,12 @@ export function LiveVideo({ liveStream, video, overlay, muted, onToggleSound }: 
 
       {playing && (
         <div className="absolute right-4 bottom-4 z-10 flex gap-2">
-          <StageButton
-            label={muted ? "소리 켜기" : "소리 끄기"}
-            onClick={toggleSound}
-          >
-            {muted ? (
-              <VolumeX className="size-5" aria-hidden="true" />
-            ) : (
-              <Volume2 className="size-5" aria-hidden="true" />
-            )}
-          </StageButton>
+          <VolumeControl
+            muted={muted}
+            volume={volume}
+            onToggleSound={onToggleSound}
+            onVolumeChange={onVolumeChange}
+          />
           <StageButton label="전체 화면" onClick={toggleFullscreen}>
             <Maximize className="size-5" aria-hidden="true" />
           </StageButton>
