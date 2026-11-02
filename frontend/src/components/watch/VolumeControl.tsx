@@ -41,7 +41,7 @@ export function VolumeControl({ muted, volume, onToggleSound, onVolumeChange, to
         value={Math.round(shown * 100)}
         aria-valuetext={`${Math.round(shown * 100)}%`}
         onChange={(event) => onVolumeChange(Number(event.target.value) / 100)}
-        className={cn('cursor-pointer', stage ? 'w-24 accent-neutral-0' : 'w-20 accent-brand-500')}
+        className={cn('cursor-pointer', stage ? 'w-24 accent-white' : 'w-20 accent-brand-500')}
       />
     </div>
   );
