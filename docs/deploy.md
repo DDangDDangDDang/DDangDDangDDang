@@ -134,7 +134,7 @@ DNS가 연결된 뒤 첫 배포를 하면 Caddy가 Let's Encrypt 인증서를 �
 |---|---|---|
 | `JWT_SECRET` | Base64 256비트 이상 키. `openssl rand -base64 48` | ✅ |
 | `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | LiveKit Cloud → Settings → Keys | ✅ |
-| `PORTONE_API_SECRET` / `PORTONE_WEBHOOK_SECRET` | 포트원 콘솔 | 결제 사용 시 |
+| `PORTONE_API_SECRET` / `PORTONE_WEBHOOK_SECRET` | 포트원 콘솔 | 결제 사용 시. `PORTONE_API_SECRET`은 판매자 본인인증 결과 조회에도 써서 판매자 신청을 받으려면 필수 |
 | `MAIL_USERNAME` / `MAIL_APP_PASSWORD` | Gmail 주소 / 앱 비밀번호 | `MAIL_ENABLED=true`일 때 |
 | `SOLAPI_API_KEY` / `SOLAPI_API_SECRET` / `SOLAPI_SENDER` | SOLAPI 콘솔 / 등록한 발신번호 | `SMS_ENABLED=true`일 때 |
 | `ANTHROPIC_API_KEY` | Claude API 키 (Claude Console → API Keys). 채팅·선물 한마디·1:1 메시지 AI 검토에 씀. 비어 있으면 AI 검토만 꺼지고 서버는 뜸. dev는 기본으로 AI 검토가 켜져 있으니(`dev_app_environment`) `ddang-dev/app`에 넣으면 바로 동작 | `CHAT_MODERATION_AI_ENABLED=true`일 때 |
@@ -200,8 +200,8 @@ aws secretsmanager put-secret-value --secret-id ddang/app --secret-string file:/
 |---|---|
 | `VITE_KAKAO_REST_API_KEY` | 카카오 REST API 키 (`KAKAO_CLIENT_ID`와 같은 값) |
 | `VITE_GOOGLE_CLIENT_ID` | 구글 클라이언트 ID (`GOOGLE_CLIENT_ID`와 같은 값) |
-| `VITE_PORTONE_STORE_ID` / `VITE_PORTONE_CHANNEL_KEY` | 포트원 콘솔의 상점 ID / 채널 키 (결제 사용 시) |
-| `VITE_PORTONE_IDENTITY_CHANNEL_KEY` | 포트원 콘솔의 **본인인증** 채널 키 (다날 등, CI·생년월일을 돌려주는 채널). 판매자 신청에 필수라 비어 있으면 아무도 판매자 신청을 할 수 없음 |
+| `VITE_PORTONE_STORE_ID` / `VITE_PORTONE_CHANNEL_KEY` | 포트원 콘솔의 상점 ID / 채널 키 (결제 사용 시. 상점 ID는 판매자 본인인증에도 필요) |
+| `VITE_PORTONE_IDENTITY_CHANNEL_KEY` | 포트원 콘솔의 **본인인증** 채널 키 (다날 등, CI·생년월일을 돌려주는 채널). 판매자 신청에 필수라 비어 있으면 아무도 판매자 신청을 할 수 없음. `VITE_PORTONE_STORE_ID`와 시크릿 `PORTONE_API_SECRET`도 함께 있어야 동작함 |
 
 4. **배포 대상**은 Environment가 아니라 **저장소 변수**로 넣습니다.
    **Settings → Secrets and variables → Actions → Variables → New repository variable**
