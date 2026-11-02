@@ -66,6 +66,16 @@ public class UserAddressService {
         return UserAddressResponse.from(myAddress);
     }
 
+    //배송지 삭제(기본 배송지를 지우면, 남은 것 중 가장 최근에 저장한 배송지가 기본인 된다)
+    @Transactional
+    public void deleteAddress(Long userId, Long addressId){
+        UserAddress myAddress = findMyAddress(userId, addressId);
+        if (myAddress.isDefault()){
+            userAddressRepository.findFirstByUserIdAndIdNotOrderByIdDesc(userId,addressId).ifPresent(UserAddress::makeDefault);
+        }
+        userAddressRepository.delete(myAddress);
+    }
+
     // 배송지를 찾고, 내 것인 아닌지
     private UserAddress findMyAddress(Long userId, Long addressId){
         UserAddress userAddress = userAddressRepository.findById(addressId).orElseThrow(

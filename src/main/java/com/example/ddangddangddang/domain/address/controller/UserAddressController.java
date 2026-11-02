@@ -47,4 +47,13 @@ public class UserAddressController {
                                                                    @Valid @RequestBody UserAddressRequest request){
         return ResponseEntity.ok(ApiResponse.ok(userAddressService.updateAddress(authUser.id(),addressId,request)));
     }
+
+    //배송지 삭제(기본 배송지를 지우면, 남은 것 중 가장 최근에 저장한 배송지가 기본인 된다)
+    @DeleteMapping("/{addressId}")
+    ResponseEntity<Void> deleteAddress(@AuthenticationPrincipal AuthUser authUser,
+                                                                   @PathVariable Long addressId){
+        userAddressService.deleteAddress(authUser.id(),addressId);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
 }
