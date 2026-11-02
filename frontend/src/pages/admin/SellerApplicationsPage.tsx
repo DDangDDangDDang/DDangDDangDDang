@@ -4,7 +4,9 @@ import { api, call, errorMessage, useSession, type Schema } from '@/api';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Badge, Button, Card, Dialog, EmptyState, ErrorState, Notice, Select, Skeleton, Textarea } from '@/components/ui';
 import { formatDateTime } from '@/lib/format';
-import { formatBusinessNumber } from '@/lib/seller';
+import { formatBirthDate } from '@/lib/identity-verification';
+import { bankName } from '@/lib/exchange';
+import { formatBusinessNumber, formatContactPhone } from '@/lib/seller';
 import { SELLER_APPLICATION_STATUS_LABEL, type SellerApplicationStatus } from '@/lib/labels';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 
@@ -80,6 +82,25 @@ export function SellerApplicationsPage() {
                     <span className="text-label text-neutral-500">
                       {application.nickname || '-'} · {application.email || '-'}
                     </span>
+                  </span>
+                  {/* 본인인증 실명·생년월일. 본인인증을 도입하기 전에 낸 신청은 없다. */}
+                  <span className="text-label text-neutral-500">
+                    {application.realName ? (
+                      <>
+                        본인인증 {application.realName} · <span className="num">{formatBirthDate(application.birthDate)}</span>생
+                      </>
+                    ) : (
+                      '본인인증 없음'
+                    )}
+                  </span>
+                  {/* 정산 계좌(예금주 = 본인인증 실명, 서버가 확인)와 공개되는 반품 주소·문의 연락처. 도입 전에 낸 신청은 없다. */}
+                  <span className="text-label text-neutral-500">
+                    정산 계좌{' '}
+                    {application.accountNumber ? `${bankName(application.bankCode)} ${application.accountNumber} (${application.accountHolder ?? '-'})` : '없음'}
+                  </span>
+                  <span className="text-label text-neutral-500">
+                    반품·교환 {application.returnAddress || '-'} · 문의{' '}
+                    <span className="num">{application.contactPhone ? formatContactPhone(application.contactPhone) : '-'}</span>
                   </span>
                   <p className="text-body whitespace-pre-line text-neutral-700">{application.introduction}</p>
                   <span className="text-caption text-neutral-500">

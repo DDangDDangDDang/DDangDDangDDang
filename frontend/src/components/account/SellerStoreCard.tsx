@@ -3,6 +3,8 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, type Schema } from '@/api';
 import { Button, Card, CardBody, CardHeader, CardTitle, Input, Notice, Skeleton, Textarea, buttonVariants } from '@/components/ui';
+import { onlyDigits } from '@/lib/format';
+import { formatContactPhone, isValidContactPhone, RETURN_ADDRESS_MAX } from '@/lib/seller';
 import { sellerProfileKey } from '@/lib/use-seller';
 
 type Application = Schema<'SellerApplicationResponse'>;
@@ -14,7 +16,7 @@ const STORE_NAME_MAX = 30;
 const INTRODUCTION_MAX = 500;
 
 /**
- * 내 정보의 판매자 영역. 인증받은 판매자는 상점 이름·소개를 바로 고칠 수 있고(다시 심사받지 않음),
+ * 내 정보의 판매자 영역. 인증받은 판매자는 상점 이름·소개·반품 주소·문의 연락처를 바로 고칠 수 있고(다시 심사받지 않음),
  * 아니면 판매자 인증 화면으로 안내한다.
  */
 export function SellerStoreCard({ onNavigate }: { onNavigate?: () => void }) {
@@ -63,9 +65,23 @@ function StoreEditor({ application }: { application: Application }) {
   const [editing, setEditing] = useState(false);
   const [storeName, setStoreName] = useState('');
   const [introduction, setIntroduction] = useState('');
+  const [returnAddress, setReturnAddress] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const contactInvalid = contactPhone !== '' && !isValidContactPhone(contactPhone);
 
   const mutation = useMutation({
-    mutationFn: () => call(api.PUT('/api/v1/seller-applications/me/store', { body: { storeName: storeName.trim(), introduction: introduction.trim() } })),
+    mutationFn: () =>
+      call(
+        api.PUT('/api/v1/seller-applications/me/store', {
+          // 반품 주소·문의 연락처를 비우면 보내지 않는다. (서버는 그대로 둔다)
+          body: {
+            storeName: storeName.trim(),
+            introduction: introduction.trim(),
+            returnAddress: returnAddress.trim() || undefined,
+            contactPhone: contactPhone || undefined,
+          },
+        }),
+      ),
     onSuccess: (data) => {
       queryClient.setQueryData(MY_APPLICATION_KEY, data);
       if (application.userId !== undefined) void queryClient.invalidateQueries({ queryKey: sellerProfileKey(application.userId) });
@@ -81,6 +97,10 @@ function StoreEditor({ application }: { application: Application }) {
           <dd className="font-semibold">{application.storeName}</dd>
           <dt className="text-neutral-500">판매자 소개</dt>
           <dd className="whitespace-pre-line">{application.introduction}</dd>
+          <dt className="text-neutral-500">반품·교환 주소</dt>
+          <dd>{application.returnAddress || '-'}</dd>
+          <dt className="text-neutral-500">문의 연락처</dt>
+          <dd className="num">{application.contactPhone ? formatContactPhone(application.contactPhone) : '-'}</dd>
         </dl>
         <div className="flex items-center justify-between gap-4">
           {mutation.isSuccess ? <Notice tone="success">상점 정보를 저장했어요.</Notice> : <span />}
@@ -90,6 +110,8 @@ function StoreEditor({ application }: { application: Application }) {
             onClick={() => {
               setStoreName(application.storeName ?? '');
               setIntroduction(application.introduction ?? '');
+              setReturnAddress(application.returnAddress ?? '');
+              setContactPhone(application.contactPhone ?? '');
               mutation.reset();
               setEditing(true);
             }}
@@ -116,12 +138,25 @@ function StoreEditor({ application }: { application: Application }) {
         hint={`${introduction.length}/${INTRODUCTION_MAX}자 · 다시 심사받지 않고 바로 바뀌어요.`}
         onChange={(e) => setIntroduction(e.target.value)}
       />
+      <Notice>반품·교환 주소와 문의 연락처는 판매자 프로필에 공개되어 다른 회원 누구나 볼 수 있어요.</Notice>
+      <Input label="반품·교환 받을 주소" value={returnAddress} maxLength={RETURN_ADDRESS_MAX} onChange={(e) => setReturnAddress(e.target.value)} />
+      <div className="w-[320px]">
+        <Input
+          label="고객 문의 연락처"
+          inputMode="numeric"
+          placeholder="하이픈 없이 숫자만 (예: 0212345678)"
+          maxLength={11}
+          value={contactPhone}
+          onChange={(e) => setContactPhone(onlyDigits(e.target.value))}
+          error={contactInvalid ? '연락처를 숫자로 다시 확인해 주세요. (예: 0212345678)' : undefined}
+        />
+      </div>
       {mutation.isError && <Notice tone="error">{errorMessage(mutation.error)}</Notice>}
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={() => setEditing(false)} disabled={mutation.isPending}>
           취소
         </Button>
-        <Button type="submit" loading={mutation.isPending} disabled={!storeName.trim() || !introduction.trim()}>
+        <Button type="submit" loading={mutation.isPending} disabled={!storeName.trim() || !introduction.trim() || contactInvalid}>
           저장
         </Button>
       </div>

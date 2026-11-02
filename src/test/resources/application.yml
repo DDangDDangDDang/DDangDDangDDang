@@ -39,6 +39,10 @@ portone:
   webhook-secret: whsec_dGVzdC13ZWJob29rLXNlY3JldA==
 
 
+seller:
+  identity:
+    provider: fake   # 포트원 본인인증 대신 어떤 ID든 성인(1990-01-01생)으로 인증한다 (FakeIdentityVerifier)
+
 point:
   payout:
     provider: fake

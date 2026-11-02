@@ -11,6 +11,7 @@ import { cn } from '@/lib/cn';
 import { formatDate, formatDateTime, formatDotDate, formatMileage, formatNumber, formatPoint } from '@/lib/format';
 import {
   formatBroadcastDuration,
+  formatContactPhone,
   formatShippingTime,
   SELLER_AUCTION_TABS,
   sellerAuctionEmpty,
@@ -113,6 +114,23 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
         </span>
         {profile.introduction && <p className="mt-1 text-body whitespace-pre-line text-neutral-700">{profile.introduction}</p>}
         {profile.bio && <p className="mt-1 text-body whitespace-pre-line text-neutral-500">{profile.bio}</p>}
+        {/* 인증 판매자가 공개한 반품·교환 주소와 고객 문의 연락처 */}
+        {(profile.returnAddress || profile.contactPhone) && (
+          <dl className="mt-2 grid grid-cols-[96px_1fr] gap-y-1 text-label">
+            {profile.contactPhone && (
+              <>
+                <dt className="text-neutral-500">문의 연락처</dt>
+                <dd className="num text-neutral-700">{formatContactPhone(profile.contactPhone)}</dd>
+              </>
+            )}
+            {profile.returnAddress && (
+              <>
+                <dt className="text-neutral-500">반품·교환 주소</dt>
+                <dd className="text-neutral-700">{profile.returnAddress}</dd>
+              </>
+            )}
+          </dl>
+        )}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <SubscribeButton sellerId={sellerId} subscribed={profile.subscribed ?? false} />

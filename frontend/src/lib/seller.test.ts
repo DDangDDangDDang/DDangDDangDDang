@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   formatBroadcastDuration,
   formatBusinessNumber,
+  formatContactPhone,
   formatShippingTime,
   isValidBusinessNumber,
+  isValidContactPhone,
+  validateSellerInfo,
+  type SellerInfoValues,
   sellerAuctionEmpty,
   sellerAuctionPriceLabel,
   sellerAuctionQuery,
@@ -72,5 +76,37 @@ describe('상점 경매 기록 탭', () => {
   it('지난 경매가 비었을 때 유찰·취소를 숨겼으면 켜는 방법을 알려 준다', () => {
     expect(sellerAuctionEmpty('PAST', false).description).toContain('유찰·취소 포함');
     expect(sellerAuctionEmpty('PAST', true).title).toBe('지난 경매가 없어요');
+  });
+});
+
+describe('판매자 정산 계좌·반품 주소·문의 연락처', () => {
+  const valid: SellerInfoValues = {
+    bankCode: '004',
+    accountNumber: '123-456-789012',
+    accountHolder: '홍길동',
+    returnAddress: '서울시 중구 세종대로 110',
+    contactPhone: '0212345678',
+  };
+
+  it('모두 맞으면 오류가 없다', () => {
+    expect(validateSellerInfo(valid, '홍길동')).toEqual({});
+  });
+
+  it('예금주가 본인인증 실명과 다르면 막고, 띄어쓰기만 다르면 받는다', () => {
+    expect(validateSellerInfo({ ...valid, accountHolder: '김철수' }, '홍길동').accountHolder).toContain('홍길동');
+    expect(validateSellerInfo({ ...valid, accountHolder: '홍 길동' }, '홍길동')).toEqual({});
+  });
+
+  it('빈 값과 틀린 형식을 항목마다 알려 준다', () => {
+    const errors = validateSellerInfo({ bankCode: '', accountNumber: '---------- ', accountHolder: '', returnAddress: ' ', contactPhone: '1234' });
+    expect(Object.keys(errors).sort()).toEqual(['accountHolder', 'accountNumber', 'bankCode', 'contactPhone', 'returnAddress']);
+  });
+
+  it('연락처에 지역번호에 맞춰 하이픈을 붙인다', () => {
+    expect(formatContactPhone('0212345678')).toBe('02-1234-5678');
+    expect(formatContactPhone('021234567')).toBe('02-123-4567');
+    expect(formatContactPhone('01012345678')).toBe('010-1234-5678');
+    expect(formatContactPhone('0311234567')).toBe('031-123-4567');
+    expect(isValidContactPhone('010-1234-5678')).toBe(false);
   });
 });

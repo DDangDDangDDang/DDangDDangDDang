@@ -19,6 +19,7 @@ import com.example.ddangddangddang.domain.user.entity.UserRole;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
+import com.example.ddangddangddang.domain.seller.entity.SellerTerms;
 import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
 import com.example.ddangddangddang.support.SellerFixture;
 import com.example.ddangddangddang.support.SignupFixture;
@@ -175,8 +176,20 @@ class SellerSubscriptionControllerTest {
     void applyAndReview() throws Exception {
         Member seller = signupAndLogin();
 
+        // 본인인증 전에는 신청할 수 없다.
+        apply(seller, "필름 상점", "빈티지 필름 카메라를 팝니다.").andExpect(jsonPath("$.error.code").value("SELLER_010"));
+        mockMvc.perform(get("/api/v1/seller-applications/identity").header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                .andExpect(jsonPath("$.data").doesNotExist());
+        verifyIdentity(seller).andExpect(status().isOk()).andExpect(jsonPath("$.data.realName").value("테스트판매자"));
+        // 예금주가 본인인증 실명과 다르면 신청할 수 없다.
+        applyWith(seller, "\"storeName\": \"필름 상점\", \"introduction\": \"소개\"",
+                SELLER_INFO.replace("테스트 판매자", "김다른사람"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("SELLER_016"));
+
         Long applicationId = longValue(apply(seller, "필름 상점", "빈티지 필름 카메라를 팝니다.")
-                .andExpect(jsonPath("$.data.status").value("PENDING")), "$.data.id");
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.accountNumber").value("123456789012"))
+                .andExpect(jsonPath("$.data.accountHolder").value("테스트 판매자")), "$.data.id");
         // 심사 중에는 다시 신청할 수 없다.
         apply(seller, "필름 상점", "다시").andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SELLER_001"));
         // 일반 회원은 심사할 수 없다.
@@ -192,7 +205,9 @@ class SellerSubscriptionControllerTest {
         apply(seller, "필름 상점", "1970년대 필름 카메라를 점검해서 팝니다.").andExpect(jsonPath("$.data.status").value("PENDING"));
         mockMvc.perform(get("/api/v1/admin/seller-applications").param("status", "PENDING").header(HttpHeaders.AUTHORIZATION, adminBearer()))
                 .andExpect(jsonPath("$.data.content[0].id").value(applicationId))
-                .andExpect(jsonPath("$.data.content[0].nickname").value(seller.nickname()));
+                .andExpect(jsonPath("$.data.content[0].nickname").value(seller.nickname()))
+                .andExpect(jsonPath("$.data.content[0].realName").value("테스트판매자"))
+                .andExpect(jsonPath("$.data.content[0].birthDate").value("1990-01-01"));
         mockMvc.perform(post("/api/v1/admin/seller-applications/{id}/approve", applicationId).header(HttpHeaders.AUTHORIZATION, adminBearer()))
                 .andExpect(jsonPath("$.data.status").value("APPROVED"));
         apply(seller, "필름 상점", "또").andExpect(jsonPath("$.error.code").value("SELLER_002"));
@@ -203,6 +218,10 @@ class SellerSubscriptionControllerTest {
                 .andExpect(jsonPath("$.data.verifiedSeller").value(true))
                 .andExpect(jsonPath("$.data.storeName").value("필름 상점"))
                 .andExpect(jsonPath("$.data.introduction").value("1970년대 필름 카메라를 점검해서 팝니다."))
+                // 반품 주소·문의 연락처는 공개하고, 정산 계좌는 공개하지 않는다.
+                .andExpect(jsonPath("$.data.returnAddress").value("서울시 중구 세종대로 110 2층"))
+                .andExpect(jsonPath("$.data.contactPhone").value("0212345678"))
+                .andExpect(jsonPath("$.data.accountNumber").doesNotExist())
                 .andExpect(jsonPath("$.data.subscribed").value(false))
                 .andExpect(jsonPath("$.data.businessSeller").value(false));
     }
@@ -211,15 +230,13 @@ class SellerSubscriptionControllerTest {
     @DisplayName("사업자등록번호로 신청해 승인받으면 프로필에 사업자 판매자로 나오고, 번호가 틀리면 SELLER_007")
     void businessSeller() throws Exception {
         Member seller = signupAndLogin();
+        verifyIdentity(seller).andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/v1/seller-applications").header(HttpHeaders.AUTHORIZATION, seller.bearer())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"storeName\": \"사업자 상점\", \"introduction\": \"정식 사업자입니다.\", \"businessNumber\": \"220-81-62518\"}"))
+        applyWith(seller, "\"storeName\": \"사업자 상점\", \"introduction\": \"정식 사업자입니다.\", \"businessNumber\": \"220-81-62518\"")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("SELLER_007"));
-        Long applicationId = longValue(mockMvc.perform(post("/api/v1/seller-applications").header(HttpHeaders.AUTHORIZATION, seller.bearer())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"storeName\": \"사업자 상점\", \"introduction\": \"정식 사업자입니다.\", \"businessNumber\": \"220-81-62517\"}"))
+        Long applicationId = longValue(applyWith(seller,
+                        "\"storeName\": \"사업자 상점\", \"introduction\": \"정식 사업자입니다.\", \"businessNumber\": \"220-81-62517\"")
                 .andExpect(jsonPath("$.data.businessNumber").value("2208162517")), "$.data.id");
 
         // 승인 전에는 사업자 배지가 없다.
@@ -306,9 +323,30 @@ class SellerSubscriptionControllerTest {
     }
 
     private ResultActions apply(Member member, String storeName, String introduction) throws Exception {
+        return applyWith(member, "\"storeName\": \"%s\", \"introduction\": \"%s\"".formatted(storeName, introduction));
+    }
+
+    // 정산 계좌(예금주 = 가짜 본인인증 실명)·반품 주소·문의 연락처
+    private static final String SELLER_INFO = "\"bankCode\": \"004\", \"accountNumber\": \"123-456-789012\", \"accountHolder\": \"테스트 판매자\", "
+            + "\"returnAddress\": \"서울시 중구 세종대로 110 2층\", \"contactPhone\": \"0212345678\"";
+
+    // 약관 동의·판매자 정보를 붙여 신청한다. fields: 상점 이름·소개·사업자등록번호 JSON 필드
+    private ResultActions applyWith(Member member, String fields) throws Exception {
+        return applyWith(member, fields, SELLER_INFO);
+    }
+
+    private ResultActions applyWith(Member member, String fields, String sellerInfo) throws Exception {
         return mockMvc.perform(post("/api/v1/seller-applications").header(HttpHeaders.AUTHORIZATION, member.bearer())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"storeName\": \"%s\", \"introduction\": \"%s\"}".formatted(storeName, introduction)));
+                .content("{%s, %s, \"termsAgreed\": true, \"privacyAgreed\": true, \"termsVersion\": \"%s\"}"
+                        .formatted(fields, sellerInfo, SellerTerms.CURRENT_VERSION)));
+    }
+
+    // 판매자 신청 전 본인인증 (테스트는 FakeIdentityVerifier: 1990-01-01생 "테스트판매자")
+    private ResultActions verifyIdentity(Member member) throws Exception {
+        return mockMvc.perform(post("/api/v1/seller-applications/identity").header(HttpHeaders.AUTHORIZATION, member.bearer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"identityVerificationId\": \"identity-%s\"}".formatted(UUID.randomUUID())));
     }
 
     private Long createProduct(Member seller, String name) {
