@@ -214,6 +214,27 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
         assertThat(orderRepository.findById(succeeding).orElseThrow().getStatus()).isEqualTo(OrderStatus.CANCELED);
     }
 
+    @Test
+    @DisplayName("경매 이력에 주문 취소 사유가 함께 나온다")
+    void productAuctionHistory_includesOrderCancelReason() {
+        addressOverdueOrder(auctionId, buyer.getId());
+        scheduler.cancelOverdueOrders();
+
+        assertThat(auctionService.productAuctionHistory(seller.getId(), product.getId()))
+                .singleElement()
+                .satisfies(history -> assertThat(history.orderCancelReason()).isEqualTo(OrderCancelReason.BUYER_NO_ADDRESS));
+    }
+
+    @Test
+    @DisplayName("취소되지 않은 주문의 경매 이력에는 취소 사유가 없다")
+    void productAuctionHistory_noCancelledOrder_reasonNull() {
+        orderRepository.save(Order.create(auctionId, buyer.getId(), seller.getId(), "아이패드", null, PRICE));
+
+        assertThat(auctionService.productAuctionHistory(seller.getId(), product.getId()))
+                .singleElement()
+                .satisfies(history -> assertThat(history.orderCancelReason()).isNull());
+    }
+
     private Long soldAuction() {
         LocalDateTime startAt = LocalDateTime.now().plusHours(1);
         Long id = auctionService.auctionCreate(seller.getId(), new AuctionCreateRequest(

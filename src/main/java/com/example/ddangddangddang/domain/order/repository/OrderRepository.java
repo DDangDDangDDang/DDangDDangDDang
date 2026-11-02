@@ -11,12 +11,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
     boolean existsByAuctionId(Long auctionId);
+
+    /** 판매자 경매 이력: 경매들의 주문 중 그 상태인 것 (취소 사유 표시) */
+    List<Order> findByAuctionIdInAndStatus(Collection<Long> auctionIds, OrderStatus status);
+
     boolean existsByCourierAndTrackingNo(Courier courier, String trackingNo);
 
     /** 판매자 프로필 신뢰 지표: 판매자의 주문 중 그 상태인 것의 수 (구매 확정 수) */
