@@ -14,6 +14,7 @@ import com.example.ddangddangddang.domain.livestream.dto.ThumbnailChangeRequest;
 import com.example.ddangddangddang.domain.livestream.dto.ThumbnailUploadRequest;
 import com.example.ddangddangddang.domain.livestream.dto.ThumbnailUploadResponse;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
+import com.example.ddangddangddang.domain.livestream.service.LiveStreamCustomThumbnailService;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamHomeService;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamListService;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
@@ -37,6 +38,7 @@ public class LiveStreamController {
     private final LiveStreamHomeService liveStreamHomeService;
     private final LiveStreamListService liveStreamListService;
     private final LiveStreamThumbnailService thumbnailService;
+    private final LiveStreamCustomThumbnailService customThumbnailService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -152,6 +154,40 @@ public class LiveStreamController {
             @Valid @RequestBody ThumbnailChangeRequest request) {
         thumbnailService.change(liveStreamId, authUser.id(), request.thumbnailKey());
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 판매자가 직접 고른 방송 카드 썸네일의 업로드 URL을 받는다. 올린 뒤 PUT /{liveStreamId}/custom-thumbnail로 확정한다.
+     * JPG·PNG·WEBP, 2MB까지 (권장 16:9, 1280×720). 방송 주인만, 종료 전에만 받을 수 있다.
+     */
+    @PostMapping("/{liveStreamId}/custom-thumbnail-uploads")
+    public ResponseEntity<ApiResponse<ThumbnailUploadResponse>> createCustomThumbnailUpload(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @Valid @RequestBody ThumbnailUploadRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(customThumbnailService.createUpload(liveStreamId, authUser.id(), request)));
+    }
+
+    /**
+     * 올린 이미지를 방송 카드 썸네일로 쓴다. 송출 화면 자동 캡처보다 먼저 보이고, 자동 캡처가 덮어쓰지 않는다.
+     * 앞에 올린 썸네일은 지운다. 방송 주인만, 종료 전에만 바꿀 수 있다.
+     */
+    @PutMapping("/{liveStreamId}/custom-thumbnail")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> changeCustomThumbnail(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId,
+            @Valid @RequestBody ThumbnailChangeRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(customThumbnailService.change(liveStreamId, authUser.id(), request.thumbnailKey())));
+    }
+
+    /**
+     * 직접 올린 썸네일을 지운다. 방송 카드는 다시 송출 화면 자동 캡처를 쓴다. (방송 주인만, 종료 전에만)
+     */
+    @DeleteMapping("/{liveStreamId}/custom-thumbnail")
+    public ResponseEntity<ApiResponse<LiveStreamResponse>> deleteCustomThumbnail(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long liveStreamId) {
+        return ResponseEntity.ok(ApiResponse.ok(customThumbnailService.delete(liveStreamId, authUser.id())));
     }
 
     /**

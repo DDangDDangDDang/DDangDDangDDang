@@ -259,7 +259,7 @@ class LiveChatServiceTest {
 
     private LiveStreamResponse liveStream(Long sellerId) {
         return new LiveStreamResponse(LIVE_STREAM_ID, sellerId, "테스트 방송", null, List.of(), null, List.of(), null, false,
-                ChatModerationMode.AUTO_HIDE, LiveStreamStatus.LIVE, LocalDateTime.now(), null, LocalDateTime.now(), null);
+                ChatModerationMode.AUTO_HIDE, null, LiveStreamStatus.LIVE, LocalDateTime.now(), null, LocalDateTime.now(), null);
     }
 
     @Test

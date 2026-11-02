@@ -39,13 +39,19 @@ describe('방송 카드 썸네일', () => {
     expect(screen.getAllByText('윤')).toHaveLength(2);
   });
 
-  it('썸네일이 없거나 방송이 끝났으면 판매자 이름 첫 글자를 보여 준다', () => {
-    const { image } = renderCard({ ...card, thumbnailUrl: undefined });
-    expect(image()).toBeNull();
+  it('썸네일이 없으면(서버는 null) 판매자 이름 첫 글자를 보여 준다', () => {
+    expect(renderCard({ ...card, thumbnailUrl: undefined }).image()).toBeNull();
+    // 생성된 타입에는 null이 없지만 서버는 없는 값을 null로 보낸다.
+    expect(renderCard({ ...card, thumbnailUrl: null as unknown as undefined }).image()).toBeNull();
   });
 
-  it('끝난 방송은 마지막 썸네일이 있어도 보여 주지 않는다', () => {
-    const { image } = renderCard({ ...card, status: 'ENDED' });
+  it('방송 예정·끝난 방송도 서버가 준 썸네일(판매자가 올린 이미지)을 그대로 보여 준다', () => {
+    const custom = 'https://cdn.test/live-thumbnails/7/custom/b.png';
+    expect(renderCard({ ...card, status: 'SCHEDULED', thumbnailUrl: custom }).image()).toHaveAttribute('src', custom);
+  });
+
+  it('끝난 방송에 서버가 썸네일을 주지 않으면 판매자 이름 첫 글자를 보여 준다', () => {
+    const { image } = renderCard({ ...card, status: 'ENDED', thumbnailUrl: undefined });
     expect(image()).toBeNull();
   });
 });

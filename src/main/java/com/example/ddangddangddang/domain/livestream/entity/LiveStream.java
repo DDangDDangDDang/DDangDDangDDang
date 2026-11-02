@@ -117,6 +117,12 @@ public class LiveStream extends BaseTimeEntity {
     @Column(name = "thumbnail_key")
     private String thumbnailKey;
 
+    // 판매자가 직접 올린 방송 카드 썸네일의 저장소 키 (live-thumbnails/{방송 ID}/custom/...). 없으면 null
+    // 있으면 자동 캡처(thumbnailKey)보다 먼저 카드에 보여 주고, 지우면 자동 캡처로 돌아간다. (cardThumbnailKey)
+    // 자동 캡처는 thumbnailKey만 고치므로 이 값을 덮어쓰지 않는다.
+    @Column(name = "custom_thumbnail_key")
+    private String customThumbnailKey;
+
     // 시작 버튼 연타, 여러 서버에서 동시에 상태를 바꾸는 경우 한 건만 성공시키기 위한 낙관적 락
     @Version
     private Long version;
@@ -305,12 +311,35 @@ public class LiveStream extends BaseTimeEntity {
         return true;
     }
 
-    /** 방송 화면 배치를 고칠 수 있는지: 방송 주인이고 종료 전이어야 한다. (이미지 박스 업로드 URL을 줄 때도 같은 조건) */
+    /** 방송 화면 배치를 고칠 수 있는지: 방송 주인이고 종료 전이어야 한다. (이미지 박스 업로드 URL, 직접 올리는 썸네일도 같은 조건) */
     public void validateOverlayEditable(Long requesterId) {
         validateOwner(requesterId);
         if (status == LiveStreamStatus.ENDED) {
             throw new BusinessException(LiveStreamErrorCode.ALREADY_ENDED);
         }
+    }
+
+    /**
+     * 판매자가 직접 올린 썸네일을 바꾸거나(키) 지운다(null). 방송 주인만, 종료 전에만 바꿀 수 있다.
+     *
+     * @return 바뀌기 전 키 (없었으면 null)
+     */
+    public String changeCustomThumbnail(Long requesterId, String key) {
+        validateOverlayEditable(requesterId);
+        String previous = this.customThumbnailKey;
+        this.customThumbnailKey = key;
+        return previous;
+    }
+
+    /**
+     * 방송 카드에 보여 줄 썸네일 키. 판매자가 직접 올린 썸네일이 먼저이고, 없으면 방송 중일 때만 송출 화면 캡처를 쓴다.
+     * (끝난 방송의 마지막 캡처는 보여 주지 않는다) 둘 다 없으면 null
+     */
+    public String cardThumbnailKey() {
+        if (customThumbnailKey != null) {
+            return customThumbnailKey;
+        }
+        return status == LiveStreamStatus.LIVE ? thumbnailKey : null;
     }
 
     /** 지금 화면 배치의 박스 (정하지 않았으면 빈 목록) */

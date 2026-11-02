@@ -63,7 +63,7 @@ public class LiveStreamCardAssembler {
                         nicknames.get(stream.getSellerId()), stream.getScheduledStartAt(), stream.getStartedAt(),
                         stream.getEndedAt(), viewerCounts.getOrDefault(stream.getId(), 0),
                         viewerIncreases.getOrDefault(stream.getId(), 0), stream.isRecorded(), power.contains(stream.getSellerId()),
-                        stream.getThumbnailKey() == null ? null : fileStorage.publicUrl(stream.getThumbnailKey())))
+                        stream.cardThumbnailKey() == null ? null : fileStorage.publicUrl(stream.cardThumbnailKey())))
                 .toList();
     }
 }

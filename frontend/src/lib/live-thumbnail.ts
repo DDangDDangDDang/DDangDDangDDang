@@ -41,3 +41,20 @@ export async function captureJpeg(track: MediaStreamTrack): Promise<Blob | undef
     video.srcObject = null;
   }
 }
+
+/*
+ * 판매자가 직접 올리는 방송 카드 썸네일. 서버(LiveStreamCustomThumbnailService)와 같은 규칙으로 올리기 전에 먼저 걸러 낸다.
+ * 있으면 자동 캡처보다 먼저 카드에 보이고, 지우면 자동 캡처로 돌아간다.
+ */
+
+/** 서버가 받는 형식 (JPG, PNG, WEBP) */
+export const CUSTOM_THUMBNAIL_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+export const CUSTOM_THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024;
+
+/** 올릴 수 없는 파일이면 이유, 올릴 수 있으면 undefined */
+export function customThumbnailProblem(file: { type: string; size: number }): string | undefined {
+  if (!(CUSTOM_THUMBNAIL_TYPES as readonly string[]).includes(file.type)) return 'JPG, PNG, WEBP 이미지만 올릴 수 있어요.';
+  if (file.size === 0) return '빈 파일은 올릴 수 없어요.';
+  if (file.size > CUSTOM_THUMBNAIL_MAX_BYTES) return '2MB 이하 이미지만 올릴 수 있어요.';
+  return undefined;
+}
