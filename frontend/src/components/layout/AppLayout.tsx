@@ -211,6 +211,8 @@ function AccountMenu({
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  // 닉네임이 없거나 빈 문자열이면 보이는 문구와 스크린리더 이름 모두 "내 계정"으로 맞춘다.
+  const label = nickname || "내 계정";
 
   useEffect(() => {
     if (!open) return;
@@ -239,11 +241,11 @@ function AccountMenu({
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`${nickname ?? "내"} 메뉴`}
+        aria-label={`${label} 메뉴`}
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1 rounded-md px-2 py-2 text-body font-semibold hover:bg-neutral-50"
       >
-        {nickname || "내 계정"}
+        {label}
         <ChevronDown
           className={`size-4 text-neutral-500 transition-transform ${open ? "rotate-180" : ""}`}
           aria-hidden="true"
