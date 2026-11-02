@@ -29,7 +29,7 @@ export function SellerIdentity({ sellerId, fallbackName, size = 'md', detail, li
 
   const content = (
     <>
-      <SellerAvatar name={name} verified={verified} size={size} live={live} />
+      <SellerAvatar name={name} imageUrl={profile.data?.profileImageUrl} verified={verified} size={size} live={live} />
       <span className="flex min-w-0 flex-col text-left">
         <span className="flex min-w-0 items-center gap-1.5">
           <strong className={cn('truncate font-semibold', size === 'sm' ? 'text-body' : 'text-body-lg', verified && 'group-hover:underline')}>{name}</strong>

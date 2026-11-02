@@ -347,7 +347,7 @@ function TileLink({
             big ? "gap-3.5 px-6 pt-20 pb-5" : "gap-2.5 px-3 pt-8 pb-3",
           )}
         >
-          <SellerAvatar name={seller} size={big ? "lg" : "md"} live />
+          <SellerAvatar name={seller} imageUrl={card.sellerProfileImageUrl} size={big ? "lg" : "md"} live />
           <span className="flex min-w-0 flex-col gap-0.5 text-left">
             <span
               className={cn(
