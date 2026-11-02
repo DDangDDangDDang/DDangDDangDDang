@@ -7,6 +7,7 @@ const STATUS_BADGE: Record<OrderStatus, 'outline' | 'info' | 'neutral'> = {
   ESCROW: 'outline',
   SHIPPING: 'info',
   COMPLETED: 'neutral',
+  CANCELED: 'neutral',
 };
 
 export function OrderStatusBadge({ status }: { status?: OrderStatus }) {

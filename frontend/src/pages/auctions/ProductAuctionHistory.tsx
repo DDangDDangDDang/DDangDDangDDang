@@ -5,6 +5,7 @@ import { AuctionPhaseBadge } from '@/components/auction/AuctionBits';
 import { Card, CardBody, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { auctionPhase } from '@/lib/auction';
 import { formatDate, formatNumber, formatPoint } from '@/lib/format';
+import { ORDER_CANCEL_REASON_LABEL } from '@/lib/labels';
 import { useNow } from '@/lib/use-now';
 
 type Auction = Schema<'AuctionResponse'>;
@@ -62,6 +63,9 @@ function HistoryRow({ auction, current, now }: { auction: Auction; current: bool
       <span className="flex min-w-0 flex-col gap-1">
         <span className="flex items-center gap-1.5">
           <AuctionPhaseBadge phase={phase} />
+          {auction.orderCancelReason && (
+            <span className="text-caption font-semibold text-red-300">{ORDER_CANCEL_REASON_LABEL[auction.orderCancelReason]}</span>
+          )}
           {current && <span className="text-caption font-semibold text-brand-700">지금 보는 경매</span>}
         </span>
         <span className="num text-caption text-neutral-500">

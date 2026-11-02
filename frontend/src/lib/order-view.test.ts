@@ -18,6 +18,11 @@ describe('주문 상세 화면 판단', () => {
     expect(orderStage({ ...base, ...address })).toBe('WAITING_SHIPMENT');
   });
 
+  it('취소된 주문은 배송지가 있어도 취소 단계다', () => {
+    expect(orderStage({ ...base, status: 'CANCELED' })).toBe('CANCELED');
+    expect(orderStage({ ...base, ...address, status: 'CANCELED' })).toBe('CANCELED');
+  });
+
   it('배송 중·완료는 상태 그대로 따른다', () => {
     expect(orderStage({ ...base, ...address, status: 'SHIPPING' })).toBe('SHIPPING');
     expect(orderStage({ ...base, ...address, status: 'COMPLETED' })).toBe('COMPLETED');
