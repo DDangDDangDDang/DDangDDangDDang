@@ -80,4 +80,11 @@ public class Product extends BaseTimeEntity {
     public void sold() {
         this.status = Status.SOLD;
     }
+
+    //낙찰 주문이 취소되면 다시 판매 중으로 돌린다. 판매자가 삭제한 상품은 되살리지 않는다
+    public void relist() {
+        if (this.status == Status.SOLD) {
+            this.status = Status.ACTIVE;
+        }
+    }
 }

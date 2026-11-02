@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,6 +24,24 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     /** 판매자 프로필 신뢰 지표: 최근 발송한 주문 (주문부터 발송까지 걸린 시간 평균) */
     List<Order> findTop100BySellerIdAndShippedAtIsNotNullOrderByIdDesc(Long sellerId);
+
+    /** 배송지 입력 기한이 지났는데 배송지가 없는 주문 */
+    @Query("""
+            select o.id from Order o
+            where o.status = com.example.ddangddangddang.domain.order.entity.OrderStatus.ESCROW
+              and o.address is null and o.addressDeadlineAt <= :now
+            order by o.id
+            """)
+    List<Long> findAddressOverdueIds(@Param("now") LocalDateTime now, Pageable pageable);
+
+    /** 발송 기한이 지났는데 발송하지 않은 주문 */
+    @Query("""
+            select o.id from Order o
+            where o.status = com.example.ddangddangddang.domain.order.entity.OrderStatus.ESCROW
+              and o.shipDeadlineAt <= :now
+            order by o.id
+            """)
+    List<Long> findShipOverdueIds(@Param("now") LocalDateTime now, Pageable pageable);
 
     /** 구매 내역. cursor보다 오래된 주문을 최신순으로 조회한다. status, cursor가 null이면 조건을 적용하지 않는다. */
     @Query("""

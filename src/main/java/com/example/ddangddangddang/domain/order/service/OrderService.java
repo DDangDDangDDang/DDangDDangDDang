@@ -6,6 +6,7 @@ import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
+import com.example.ddangddangddang.domain.order.event.OrderCanceledEvent;
 import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
@@ -20,10 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
 import com.example.ddangddangddang.domain.order.dto.OrderSummaryResponse;
 import com.example.ddangddangddang.domain.order.entity.OrderRole;
+import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -154,6 +157,30 @@ public class OrderService {
         // 커밋 뒤 구매자에게 도네이션 포인트를 적립한다. (도네이션 도메인이 듣는다)
         eventPublisher.publishEvent(new OrderConfirmedEvent(order.getId(), order.getBuyerId(), order.getSellerId(), order.getFinalPrice()));
         return OrderResponse.from(order);
+    }
+
+    /**
+     * 기한을 넘긴 주문을 취소하고 구매자에게 전액 환불한다. 스케줄러가 건별로 호출한다.
+     *
+     * 주문을 잠근 뒤 상태와 기한을 다시 확인하므로, 그 사이 발송됐거나 이미 취소된 주문은 건너뛴다.
+     * 정산 전 취소라 판매자 정산금·수수료·마일리지는 건드릴 것이 없다.
+     *
+     * @return 이번 호출로 취소했으면 true
+     */
+    @Transactional
+    public boolean cancelOverdue(Long orderId, OrderCancelReason reason) {
+        Order order = findOrderForUpdate(orderId);
+        LocalDateTime now = LocalDateTime.now();
+        boolean overdue = reason == OrderCancelReason.BUYER_NO_ADDRESS
+                ? order.isAddressOverdue(now) : order.isShipOverdue(now);
+        if (order.getStatus() != OrderStatus.ESCROW || !overdue) {
+            return false;
+        }
+        order.cancel(reason, now);
+        pointService.refundOrder(order.getBuyerId(), order.getFinalPrice(), order.getId());
+        eventPublisher.publishEvent(new OrderCanceledEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), reason));
+        return true;
     }
 
     private Order findOrderForUpdate(Long orderId) {
