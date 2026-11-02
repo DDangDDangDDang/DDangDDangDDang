@@ -7,12 +7,15 @@ import com.example.ddangddangddang.domain.seller.infra.IdentityVerifier;
 import com.example.ddangddangddang.domain.seller.infra.VerifiedIdentity;
 import com.example.ddangddangddang.domain.seller.repository.SellerIdentityRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,6 +45,16 @@ class SellerIdentityServiceTest {
 
     @Mock
     private IdentityVerifier identityVerifier;
+
+    @Mock
+    private TransactionTemplate transactionTemplate;
+
+    @BeforeEach
+    void setUp() {
+        // 트랜잭션 없이 콜백만 실행한다. (미성년자처럼 저장 전에 끝나는 경우도 있어 lenient)
+        lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation ->
+                invocation.<TransactionCallback<?>>getArgument(0).doInTransaction(null));
+    }
 
     @Test
     @DisplayName("처음 인증하면 실명·생년월일과 CI 해시를 저장한다 (CI 원문은 저장하지 않는다)")

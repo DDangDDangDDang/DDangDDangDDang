@@ -10,7 +10,9 @@ import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 
@@ -25,8 +27,13 @@ public class SellerIdentityService {
 
     private final SellerIdentityRepository identityRepository;
     private final IdentityVerifier identityVerifier;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
+    /**
+     * 포트원 조회(외부 HTTP)는 트랜잭션 밖에서 하고, 결과 저장만 트랜잭션으로 묶는다.
+     * 포트원이 느려도 응답을 기다리는 동안 DB 커넥션을 잡고 있지 않게 하려는 것이다.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public SellerIdentityResponse verify(Long userId, String identityVerificationId) {
         VerifiedIdentity verified = identityVerifier.verify(identityVerificationId);
         LocalDateTime now = LocalDateTime.now();
@@ -37,6 +44,11 @@ public class SellerIdentityService {
         String name = verified.name().length() > SellerIdentity.NAME_MAX_LENGTH
                 ? verified.name().substring(0, SellerIdentity.NAME_MAX_LENGTH) : verified.name();
 
+        return transactionTemplate.execute(status -> save(userId, identityVerificationId, name, verified, ciHash, now));
+    }
+
+    private SellerIdentityResponse save(Long userId, String identityVerificationId, String name,
+                                        VerifiedIdentity verified, String ciHash, LocalDateTime now) {
         identityRepository.findByCiHash(ciHash)
                 .filter(other -> !other.getUserId().equals(userId))
                 .ifPresent(other -> {
