@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import type { Schema } from '@/api';
 import { ProductImage } from '@/components/order/OrderBits';
 import { Badge, Skeleton, type BadgeProps } from '@/components/ui';
-import { AUCTION_PHASE_LABEL, auctionPhase, secondsUntil, type AuctionPhase } from '@/lib/auction';
+import { AUCTION_PHASE_LABEL, auctionPhase, auctionPriceLabel, secondsUntil, type AuctionPhase } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint, formatRemaining } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 
@@ -63,6 +63,7 @@ export function AuctionCard({ auction }: { auction: ListItem }) {
         <ProductImage src={auction.thumbnailUrl} alt={auction.productName ?? '상품'} className="aspect-square w-full rounded-md" />
         <div className="absolute top-3 left-3 flex gap-1.5">
           <AuctionPhaseBadge phase={phase} />
+          {auction.buyNowOnly && <Badge variant="outline">즉시구매</Badge>}
           {auction.promoted && (
             <Badge variant="promo">
               <Megaphone className="size-3.5" aria-hidden="true" />
@@ -81,13 +82,16 @@ export function AuctionCard({ auction }: { auction: ListItem }) {
         {auction.categoryName && <span className="text-caption text-neutral-500">{auction.categoryName}</span>}
         <strong className="line-clamp-2 text-body-lg font-semibold group-hover:underline">{auction.productName || '이름 없는 상품'}</strong>
         <span className="flex items-baseline gap-1.5">
-          <span className="text-caption text-neutral-500">{phase === 'ENDED' ? '낙찰가' : '현재가'}</span>
+          <span className="text-caption text-neutral-500">{auctionPriceLabel(phase === 'READY' ? 'ONGOING' : phase, auction.buyNowOnly)}</span>
           <span className="num text-title-md font-bold">{formatPoint(auction.currentPrice ?? 0)}</span>
         </span>
         <span className="flex items-center gap-2">
-          <span className="text-label text-neutral-500">
-            입찰 <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
-          </span>
+          {/* 즉시구매 전용은 입찰이 없으니 입찰 수를 보여주지 않는다. */}
+          {!auction.buyNowOnly && (
+            <span className="text-label text-neutral-500">
+              입찰 <span className="num">{formatNumber(auction.bidCount ?? 0)}</span>회
+            </span>
+          )}
           {/* 시작 전이면 시작 시각, 진행 중이면 남은 시간, 끝났으면 마감 시각 */}
           <AuctionTime status={auction.status} startAt={auction.startAt} endAt={auction.endAt} />
         </span>

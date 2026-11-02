@@ -8867,7 +8867,7 @@
             "minimum" : 30
           }
         },
-        "required" : [ "bidUnit", "durationSec", "productId", "startPrice" ]
+        "required" : [ "durationSec", "productId" ]
       },
       "ApiResponseAuctionResponse" : {
         "type" : "object",
@@ -8946,6 +8946,9 @@
           "canceledAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "buyNowOnly" : {
+            "type" : "boolean"
           },
           "thumbnailUrl" : {
             "type" : "string"
@@ -9826,7 +9829,7 @@
             "format" : "date-time"
           }
         },
-        "required" : [ "bidUnit", "endAt", "productId", "startAt", "startPrice" ]
+        "required" : [ "endAt", "productId", "startAt" ]
       },
       "ApiResponseBuyNowResponse" : {
         "type" : "object",
@@ -10177,6 +10180,18 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "commissionRateBps" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "commission" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "settlementAmount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "ESCROW", "SHIPPING", "COMPLETED" ]
@@ -10492,6 +10507,9 @@
             "format" : "date-time"
           },
           "live" : {
+            "type" : "boolean"
+          },
+          "buyNowOnly" : {
             "type" : "boolean"
           },
           "promoted" : {
@@ -10999,6 +11017,10 @@
             "type" : "string"
           },
           "finalPrice" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "settlementAmount" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -11977,6 +11999,18 @@
     "code" : "AUCTION_020",
     "status" : 400,
     "message" : "입찰 금액은 입찰 단위만큼씩 올려야 합니다."
+  }, {
+    "code" : "AUCTION_021",
+    "status" : 400,
+    "message" : "즉시구매로만 살 수 있는 경매입니다."
+  }, {
+    "code" : "AUCTION_022",
+    "status" : 400,
+    "message" : "시작가와 최소 입찰 단위는 둘 다 입력하거나 둘 다 비워야 합니다."
+  }, {
+    "code" : "AUCTION_023",
+    "status" : 400,
+    "message" : "시작가와 최소 입찰 단위를 비우면 즉시구매가를 입력해야 합니다."
   }, {
     "code" : "AUTH_001",
     "status" : 401,

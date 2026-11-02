@@ -58,8 +58,8 @@ public class AuctionService {
             throw new BusinessException(AuctionErrorCode.INVALID_TIME);
         }
 
-        //즉시구매가>시작가격
-        immediatePurchaseVerification(request.buyNowPrice(),request.startPrice());
+        //가격 규칙: 시작가·입찰 단위는 둘 다 있거나 둘 다 없음(즉시구매 전용), 즉시구매가 > 시작가
+        priceVerification(request.startPrice(), request.bidUnit(), request.buyNowPrice());
         //저장(일반 경매라 라이브 null)
         Auction save = auctionRepository.save(new Auction(product, null, request.startPrice(), request.bidUnit(), request.buyNowPrice(), request.startAt(), request.endAt()));
 
@@ -80,8 +80,9 @@ public class AuctionService {
     //경매 취소(본인 경매이며 대기OR진행 중이며 입찰이 0건일시에만 취소가 가능합니다)
     public void cancelAuction(Long sellerId, Long auctionId) {
 
-        //경매가 존재 하는지
-        Auction auction = auctionRepository.findById(auctionId).orElseThrow(
+        //경매가 존재 하는지. 즉시구매·입찰·마감과 같은 순간이면 먼저 잠근 쪽이 처리되고,
+        //늦은 쪽은 바뀐 상태를 보고 "취소할 수 없는 상태"로 거절된다 (잠그지 않으면 저장 충돌로 알 수 없는 오류가 난다)
+        Auction auction = auctionRepository.findByIdForUpdate(auctionId).orElseThrow(
                 () -> new BusinessException(AuctionErrorCode.NOT_FOUND)
         );
 
@@ -120,8 +121,8 @@ public class AuctionService {
         Product product = productVerification(sellerId, request.productId());
         // 방송 검증(존재, 방송 주인, 방송 중)
         LiveStream liveStream = ownLiveStream(sellerId, liveId);
-        // 즉시 구매가
-        immediatePurchaseVerification(request.buyNowPrice(),request.startPrice());
+        // 가격 규칙 (일반 경매와 같다)
+        priceVerification(request.startPrice(), request.bidUnit(), request.buyNowPrice());
 
         //경매 종료 시간 계산
         LocalDateTime now=LocalDateTime.now();
@@ -272,8 +273,22 @@ public class AuctionService {
         return liveStream;
     }
 
-    //즉시 구매가 검증(즉시구매가>시작가격)
-    private void immediatePurchaseVerification(Long buyNowPrice, Long startPrice) {
+    /**
+     * 가격 검증.
+     * - 시작가·최소 입찰 단위는 둘 다 입력하거나 둘 다 비운다. 하나만 비우면 INVALID_PRICE_SETTING
+     * - 둘 다 비우면 입찰 없이 즉시구매로만 파는 경매라 즉시구매가가 필요하다. 셋 다 비우면 BUY_NOW_PRICE_REQUIRED
+     * - 입찰을 받는 경매의 즉시구매가는 시작가보다 커야 한다
+     */
+    static void priceVerification(Long startPrice, Long bidUnit, Long buyNowPrice) {
+        if ((startPrice == null) != (bidUnit == null)) {
+            throw new BusinessException(AuctionErrorCode.INVALID_PRICE_SETTING);
+        }
+        if (startPrice == null) {
+            if (buyNowPrice == null) {
+                throw new BusinessException(AuctionErrorCode.BUY_NOW_PRICE_REQUIRED);
+            }
+            return;
+        }
         if (buyNowPrice != null && buyNowPrice <= startPrice) {
             throw new BusinessException(AuctionErrorCode.INVALID_BUY_NOW_PRICE);
         }

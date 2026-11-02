@@ -69,3 +69,7 @@ donation:
     enabled: false
   backfill:
     enabled: false
+order:
+  commission:
+    # 테스트는 수수료 0%: 기존 정산 금액 검증이 그대로 맞게 한다. 수수료는 CommissionPolicyTest·OrderCommissionTest에서 따로 검증
+    rate-bps: 0

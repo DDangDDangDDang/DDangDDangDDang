@@ -43,10 +43,11 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         QAuctionBoost boost = QAuctionBoost.auctionBoost;
 
         //목록 조회 : 입력한 조건에 맞게 정렬후 한페이지 만큼 가져오기
+        //값 순서는 AuctionListResponse 필드 순서와 같아야 한다 (live, promoted, thumbnailUrl, buyNowOnly)
         List<AuctionListResponse> content =queryFactory
                 .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,
                         auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,
-                        onLive(liveStream), promoted(boost), product.thumbnailKey))
+                        onLive(liveStream), promoted(boost), product.thumbnailKey, auction.startPrice.isNull()))
                 .from(auction)
                 .join(auction.product,product)
                 .join(product.category,category)
@@ -93,8 +94,9 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         QLiveStream liveStream = QLiveStream.liveStream;
         QAuctionBoost boost = QAuctionBoost.auctionBoost;
 
+        //값 순서는 AuctionListResponse 필드 순서와 같아야 한다 (live, promoted, thumbnailUrl, buyNowOnly)
         return queryFactory
-                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,onLive(liveStream),promoted(boost),product.thumbnailKey)).
+                .select(Projections.constructor(AuctionListResponse.class,auction.id,product.id,product.name,category.name,auction.currentPrice,auction.bidCount,auction.status,auction.startAt,auction.endAt,onLive(liveStream),promoted(boost),product.thumbnailKey,auction.startPrice.isNull())).
                 from(auction)
                 .join(auction.product, product)
                 .join(product.category,category)

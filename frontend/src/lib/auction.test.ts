@@ -13,8 +13,7 @@ import {
   secondsUntil,
   toAuctionCreateRequest,
   toLiveAuctionCreateRequest,
-  validateAuctionCondition,
-} from './auction';
+  validateAuctionCondition, auctionPriceLabel } from './auction';
 
 const NOW = new Date('2026-10-21T12:00:00');
 
@@ -87,6 +86,16 @@ describe('금액 입력', () => {
   });
 });
 
+describe('auctionPriceLabel', () => {
+  it('즉시구매 전용은 즉시구매가·판매가, 입찰 경매는 시작가·현재가·낙찰가', () => {
+    expect(auctionPriceLabel('ONGOING', true)).toBe('즉시구매가');
+    expect(auctionPriceLabel('ENDED', true)).toBe('판매가');
+    expect(auctionPriceLabel('READY', false)).toBe('시작가');
+    expect(auctionPriceLabel('ONGOING', false)).toBe('현재가');
+    expect(auctionPriceLabel('ENDED', false)).toBe('낙찰가');
+  });
+});
+
 describe('validateAuctionCondition', () => {
   const schedule = { ...EMPTY_AUCTION_CONDITION, startPrice: '10000', bidUnit: '1000', startAt: '2026-10-21T13:00', endAt: '2026-10-21T14:00' };
 
@@ -95,11 +104,34 @@ describe('validateAuctionCondition', () => {
     expect(validateAuctionCondition({ ...schedule, startAt: '', endAt: '' }, 'live', NOW)).toEqual({});
   });
 
-  it('금액이 없거나 즉시구매가가 시작가 이하면 오류', () => {
-    const errors = validateAuctionCondition({ ...schedule, startPrice: '', bidUnit: '0', buyNowPrice: '5000' }, 'schedule', NOW);
+  it('금액이 0이거나 즉시구매가가 시작가 이하면 오류', () => {
+    const errors = validateAuctionCondition({ ...schedule, startPrice: '0', bidUnit: '0', buyNowPrice: '5000' }, 'schedule', NOW);
     expect(errors.startPrice).toBeDefined();
     expect(errors.bidUnit).toBeDefined();
     expect(validateAuctionCondition({ ...schedule, buyNowPrice: '10000' }, 'schedule', NOW).buyNowPrice).toBe('즉시구매가는 시작가보다 커야 해요.');
+  });
+
+  it('[즉시구매만 판매]를 켜면 시작가·입찰 단위는 보지 않고 즉시구매가가 필요하다', () => {
+    expect(validateAuctionCondition({ ...schedule, buyNowOnly: true, startPrice: '', bidUnit: '', buyNowPrice: '30,000' }, 'schedule', NOW)).toEqual({});
+    expect(validateAuctionCondition({ ...schedule, buyNowOnly: true, buyNowPrice: '' }, 'schedule', NOW).buyNowPrice).toBe(
+      '즉시구매만 판매하려면 즉시구매가를 입력해 주세요.',
+    );
+  });
+
+  it('버튼을 끈 상태에서 비우면 입력해 달라고, 0이면 0원일 수 없다고 알려준다', () => {
+    const empty = validateAuctionCondition({ ...schedule, startPrice: '', bidUnit: '' }, 'schedule', NOW);
+    expect(empty.startPrice).toBe('시작가를 입력해 주세요.');
+    expect(empty.bidUnit).toBe('최소 입찰 단위를 입력해 주세요.');
+    const zero = validateAuctionCondition({ ...schedule, startPrice: '0', bidUnit: '0' }, 'schedule', NOW);
+    expect(zero.startPrice).toBe('시작가는 0원일 수 없어요.');
+    expect(zero.bidUnit).toBe('최소 입찰 단위는 0원일 수 없어요.');
+  });
+
+  it('[즉시구매만 판매]면 시작가·입찰 단위를 요청에 넣지 않는다 (입력해 둔 값이 있어도)', () => {
+    const request = toAuctionCreateRequest(1, { ...schedule, buyNowOnly: true, buyNowPrice: '30,000' });
+    expect(request.startPrice).toBeUndefined();
+    expect(request.bidUnit).toBeUndefined();
+    expect(request.buyNowPrice).toBe(30000);
   });
 
   it('시작은 지금 이후, 마감은 시작 뒤', () => {

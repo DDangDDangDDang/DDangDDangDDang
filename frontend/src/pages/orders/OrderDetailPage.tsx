@@ -56,7 +56,12 @@ export function OrderDetailPage() {
         <div className="flex flex-col gap-4">
           <OrderSummary order={order} />
           {role === 'BUYER' && <BuyerPanel order={order} />}
-          {role === 'SELLER' && <SellerPanel order={order} />}
+          {role === 'SELLER' && (
+            <>
+              <SettlementSummary order={order} />
+              <SellerPanel order={order} />
+            </>
+          )}
         </div>
       )}
     </div>
@@ -249,6 +254,32 @@ function AddressForm({ order, onDone, onCancel }: { order: Order; onDone: () => 
 
 // ---------------------------------------------------------------- 판매자
 
+/** 판매자에게만: 판매가에서 판매 수수료를 뺀 정산 금액. 구매 확정 전엔 "받을 금액", 확정 후엔 "받은 금액" */
+function SettlementSummary({ order }: { order: Order }) {
+  const rate = order.commissionRateBps ?? 0;
+  const settled = order.status === 'COMPLETED';
+  return (
+    <Card>
+      <CardBody className="pt-5">
+        <dl aria-label="정산 금액" className="grid grid-cols-3 gap-4">
+          <div className="flex flex-col">
+            <dt className="text-caption text-neutral-500">판매가</dt>
+            <dd className="num text-body font-semibold">{formatPoint(order.finalPrice ?? 0)}</dd>
+          </div>
+          <div className="flex flex-col">
+            <dt className="text-caption text-neutral-500">판매 수수료{rate > 0 ? ` ${Number((rate / 100).toFixed(2))}%` : ''}</dt>
+            <dd className="num text-body font-semibold">{(order.commission ?? 0) > 0 ? `- ${formatPoint(order.commission ?? 0)}` : '없음'}</dd>
+          </div>
+          <div className="flex flex-col items-end">
+            <dt className="text-caption text-neutral-500">{settled ? '받은 금액' : '받을 금액 (구매 확정 후)'}</dt>
+            <dd className="num text-title-md font-bold">{formatPoint(order.settlementAmount ?? order.finalPrice ?? 0)}</dd>
+          </div>
+        </dl>
+      </CardBody>
+    </Card>
+  );
+}
+
 function SellerPanel({ order }: { order: Order }) {
   const stage = orderStage(order);
 
@@ -305,7 +336,7 @@ function SellerPanel({ order }: { order: Order }) {
       </CardHeader>
       <CardBody className="flex flex-col gap-4">
         <ShipmentView order={order} />
-        <Notice tone="success">정산 완료. 구매자가 확정해 판매 금액이 포인트로 지급됐어요.</Notice>
+        <Notice tone="success">정산 완료. 구매자가 확정해 판매 수수료를 뺀 금액이 포인트로 지급됐어요.</Notice>
       </CardBody>
     </Card>
   );

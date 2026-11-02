@@ -126,6 +126,12 @@ export function OrdersPage() {
                   <div className="flex flex-col items-end gap-0.5">
                     <span className="text-caption text-neutral-500">낙찰가</span>
                     <span className="num text-body-lg font-bold">{formatPoint(order.finalPrice ?? 0)}</span>
+                    {/* 판매 내역에는 수수료를 뺀 정산 금액을 함께 보여준다. */}
+                    {role === 'SELLER' && order.settlementAmount !== undefined && (
+                      <span className="text-caption text-neutral-500">
+                        정산 <span className="num">{formatPoint(order.settlementAmount)}</span>
+                      </span>
+                    )}
                   </div>
                   <ChevronRight className="size-5 text-neutral-400" aria-hidden="true" />
                 </Link>
