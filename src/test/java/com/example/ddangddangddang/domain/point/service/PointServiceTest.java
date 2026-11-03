@@ -271,15 +271,15 @@ class PointServiceTest {
     }
 
     @Test
-    @DisplayName("낙찰취소는 구매자 환불과 판매자 위약금을 각각 주문 기준으로 남기고, 지갑은 ID 순서로 잠근다")
-    void refundOrderWithPenalty_recordsBothHistories() {
+    @DisplayName("낙찰취소는 구매자에게 낙찰취소와 위약금 내역을, 판매자에게 위약금 수령 내역을 남기고 지갑은 ID 순서로 잠근다")
+    void cancelWin_recordsHistories() {
         PointWallet seller = walletWithBalance(1L, 5L, 0L);
         PointWallet buyer = walletWithBalance(2L, 10L, 0L);
         given(pointWalletRepository.findByUserIdForUpdate(5L)).willReturn(Optional.of(seller));
         given(pointWalletRepository.findByUserIdForUpdate(10L)).willReturn(Optional.of(buyer));
         given(pointHistoryRepository.save(any(PointHistory.class))).willAnswer(call -> call.getArgument(0));
 
-        pointService.refundOrderWithPenalty(10L, 90_000L, 5L, 10_000L, 77L);
+        pointService.cancelWin(10L, 100_000L, 5L, 10_000L, 77L);
 
         assertThat(buyer.getBalance()).isEqualTo(90_000L);
         assertThat(seller.getBalance()).isEqualTo(10_000L);
@@ -287,10 +287,26 @@ class PointServiceTest {
         order.verify(pointWalletRepository).findByUserIdForUpdate(5L);
         order.verify(pointWalletRepository).findByUserIdForUpdate(10L);
         org.mockito.ArgumentCaptor<PointHistory> histories = org.mockito.ArgumentCaptor.forClass(PointHistory.class);
-        verify(pointHistoryRepository, times(2)).save(histories.capture());
-        assertThat(histories.getAllValues()).extracting(PointHistory::getType)
-                .containsExactly(PointHistoryType.ORDER_REFUND, PointHistoryType.ORDER_PENALTY);
+        verify(pointHistoryRepository, times(3)).save(histories.capture());
+        assertThat(histories.getAllValues()).extracting(PointHistory::getType).containsExactly(
+                PointHistoryType.WIN_CANCEL, PointHistoryType.WIN_CANCEL_PENALTY, PointHistoryType.ORDER_PENALTY);
+        assertThat(histories.getAllValues()).extracting(PointHistory::getAmount).containsExactly(100_000L, 10_000L, 10_000L);
+        assertThat(histories.getAllValues()).extracting(PointHistory::getBalanceAfter).containsExactly(100_000L, 90_000L, 10_000L);
         assertThat(histories.getAllValues()).extracting(PointHistory::getRefId).containsOnly(77L);
+    }
+
+    @Test
+    @DisplayName("위약금 없는 낙찰취소는 구매자 낙찰취소 내역만 남기고 판매자 지갑은 건드리지 않는다")
+    void cancelWin_withoutPenalty_recordsOnlyWinCancel() {
+        PointWallet buyer = walletWithBalance(2L, 10L, 0L);
+        given(pointWalletRepository.findByUserIdForUpdate(10L)).willReturn(Optional.of(buyer));
+        given(pointHistoryRepository.save(any(PointHistory.class))).willAnswer(call -> call.getArgument(0));
+
+        pointService.cancelWin(10L, 100_000L, 5L, 0L, 77L);
+
+        assertThat(buyer.getBalance()).isEqualTo(100_000L);
+        verify(pointWalletRepository, never()).findByUserIdForUpdate(5L);
+        verify(pointHistoryRepository, times(1)).save(any(PointHistory.class));
     }
 
     private PointWallet walletWithBalance(Long walletId, Long userId, long balance) {

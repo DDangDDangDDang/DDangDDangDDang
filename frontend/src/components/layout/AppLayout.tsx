@@ -3,6 +3,7 @@ import {
   ChevronDown,
   CircleUser,
   Gift,
+  MapPin,
   MessageCircle,
   Search,
   UserCog,
@@ -237,6 +238,15 @@ function AccountMenu({
               내 프로필
             </button>
           )}
+          <Link
+            to="/me/addresses"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2.5 text-left text-body hover:bg-neutral-50"
+          >
+            <MapPin className="size-4 text-neutral-500" aria-hidden="true" />
+            배송지 관리
+          </Link>
         </div>
       )}
     </div>
