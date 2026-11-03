@@ -30,8 +30,9 @@ public class Notification extends BaseTimeEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    // MySQL ENUM이 아니라 문자열로 둔다. (값을 더할 때 ddl-auto가 ENUM 정의를 고치지 않을 수 있음)
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, columnDefinition = "varchar(30)")
     private NotificationType type;
 
     @Column(name = "seller_id")

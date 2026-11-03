@@ -133,6 +133,31 @@ public class DonationPointService {
         return amount;
     }
 
+    /**
+     * 판매자 승인 축하 지급 (판매자 모집 이벤트). 한 회원에게 한 번만 주고, 한 달 적립 한도와는 따로 센다.
+     * 반려 뒤 다시 신청해 승인되거나 지급 보정이 다시 와도, 지갑을 잠근 뒤 이미 받은 묶음이 있는지 보고 한 번만 준다.
+     *
+     * @return 지급한 마일리지. 이미 받았거나 amount가 0 이하면 0
+     */
+    public long grantSellerWelcome(Long userId, Long applicationId, long amount) {
+        if (amount <= 0) {
+            return 0;
+        }
+        DonationPolicy policy = policies.current();
+        walletLocker.prepare(userId);
+        return transactions.execute(() -> {
+            LocalDateTime now = LocalDateTime.now(clock);
+            DonationWallet wallet = walletLocker.lock(userId);
+            if (lotRepository.existsByUserIdAndSource(userId, DonationLotSource.SELLER_WELCOME)) {
+                return 0L;
+            }
+            lotRepository.save(DonationPointLot.sellerWelcome(userId, amount, now, now.plus(policy.pointValidFor())));
+            wallet.add(amount);
+            historyRepository.save(DonationPointHistory.of(wallet, DonationPointHistoryType.SELLER_WELCOME, amount, applicationId));
+            return amount;
+        });
+    }
+
     private static DonationPointLot lot(DonationLotSource source, Long orderId, Long userId, Long sellerId, long amount,
                                         LocalDateTime earnedAt, LocalDateTime expiresAt) {
         return source == DonationLotSource.SALE

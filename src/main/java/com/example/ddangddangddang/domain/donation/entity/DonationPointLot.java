@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 /**
  * 적립 묶음: 한 번에 들어온 도네이션 마일리지. 묶음마다 유효기간이 있다.
- * 들어오는 곳(source)은 구매 확정 적립, 판매 확정 적립, 선물받음 세 가지이고, 어디서 왔든 같은 마일리지로 쓴다.
+ * 들어오는 곳(source)은 구매 확정 적립, 판매 확정 적립, 선물받음, 판매자 승인 축하이고, 어디서 왔든 같은 마일리지로 쓴다.
  * 선물·상점 구매에는 유효기간이 먼저 끝나는 묶음부터 쓰고(DonationLotUsage), 유효기간이 지나면 남은 양이 사라진다.
  * - (orderId, source) 유니크: 같은 주문으로 구매자·판매자에게 한 번씩만 적립한다. (구매 확정 이벤트가 두 번 와도 한 번)
  *   한 달 적립 한도에 걸린 주문은 0M 묶음으로 남겨 처리한 주문임을 표시한다.
@@ -100,6 +100,11 @@ public class DonationPointLot extends BaseTimeEntity {
     /** 선물받음 (판매자). 받은 날부터 적립과 같은 유효기간 */
     public static DonationPointLot received(Long sellerId, Long donationId, long amount, LocalDateTime receivedAt, LocalDateTime expiresAt) {
         return new DonationPointLot(sellerId, DonationLotSource.RECEIVE, null, donationId, null, amount, receivedAt, expiresAt);
+    }
+
+    /** 판매자 승인 축하 지급. 승인된 날부터 적립과 같은 유효기간 */
+    public static DonationPointLot sellerWelcome(Long sellerId, long amount, LocalDateTime earnedAt, LocalDateTime expiresAt) {
+        return new DonationPointLot(sellerId, DonationLotSource.SELLER_WELCOME, null, null, sellerId, amount, earnedAt, expiresAt);
     }
 
     /** 남은 양에서 최대 want만큼 쓴다. @return 실제로 쓴 양 */

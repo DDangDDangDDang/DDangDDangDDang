@@ -6,6 +6,7 @@ import com.example.ddangddangddang.domain.seller.entity.SellerApplication;
 import com.example.ddangddangddang.domain.seller.entity.SellerApplicationStatus;
 import com.example.ddangddangddang.domain.seller.entity.SellerIdentity;
 import com.example.ddangddangddang.domain.seller.entity.SellerTerms;
+import com.example.ddangddangddang.domain.seller.event.SellerApprovedEvent;
 import com.example.ddangddangddang.domain.seller.exception.SellerErrorCode;
 import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
 import com.example.ddangddangddang.domain.seller.repository.SellerIdentityRepository;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,6 +57,9 @@ class SellerApplicationServiceTest {
 
     @Mock
     private ChatContentFilter contentFilter;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @Test
     @DisplayName("판매자 이용약관과 개인정보 수집에 모두 동의하지 않으면 요청 검증에서 막힌다")
@@ -153,6 +158,29 @@ class SellerApplicationServiceTest {
 
         assertThat(rejected.getTermsVersion()).isEqualTo(SellerTerms.CURRENT_VERSION);
         assertThat(rejected.getTermsAgreedAt()).isAfter(LocalDateTime.of(2026, 1, 1, 0, 0));
+    }
+
+    @Test
+    @DisplayName("승인하면 판매자 승인 축하 마일리지를 줄 수 있게 승인 이벤트를 낸다")
+    void approvePublishesEvent() {
+        SellerApplication pending = SellerApplication.create(USER_ID, "상점", "소개");
+        given(applicationRepository.findById(10L)).willReturn(Optional.of(pending));
+
+        applicationService.approve(10L);
+
+        assertThat(pending.isApproved()).isTrue();
+        then(eventPublisher).should().publishEvent(new SellerApprovedEvent(pending.getId(), USER_ID));
+    }
+
+    @Test
+    @DisplayName("반려하면 승인 이벤트를 내지 않는다")
+    void rejectDoesNotPublishEvent() {
+        SellerApplication pending = SellerApplication.create(USER_ID, "상점", "소개");
+        given(applicationRepository.findById(10L)).willReturn(Optional.of(pending));
+
+        applicationService.reject(10L, "소개를 더 적어 주세요.");
+
+        then(eventPublisher).should(never()).publishEvent(any());
     }
 
     private SellerApplicationRequest request(boolean termsAgreed, boolean privacyAgreed, String termsVersion) {

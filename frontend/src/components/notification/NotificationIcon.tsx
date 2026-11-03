@@ -17,6 +17,7 @@ const ICONS: Record<NotificationType, LucideIcon> = {
   AUCTION_ENDED: Gavel,
   DONATION_POINT_EARNED: Gift,
   DONATION_POINT_EXPIRING: Hourglass,
+  DONATION_POINT_SELLER_WELCOME: Gift,
 };
 
 /** 알림 종류별 동그란 아이콘. 서둘러야 하는 알림(방송 시작·상위 입찰·마감 임박·낙찰)은 강조색 */
