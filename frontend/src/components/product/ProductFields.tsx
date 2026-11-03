@@ -1,7 +1,7 @@
-import { Input, Select } from '@/components/ui';
-import { leafCategoryOptions } from '@/lib/auction';
+import { Input } from '@/components/ui';
 import type { Schema } from '@/api';
 import { PRODUCT_NAME_MAX_LENGTH, type ProductFormChange, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
+import { CategorySelects } from './CategorySelects';
 import { ProductDescriptionEditor } from './ProductDescriptionEditor';
 import { ProductImagesField } from './ProductImagesField';
 
@@ -12,16 +12,17 @@ type Props = {
   onChange: (change: ProductFormChange) => void;
 };
 
-/** 상품 정보 입력: 카테고리(소분류)·상품명·상품 이미지(갤러리)·설명(글 사이 이미지). */
+/** 상품 정보 입력: 카테고리(대분류 → 소분류)·상품명·상품 이미지(갤러리)·설명(글 사이 이미지). */
 export function ProductFields({ categories, values, errors, onChange }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
-        <Select
-          label="카테고리"
-          options={[{ value: '', label: '카테고리 선택' }, ...leafCategoryOptions(categories)]}
+        <CategorySelects
+          categories={categories}
+          mode="leaf"
+          labels={['카테고리', '세부 카테고리']}
           value={values.categoryId}
-          onChange={(e) => onChange({ categoryId: e.target.value })}
+          onChange={(categoryId) => onChange({ categoryId })}
           error={errors.categoryId}
         />
         <Input

@@ -64,19 +64,22 @@ export function secondsUntil(serverTime: string | undefined, now: Date): number 
   return Math.max(0, Math.floor((new Date(serverTime).getTime() - now.getTime()) / 1000));
 }
 
-/** 상품을 등록할 수 있는 카테고리(소분류)만 "대분류 › 소분류"로. 서버는 소분류만 받는다. (PRODUCT_003) */
-export function leafCategoryOptions(categories: Category[]): { value: string; label: string }[] {
-  return categories.flatMap((parent) =>
-    (parent.children ?? []).filter((child) => child.id !== undefined).map((child) => ({ value: String(child.id), label: `${parent.name ?? ''} › ${child.name ?? ''}` })),
-  );
+/** 고른 카테고리 id가 속한 대분류. 대분류 id면 그 대분류, 비었거나 없는 id면 undefined */
+export function parentCategoryOf(categories: Category[], id: string): Category | undefined {
+  if (!id) return undefined;
+  return categories.find((parent) => String(parent.id) === id || (parent.children ?? []).some((child) => String(child.id) === id));
 }
 
-/** 검색 필터용: 대분류와 소분류 모두 (소분류는 들여쓰기) */
-export function categoryFilterOptions(categories: Category[]): { value: string; label: string }[] {
-  return categories.flatMap((parent) => [
-    { value: String(parent.id), label: parent.name ?? '' },
-    ...(parent.children ?? []).map((child) => ({ value: String(child.id), label: `└ ${child.name ?? ''}` })),
-  ]);
+/** 1차(대분류) 선택지. leafOnly면 소분류가 없는 대분류는 뺀다. 상품은 소분류에만 등록한다. (PRODUCT_003) */
+export function parentCategoryOptions(categories: Category[], leafOnly = false): { value: string; label: string }[] {
+  return categories
+    .filter((parent) => parent.id !== undefined && (!leafOnly || (parent.children ?? []).length > 0))
+    .map((parent) => ({ value: String(parent.id), label: parent.name ?? '' }));
+}
+
+/** 2차(소분류) 선택지 */
+export function childCategoryOptions(parent: Category | undefined): { value: string; label: string }[] {
+  return (parent?.children ?? []).filter((child) => child.id !== undefined).map((child) => ({ value: String(child.id), label: child.name ?? '' }));
 }
 
 /** 금액 입력에서 숫자만 꺼낸다. 비었거나 숫자가 없으면 undefined */
