@@ -18,6 +18,7 @@ import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,7 +52,13 @@ public class ReviewService {
             throw new BusinessException(ReviewErrorCode.REVIEW_ALREADY_EXISTS);
         }
         Review review = Review.create(order, request.rating(), request.content());
-        return ReviewResponse.from(reviewRepository.save(review));
+
+        // 동시에 두 요청이 위 확인을 통과하면 DB 유니트 제약(uk_reviews_order_id)에 걸린다
+        try {
+            return ReviewResponse.from(reviewRepository.saveAndFlush(review));
+        } catch (DataIntegrityViolationException e){
+            throw new BusinessException(ReviewErrorCode.REVIEW_ALREADY_EXISTS, e);
+        }
     }
 
 
