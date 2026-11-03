@@ -48,8 +48,12 @@ public class OrderDmNotifier {
         String settlement = event.penaltyAmount() > 0
                 ? " 위약금 " + point(event.penaltyAmount()) + "는 판매자에게 지급되고, " + point(event.refundAmount()) + "는 구매자에게 환불됐습니다."
                 : " 결제 포인트는 구매자에게 전액 환불됐습니다.";
+        // 책임 있는 쪽에 반복되면 받을 정지를 알린다 (규칙: hammer 도메인의 SanctionRule)
+        String warning = event.reason() == OrderCancelReason.BUYER_NO_ADDRESS
+                ? " 배송지 미입력 낙찰취소가 90일 안에 2회가 되면 입찰이 7일 정지됩니다."
+                : " 미발송 판매 취소가 90일 안에 2회가 되면 경매 등록이 7일 정지됩니다.";
         send(event.orderId(), event.sellerId(), event.buyerId(), "order-cancel-" + event.orderId(),
-                label(event.auctionId(), event.productName()) + reason + settlement);
+                label(event.auctionId(), event.productName()) + reason + settlement + warning);
     }
 
     private String point(long amount) {

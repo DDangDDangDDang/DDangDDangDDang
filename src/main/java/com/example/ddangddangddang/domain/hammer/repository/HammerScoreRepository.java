@@ -40,6 +40,32 @@ public interface HammerScoreRepository extends Repository<Order, Long> {
 
     long countBySellerIdAndCancelReasonAndCanceledAtGreaterThanEqual(Long sellerId, OrderCancelReason reason, LocalDateTime since);
 
+    /** 정지 규칙: 구매자 책임 취소 시각 */
+    @Query("select o.canceledAt from Order o where o.buyerId = :userId and o.cancelReason = :reason and o.canceledAt >= :since")
+    List<LocalDateTime> findBuyerCancelTimes(@Param("userId") Long userId, @Param("reason") OrderCancelReason reason,
+                                             @Param("since") LocalDateTime since);
+
+    /** 정지 규칙: 판매자 책임 취소 시각 */
+    @Query("select o.canceledAt from Order o where o.sellerId = :userId and o.cancelReason = :reason and o.canceledAt >= :since")
+    List<LocalDateTime> findSellerCancelTimes(@Param("userId") Long userId, @Param("reason") OrderCancelReason reason,
+                                              @Param("since") LocalDateTime since);
+
+    /** 관리자 검토 후보: since 이후 구매자 책임 취소가 minCount회 이상인 회원 */
+    @Query("""
+            select o.buyerId from Order o
+            where o.cancelReason = :reason and o.canceledAt >= :since
+            group by o.buyerId having count(o) >= :minCount""")
+    List<Long> findRepeatedBuyerCancelers(@Param("reason") OrderCancelReason reason, @Param("since") LocalDateTime since,
+                                          @Param("minCount") long minCount);
+
+    /** 관리자 검토 후보: since 이후 판매자 책임 취소가 minCount회 이상인 회원 */
+    @Query("""
+            select o.sellerId from Order o
+            where o.cancelReason = :reason and o.canceledAt >= :since
+            group by o.sellerId having count(o) >= :minCount""")
+    List<Long> findRepeatedSellerCancelers(@Param("reason") OrderCancelReason reason, @Param("since") LocalDateTime since,
+                                           @Param("minCount") long minCount);
+
     long countByBuyerIdAndStatus(Long buyerId, OrderStatus status);
 
     long countBySellerIdAndStatus(Long sellerId, OrderStatus status);

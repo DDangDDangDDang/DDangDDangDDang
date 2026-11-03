@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.auction.service;
 
+import com.example.ddangddangddang.domain.hammer.service.SanctionService;
 import com.example.ddangddangddang.domain.auction.dto.response.BidResponse;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.global.exception.BusinessException;
@@ -30,6 +31,10 @@ class BidFacadeTest {
 
     @Mock
     private BidService bidService;
+
+    // 정지 확인 (목이라 아무것도 막지 않는다)
+    @Mock
+    private SanctionService sanctionService;
 
     @Test
     @DisplayName("다른 입찰에 밀려 실패하면 새 트랜잭션으로 재시도한다")

@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.auction.service;
 
+import com.example.ddangddangddang.domain.hammer.service.SanctionService;
 import com.example.ddangddangddang.domain.auction.AuctionFixture;
 import com.example.ddangddangddang.domain.auction.dto.response.BuyNowResponse;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
@@ -50,6 +51,10 @@ class BuyNowServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    // 정지 확인 (목이라 아무것도 막지 않는다)
+    @Mock
+    private SanctionService sanctionService;
 
     @Test
     @DisplayName("입찰자가 없으면 구매자 포인트만 차감하고 주문을 만든다")
