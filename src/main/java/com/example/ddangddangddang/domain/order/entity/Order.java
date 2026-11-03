@@ -17,6 +17,7 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -31,7 +32,8 @@ import java.util.UUID;
                 @Index(name = "idx_orders_buyer_id", columnList = "buyerId, id"),
                 @Index(name = "idx_orders_seller_id", columnList = "sellerId, id"),
                 @Index(name = "idx_orders_status_address_deadline", columnList = "status, addressDeadlineAt"),
-                @Index(name = "idx_orders_status_ship_deadline", columnList = "status, shipDeadlineAt")
+                @Index(name = "idx_orders_status_ship_deadline", columnList = "status, shipDeadlineAt"),
+                @Index(name = "idx_orders_status_shipped_at", columnList = "status,shippedAt")
         })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order extends BaseTimeEntity {
@@ -117,6 +119,14 @@ public class Order extends BaseTimeEntity {
     private String trackingNo;
 
     private LocalDateTime shippedAt;
+
+    // 자동 구매 확정이 실패 획수. 정해진 횟수를 넘으면 자동 확정 대상에서 빠지고 사람이 확인
+    @ColumnDefault("0")
+    @Column(nullable = false)
+    private int autoConfirmFailCount;
+
+    // 자동 구매 확정이 마지막으로 실패한 시간, 실패한 주문은 일정 시간이 지난 뒤에 다시 시도한다.
+    private LocalDateTime autoConfirmLastFailedAt;
 
     private LocalDateTime completedAt;
 
@@ -317,5 +327,11 @@ public class Order extends BaseTimeEntity {
 
     public boolean isParticipant(Long userId) {
         return isBuyer(userId) || isSeller(userId);
+    }
+
+    // 자동 구매 확정 실패 획수를 1씩 올린다
+    public void recordAutoConfirmFailure(LocalDateTime now){
+        this.autoConfirmFailCount++;
+        this.autoConfirmLastFailedAt = now;
     }
 }

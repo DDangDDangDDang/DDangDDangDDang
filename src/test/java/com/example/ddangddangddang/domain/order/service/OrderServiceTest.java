@@ -308,6 +308,66 @@ class OrderServiceTest {
     }
 
     @Nested
+    @DisplayName("자동 구매 확정")
+    class AutoConfirm {
+
+        @Test
+        @DisplayName("발송 후 7일이 지나면 확정하고 판매자에게 정산하며, 도네이션 포인트 적립을 알린다")
+        void overdue_confirmsAndSettles() {
+            Order order = shippedOrder(10L, 8);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            boolean confirmed = orderService.autoConfirm(10L);
+
+            assertThat(confirmed).isTrue();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+            verify(pointService).settle(SELLER_ID, 500_000L, 10L);
+            verify(eventPublisher).publishEvent(new OrderConfirmedEvent(10L, BUYER_ID, SELLER_ID, 500_000L));
+        }
+
+        @Test
+        @DisplayName("발송 후 7일이 안 지났으면 건너뛰고 정산하지 않는다")
+        void notYetOverdue_skips() {
+            Order order = shippedOrder(10L, 3);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            assertThat(orderService.autoConfirm(10L)).isFalse();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.SHIPPING);
+            verify(pointService, never()).settle(anyLong(), anyLong(), anyLong());
+        }
+
+        @Test
+        @DisplayName("그 사이 구매자가 직접 확정했으면 건너뛰어 정산이 두 번 되지 않는다")
+        void alreadyConfirmed_skips() {
+            Order order = shippedOrder(10L, 8);
+            order.confirm();
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            assertThat(orderService.autoConfirm(10L)).isFalse();
+            verify(pointService, never()).settle(anyLong(), anyLong(), anyLong());
+        }
+
+        @Test
+        @DisplayName("실패 횟수를 기록하면 1씩 오르고 실패 시각이 남는다")
+        void recordFailure_increments() {
+            Order order = shippedOrder(10L, 8);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            assertThat(orderService.recordAutoConfirmFailure(10L)).isEqualTo(1);
+            assertThat(orderService.recordAutoConfirmFailure(10L)).isEqualTo(2);
+            assertThat(order.getAutoConfirmLastFailedAt()).isNotNull();
+        }
+
+        // 발송한 주문을 만들고, 발송 시각을 며칠 전으로 돌린다
+        private Order shippedOrder(Long orderId, int shippedDaysAgo) {
+            Order order = shippableOrder(orderId);
+            order.ship(Courier.CJ, "1234567890");
+            ReflectionTestUtils.setField(order, "shippedAt", LocalDateTime.now().minusDays(shippedDaysAgo));
+            return order;
+        }
+    }
+
+    @Nested
     @DisplayName("발송 지연 신청")
     class Delay {
 
