@@ -261,7 +261,7 @@ function ChatLine({ message, isSeller, isMine, flagged, showHiddenContent }: Cha
         </Badge>
       )}
       <strong className={cn('mr-1.5 text-label font-semibold', isSeller ? 'text-brand-700' : isMine ? 'text-info-700' : 'text-neutral-700')}>
-        <DecoratedNickname nickname={message.nickname || '알 수 없음'} badge={message.badge} />
+        <DecoratedNickname nickname={message.nickname || '알 수 없음'} badge={message.badge} title={message.title} color={message.color} />
       </strong>
       {hiddenContent || <span>{message.content}</span>}
     </li>

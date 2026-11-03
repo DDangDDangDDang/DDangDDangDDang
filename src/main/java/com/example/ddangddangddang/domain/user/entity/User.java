@@ -55,11 +55,21 @@ public class User extends BaseTimeEntity {
     @Column(length = 200)
     private String profileImageKey;
 
-    // 라이브 채팅에서 닉네임을 꾸미는 장착한 뱃지. 없으면 null (가진 뱃지는 UserBadge)
+    // 라이브 채팅에서 닉네임을 꾸미는 장착한 스킨. 없으면 null (가진 꾸미기는 UserBadge)
     // MySQL ENUM이 아니라 문자열로 둔다. (뱃지를 더할 때 ddl-auto가 ENUM 정의를 고치지 않음)
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "varchar(20)")
     private NicknameBadge equippedBadge;
+
+    // 장착한 채팅 뱃지(닉네임 앞 칭호). 없으면 null
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20)")
+    private NicknameBadge equippedTitle;
+
+    // 장착한 닉네임 색상. 없으면 null
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20)")
+    private NicknameBadge equippedColor;
 
     private User(String email, String password, String nickname, String phoneNumber, UserRole role) {
         this.email = email;
@@ -93,9 +103,22 @@ public class User extends BaseTimeEntity {
         this.password = encodedPassword;
     }
 
-    /** 뱃지를 장착한다. null이면 뺀다. (가졌는지는 UserBadgeService가 확인) */
+    /** 꾸미기를 그 종류의 자리에 장착한다. (가졌는지는 UserBadgeService가 확인) */
     public void equipBadge(NicknameBadge badge) {
-        this.equippedBadge = badge;
+        switch (badge.kind()) {
+            case SKIN -> this.equippedBadge = badge;
+            case TITLE -> this.equippedTitle = badge;
+            case COLOR -> this.equippedColor = badge;
+        }
+    }
+
+    /** 이 종류의 꾸미기를 뺀다. */
+    public void unequipBadge(NicknameBadgeKind kind) {
+        switch (kind) {
+            case SKIN -> this.equippedBadge = null;
+            case TITLE -> this.equippedTitle = null;
+            case COLOR -> this.equippedColor = null;
+        }
     }
 
     public void changeNickname(String nickname, LocalDateTime now) {
@@ -139,6 +162,14 @@ public class User extends BaseTimeEntity {
     /** 개발용 관리자 계정 생성 (DevAdminInitializer). 운영에서는 쓰지 않는다 */
     public static User createAdmin(String email, String encodedPassword, String nickname) {
         return new User(email, encodedPassword, nickname, null, UserRole.ADMIN);
+    }
+
+    /**
+     * 라이브 봇 계정 (관리자가 만든다, LiveBotService). 비밀번호·소셜 계정이 없어 아무도 로그인할 수 없다.
+     * 이메일은 받을 수 없는 주소(.invalid)로 겹치지 않게 만든다. (비밀번호 찾기 등으로 들어올 수도 없음)
+     */
+    public static User createBot(String nickname) {
+        return new User("bot-" + java.util.UUID.randomUUID() + "@bot.invalid", null, nickname, null, UserRole.USER);
     }
 
     /** 관리자 권한 부여. 이미 로그인한 상태면 다시 로그인해야 반영된다 (권한이 토큰에 들어 있음) */

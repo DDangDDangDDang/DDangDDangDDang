@@ -10,12 +10,18 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
     boolean existsByAuctionId(Long auctionId);
+
+    /** 판매자 경매 이력: 경매들의 주문 중 그 상태인 것 (취소 사유 표시) */
+    List<Order> findByAuctionIdInAndStatus(Collection<Long> auctionIds, OrderStatus status);
+
     boolean existsByCourierAndTrackingNo(Courier courier, String trackingNo);
 
     /** 판매자 프로필 신뢰 지표: 판매자의 주문 중 그 상태인 것의 수 (구매 확정 수) */
@@ -23,6 +29,26 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     /** 판매자 프로필 신뢰 지표: 최근 발송한 주문 (주문부터 발송까지 걸린 시간 평균) */
     List<Order> findTop100BySellerIdAndShippedAtIsNotNullOrderByIdDesc(Long sellerId);
+
+    /** 배송지 입력 기한이 지났는데 배송지가 없는 주문 */
+    @Query("""
+            select o.id from Order o
+            where o.status = com.example.ddangddangddang.domain.order.entity.OrderStatus.ESCROW
+              and o.address is null and o.addressDeadlineAt <= :now
+              and o.id > :afterId
+            order by o.id
+            """)
+    List<Long> findAddressOverdueIds(@Param("now") LocalDateTime now, @Param("afterId") long afterId, Pageable pageable);
+
+    /** 발송 기한이 지났는데 발송하지 않은 주문 */
+    @Query("""
+            select o.id from Order o
+            where o.status = com.example.ddangddangddang.domain.order.entity.OrderStatus.ESCROW
+              and o.shipDeadlineAt <= :now
+              and o.id > :afterId
+            order by o.id
+            """)
+    List<Long> findShipOverdueIds(@Param("now") LocalDateTime now, @Param("afterId") long afterId, Pageable pageable);
 
     /** 구매 내역. cursor보다 오래된 주문을 최신순으로 조회한다. status, cursor가 null이면 조건을 적용하지 않는다. */
     @Query("""
@@ -57,4 +83,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Order o where o.id = :orderId")
     Optional<Order> findByIdForUpdate(@Param("orderId") Long orderId);
+
+    //발송 후 기한이 지나도 구매 확정 되지 않은 주문 ID (자동구매 확정 대상)
+    @Query(""" 
+            select o.id from Order o 
+            where o.status = :status and o.shippedAt <= :cutoff 
+            and o.autoConfirmFailCount < :maxFailCount
+            and (o.autoConfirmLastFailedAt is null or o.autoConfirmLastFailedAt <= :retryAfter)
+            order by o.id
+            """)
+    List<Long> findConfirmOverdueIds(@Param("status") OrderStatus status,
+                                     @Param("cutoff") LocalDateTime cutoff,
+                                     @Param("maxFailCount") int maxFailCount,
+                                     @Param("retryAfter") LocalDateTime retryAfter,
+                                     Pageable pageable);
 }

@@ -15,16 +15,27 @@ import {
 } from './studio';
 import { dateTimeInputOf } from '@/lib/datetime-input';
 import { HashtagField } from './HashtagField';
+import { ThumbnailField } from './ThumbnailField';
+import { uploadCustomThumbnail } from './custom-thumbnail';
 
 type LiveStream = Schema<'LiveStreamResponse'>;
 
 type Props =
-  | { mode: 'create'; onSaved: (liveStream: LiveStream) => void; onActiveExists: () => void }
-  | { mode: 'edit'; liveStream: LiveStream; onSaved: (liveStream: LiveStream) => void; onCancel: () => void };
+  /** onSaved의 thumbnailError: 방송은 만들었지만 고른 썸네일을 올리지 못했을 때의 안내 */
+  | { mode: 'create'; onSaved: (liveStream: LiveStream, thumbnailError?: string) => void; onActiveExists: () => void }
+  | {
+      mode: 'edit';
+      liveStream: LiveStream & { id: number };
+      onSaved: (liveStream: LiveStream) => void;
+      onCancel: () => void;
+      /** 썸네일은 [저장]과 상관없이 고르거나 지우면 바로 바뀐다. */
+      onThumbnailChange: (liveStream: LiveStream) => void;
+    };
 
 /**
- * 방송 만들기·수정 입력. 제목(필수)·설명·해시태그·시작 예정 시간.
+ * 방송 만들기·수정 입력. 제목(필수)·설명·해시태그·시작 예정 시간·방송 썸네일.
  * 시작 예정 시간은 방송 시작 전에만 정하거나 바꿀 수 있다.
+ * 썸네일은 방송 ID가 있어야 올릴 수 있어서, 만들 때 고른 파일은 방송을 만든 뒤 올린다.
  */
 export function StreamForm(props: Props) {
   const original = props.mode === 'edit' ? props.liveStream : undefined;
@@ -33,20 +44,31 @@ export function StreamForm(props: Props) {
   const [notice, setNotice] = useState<string>();
   // 해시태그 입력칸에 태그로 더하지 못한 글(형식 오류)이 남았는지 (HashtagField)
   const [hashtagInvalid, setHashtagInvalid] = useState(false);
+  // 방송을 만들 때 고른 썸네일 파일 (만든 뒤 올린다)
+  const [thumbnailFile, setThumbnailFile] = useState<File>();
   const canSchedule = props.mode === 'create' || original?.status === 'SCHEDULED';
 
   const mutation = useMutation({
-    mutationFn: async (): Promise<LiveStream | undefined> => {
+    mutationFn: async (): Promise<{ liveStream?: LiveStream; thumbnailError?: string }> => {
       if (props.mode === 'create') {
-        return call(api.POST('/api/v1/live-streams', { body: toCreateRequest(values) }));
+        const created = await call(api.POST('/api/v1/live-streams', { body: toCreateRequest(values) }));
+        if (!created?.id || !thumbnailFile) return { liveStream: created };
+        // 방송은 이미 만들어졌으니 썸네일을 못 올려도 스튜디오로 넘어가고, 거기서 다시 올리게 안내한다.
+        try {
+          return { liveStream: (await uploadCustomThumbnail(created.id, thumbnailFile)) ?? created };
+        } catch (error) {
+          return { liveStream: created, thumbnailError: errorMessage(error) };
+        }
       }
       const body = toUpdateRequest(props.liveStream, values);
-      if (!body) return props.liveStream; // 바뀐 것이 없으면 요청하지 않는다.
-      const liveStreamId = props.liveStream.id ?? 0;
-      return call(api.PATCH('/api/v1/live-streams/{liveStreamId}', { params: { path: { liveStreamId } }, body }));
+      if (!body) return { liveStream: props.liveStream }; // 바뀐 것이 없으면 요청하지 않는다.
+      const liveStreamId = props.liveStream.id;
+      return { liveStream: await call(api.PATCH('/api/v1/live-streams/{liveStreamId}', { params: { path: { liveStreamId } }, body })) };
     },
-    onSuccess: (liveStream) => {
-      if (liveStream) props.onSaved(liveStream);
+    onSuccess: ({ liveStream, thumbnailError }) => {
+      if (!liveStream) return;
+      if (props.mode === 'create') props.onSaved(liveStream, thumbnailError);
+      else props.onSaved(liveStream);
     },
     onError: (error) => {
       if (isErrorCode(error, 'LIVESTREAM_012') || isErrorCode(error, 'LIVESTREAM_011')) {
@@ -128,6 +150,12 @@ export function StreamForm(props: Props) {
             hint={scheduleHint}
           />
         </div>
+      )}
+
+      {props.mode === 'create' ? (
+        <ThumbnailField mode="create" file={thumbnailFile} onFileChange={setThumbnailFile} disabled={mutation.isPending} />
+      ) : (
+        <ThumbnailField mode="edit" liveStream={props.liveStream} onChange={props.onThumbnailChange} />
       )}
 
       {notice && <Notice tone="error">{notice}</Notice>}

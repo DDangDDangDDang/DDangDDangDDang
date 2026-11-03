@@ -1,12 +1,17 @@
 package com.example.ddangddangddang.domain.order.service;
 
+import com.example.ddangddangddang.domain.address.service.UserAddressService;
+import com.example.ddangddangddang.domain.livechat.moderation.ChatContentFilter;
 import com.example.ddangddangddang.domain.order.commission.CommissionPolicy;
 import com.example.ddangddangddang.domain.order.commission.SaleContext;
 import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderCreateCommand;
 import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
+import com.example.ddangddangddang.domain.order.event.OrderCanceledEvent;
 import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
+import com.example.ddangddangddang.domain.order.event.OrderDelayRequestedEvent;
+import com.example.ddangddangddang.domain.order.event.OrderDelayRespondedEvent;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.point.service.PointService;
@@ -20,22 +25,34 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
 import com.example.ddangddangddang.domain.order.dto.OrderSummaryResponse;
 import com.example.ddangddangddang.domain.order.entity.OrderRole;
+import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class OrderService {
+    // 발송 후 이 기간이 지날시 자동으로 구매 확정
+    static final int AUTO_CONFIRM_DAYS = 7;
+
+    // 자동 구매 확정이 실패하면 이 시간이 지난 두에 다시 시도한다( 잠깐의 장애로 바로 제외되지 않게)
+    static final int AUTO_CONFIRM_RETRY_HOURS =1;
+
+    //자동 구매 확정이 이 횟수 만큼 실패하면 대상에서 빼고 사람이 확인 한다.
+    static final int MAX_AUTO_CONFIRM_FAILURES = 10;
 
     private static final int MAX_PAGE_SIZE = 100;
     private final OrderRepository orderRepository;
     private final CommissionPolicy commissionPolicy;
     private final PointService pointService;
     private final ApplicationEventPublisher eventPublisher;
+    private final ChatContentFilter contentFilter;
+    private final UserAddressService userAddressService;
 
     /**
      * 낙찰 주문을 만든다. API가 아니라 경매 도메인이 호출하는 내부 메서드다.
@@ -148,12 +165,126 @@ public class OrderService {
         if (!order.isBuyer(userId)) {
             throw new BusinessException(OrderErrorCode.NOT_ORDER_BUYER);
         }
-        order.confirm();
-        // 판매가에서 수수료를 뗀 금액만 판매자에게 정산한다
-        pointService.settle(order.getSellerId(), order.getSettlementAmount(), order.getId());
-        // 커밋 뒤 구매자에게 도네이션 포인트를 적립한다. (도네이션 도메인이 듣는다)
-        eventPublisher.publishEvent(new OrderConfirmedEvent(order.getId(), order.getBuyerId(), order.getSellerId(), order.getFinalPrice()));
+        settlePurchase(order);
         return OrderResponse.from(order);
+    }
+
+    /**
+     * 발송 후 7일이 지나도 구매 확정하지 않은 주문을 자동을 확정하고 정산한다. 스케줄러가 건별로 호출한다.
+     *
+     * 주문을 잠근 뒤 상태와 기한을 다시 확인하므로, 그 사이 구매자가 확정했거나 취소된 주문은 건너뛴다.
+     *
+     * @return 이번 호출로 확정했으면 true
+     */
+    @Transactional
+    public boolean autoConfirm(Long orderId){
+        Order order = findOrderForUpdate(orderId);
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(AUTO_CONFIRM_DAYS);
+        if (order.getStatus() != OrderStatus.SHIPPING || order.getShippedAt().isAfter(cutoff)){
+            return false;
+        }
+        settlePurchase(order);
+        return true;
+    }
+
+    /**
+     * 자동 구매 확정이 실패한 주문의 실패 횟수를 1 올린다
+     * 확정이 실패하면 그 트랜잭션은 취소되므로, 횟수는 따로 새 트랜잭션에서 기록한다.
+     *
+     * @return 올린 뒤의 실패 횟수
+     */
+    @Transactional
+    public int recordAutoConfirmFailure(Long orderId){
+        Order order = findOrderForUpdate(orderId);
+        order.recordAutoConfirmFailure(LocalDateTime.now());
+        return order.getAutoConfirmFailCount();
+    }
+
+    // 구매 확정: 주문 확정 상태를 바꾸고, 수수료를 뺀 금액을 판매자에게 정산후, 구매자 포인트 적립을 알린다.
+    private void settlePurchase(Order order){
+        order.confirm();
+        pointService.settle(order.getSellerId(), order.getSettlementAmount(), order.getId());
+        eventPublisher.publishEvent(new OrderConfirmedEvent(order.getId(),order.getBuyerId(),order.getSellerId(),order.getFinalPrice()));
+    }
+    /**
+     * 기한을 넘긴 주문을 취소하고 구매자에게 환불한다. 스케줄러가 건별로 호출한다.
+     * 배송지 미입력이면 위약금을 판매자에게 주고 나머지를 환불하고, 미발송이면 전액 환불한다.
+     *
+     * 주문을 잠근 뒤 상태와 기한을 다시 확인하므로, 그 사이 발송됐거나 이미 취소된 주문은 건너뛴다.
+     * 정산 전 취소라 판매자 정산금·수수료·마일리지는 건드릴 것이 없다.
+     *
+     * @return 이번 호출로 취소했으면 true
+     */
+    @Transactional
+    public boolean cancelOverdue(Long orderId, OrderCancelReason reason) {
+        Order order = findOrderForUpdate(orderId);
+        LocalDateTime now = LocalDateTime.now();
+        boolean overdue = reason == OrderCancelReason.BUYER_NO_ADDRESS
+                ? order.isAddressOverdue(now) : order.isShipOverdue(now);
+        if (order.getStatus() != OrderStatus.ESCROW || !overdue) {
+            return false;
+        }
+        order.cancel(reason, now);
+        long penalty = reason == OrderCancelReason.BUYER_NO_ADDRESS ? order.getNoAddressPenalty() : 0;
+        long refund = order.getFinalPrice() - penalty;
+        if (reason == OrderCancelReason.BUYER_NO_ADDRESS) {
+            pointService.cancelWin(order.getBuyerId(), order.getFinalPrice(), order.getSellerId(), penalty, order.getId());
+        } else {
+            pointService.refundOrder(order.getBuyerId(), refund, order.getId());
+        }
+        eventPublisher.publishEvent(new OrderCanceledEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), reason, refund, penalty));
+        return true;
+    }
+
+    /**
+     * 판매자가 발송 지연을 신청한다. 사유는 메신저로 그대로 전달되므로, 외부 거래 유도를 여기서 막는다.
+     */
+    @Transactional
+    public OrderResponse requestDelay(Long userId, Long orderId, String reason) {
+        Order order = findOrderForUpdate(orderId);
+        if (!order.isSeller(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_SELLER_DELAY);
+        }
+        String stripped = reason.strip();
+        if (contentFilter.findViolation(stripped).isPresent()) {
+            throw new BusinessException(OrderErrorCode.DELAY_REASON_NOT_ALLOWED);
+        }
+        order.requestDelay(stripped, LocalDateTime.now());
+        eventPublisher.publishEvent(new OrderDelayRequestedEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), stripped));
+        return OrderResponse.from(order);
+    }
+
+    /** 구매자가 지연을 승인하면 발송 기한이 7일 늘어난다. */
+    @Transactional
+    public OrderResponse approveDelay(Long userId, Long orderId) {
+        Order order = findOrderForDelayResponse(userId, orderId);
+        order.approveDelay(LocalDateTime.now());
+        publishDelayResponded(order, true);
+        return OrderResponse.from(order);
+    }
+
+    /** 구매자가 지연을 거절하면 기존 기한대로 진행한다. */
+    @Transactional
+    public OrderResponse rejectDelay(Long userId, Long orderId) {
+        Order order = findOrderForDelayResponse(userId, orderId);
+        order.rejectDelay(LocalDateTime.now());
+        publishDelayResponded(order, false);
+        return OrderResponse.from(order);
+    }
+
+    private Order findOrderForDelayResponse(Long userId, Long orderId) {
+        Order order = findOrderForUpdate(orderId);
+        if (!order.isBuyer(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_BUYER_DELAY);
+        }
+        return order;
+    }
+
+    private void publishDelayResponded(Order order, boolean approved) {
+        eventPublisher.publishEvent(new OrderDelayRespondedEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), approved));
     }
 
     private Order findOrderForUpdate(Long orderId) {
@@ -173,6 +304,7 @@ public class OrderService {
         }
         order.registerDeliveryAddress(request.receiverName(), request.receiverPhone(),
                 request.address(), request.deliveryMemo());
+        userAddressService.saveAsDefaultIfNone(userId,request.receiverName(),request.receiverPhone(),request.address(),request.deliveryMemo());
         return OrderResponse.from(order);
     }
 }

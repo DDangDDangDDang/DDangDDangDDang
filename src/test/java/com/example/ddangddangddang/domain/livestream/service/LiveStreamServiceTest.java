@@ -28,6 +28,7 @@ import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import com.example.ddangddangddang.global.exception.ErrorCode;
+import com.example.ddangddangddang.global.storage.FileStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -92,6 +93,10 @@ class LiveStreamServiceTest {
     // 방송 화면 박스 검사. 기본은 박스 없음(빈 목록). 박스 검사 자체는 OverlayBoxResolverTest에서 본다.
     @Mock
     private OverlayBoxResolver overlayBoxResolver;
+
+    // 직접 올린 썸네일·봇 방송 녹화 영상의 화면 주소. 봇 방송 테스트에서만 정한다.
+    @Mock
+    private FileStorage fileStorage;
 
     @BeforeEach
     void verifiedSeller() {
@@ -291,7 +296,7 @@ class LiveStreamServiceTest {
         void chatModerationMode() {
             LiveStream liveStream = liveStream(true);
             given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
-            assertThat(LiveStreamResponse.from(liveStream).chatModerationMode()).isEqualTo(ChatModerationMode.ALERT);
+            assertThat(LiveStreamResponse.from(liveStream, null, null).chatModerationMode()).isEqualTo(ChatModerationMode.ALERT);
 
             LiveStreamResponse autoHide = liveStreamService.update(LIVE_STREAM_ID, SELLER_ID,
                     new LiveStreamUpdateRequest(null, null, null, null, null, null, ChatModerationMode.AUTO_HIDE));
@@ -611,7 +616,7 @@ class LiveStreamServiceTest {
         @Test
         @DisplayName("정하지 않은 방송은 배치가 null이다 (화면은 기본 배치)")
         void defaultLayout() {
-            assertThat(LiveStreamResponse.from(liveStream(true)).overlayLayout()).isNull();
+            assertThat(LiveStreamResponse.from(liveStream(true), null, null).overlayLayout()).isNull();
         }
 
         @Test
@@ -891,6 +896,60 @@ class LiveStreamServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(errorCode);
             then(mediaServerClient).should(never()).createPublisherToken(anyString(), anyString(), anyString());
+        }
+    }
+
+    @Nested
+    @DisplayName("라이브 봇 방송")
+    class BotStream {
+
+        private static final Long BOT_USER_ID = 7L;
+        private static final String VIDEO_KEY = "live-bots/123e4567-e89b-12d3-a456-426614174000.mp4";
+
+        @Test
+        @DisplayName("봇 방송은 판매자 인증 없이 바로 LIVE로 만들고, 방을 만든 뒤 영상 주소와 함께 변경·시작 이벤트를 발행한다")
+        void startBot() {
+            // 봇 계정은 판매자 인증을 받지 않았어도 된다. (인증을 확인하지 않음)
+            lenient().when(sellerVerification.isVerified(any())).thenReturn(false);
+            given(liveStreamRepository.saveAndFlush(any())).willAnswer(invocation -> {
+                LiveStream saved = invocation.getArgument(0);
+                ReflectionTestUtils.setField(saved, "id", LIVE_STREAM_ID);
+                return saved;
+            });
+            given(fileStorage.publicUrl(VIDEO_KEY)).willReturn("https://cdn/" + VIDEO_KEY);
+
+            LiveStreamResponse response = liveStreamService.startBot(BOT_USER_ID, " 봇 방송 ", null, List.of("#운동화"), VIDEO_KEY);
+
+            assertThat(response.status()).isEqualTo(LiveStreamStatus.LIVE);
+            assertThat(response.title()).isEqualTo("봇 방송");
+            assertThat(response.recorded()).isTrue();
+            assertThat(response.videoUrl()).isEqualTo("https://cdn/" + VIDEO_KEY);
+            assertThat(response.hashtags()).containsExactly("운동화");
+            then(mediaServerClient).should().createRoom(anyString());
+            then(mediaServerClient).should(never()).createPublisherToken(anyString(), anyString(), anyString());
+            ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+            then(eventPublisher).should(org.mockito.Mockito.times(2)).publishEvent(captor.capture());
+            assertThat(captor.getAllValues().get(1)).isEqualTo(new LiveStreamStartedEvent(LIVE_STREAM_ID));
+        }
+
+        @Test
+        @DisplayName("봇 계정에 종료되지 않은 방송이 있으면 다시 켤 수 없다 (LIVESTREAM_010)")
+        void startBotTwice() {
+            given(liveStreamRepository.existsByActiveSellerId(BOT_USER_ID)).willReturn(true);
+
+            assertThatThrownBy(() -> liveStreamService.startBot(BOT_USER_ID, "봇 방송", null, null, VIDEO_KEY))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS);
+            then(mediaServerClient).should(never()).createRoom(anyString());
+        }
+
+        @Test
+        @DisplayName("사람 판매자의 방송은 영상 주소가 없다")
+        void humanStreamHasNoVideo() {
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream(true)));
+
+            assertThat(liveStreamService.get(LIVE_STREAM_ID).videoUrl()).isNull();
         }
     }
 

@@ -141,6 +141,37 @@ public class PointService {
         record(wallet, PointHistoryType.SETTLE, amount, PointReferenceType.ORDER, orderId);
     }
 
+    /** 주문 취소: 구매자에게 낙찰 금액을 환불한다. */
+    @Transactional
+    public void refundOrder(Long buyerId, long amount, Long orderId) {
+        PointWallet wallet = findWalletForUpdate(buyerId);
+        wallet.refundOrder(amount);
+        record(wallet, PointHistoryType.ORDER_REFUND, amount, PointReferenceType.ORDER, orderId);
+    }
+
+    /**
+     * 구매자 배송지 미입력 낙찰취소: 낙찰 금액을 돌려준 뒤 위약금을 받아 판매자에게 지급한다.
+     * 구매자 내역에 환불과 위약금이 따로 보이도록 나눠 기록한다. 위약금이 없으면 판매자 지갑은 잠그지 않는다.
+     * 두 지갑을 사용자 ID 순서로 잠가 다른 지갑 작업과 데드락이 나지 않게 한다.
+     */
+    @Transactional
+    public void cancelWin(Long buyerId, long finalPrice, Long sellerId, long penalty, Long orderId) {
+        Map<Long, PointWallet> wallets = penalty > 0 ? findWalletsForUpdate(buyerId, sellerId) : findWalletsForUpdate(buyerId);
+
+        PointWallet buyerWallet = wallets.get(buyerId);
+        buyerWallet.refundOrder(finalPrice);
+        record(buyerWallet, PointHistoryType.WIN_CANCEL, finalPrice, PointReferenceType.ORDER, orderId);
+        if (penalty == 0) {
+            return;
+        }
+        buyerWallet.payOrderPenalty(penalty);
+        record(buyerWallet, PointHistoryType.WIN_CANCEL_PENALTY, penalty, PointReferenceType.ORDER, orderId);
+
+        PointWallet sellerWallet = wallets.get(sellerId);
+        sellerWallet.receiveOrderPenalty(penalty);
+        record(sellerWallet, PointHistoryType.ORDER_PENALTY, penalty, PointReferenceType.ORDER, orderId);
+    }
+
     // private 메서드 추가
     private PointWallet findWalletForUpdate(Long userId) {
         return pointWalletRepository.findByUserIdForUpdate(userId)

@@ -17,6 +17,10 @@ export const POINT_HISTORY_LABEL: Record<PointHistoryType, string> = {
   SETTLE: '판매 정산',
   EXCHANGE: '환전',
   EXCHANGE_REFUND: '환전 실패 환불',
+  ORDER_REFUND: '주문 취소 환불',
+  ORDER_PENALTY: '위약금 수령',
+  WIN_CANCEL: '낙찰취소',
+  WIN_CANCEL_PENALTY: '낙찰취소 위약금',
 };
 
 /** 사용 가능 포인트 기준으로 늘어나는(+) 종류인지. 묶임·구매·환전은 줄어든다(−). */
@@ -28,12 +32,24 @@ export const POINT_HISTORY_INCREASES: Record<PointHistoryType, boolean> = {
   SETTLE: true,
   EXCHANGE: false,
   EXCHANGE_REFUND: true,
+  ORDER_REFUND: true,
+  ORDER_PENALTY: true,
+  WIN_CANCEL: true,
+  WIN_CANCEL_PENALTY: false,
 };
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   ESCROW: '낙찰됨(발송 전)',
   SHIPPING: '배송 중',
   COMPLETED: '완료',
+  CANCELED: '취소됨',
+};
+
+export type OrderCancelReason = NonNullable<Schema<'OrderResponse'>['cancelReason']>;
+
+export const ORDER_CANCEL_REASON_LABEL: Record<OrderCancelReason, string> = {
+  BUYER_NO_ADDRESS: '낙찰취소',
+  SELLER_NOT_SHIPPED: '제품 미발송',
 };
 
 export const COURIER_LABEL: Record<Courier, string> = {

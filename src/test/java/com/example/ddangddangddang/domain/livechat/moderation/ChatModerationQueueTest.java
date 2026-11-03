@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.livechat.moderation;
 
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageResponse;
+import com.example.ddangddangddang.domain.user.service.EquippedBadge;
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageType;
 import com.example.ddangddangddang.domain.livechat.dto.ModerationAlert;
 import com.example.ddangddangddang.domain.livechat.moderation.ChatModerator.ChatForReview;
@@ -247,12 +248,12 @@ class ChatModerationQueueTest {
     }
 
     private ChatMessageResponse chat(Long senderId, String nickname, String content) {
-        return ChatMessageResponse.chat(LIVE_STREAM_ID, senderId, nickname, null, content);
+        return ChatMessageResponse.chat(LIVE_STREAM_ID, senderId, nickname, EquippedBadge.NONE, content);
     }
 
     private LiveStreamResponse liveStream(ChatModerationMode mode) {
-        return new LiveStreamResponse(LIVE_STREAM_ID, SELLER_ID, "테스트 방송", null, List.of(), null, List.of(), null, false, mode,
-                LiveStreamStatus.LIVE, LocalDateTime.now(), null, LocalDateTime.now(), null);
+        return new LiveStreamResponse(LIVE_STREAM_ID, SELLER_ID, "테스트 방송", null, List.of(), null, List.of(), null, false, null, mode,
+                null, LiveStreamStatus.LIVE, LocalDateTime.now(), null, LocalDateTime.now(), null);
     }
 
     /** 받은 묶음을 기록하고, 정해 둔 문구가 들어간 메시지를 표시하는 가짜 검토기 */

@@ -43,6 +43,9 @@
   --color-red-500: #d4363c; /* LIVE 배지, 읽지 않은 수, 오류 선 */
   /* 금색 · 3,000P 이상 도네이션 선물의 별과 테두리 (영상 위 어두운 배경에서만 쓴다) */
   --color-gold-300: #ffd76a;
+  --color-nickname-mint: #6fe3c8; /* 닉네임 색상 상품 (어두운 채팅 배경 위) */
+  --color-nickname-coral: #ffa58f;
+  --color-nickname-purple: #c9b1ff;
   /* 홈 배너 망치 그림(HomeHero) 전용: 나무 자루와 강철 머리. 그림 밖에서는 쓰지 않는다 */
   --color-hammer-wood: #5b4228;
   --color-hammer-wood-dark: #3a2914; /* 자루에 감은 가죽끈 */

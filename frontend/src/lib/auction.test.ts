@@ -116,6 +116,9 @@ describe('validateAuctionCondition', () => {
     expect(validateAuctionCondition({ ...schedule, buyNowOnly: true, buyNowPrice: '' }, 'schedule', NOW).buyNowPrice).toBe(
       '즉시구매만 판매하려면 즉시구매가를 입력해 주세요.',
     );
+    expect(validateAuctionCondition({ ...schedule, buyNowOnly: true, buyNowPrice: '0' }, 'schedule', NOW).buyNowPrice).toBe(
+      '즉시구매가는 0원일 수 없어요.',
+    );
   });
 
   it('버튼을 끈 상태에서 비우면 입력해 달라고, 0이면 0원일 수 없다고 알려준다', () => {

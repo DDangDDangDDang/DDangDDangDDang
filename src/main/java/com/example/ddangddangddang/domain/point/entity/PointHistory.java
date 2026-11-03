@@ -31,8 +31,9 @@ public class PointHistory extends BaseTimeEntity {
     @Column(nullable = false)
     private Long walletId;
 
+    // MySQL ENUM이 아니라 문자열로 둔다. (값을 더할 때 ddl-auto가 ENUM 정의를 고치지 않을 수 있음)
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, columnDefinition = "varchar(20)")
     private PointHistoryType type;
 
     /** 변동 금액. 방향은 type으로 판단하고 값은 항상 양수다. */

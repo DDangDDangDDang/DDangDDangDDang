@@ -180,6 +180,10 @@ function BidForm({ auctionId, showDetailLink, realtime }: { auctionId: number; s
         </div>
       </dl>
 
+      {ongoing && result?.kind !== 'buy' && (
+        <p className="text-caption text-neutral-500">낙찰 후 72시간 안에 배송지를 입력하지 않으면 낙찰이 취소되고, 낙찰가의 10%는 위약금으로 판매자에게 지급돼요.</p>
+      )}
+
       {/* 즉시 구매가 끝나면 경매 상태가 아직 바뀌지 않았어도 결과만 보여 주고, 더 입찰·구매하지 못하게 한다. */}
       {result?.kind === 'buy' ? (
         <Notice tone="success">

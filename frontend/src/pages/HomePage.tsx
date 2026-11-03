@@ -16,7 +16,7 @@ import {
 } from "@/components/live/LiveStreamCard";
 import { PreviewVideo } from "@/components/live/PreviewVideo";
 import { RecordedBadge } from "@/components/live/RecordedBadge";
-import { useStreamPreview } from "@/components/live/use-live-preview";
+import { cardBotVideo, useStreamPreview } from "@/components/live/use-live-preview";
 import { TrackAudio } from "@/components/watch/tracks";
 import { SellerAvatar } from "@/components/seller/SellerAvatar";
 import {
@@ -118,10 +118,10 @@ function LiveHome() {
             description="판매자가 방송을 시작하면 여기에 크게 나와요. 아래 예정된 방송과 경매를 둘러보세요."
             action={
               <Link
-                to="/lives?status=ENDED"
+                to="/lives?status=SCHEDULED"
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
-                지난 방송 보기
+                방송 예정 보기
               </Link>
             }
           />
@@ -236,9 +236,10 @@ function FeaturedMain({ card }: { card: Card }) {
     card.liveStreamId ?? 0,
     card.liveStreamId !== undefined && (!reducedMotion || hovered),
     soundOn,
+    cardBotVideo(card),
   );
-  // 작은 플레이어로 보고 있는 방송이면 소리는 작은 플레이어에서 켜고 끈다.
-  const canToggleSound = !!preview.videoTrack && !preview.shared;
+  // 작은 플레이어로 보고 있는 방송이면 소리는 작은 플레이어에서 켜고 끈다. 봇 방송은 녹화 영상의 소리를 켜고 끈다.
+  const canToggleSound = (!!preview.videoTrack || !!preview.bot) && !preview.shared;
 
   const toggleSound = () => {
     // 소리를 켤 때는 사용자가 누른 순간에 재생을 허용한다.
@@ -253,7 +254,7 @@ function FeaturedMain({ card }: { card: Card }) {
       onMouseLeave={onMouseLeave}
     >
       <TileLink card={card} big>
-        <PreviewVideo track={preview.videoTrack} />
+        <PreviewVideo track={preview.videoTrack} bot={preview.bot} muted={!soundOn} />
       </TileLink>
       {canToggleSound && (
         <button
@@ -279,9 +280,11 @@ function FeaturedMain({ card }: { card: Card }) {
 /** 대표 라이브 오른쪽 인기 방송 카드. 방송 카드처럼 마우스를 잠시 올려 두면 소리 없이 미리 보여 준다. */
 function FeaturedTile({ card }: { card: Card }) {
   const { hovered, onMouseEnter, onMouseLeave } = useHoverIntent();
-  const { videoTrack } = useStreamPreview(
+  const { videoTrack, bot } = useStreamPreview(
     card.liveStreamId ?? 0,
     card.liveStreamId !== undefined && hovered,
+    false,
+    cardBotVideo(card),
   );
   return (
     <div
@@ -290,7 +293,7 @@ function FeaturedTile({ card }: { card: Card }) {
       onMouseLeave={onMouseLeave}
     >
       <TileLink card={card}>
-        <PreviewVideo track={videoTrack} />
+        <PreviewVideo track={videoTrack} bot={bot} />
       </TileLink>
     </div>
   );
@@ -323,6 +326,7 @@ function TileLink({
       <LiveThumbnail
         name={seller}
         imageUrl={card.thumbnailUrl}
+        videoUrl={card.videoUrl}
         // 큰 칸은 16:9로 영역 높이를 정하고, 작은 칸은 오른쪽 열을 나눠 채운다.
         className={cn("rounded-none", !big && "aspect-auto h-full")}
       >
@@ -347,7 +351,7 @@ function TileLink({
             big ? "gap-3.5 px-6 pt-20 pb-5" : "gap-2.5 px-3 pt-8 pb-3",
           )}
         >
-          <SellerAvatar name={seller} size={big ? "lg" : "md"} live />
+          <SellerAvatar name={seller} imageUrl={card.sellerProfileImageUrl} size={big ? "lg" : "md"} live />
           <span className="flex min-w-0 flex-col gap-0.5 text-left">
             <span
               className={cn(

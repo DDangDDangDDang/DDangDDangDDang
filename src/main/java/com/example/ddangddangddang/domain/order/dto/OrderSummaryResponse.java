@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.order.dto;
 
 import com.example.ddangddangddang.domain.order.entity.Order;
+import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 
 import java.time.LocalDateTime;
@@ -14,6 +15,7 @@ public record OrderSummaryResponse(
         long finalPrice,
         long settlementAmount,  // 판매자가 받을 금액 (판매가 - 수수료)
         OrderStatus status,
+        OrderCancelReason cancelReason,
         LocalDateTime createdAt
 ) {
 
@@ -26,6 +28,7 @@ public record OrderSummaryResponse(
                 order.getFinalPrice(),
                 order.getSettlementAmount(),
                 order.getStatus(),
+                order.getCancelReason(),
                 order.getCreatedAt()
         );
     }

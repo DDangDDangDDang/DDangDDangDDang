@@ -15,11 +15,12 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * 방송 목록을 화면용 카드로 바꾼다. 홈 화면과 방송 목록·검색이 같이 쓴다.
- * 판매자 닉네임은 한 번에 조회하고, 방송 중인 방송의 시청자 수는 Redis 집계 값을 붙인다.
+ * 판매자 닉네임·프로필 이미지는 한 번에 조회하고, 방송 중인 방송의 시청자 수는 Redis 집계 값을 붙인다.
  */
 @Slf4j
 @Component
@@ -51,19 +52,28 @@ public class LiveStreamCardAssembler {
                 log.warn("시청자 수를 읽지 못해 0으로 보여 줍니다.", e);
             }
         }
-        Map<Long, String> nicknames = userRepository.findAllById(
+        // 판매자 닉네임과 프로필 이미지는 한 번에 조회한다. (탈퇴 등으로 없으면 둘 다 null)
+        Map<Long, User> sellers = userRepository.findAllById(
                         streams.stream().map(LiveStream::getSellerId).distinct().toList())
-                .stream().collect(Collectors.toMap(User::getId, User::getNickname));
+                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
 
         Set<Long> power = powerSellers.among(streams.stream().map(LiveStream::getSellerId).distinct().toList());
         Map<Long, Integer> viewerCounts = viewers;
         Map<Long, Integer> viewerIncreases = increases;
         return streams.stream()
-                .map(stream -> new LiveStreamCard(stream.getId(), stream.getTitle(), stream.getHashtagList(), stream.getStatus(), stream.getSellerId(),
-                        nicknames.get(stream.getSellerId()), stream.getScheduledStartAt(), stream.getStartedAt(),
-                        stream.getEndedAt(), viewerCounts.getOrDefault(stream.getId(), 0),
-                        viewerIncreases.getOrDefault(stream.getId(), 0), stream.isRecorded(), power.contains(stream.getSellerId()),
-                        stream.getThumbnailKey() == null ? null : fileStorage.publicUrl(stream.getThumbnailKey())))
+                .map(stream -> {
+                    User seller = sellers.get(stream.getSellerId());
+                    return new LiveStreamCard(stream.getId(), stream.getTitle(), stream.getHashtagList(), stream.getStatus(), stream.getSellerId(),
+                            seller == null ? null : seller.getNickname(), stream.getScheduledStartAt(), stream.getStartedAt(),
+                            stream.getEndedAt(), viewerCounts.getOrDefault(stream.getId(), 0),
+                            viewerIncreases.getOrDefault(stream.getId(), 0), stream.isRecorded(), power.contains(stream.getSellerId()),
+                            publicUrl(stream.cardThumbnailKey()), seller == null ? null : publicUrl(seller.getProfileImageKey()),
+                            publicUrl(stream.getVideoKey()));
+                })
                 .toList();
+    }
+
+    private String publicUrl(String key) {
+        return key == null ? null : fileStorage.publicUrl(key);
     }
 }

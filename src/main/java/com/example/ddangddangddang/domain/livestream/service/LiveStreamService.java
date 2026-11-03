@@ -23,6 +23,7 @@ import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.exception.CommonErrorCode;
+import com.example.ddangddangddang.global.storage.FileStorage;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.context.ApplicationEventPublisher;
@@ -68,6 +69,8 @@ public class LiveStreamService {
     private final AuctionRepository auctionRepository;
     // 방송 화면에 판매자가 넣는 텍스트·이미지 박스 검사, 이미지 업로드
     private final OverlayBoxResolver overlayBoxResolver;
+    // 판매자가 직접 올린 썸네일의 화면 주소를 만들 때만 쓴다.
+    private final FileStorage fileStorage;
 
     /**
      * 방송을 만든다. 판매자는 종료되지 않은(대기 중·방송 중) 방송을 하나만 가질 수 있다.
@@ -94,7 +97,7 @@ public class LiveStreamService {
             LiveStream created = LiveStream.create(sellerId, title, description, request.scheduledStartAt());
             created.changeHashtags(hashtags);
             LiveStream liveStream = liveStreamRepository.saveAndFlush(created);
-            return LiveStreamResponse.from(liveStream);
+            return toResponse(liveStream);
         } catch (DataIntegrityViolationException e) {
             // 판매자당 하나 규칙의 유니크 제약에 걸린 경우만 안내로 바꾼다. 다른 제약 위반(버그)은 그대로 드러나게 다시 던진다.
             if (isViolationOf(e, ACTIVE_SELLER_CONSTRAINT)) {
@@ -122,7 +125,7 @@ public class LiveStreamService {
      * 판매자의 종료되지 않은 방송. 없으면 null. (판매자 스튜디오에서 이어서 방송하기)
      */
     public LiveStreamResponse getMyActive(Long sellerId) {
-        return liveStreamRepository.findByActiveSellerId(sellerId).map(LiveStreamResponse::from).orElse(null);
+        return liveStreamRepository.findByActiveSellerId(sellerId).map(this::toResponse).orElse(null);
     }
 
     /**
@@ -159,11 +162,11 @@ public class LiveStreamService {
             changed = liveStream.changeChatModerationMode(request.chatModerationMode()) || changed;
         }
         if (!changed) {
-            return LiveStreamResponse.from(liveStream);
+            return toResponse(liveStream);
         }
         flushWithVersionCheck(liveStream);
 
-        LiveStreamResponse response = LiveStreamResponse.from(liveStream);
+        LiveStreamResponse response = toResponse(liveStream);
         eventPublisher.publishEvent(new LiveStreamUpdatedEvent(response));
         return response;
     }
@@ -229,11 +232,11 @@ public class LiveStreamService {
 
     private LiveStreamResponse publishChange(LiveStream liveStream, boolean changed) {
         if (!changed) {
-            return LiveStreamResponse.from(liveStream);
+            return toResponse(liveStream);
         }
         flushWithVersionCheck(liveStream);
 
-        LiveStreamResponse response = LiveStreamResponse.from(liveStream);
+        LiveStreamResponse response = toResponse(liveStream);
         eventPublisher.publishEvent(new LiveStreamUpdatedEvent(response));
         return response;
     }
@@ -286,7 +289,43 @@ public class LiveStreamService {
     }
 
     public LiveStreamResponse get(Long liveStreamId) {
-        return LiveStreamResponse.from(findById(liveStreamId));
+        return toResponse(findById(liveStreamId));
+    }
+
+    /**
+     * 라이브 봇 방송을 만들고 바로 시작한다. (관리자, LiveBotService)
+     * 송출하는 사람이 없으므로 송출 토큰을 만들지 않는다. LiveKit 방은 시청자 수를 세려고 사람 방송과 똑같이 만든다. (시청자는 방에 들어오기만 한다)
+     * 봇 계정은 판매자 신청을 거치지 않으므로 판매자 인증을 확인하지 않는다. 판매자당 종료되지 않은 방송 하나 규칙은 같다.
+     */
+    @Transactional
+    public LiveStreamResponse startBot(Long botUserId, String title, String description, List<String> hashtags, String videoKey) {
+        String validTitle = requireTitle(title);
+        String validDescription = blankToNull(description);
+        List<String> validHashtags = LiveStreamHashtags.normalize(hashtags);
+        validateContent(validTitle);
+        validateContent(validDescription);
+        validateHashtags(validHashtags);
+        if (liveStreamRepository.existsByActiveSellerId(botUserId)) {
+            throw new BusinessException(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS);
+        }
+        LiveStream liveStream = LiveStream.createBot(botUserId, validTitle, validDescription, videoKey);
+        liveStream.changeHashtags(validHashtags);
+        liveStream.start(botUserId);
+        try {
+            liveStreamRepository.saveAndFlush(liveStream);
+        } catch (DataIntegrityViolationException e) {
+            if (isViolationOf(e, ACTIVE_SELLER_CONSTRAINT)) {
+                throw new BusinessException(LiveStreamErrorCode.ACTIVE_STREAM_EXISTS, e);
+            }
+            throw e;
+        }
+        // 실패 시 예외 -> 트랜잭션 롤백 -> 방송이 남지 않는다
+        mediaServerClient.createRoom(liveStream.getRoomName());
+
+        LiveStreamResponse response = toResponse(liveStream);
+        eventPublisher.publishEvent(new LiveStreamUpdatedEvent(response));
+        eventPublisher.publishEvent(new LiveStreamStartedEvent(liveStream.getId()));
+        return response;
     }
 
     @Transactional
@@ -310,7 +349,7 @@ public class LiveStreamService {
 
         LiveStreamTokenResponse token = publisherTokenResponse(liveStream, sellerId, nickname);
         // 커밋 뒤 방송 예정 화면을 보던 시청자에게 알린다. 방송 정보 변경(LIVE)으로 새로고침 없이 영상에 접속하고, 채팅에 시작 안내가 올라간다.
-        eventPublisher.publishEvent(new LiveStreamUpdatedEvent(LiveStreamResponse.from(liveStream)));
+        eventPublisher.publishEvent(new LiveStreamUpdatedEvent(toResponse(liveStream)));
         eventPublisher.publishEvent(new LiveStreamStartedEvent(liveStream.getId()));
         return token;
     }
@@ -399,7 +438,7 @@ public class LiveStreamService {
 
         // 커밋 후 리스너가 처리한다. (채팅 종료 안내 / TODO(6단계): 경매 도메인에서 진행 중 경매 처리)
         eventPublisher.publishEvent(new LiveStreamEndedEvent(liveStream.getId(), idle));
-        return LiveStreamResponse.from(liveStream);
+        return toResponse(liveStream);
     }
 
     /**
@@ -413,12 +452,22 @@ public class LiveStreamService {
     }
 
     // 동시에 같은 방송 상태를 바꾸면 먼저 커밋된 요청만 성공하고, 나머지는 409 CONCURRENT_UPDATE로 응답한다.
+    /** 방송 정보 응답. 직접 올린 썸네일·봇 방송 녹화 영상이 있으면 화면 주소를 함께 준다. */
+    LiveStreamResponse toResponse(LiveStream liveStream) {
+        String key = liveStream.getCustomThumbnailKey();
+        return LiveStreamResponse.from(liveStream, publicUrl(key), publicUrl(liveStream.getVideoKey()));
+    }
+
     private void flushWithVersionCheck(LiveStream liveStream) {
         try {
             liveStreamRepository.saveAndFlush(liveStream);
         } catch (ObjectOptimisticLockingFailureException e) {
             throw new BusinessException(LiveStreamErrorCode.CONCURRENT_UPDATE, e);
         }
+    }
+
+    private String publicUrl(String key) {
+        return key == null ? null : fileStorage.publicUrl(key);
     }
 
     private LiveStream findById(Long liveStreamId) {

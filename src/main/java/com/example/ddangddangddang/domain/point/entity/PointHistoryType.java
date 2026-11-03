@@ -7,5 +7,9 @@ public enum PointHistoryType {
     PURCHASE,   // 낙찰 or 즉시구매
     SETTLE,     // 구매 확정
     EXCHANGE,
-    EXCHANGE_REFUND
+    EXCHANGE_REFUND,
+    ORDER_REFUND,   // 판매자 미발송으로 주문 취소: 낙찰 금액을 구매자에게 돌려줌
+    ORDER_PENALTY,  // 구매자 배송지 미입력으로 취소: 판매자가 위약금을 받음
+    WIN_CANCEL,     // 구매자 배송지 미입력으로 낙찰취소: 낙찰 금액을 구매자에게 돌려줌
+    WIN_CANCEL_PENALTY  // 구매자 배송지 미입력으로 낙찰취소: 구매자가 위약금을 냄
 }

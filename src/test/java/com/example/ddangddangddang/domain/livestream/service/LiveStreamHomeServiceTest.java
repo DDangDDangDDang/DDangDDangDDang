@@ -136,6 +136,26 @@ class LiveStreamHomeServiceTest {
     }
 
     @Test
+    @DisplayName("판매자 프로필 이미지가 있으면 카드에 주소를 넣고, 없으면 null(화면은 닉네임 첫 글자)")
+    void sellerProfileImage() {
+        LiveStream withImage = live(1L);
+        LiveStream withoutImage = live(2L);
+        given(statsRepository.topViewers(anyInt())).willReturn(List.of(new Ranked(1L, 9), new Ranked(2L, 5)));
+        given(statsRepository.topSurging(anyInt())).willReturn(List.of());
+        given(liveStreamRepository.findAllById(any())).willAnswer(invocation -> streams(invocation.getArgument(0), withImage, withoutImage));
+        given(statsRepository.getViewerCounts(anyCollection())).willReturn(Map.of());
+        given(statsRepository.getIncreases(anyCollection())).willReturn(Map.of());
+        User seller = user(101L, "사진판매자");
+        seller.changeProfileImage("profile-images/101/a.png");
+        given(userRepository.findAllById(any())).willReturn(List.of(seller, user(102L, "판매자B")));
+        given(fileStorage.publicUrl("profile-images/101/a.png")).willReturn("https://cdn/a.png");
+
+        List<LiveStreamCard> cards = homeService.getHome(10).mostViewed();
+
+        assertThat(cards).extracting(LiveStreamCard::sellerProfileImageUrl).containsExactly("https://cdn/a.png", null);
+    }
+
+    @Test
     @DisplayName("size만큼만 보여 준다")
     void limitSize() {
         LiveStream a = live(1L);

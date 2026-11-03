@@ -25,15 +25,23 @@ public record LiveStreamResponse(
         OverlayLayoutResponse overlayLayout,
         // 카메라 대신 미리 녹화한 영상을 내보내는 방송인지 (시청 화면에 "녹화 영상" 표시)
         boolean recorded,
+        // 라이브 봇 방송의 녹화 영상 주소. 시청 화면은 LiveKit 영상 대신 이 영상을 방송 시작 시각(startedAt)에 맞춰 반복 재생한다. 사람 판매자의 방송이면 null
+        String videoUrl,
         // 채팅 AI 검토 처리 방식 (OFF / ALERT / AUTO_HIDE)
         ChatModerationMode chatModerationMode,
+        // 판매자가 직접 올린 방송 카드 썸네일 주소. 없으면 null (카드는 방송 중 송출 화면 캡처를 쓴다)
+        String customThumbnailUrl,
         LiveStreamStatus status,
         LocalDateTime createdAt,
         LocalDateTime scheduledStartAt,
         LocalDateTime startedAt,
         LocalDateTime endedAt
 ) {
-    public static LiveStreamResponse from(LiveStream liveStream) {
+    /**
+     * @param customThumbnailUrl 직접 올린 썸네일의 화면 주소 (FileStorage.publicUrl, 없으면 null)
+     * @param videoUrl           봇 방송 녹화 영상의 화면 주소 (FileStorage.publicUrl, 봇 방송이 아니면 null)
+     */
+    public static LiveStreamResponse from(LiveStream liveStream, String customThumbnailUrl, String videoUrl) {
         return new LiveStreamResponse(
                 liveStream.getId(),
                 liveStream.getSellerId(),
@@ -44,7 +52,9 @@ public record LiveStreamResponse(
                 liveStream.getFeaturedAuctionIds(),
                 OverlayLayoutResponse.from(liveStream.getOverlayLayout()),
                 liveStream.isRecorded(),
+                videoUrl,
                 liveStream.getChatModerationMode(),
+                customThumbnailUrl,
                 liveStream.getStatus(),
                 liveStream.getCreatedAt(),
                 liveStream.getScheduledStartAt(),

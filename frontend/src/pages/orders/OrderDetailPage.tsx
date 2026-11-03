@@ -1,13 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MessageCircle } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { api, call, errorMessage, useSession, type Schema } from '@/api';
+import { AddressFields, deliveryFieldsOf, isDeliveryFilled, type DeliveryFields } from '@/components/address/AddressFields';
+import { addressListQuery, addressesQueryKey, defaultAddressQuery } from '@/components/address/address-query';
 import { OrderStatusBadge, ProductImage } from '@/components/order/OrderBits';
-import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorState, Input, Notice, Select, Skeleton } from '@/components/ui';
+import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorState, Input, Notice, Select, Skeleton, buttonVariants } from '@/components/ui';
 import { formatDateTime, formatPhone, formatPoint, onlyDigits } from '@/lib/format';
 import { COURIER_LABEL, type Courier } from '@/lib/labels';
-import { orderRoleOf, orderStage, requireOrderId } from '@/lib/order-view';
+import {
+  autoConfirmMessage,
+  hasDeliveryAddress,
+  orderCancelMessage,
+  orderDeadlineMessage,
+  orderRoleOf,
+  orderStage,
+  requireOrderId,
+  type OrderRole,
+} from '@/lib/order-view';
+import { OrderDelayCard } from './OrderDelayCard';
 import { OrderReviewSection } from './OrderReviewSection';
 import { TrackingCard } from './TrackingCard';
 
@@ -28,16 +40,20 @@ export function OrderDetailPage() {
 
   const order = query.data;
   const role = order ? orderRoleOf(order, session?.user.userId) : null;
+  const deadlineMessage = order ? orderDeadlineMessage(order) : null;
 
   return (
     <div className="mx-auto max-w-[880px]">
-      <Link
-        to={role === 'SELLER' ? '/orders?role=SELLER' : '/orders'}
-        className="mb-4 inline-flex items-center gap-1 text-label font-semibold text-neutral-500 hover:text-neutral-900"
-      >
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        주문 내역
-      </Link>
+      <div className="mb-4 flex items-center justify-between">
+        <Link
+          to={role === 'SELLER' ? '/orders?role=SELLER' : '/orders'}
+          className="inline-flex items-center gap-1 text-label font-semibold text-neutral-500 hover:text-neutral-900"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          주문 내역
+        </Link>
+        {order && role && <ContactButton order={order} role={role} />}
+      </div>
 
       {!validId ? (
         <Card>
@@ -55,8 +71,11 @@ export function OrderDetailPage() {
       ) : (
         <div className="flex flex-col gap-4">
           <OrderSummary order={order} />
-          {role === 'BUYER' && <BuyerPanel order={order} />}
-          {role === 'SELLER' && (
+          {deadlineMessage && <Notice tone="info">{deadlineMessage}</Notice>}
+          {role && <OrderDelayCard order={order} role={role} />}
+          {order.status === 'CANCELED' && <Notice tone="error">{orderCancelMessage(order)}</Notice>}
+          {order.status !== 'CANCELED' && role === 'BUYER' && <BuyerPanel order={order} />}
+          {order.status !== 'CANCELED' && role === 'SELLER' && (
             <>
               <SettlementSummary order={order} />
               <SellerPanel order={order} />
@@ -65,6 +84,21 @@ export function OrderDetailPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 상대방과 1:1 채팅: 구매자는 판매자에게, 판매자는 구매자에게.
+ * 채팅 화면(/messages/:userId)이 방을 만들거나(POST /dm/rooms) 있던 방을 그대로 연다.
+ */
+function ContactButton({ order, role }: { order: Order; role: OrderRole }) {
+  const targetUserId = role === 'BUYER' ? order.sellerId : order.buyerId;
+  if (targetUserId == null) return null;
+  return (
+    <Link to={`/messages/${targetUserId}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+      <MessageCircle className="size-4" aria-hidden="true" />
+      {role === 'BUYER' ? '판매자에게 문의' : '구매자에게 문의'}
+    </Link>
   );
 }
 
@@ -166,7 +200,8 @@ function BuyerShippingPanel({ order, onConfirmed }: { order: Order; onConfirmed:
         <ShipmentView order={order} />
         <AddressView order={order} />
         {mutation.isError && <Notice tone="error">{errorMessage(mutation.error)}</Notice>}
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-4">
+          <p className="text-label text-neutral-500">{autoConfirmMessage(order)}</p>
           <Button onClick={() => setConfirming(true)}>구매 확정</Button>
         </div>
       </CardBody>
@@ -184,25 +219,49 @@ function BuyerShippingPanel({ order, onConfirmed }: { order: Order; onConfirmed:
 }
 
 function AddressForm({ order, onDone, onCancel }: { order: Order; onDone: () => void; onCancel?: () => void }) {
+  // 배송지를 처음 넣는 주문은 저장된 기본 배송지로 미리 채운다. 이미 넣은 주문을 고칠 때는 그 주문의 배송지로 채운다.
+  const prefill = !hasDeliveryAddress(order);
+  const defaultQuery = useQuery({ ...defaultAddressQuery, enabled: prefill });
+
+  if (prefill && defaultQuery.isPending) return <Skeleton className="h-56" />;
+  // 기본 배송지를 못 불러와도 빈 칸으로 직접 입력할 수 있게 한다
+  const initial = prefill ? deliveryFieldsOf(defaultQuery.data) : deliveryFieldsOf(order);
+  return <AddressFormBody order={order} initial={initial} onDone={onDone} onCancel={onCancel} />;
+}
+
+function AddressFormBody({ order, initial, onDone, onCancel }: { order: Order; initial: DeliveryFields; onDone: () => void; onCancel?: () => void }) {
   const queryClient = useQueryClient();
-  const [receiverName, setReceiverName] = useState(order.receiverName ?? '');
-  const [receiverPhone, setReceiverPhone] = useState(order.receiverPhone ?? '');
-  const [address, setAddress] = useState(order.address ?? '');
-  const [deliveryMemo, setDeliveryMemo] = useState(order.deliveryMemo ?? '');
+  const [value, setValue] = useState(initial);
+  const [selectedId, setSelectedId] = useState('');
+  const savedQuery = useQuery(addressListQuery);
+  const saved = savedQuery.data ?? [];
 
   const mutation = useMutation({
     mutationFn: () =>
       call(
         api.PATCH('/api/v1/orders/{orderId}/address', {
           params: { path: { orderId: requireOrderId(order) } },
-          body: { receiverName, receiverPhone, address, deliveryMemo: deliveryMemo || undefined },
+          body: {
+            receiverName: value.receiverName,
+            receiverPhone: value.receiverPhone,
+            address: value.address,
+            deliveryMemo: value.deliveryMemo || undefined,
+          },
         }),
       ),
     onSuccess: (data) => {
       queryClient.setQueryData(['orders', 'detail', order.orderId], data);
+      // 첫 주문의 배송지는 서버가 기본 배송지로 저장한다
+      void queryClient.invalidateQueries({ queryKey: addressesQueryKey });
       onDone();
     },
   });
+
+  function choose(addressId: string) {
+    setSelectedId(addressId);
+    const picked = saved.find((a) => String(a.addressId) === addressId);
+    if (picked) setValue(deliveryFieldsOf(picked));
+  }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -211,28 +270,40 @@ function AddressForm({ order, onDone, onCancel }: { order: Order; onDone: () => 
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-      <Input label="받는 사람 이름" value={receiverName} maxLength={20} onChange={(e) => setReceiverName(e.target.value)} required />
-      <Input
-        label="연락처"
-        type="tel"
-        inputMode="numeric"
-        hint="하이픈 없이 숫자만 입력해 주세요."
-        value={receiverPhone}
-        onChange={(e) => setReceiverPhone(onlyDigits(e.target.value).slice(0, 11))}
-        required
-      />
-      <div className="col-span-2">
-        <Input label="주소" value={address} maxLength={200} onChange={(e) => setAddress(e.target.value)} required />
-      </div>
-      <div className="col-span-2">
-        <Input
-          label="배송 요청사항 (선택)"
-          placeholder="예: 문 앞에 두고 가 주세요."
-          value={deliveryMemo}
-          maxLength={100}
-          onChange={(e) => setDeliveryMemo(e.target.value)}
-        />
-      </div>
+      {savedQuery.isError && (
+        <div className="col-span-2 flex items-center gap-3">
+          <div className="flex-1">
+            <Notice tone="error">저장된 배송지를 불러오지 못했어요. 직접 입력하거나 다시 불러와 주세요.</Notice>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void savedQuery.refetch()} loading={savedQuery.isFetching}>
+            다시 불러오기
+          </Button>
+        </div>
+      )}
+      {saved.length > 0 && (
+        <div className="col-span-2 flex items-end gap-2">
+          <div className="flex-1">
+            <Select
+              label="배송지 선택"
+              options={[
+                { value: '', label: '저장된 배송지에서 고르기' },
+                ...saved.map((a) => ({
+                  value: String(a.addressId ?? ''),
+                  label: `${a.isDefault ? '[기본] ' : ''}${a.addressName ?? '배송지'} · ${a.receiverName ?? ''} · ${a.address ?? ''}`,
+                })),
+              ]}
+              value={selectedId}
+              onChange={(e) => choose(e.target.value)}
+              disabled={mutation.isPending}
+            />
+          </div>
+          <Link to="/me/addresses" className={buttonVariants({ variant: 'ghost' })}>
+            배송지 관리
+          </Link>
+        </div>
+      )}
+      <AddressFields value={value} onChange={setValue} />
+      <p className="col-span-2 text-caption text-neutral-500">여기서 고친 내용은 이 주문에만 쓰이고, 저장된 배송지는 바뀌지 않아요.</p>
       {mutation.isError && (
         <div className="col-span-2">
           <Notice tone="error">{errorMessage(mutation.error)}</Notice>
@@ -244,7 +315,7 @@ function AddressForm({ order, onDone, onCancel }: { order: Order; onDone: () => 
             취소
           </Button>
         )}
-        <Button type="submit" loading={mutation.isPending} disabled={!receiverName || !receiverPhone || !address}>
+        <Button type="submit" loading={mutation.isPending} disabled={!isDeliveryFilled(value)}>
           {onCancel ? '배송지 수정' : '배송지 입력'}
         </Button>
       </div>
@@ -323,7 +394,7 @@ function SellerPanel({ order }: { order: Order }) {
         </CardHeader>
         <CardBody className="flex flex-col gap-4">
           <ShipmentView order={order} />
-          <Notice tone="info">구매 확정 대기 중이에요.</Notice>
+          <Notice tone="info">구매 확정 대기 중이에요. {autoConfirmMessage(order)}</Notice>
         </CardBody>
       </Card>
     );

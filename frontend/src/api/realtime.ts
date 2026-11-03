@@ -4,6 +4,8 @@ import type { ErrorCode } from './generated/error-codes';
 import type { components } from './generated/schema';
 import { getAccessToken } from './session';
 
+type NicknameDecoration = NonNullable<components['schemas']['MyBadgesResponse']['owned']>[number];
+
 /*
  * 실시간 메시지(STOMP over WebSocket). 경로와 메시지 형식은 docs/api/README.md의 "실시간 메시지"를 따른다.
  * 이 부분은 명세에서 자동 생성되지 않으므로, 문서가 바뀌면 아래 타입과 경로도 같이 고친다.
@@ -24,7 +26,7 @@ import { getAccessToken } from './session';
  * BID는 방송에 올라간 경매의 입찰: 입찰자(senderId·nickname), 입찰 금액(amount), 직전 현재가(previousAmount), 경매(auctionId·productName)
  * AUCTION_SOLD는 낙찰: 낙찰자(senderId·nickname), 낙찰가(amount), 경매(auctionId·productName)
  * BID·AUCTION_SOLD의 content는 채팅에 그대로 보여 줄 안내 문장이다.
- * CHAT의 badge는 보낸 사람이 장착한 닉네임 뱃지 (없으면 null)
+ * CHAT의 badge·title·color는 보낸 사람이 장착한 채팅 스킨·채팅 뱃지·닉네임 색상 (없으면 null)
  * MESSAGE_HIDDEN·MESSAGE_RESTORED는 새 줄이 아니라, targetMessageId 채팅(또는 선물 한마디)을 AI 검토로 가리거나 판매자가 되돌린 것이다.
  */
 export type ChatMessage = {
@@ -42,8 +44,12 @@ export type ChatMessage = {
   /** BID·AUCTION_SOLD에만 있다 */
   auctionId?: number | null;
   productName?: string | null;
-  /** CHAT에만 있다. 보낸 사람이 장착한 닉네임 뱃지 */
-  badge?: 'ANGEL_WINGS' | 'DEVIL_WINGS' | 'HALO' | 'STAR' | null;
+  /** CHAT에만 있다. 보낸 사람이 장착한 채팅 스킨 */
+  badge?: NicknameDecoration | null;
+  /** CHAT에만 있다. 보낸 사람이 장착한 채팅 뱃지(칭호) */
+  title?: NicknameDecoration | null;
+  /** CHAT에만 있다. 보낸 사람이 장착한 닉네임 색상 */
+  color?: NicknameDecoration | null;
   /** MESSAGE_HIDDEN·MESSAGE_RESTORED에만 있다 */
   targetMessageId?: string | null;
   /** 서버가 보내지 않는 화면 전용 값: AI 검토로 가려진 메시지인지 (applyChatMessage가 채운다) */

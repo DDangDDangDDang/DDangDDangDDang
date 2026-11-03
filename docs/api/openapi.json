@@ -825,6 +825,108 @@
         }
       }
     },
+    "/api/v1/live-streams/{liveStreamId}/custom-thumbnail" : {
+      "put" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamChangeCustomThumbnail",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ThumbnailChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveStreamResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamDeleteCustomThumbnail",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveStreamResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auctions/{auctionId}/alert" : {
       "get" : {
         "tags" : [ "auction-alert-controller" ],
@@ -935,6 +1037,165 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseAuctionAlertResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/profile-image" : {
+      "put" : {
+        "tags" : [ "admin-live-bot-controller" ],
+        "operationId" : "adminLiveBotChangeProfileImage",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProfileImageChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveBotResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "admin-live-bot-controller" ],
+        "operationId" : "adminLiveBotDeleteProfileImage",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveBotResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/featured-auctions" : {
+      "put" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingFeatureAuction",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FeaturedAuctionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveStreamResponse"
                 }
               }
             }
@@ -1190,6 +1451,90 @@
         }
       }
     },
+    "/api/v1/users/me/addresses" : {
+      "get" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressGetAddresses",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListUserAddressResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressCreateAddress",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UserAddressRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserAddressResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/shop/power-seller" : {
       "post" : {
         "tags" : [ "shop-controller" ],
@@ -1286,7 +1631,7 @@
           "required" : true,
           "schema" : {
             "type" : "string",
-            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR", "TITLE_BID_KING", "TITLE_WIN_MASTER", "TITLE_REGULAR", "TITLE_BIG_SPENDER", "COLOR_GOLD", "COLOR_MINT", "COLOR_CORAL", "COLOR_PURPLE" ]
           }
         } ],
         "responses" : {
@@ -2104,6 +2449,157 @@
         }
       }
     },
+    "/api/v1/orders/{orderId}/delay-request" : {
+      "post" : {
+        "tags" : [ "order-controller" ],
+        "operationId" : "orderRequestDelay",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrderDelayRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{orderId}/delay-request/reject" : {
+      "post" : {
+        "tags" : [ "order-controller" ],
+        "operationId" : "orderRejectDelay",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{orderId}/delay-request/approve" : {
+      "post" : {
+        "tags" : [ "order-controller" ],
+        "operationId" : "orderApproveDelay",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notifications/{notificationId}/read" : {
       "post" : {
         "tags" : [ "notification-controller" ],
@@ -2854,6 +3350,63 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseDonationResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/live-streams/{liveStreamId}/custom-thumbnail-uploads" : {
+      "post" : {
+        "tags" : [ "live-stream-controller" ],
+        "operationId" : "liveStreamCreateCustomThumbnailUpload",
+        "parameters" : [ {
+          "name" : "liveStreamId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ThumbnailUploadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseThumbnailUploadResponse"
                 }
               }
             }
@@ -4684,6 +5237,705 @@
         }
       }
     },
+    "/api/v1/admin/live-bots" : {
+      "get" : {
+        "tags" : [ "admin-live-bot-controller" ],
+        "operationId" : "adminLiveBotGetAll",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListLiveBotResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "admin-live-bot-controller" ],
+        "operationId" : "adminLiveBotCreate",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LiveBotCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveBotResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/start" : {
+      "post" : {
+        "tags" : [ "admin-live-bot-controller" ],
+        "operationId" : "adminLiveBotStart",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LiveBotStartRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveStreamResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/profile-image/upload-url" : {
+      "post" : {
+        "tags" : [ "admin-live-bot-controller" ],
+        "operationId" : "adminLiveBotCreateProfileImageUpload",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProfileImageUploadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProfileImageUploadResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/products" : {
+      "get" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingGetProducts",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "description" : "Zero-based page index (0..N)",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "description" : "The size of the page to be returned",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ "createdAt,DESC" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageProductResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingCreateProduct",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProductRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProductResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/products/image-uploads" : {
+      "post" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingCreateProductImageUpload",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProductImageUploadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProductImageUploadResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/orders/{orderId}/delay-request" : {
+      "post" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingRequestDelay",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrderDelayRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/end" : {
+      "post" : {
+        "tags" : [ "admin-live-bot-controller" ],
+        "operationId" : "adminLiveBotEnd",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveStreamResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/auctions" : {
+      "get" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingGetOpenAuctions",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListAuctionResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingStartLiveAuction",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LiveAuctionCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAuctionResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/auctions/{auctionId}/cancel" : {
+      "post" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingCancelAuction",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "auctionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/video-uploads" : {
+      "post" : {
+        "tags" : [ "admin-live-bot-controller" ],
+        "operationId" : "adminLiveBotCreateVideoUpload",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LiveBotVideoUploadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveBotVideoUploadResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/categories" : {
       "post" : {
         "tags" : [ "category-controller" ],
@@ -4705,6 +5957,147 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseCategoryResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/ads" : {
+      "get" : {
+        "tags" : [ "admin-ad-controller" ],
+        "operationId" : "adminAdGetAll",
+        "parameters" : [ {
+          "name" : "placement",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "HOME_TOP", "SIDEBAR" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListAdResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "admin-ad-controller" ],
+        "operationId" : "adminAdCreate",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AdCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/ads/image-uploads" : {
+      "post" : {
+        "tags" : [ "admin-ad-controller" ],
+        "operationId" : "adminAdCreateUpload",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AdImageUploadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdImageUploadResponse"
                 }
               }
             }
@@ -4789,6 +6182,148 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseMyInfoUpdateResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/addresses/{addressId}" : {
+      "delete" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressDeleteAddress",
+        "parameters" : [ {
+          "name" : "addressId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressUpdateAddress",
+        "parameters" : [ {
+          "name" : "addressId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UserAddressRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserAddressResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/addresses/{addressId}/default" : {
+      "patch" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressChangeDefaultAddress",
+        "parameters" : [ {
+          "name" : "addressId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserAddressResponse"
                 }
               }
             }
@@ -5316,6 +6851,71 @@
         }
       }
     },
+    "/api/v1/admin/live-bots/{botId}/orders/{orderId}/ship" : {
+      "patch" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingShip",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrderShipRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/categories/{categoryId}" : {
       "delete" : {
         "tags" : [ "category-controller" ],
@@ -5384,6 +6984,101 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseCategoryResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/ads/{adId}" : {
+      "delete" : {
+        "tags" : [ "admin-ad-controller" ],
+        "operationId" : "adminAdDelete",
+        "parameters" : [ {
+          "name" : "adId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "admin-ad-controller" ],
+        "operationId" : "adminAdChangeEnabled",
+        "parameters" : [ {
+          "name" : "adId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AdEnabledRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdResponse"
                 }
               }
             }
@@ -5650,6 +7345,44 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseCursorResponseAuctionListResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/addresses/default" : {
+      "get" : {
+        "tags" : [ "user-address-controller" ],
+        "operationId" : "userAddressGetDefaultAddress",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserAddressResponse"
                 }
               }
             }
@@ -6063,7 +7796,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND" ]
+            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY", "WIN_CANCEL", "WIN_CANCEL_PENALTY" ]
           }
         }, {
           "name" : "cursor",
@@ -6183,7 +7916,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED" ]
+            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED", "CANCELED" ]
           }
         }, {
           "name" : "cursor",
@@ -6912,6 +8645,54 @@
         "security" : [ ]
       }
     },
+    "/api/v1/ads" : {
+      "get" : {
+        "tags" : [ "ad-controller" ],
+        "operationId" : "adGetActive",
+        "parameters" : [ {
+          "name" : "placement",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "HOME_TOP", "SIDEBAR" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListAdResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
     "/api/v1/admin/seller-applications" : {
       "get" : {
         "tags" : [ "admin-seller-application-controller" ],
@@ -7013,6 +8794,133 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseCursorResponseAdminPointExchangeResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/orders" : {
+      "get" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingGetOrders",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED", "CANCELED" ]
+          }
+        }, {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseOrderSummaryResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/orders/{orderId}" : {
+      "get" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingGetOrder",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
                 }
               }
             }
@@ -7437,6 +9345,101 @@
           }
         }
       }
+    },
+    "/api/v1/admin/live-bots/{botId}" : {
+      "delete" : {
+        "tags" : [ "admin-live-bot-controller" ],
+        "operationId" : "adminLiveBotDelete",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/live-bots/{botId}/featured-auctions/{auctionId}" : {
+      "delete" : {
+        "tags" : [ "admin-live-bot-selling-controller" ],
+        "operationId" : "adminLiveBotSellingUnfeatureAuction",
+        "parameters" : [ {
+          "name" : "botId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "auctionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLiveStreamResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components" : {
@@ -7578,7 +9581,11 @@
         "properties" : {
           "badge" : {
             "type" : "string",
-            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR", "TITLE_BID_KING", "TITLE_WIN_MASTER", "TITLE_REGULAR", "TITLE_BIG_SPENDER", "COLOR_GOLD", "COLOR_MINT", "COLOR_CORAL", "COLOR_PURPLE" ]
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "SKIN", "TITLE", "COLOR" ]
           }
         }
       },
@@ -7603,12 +9610,20 @@
             "type" : "array",
             "items" : {
               "type" : "string",
-              "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+              "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR", "TITLE_BID_KING", "TITLE_WIN_MASTER", "TITLE_REGULAR", "TITLE_BIG_SPENDER", "COLOR_GOLD", "COLOR_MINT", "COLOR_CORAL", "COLOR_PURPLE" ]
             }
           },
           "equipped" : {
             "type" : "string",
-            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR", "TITLE_BID_KING", "TITLE_WIN_MASTER", "TITLE_REGULAR", "TITLE_BIG_SPENDER", "COLOR_GOLD", "COLOR_MINT", "COLOR_CORAL", "COLOR_PURPLE" ]
+          },
+          "equippedTitle" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR", "TITLE_BID_KING", "TITLE_WIN_MASTER", "TITLE_REGULAR", "TITLE_BIG_SPENDER", "COLOR_GOLD", "COLOR_MINT", "COLOR_CORAL", "COLOR_PURPLE" ]
+          },
+          "equippedColor" : {
+            "type" : "string",
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR", "TITLE_BID_KING", "TITLE_WIN_MASTER", "TITLE_REGULAR", "TITLE_BIG_SPENDER", "COLOR_GOLD", "COLOR_MINT", "COLOR_CORAL", "COLOR_PURPLE" ]
           }
         }
       },
@@ -8051,9 +10066,15 @@
           "recorded" : {
             "type" : "boolean"
           },
+          "videoUrl" : {
+            "type" : "string"
+          },
           "chatModerationMode" : {
             "type" : "string",
             "enum" : [ "OFF", "ALERT", "AUTO_HIDE" ]
+          },
+          "customThumbnailUrl" : {
+            "type" : "string"
           },
           "status" : {
             "type" : "string",
@@ -8171,6 +10192,57 @@
           },
           "subscribed" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "ApiResponseLiveBotResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/LiveBotResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "LiveBotResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "profileImageUrl" : {
+            "type" : "string"
+          },
+          "videoUrl" : {
+            "type" : "string"
+          },
+          "liveStreamId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "liveTitle" : {
+            "type" : "string"
+          },
+          "liveStartedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -8399,6 +10471,78 @@
           }
         },
         "required" : [ "email" ]
+      },
+      "UserAddressRequest" : {
+        "type" : "object",
+        "properties" : {
+          "addressName" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "receiverName" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "receiverPhone" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^0\\d{8,10}$"
+          },
+          "address" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "deliveryMemo" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "address", "addressName", "receiverName", "receiverPhone" ]
+      },
+      "ApiResponseUserAddressResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/UserAddressResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "UserAddressResponse" : {
+        "type" : "object",
+        "properties" : {
+          "addressId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "addressName" : {
+            "type" : "string"
+          },
+          "receiverName" : {
+            "type" : "string"
+          },
+          "receiverPhone" : {
+            "type" : "string"
+          },
+          "address" : {
+            "type" : "string"
+          },
+          "deliveryMemo" : {
+            "type" : "string"
+          },
+          "isDefault" : {
+            "type" : "boolean"
+          }
+        }
       },
       "ApiResponseVoid" : {
         "type" : "object",
@@ -8943,6 +11087,139 @@
           }
         }
       },
+      "OrderDelayRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "reason" ]
+      },
+      "ApiResponseOrderResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/OrderResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "OrderResponse" : {
+        "type" : "object",
+        "properties" : {
+          "orderId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "orderNo" : {
+            "type" : "string"
+          },
+          "auctionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "buyerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sellerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "productName" : {
+            "type" : "string"
+          },
+          "productImageUrl" : {
+            "type" : "string"
+          },
+          "finalPrice" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "commissionRateBps" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "commission" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "settlementAmount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "noAddressPenalty" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED", "CANCELED" ]
+          },
+          "receiverName" : {
+            "type" : "string"
+          },
+          "receiverPhone" : {
+            "type" : "string"
+          },
+          "address" : {
+            "type" : "string"
+          },
+          "deliveryMemo" : {
+            "type" : "string"
+          },
+          "courier" : {
+            "type" : "string",
+            "enum" : [ "CJ", "LOTTE", "HANJIN", "LOGEN", "POST", "ETC" ]
+          },
+          "trackingNo" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "shippedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "completedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "addressDeadlineAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "shipDeadlineAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "delayStatus" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "APPROVED", "REJECTED" ]
+          },
+          "delayReason" : {
+            "type" : "string"
+          },
+          "cancelReason" : {
+            "type" : "string",
+            "enum" : [ "BUYER_NO_ADDRESS", "SELLER_NOT_SHIPPED" ]
+          },
+          "canceledAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "ApiResponseNotificationResponse" : {
         "type" : "object",
         "properties" : {
@@ -8966,7 +11243,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_WON", "AUCTION_SOLD", "AUCTION_FAILED", "AUCTION_ENDED", "DONATION_POINT_EARNED", "DONATION_POINT_EXPIRING" ]
+            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_WON", "AUCTION_SOLD", "AUCTION_FAILED", "AUCTION_ENDED", "ORDER_CANCELED", "DONATION_POINT_EARNED", "DONATION_POINT_EXPIRING" ]
           },
           "sellerId" : {
             "type" : "integer",
@@ -9151,6 +11428,10 @@
           },
           "buyNowOnly" : {
             "type" : "boolean"
+          },
+          "orderCancelReason" : {
+            "type" : "string",
+            "enum" : [ "BUYER_NO_ADDRESS", "SELLER_NOT_SHIPPED" ]
           }
         }
       },
@@ -10205,6 +12486,90 @@
         },
         "required" : [ "reason" ]
       },
+      "LiveBotCreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "nickname" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 2
+          },
+          "videoKey" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "nickname", "videoKey" ]
+      },
+      "LiveBotStartRequest" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "hashtags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "title" ]
+      },
+      "LiveBotVideoUploadRequest" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "contentLength" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        },
+        "required" : [ "contentLength", "contentType" ]
+      },
+      "ApiResponseLiveBotVideoUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/LiveBotVideoUploadResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "LiveBotVideoUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "uploadUrl" : {
+            "type" : "string"
+          },
+          "videoKey" : {
+            "type" : "string"
+          },
+          "videoUrl" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "CategoryRequest" : {
         "type" : "object",
         "properties" : {
@@ -10257,6 +12622,120 @@
             "items" : {
               "$ref" : "#/components/schemas/CategoryResponse"
             }
+          }
+        }
+      },
+      "AdCreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "placement" : {
+            "type" : "string",
+            "enum" : [ "HOME_TOP", "SIDEBAR" ]
+          },
+          "imageKey" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "linkUrl" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "altText" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "altText", "imageKey", "linkUrl", "placement" ]
+      },
+      "AdResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "placement" : {
+            "type" : "string",
+            "enum" : [ "HOME_TOP", "SIDEBAR" ]
+          },
+          "imageUrl" : {
+            "type" : "string"
+          },
+          "linkUrl" : {
+            "type" : "string"
+          },
+          "altText" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ApiResponseAdResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/AdResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "AdImageUploadRequest" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "contentLength" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        },
+        "required" : [ "contentLength", "contentType" ]
+      },
+      "AdImageUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "uploadUrl" : {
+            "type" : "string"
+          },
+          "imageKey" : {
+            "type" : "string"
+          },
+          "imageUrl" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ApiResponseAdImageUploadResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/AdImageUploadResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
@@ -10333,101 +12812,6 @@
         },
         "required" : [ "courier", "trackingNo" ]
       },
-      "ApiResponseOrderResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/OrderResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "OrderResponse" : {
-        "type" : "object",
-        "properties" : {
-          "orderId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "orderNo" : {
-            "type" : "string"
-          },
-          "auctionId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "buyerId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sellerId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "productName" : {
-            "type" : "string"
-          },
-          "productImageUrl" : {
-            "type" : "string"
-          },
-          "finalPrice" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "commissionRateBps" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "commission" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "settlementAmount" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "status" : {
-            "type" : "string",
-            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED" ]
-          },
-          "receiverName" : {
-            "type" : "string"
-          },
-          "receiverPhone" : {
-            "type" : "string"
-          },
-          "address" : {
-            "type" : "string"
-          },
-          "deliveryMemo" : {
-            "type" : "string"
-          },
-          "courier" : {
-            "type" : "string",
-            "enum" : [ "CJ", "LOTTE", "HANJIN", "LOGEN", "POST", "ETC" ]
-          },
-          "trackingNo" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "shippedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "completedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
       "OrderAddressRequest" : {
         "type" : "object",
         "properties" : {
@@ -10491,6 +12875,15 @@
             "enum" : [ "OFF", "ALERT", "AUTO_HIDE" ]
           }
         }
+      },
+      "AdEnabledRequest" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "enabled" ]
       },
       "ApiResponseListSubscribedSellerResponse" : {
         "type" : "object",
@@ -10737,6 +13130,23 @@
           }
         }
       },
+      "ApiResponseListUserAddressResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/UserAddressResponse"
+            }
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
       "ApiResponseListShopItemResponse" : {
         "type" : "object",
         "properties" : {
@@ -10759,7 +13169,7 @@
         "properties" : {
           "item" : {
             "type" : "string",
-            "enum" : [ "NICKNAME_CHANGE", "BADGE_ANGEL_WINGS", "BADGE_DEVIL_WINGS", "BADGE_HALO", "BADGE_STAR", "AUCTION_BOOST", "POWER_SELLER" ]
+            "enum" : [ "NICKNAME_CHANGE", "BADGE_ANGEL_WINGS", "BADGE_DEVIL_WINGS", "BADGE_HALO", "BADGE_STAR", "TITLE_BID_KING", "TITLE_WIN_MASTER", "TITLE_REGULAR", "TITLE_BIG_SPENDER", "COLOR_GOLD", "COLOR_MINT", "COLOR_CORAL", "COLOR_PURPLE", "AUCTION_BOOST", "POWER_SELLER" ]
           },
           "name" : {
             "type" : "string"
@@ -10771,9 +13181,17 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "audience" : {
+            "type" : "string",
+            "enum" : [ "BUYER", "SELLER" ]
+          },
           "badge" : {
             "type" : "string",
-            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR" ]
+            "enum" : [ "ANGEL_WINGS", "DEVIL_WINGS", "HALO", "STAR", "TITLE_BID_KING", "TITLE_WIN_MASTER", "TITLE_REGULAR", "TITLE_BIG_SPENDER", "COLOR_GOLD", "COLOR_MINT", "COLOR_CORAL", "COLOR_PURPLE" ]
+          },
+          "badgeKind" : {
+            "type" : "string",
+            "enum" : [ "SKIN", "TITLE", "COLOR" ]
           },
           "available" : {
             "type" : "boolean"
@@ -11113,7 +13531,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND" ]
+            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY", "WIN_CANCEL", "WIN_CANCEL_PENALTY" ]
           },
           "amount" : {
             "type" : "integer",
@@ -11231,7 +13649,11 @@
           },
           "status" : {
             "type" : "string",
-            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED" ]
+            "enum" : [ "ESCROW", "SHIPPING", "COMPLETED", "CANCELED" ]
+          },
+          "cancelReason" : {
+            "type" : "string",
+            "enum" : [ "BUYER_NO_ADDRESS", "SELLER_NOT_SHIPPED" ]
           },
           "createdAt" : {
             "type" : "string",
@@ -11415,6 +13837,12 @@
             "type" : "boolean"
           },
           "thumbnailUrl" : {
+            "type" : "string"
+          },
+          "sellerProfileImageUrl" : {
+            "type" : "string"
+          },
+          "videoUrl" : {
             "type" : "string"
           }
         }
@@ -11899,6 +14327,23 @@
           }
         }
       },
+      "ApiResponseListAdResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AdResponse"
+            }
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
       "ApiResponseCursorResponseSellerApplicationResponse" : {
         "type" : "object",
         "properties" : {
@@ -11960,6 +14405,23 @@
           },
           "hasNext" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "ApiResponseListLiveBotResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LiveBotResponse"
+            }
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
           }
         }
       },
@@ -12125,6 +14587,34 @@
     }
   },
   "x-error-codes" : [ {
+    "code" : "ADDRESS_001",
+    "status" : 404,
+    "message" : "배송지가 존재하지 않습니다."
+  }, {
+    "code" : "ADDRESS_002",
+    "status" : 403,
+    "message" : "본인 배송지만 수정,삭제 가능합니다."
+  }, {
+    "code" : "ADDRESS_003",
+    "status" : 409,
+    "message" : "배송지는 최대 10개까지 저장가능합니다."
+  }, {
+    "code" : "AD_001",
+    "status" : 404,
+    "message" : "광고를 찾을 수 없습니다."
+  }, {
+    "code" : "AD_002",
+    "status" : 400,
+    "message" : "광고 이미지는 5MB 이하의 JPG, PNG, WEBP, GIF만 올릴 수 있습니다."
+  }, {
+    "code" : "AD_003",
+    "status" : 400,
+    "message" : "광고 이미지가 올라가지 않았습니다. 다시 올려 주세요."
+  }, {
+    "code" : "AD_004",
+    "status" : 400,
+    "message" : "광고 링크는 http:// 또는 https://로 시작하는 주소여야 합니다."
+  }, {
     "code" : "AUCTION_001",
     "status" : 404,
     "message" : "경매가 존재하지 않습니다."
@@ -12405,6 +14895,30 @@
     "status" : 400,
     "message" : "도네이션 마일리지 정책 값이 올바르지 않습니다."
   }, {
+    "code" : "LIVEBOT_001",
+    "status" : 404,
+    "message" : "라이브 봇을 찾을 수 없습니다."
+  }, {
+    "code" : "LIVEBOT_002",
+    "status" : 400,
+    "message" : "녹화 영상은 500MB 이하의 MP4, WEBM 파일만 올릴 수 있습니다."
+  }, {
+    "code" : "LIVEBOT_003",
+    "status" : 400,
+    "message" : "녹화 영상이 올라가지 않았습니다. 다시 올려 주세요."
+  }, {
+    "code" : "LIVEBOT_004",
+    "status" : 409,
+    "message" : "방송 중인 라이브 봇이 아닙니다."
+  }, {
+    "code" : "LIVEBOT_005",
+    "status" : 409,
+    "message" : "방송 중인 라이브 봇은 지울 수 없습니다. 방송을 끈 뒤 다시 시도해 주세요."
+  }, {
+    "code" : "LIVEBOT_006",
+    "status" : 409,
+    "message" : "진행 중인 경매나 발송 전 주문이 있는 라이브 봇은 지울 수 없습니다. 경매가 끝나고 주문을 발송한 뒤 다시 시도해 주세요."
+  }, {
     "code" : "LIVECHAT_001",
     "status" : 429,
     "message" : "메시지를 너무 빠르게 보내 30초 동안 채팅이 금지되었습니다."
@@ -12521,6 +15035,10 @@
     "status" : 400,
     "message" : "썸네일은 1MB 이하의 JPG 이미지만 올릴 수 있습니다."
   }, {
+    "code" : "LIVESTREAM_025",
+    "status" : 400,
+    "message" : "썸네일은 2MB 이하의 JPG, PNG, WEBP 이미지만 올릴 수 있습니다."
+  }, {
     "code" : "NOTIFICATION_001",
     "status" : 404,
     "message" : "알림을 찾을 수 없습니다."
@@ -12624,6 +15142,30 @@
     "code" : "ORDER_016",
     "status" : 503,
     "message" : "배송 조회가 설정되지 않았습니다."
+  }, {
+    "code" : "ORDER_017",
+    "status" : 409,
+    "message" : "기한이 지나 처리할 수 없습니다."
+  }, {
+    "code" : "ORDER_018",
+    "status" : 409,
+    "message" : "배송지가 입력된 발송 전 주문에서 한 번만 지연을 신청할 수 있습니다."
+  }, {
+    "code" : "ORDER_019",
+    "status" : 409,
+    "message" : "응답을 기다리는 지연 신청이 없습니다."
+  }, {
+    "code" : "ORDER_020",
+    "status" : 403,
+    "message" : "구매자만 지연 신청에 응답할 수 있습니다."
+  }, {
+    "code" : "ORDER_021",
+    "status" : 403,
+    "message" : "판매자만 지연을 신청할 수 있습니다."
+  }, {
+    "code" : "ORDER_022",
+    "status" : 400,
+    "message" : "지연 사유에 쓸 수 없는 내용이 있습니다."
   }, {
     "code" : "POINT_001",
     "status" : 404,

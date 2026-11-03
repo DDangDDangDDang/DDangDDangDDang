@@ -76,6 +76,12 @@ describe('BidDialog', () => {
     };
   });
 
+  it('입찰 전에 배송지 기한과 위약금을 알린다', async () => {
+    renderDialog();
+
+    expect(await screen.findByText(/72시간.*위약금/)).toBeInTheDocument();
+  });
+
   it('[최소]를 누르면 현재가 + 입찰 단위가 들어가고, 한 번 더 확인한 뒤 입찰한다', async () => {
     renderDialog();
     await userEvent.click(await screen.findByRole('button', { name: '최소' }));

@@ -98,6 +98,23 @@ class LiveStreamThumbnailServiceTest {
     }
 
     @Test
+    @DisplayName("자동 캡처는 판매자가 직접 올린 썸네일을 바꾸지 않고, 직접 올린 썸네일 경로의 키도 쓰지 못한다")
+    void changeKeepsCustomThumbnail() {
+        String customKey = "live-thumbnails/10/custom/9b2d6f8e-1c3a-4e5b-8f7d-2a1b3c4d5e6f.png";
+        ReflectionTestUtils.setField(liveStream, "customThumbnailKey", customKey);
+        given(fileStorage.find(NEW_KEY)).willReturn(Optional.of(new FileStorage.StoredFile(30_000L, "image/jpeg")));
+        given(liveStreamRepository.updateThumbnailKey(LIVE_STREAM_ID, NEW_KEY, null)).willReturn(1);
+
+        thumbnailService.change(LIVE_STREAM_ID, SELLER_ID, NEW_KEY);
+
+        assertThat(liveStream.getCustomThumbnailKey()).isEqualTo(customKey);
+        then(fileStorage).should(never()).delete(anyString());
+        assertThatThrownBy(() -> thumbnailService.change(LIVE_STREAM_ID, SELLER_ID, customKey))
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(LiveStreamErrorCode.THUMBNAIL_NOT_UPLOADED);
+    }
+
+    @Test
     @DisplayName("읽은 뒤 다른 요청이 먼저 썸네일을 바꿨으면 바꾸지 않고(LIVESTREAM_006), 같은 키로 겹친 요청일 수 있어 파일은 지우지 않는다")
     void changeConflict() {
         ReflectionTestUtils.setField(liveStream, "thumbnailKey", OLD_KEY);

@@ -7,6 +7,9 @@ import { LoginPage } from '@/pages/auth/LoginPage';
 import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
 import { SignupPage } from '@/pages/auth/SignupPage';
 import { CategoryAdminPage } from '@/pages/admin/CategoryAdminPage';
+import { AdsAdminPage } from '@/pages/admin/AdsAdminPage';
+import { LiveBotsAdminPage } from '@/pages/admin/LiveBotsAdminPage';
+import { LiveBotSellingPage } from '@/pages/admin/LiveBotSellingPage';
 import { DmReportsPage } from '@/pages/admin/DmReportsPage';
 import { PointExchangesAdminPage } from '@/pages/admin/PointExchangesAdminPage';
 import { SellerApplicationsPage } from '@/pages/admin/SellerApplicationsPage';
@@ -16,6 +19,7 @@ import { DevComponentsPage } from '@/pages/DevComponentsPage';
 import { HomePage } from '@/pages/HomePage';
 import { LiveListPage } from '@/pages/live/LiveListPage';
 import { LiveWatchPage } from '@/pages/live/LiveWatchPage';
+import { AddressesPage } from '@/pages/me/AddressesPage';
 import { MyInfoPage } from '@/pages/me/MyInfoPage';
 import { MessagesPage } from '@/pages/messages/MessagesPage';
 import { PointsPage } from '@/pages/me/PointsPage';
@@ -76,6 +80,7 @@ export const router = createBrowserRouter([
           { path: '/me/donation-shop', element: <Navigate to="/shop" replace /> },
           { path: '/me/seller', element: <SellerApplicationPage /> },
           { path: '/me/notifications', element: <NotificationSettingsPage /> },
+          { path: '/me/addresses', element: <AddressesPage /> },
           { path: '/me/auction-alerts', element: <AlertedAuctionsPage /> },
           { path: '/orders', element: <OrdersPage /> },
           { path: '/orders/:orderId', element: <OrderDetailPage /> },
@@ -98,6 +103,9 @@ export const router = createBrowserRouter([
           { path: '/admin/seller-applications', element: <SellerApplicationsPage /> },
           { path: '/admin/donation-policy', element: <DonationPolicyPage /> },
           { path: '/admin/point-exchanges', element: <PointExchangesAdminPage /> },
+          { path: '/admin/ads', element: <AdsAdminPage /> },
+          { path: '/admin/live-bots', element: <LiveBotsAdminPage /> },
+          { path: '/admin/live-bots/:botId', element: <LiveBotSellingPage /> },
         ],
       },
 

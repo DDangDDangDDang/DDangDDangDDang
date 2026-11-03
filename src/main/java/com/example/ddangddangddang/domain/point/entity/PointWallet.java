@@ -110,6 +110,24 @@ public class PointWallet extends BaseTimeEntity {
         this.balance += amount;
     }
 
+    /** 주문 취소: 낙찰로 차감했던 포인트를 구매자의 사용 가능 포인트로 돌려준다 */
+    public void refundOrder(long amount) {
+        validateAmount(amount);
+        this.balance += amount;
+    }
+
+    /** 낙찰취소 위약금: 돌려받은 낙찰 금액에서 구매자가 낸다. 환불 직후라 잔액은 항상 충분하다 */
+    public void payOrderPenalty(long amount) {
+        validateAmount(amount);
+        this.balance -= amount;
+    }
+
+    /** 낙찰취소 위약금: 판매자의 사용 가능 포인트에 더한다 */
+    public void receiveOrderPenalty(long amount) {
+        validateAmount(amount);
+        this.balance += amount;
+    }
+
     private void validateAmount(long amount) {
         if (amount <= 0) {
             throw new BusinessException(PointErrorCode.INVALID_AMOUNT);

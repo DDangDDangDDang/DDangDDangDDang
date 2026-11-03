@@ -66,8 +66,10 @@ public class ShopService {
                     case NICKNAME_CHANGE -> userService.nicknameChangeAvailableAt(userId) == null
                             ? ShopItemResponse.unavailable(item, "지금은 변경권 없이 닉네임을 바꿀 수 있어요.")
                             : ShopItemResponse.available(item);
-                    case BADGE_ANGEL_WINGS, BADGE_DEVIL_WINGS, BADGE_HALO, BADGE_STAR -> ownedBadges.contains(item.badge())
-                            ? ShopItemResponse.unavailable(item, "이미 가지고 있어요. 내 뱃지에서 장착할 수 있어요.")
+                    case BADGE_ANGEL_WINGS, BADGE_DEVIL_WINGS, BADGE_HALO, BADGE_STAR,
+                         TITLE_BID_KING, TITLE_WIN_MASTER, TITLE_REGULAR, TITLE_BIG_SPENDER,
+                         COLOR_GOLD, COLOR_MINT, COLOR_CORAL, COLOR_PURPLE -> ownedBadges.contains(item.badge())
+                            ? ShopItemResponse.unavailable(item, "이미 가지고 있어요. 내 꾸미기에서 장착할 수 있어요.")
                             : ShopItemResponse.available(item);
                     case AUCTION_BOOST -> boostUnavailable != null
                             ? ShopItemResponse.unavailable(item, boostUnavailable)

@@ -12,7 +12,10 @@ import java.util.List;
  * sellerNickname: 탈퇴 등으로 회원을 찾지 못하면 null
  * recorded: 카메라 대신 미리 녹화한 영상을 내보내는 방송 (카드에 "녹화 영상" 표시)
  * powerSeller: 판매자가 파워 판매자 (카드에 파워 판매자 배지)
- * thumbnailUrl: 송출 중인 화면을 캡처한 썸네일 주소 (1분마다 바뀐다. 아직 없으면 null → 판매자 이름 첫 글자)
+ * thumbnailUrl: 카드 썸네일 주소. 판매자가 직접 올린 썸네일이 먼저이고, 없으면 방송 중일 때 송출 화면을 캡처한 썸네일(1분마다 바뀐다).
+ *   둘 다 없거나 끝난 방송의 캡처뿐이면 null → 판매자 이름 첫 글자
+ * sellerProfileImageUrl: 판매자 프로필 이미지 주소 (없거나 회원을 찾지 못하면 null → 화면은 닉네임 첫 글자)
+ * videoUrl: 라이브 봇 방송의 녹화 영상 주소. 미리보기는 LiveKit 대신 이 영상을 방송 시작 시각에 맞춰 재생한다. 사람 판매자의 방송이면 null
  */
 public record LiveStreamCard(
         Long liveStreamId,
@@ -29,6 +32,8 @@ public record LiveStreamCard(
         int viewerIncrease,
         boolean recorded,
         boolean powerSeller,
-        String thumbnailUrl
+        String thumbnailUrl,
+        String sellerProfileImageUrl,
+        String videoUrl
 ) {
 }
