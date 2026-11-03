@@ -60,9 +60,26 @@ class OrderDmNotifierTest {
     @Test
     @DisplayName("취소 안내는 사유를 구분해 적는다")
     void orderCanceled_messageStatesReason() {
-        notifier.handle(new OrderCanceledEvent(7L, 123L, BUYER, SELLER, "빈티지 시계", OrderCancelReason.SELLER_NOT_SHIPPED));
+        notifier.handle(new OrderCanceledEvent(7L, 123L, BUYER, SELLER, "빈티지 시계", OrderCancelReason.SELLER_NOT_SHIPPED, 100_000L, 0L));
 
         assertThat(sent(SELLER, BUYER, "order-cancel-7")).startsWith(LABEL).contains("발송되지 않아", "전액 환불");
+    }
+
+    @Test
+    @DisplayName("낙찰취소 안내에는 위약금과 환불액을 적는다")
+    void orderCanceled_withPenalty_statesAmounts() {
+        notifier.handle(new OrderCanceledEvent(7L, 123L, BUYER, SELLER, "빈티지 시계", OrderCancelReason.BUYER_NO_ADDRESS, 90_000L, 10_000L));
+
+        assertThat(sent(SELLER, BUYER, "order-cancel-7"))
+                .startsWith(LABEL).contains("위약금 10,000P", "90,000P").doesNotContain("전액 환불");
+    }
+
+    @Test
+    @DisplayName("위약금 없는 기존 주문의 낙찰취소는 전액 환불로 안내한다")
+    void orderCanceled_legacy_statesFullRefund() {
+        notifier.handle(new OrderCanceledEvent(7L, 123L, BUYER, SELLER, "빈티지 시계", OrderCancelReason.BUYER_NO_ADDRESS, 100_000L, 0L));
+
+        assertThat(sent(SELLER, BUYER, "order-cancel-7")).contains("전액 환불").doesNotContain("위약금");
     }
 
     @Test
@@ -71,7 +88,7 @@ class OrderDmNotifierTest {
         willThrow(new RuntimeException("실패")).given(directMessageService).sendOrderNotice(any(), any(), any(), any());
 
         assertThatCode(() -> notifier.handle(new OrderCanceledEvent(7L, 123L, BUYER, SELLER, "빈티지 시계",
-                OrderCancelReason.BUYER_NO_ADDRESS))).doesNotThrowAnyException();
+                OrderCancelReason.BUYER_NO_ADDRESS, 100_000L, 0L))).doesNotThrowAnyException();
     }
 
     private String sent(Long sender, Long receiver, String clientMessageId) {

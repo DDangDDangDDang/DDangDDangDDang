@@ -20,6 +20,7 @@ public record OrderResponse(
         int commissionRateBps,  // 판매 수수료율(bp, 500 = 5%)
         long commission,        // 판매 수수료
         long settlementAmount,  // 판매자가 받을 금액 = finalPrice - commission
+        long noAddressPenalty,  // 배송지 미입력 취소 시 판매자에게 줄 위약금. 도입 전 주문은 0
         OrderStatus status,
         String receiverName,
         String receiverPhone,
@@ -51,6 +52,7 @@ public record OrderResponse(
                 order.getCommissionRateBps(),
                 order.getCommission(),
                 order.getSettlementAmount(),
+                order.getNoAddressPenalty(),
                 order.getStatus(),
                 order.getReceiverName(),
                 order.getReceiverPhone(),

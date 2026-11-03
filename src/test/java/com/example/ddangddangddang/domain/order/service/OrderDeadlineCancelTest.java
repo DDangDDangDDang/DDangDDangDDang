@@ -68,6 +68,7 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
         seller = userRepository.save(User.create("deadline-seller@test.com", "pw", "deadlineSeller", "01011112222"));
         buyer = userRepository.save(User.create("deadline-buyer@test.com", "pw", "deadlineBuyer", "01033334444"));
         pointWalletRepository.save(PointWallet.create(buyer.getId()));
+        pointWalletRepository.save(PointWallet.create(seller.getId()));
         Category category = categoryRepository.save(new Category(null, "전자기기", 1));
         product = productRepository.save(new Product(seller, category, "아이패드", "설명"));
         auctionId = soldAuction();
@@ -85,8 +86,8 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
     }
 
     @Test
-    @DisplayName("배송지 입력 기한이 지나면 낙찰취소되고 구매자에게 전액 환불된다")
-    void addressOverdue_cancelsAndRefundsFullPrice() {
+    @DisplayName("배송지 입력 기한이 지나면 낙찰취소되고 10%는 판매자에게, 90%는 구매자에게 간다")
+    void addressOverdue_paysPenaltyToSellerAndRefundsRest() {
         Long orderId = addressOverdueOrder(auctionId, buyer.getId());
 
         scheduler.cancelOverdueOrders();
@@ -94,8 +95,33 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
         Order order = orderRepository.findById(orderId).orElseThrow();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELED);
         assertThat(order.getCancelReason()).isEqualTo(OrderCancelReason.BUYER_NO_ADDRESS);
-        assertThat(balanceOf(buyer.getId())).isEqualTo(PRICE);
+        assertThat(balanceOf(buyer.getId())).isEqualTo(450_000L);
+        assertThat(balanceOf(seller.getId())).isEqualTo(50_000L);
         assertThat(refundCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("위약금 도입 전 주문은 낙찰취소돼도 전액 환불한다")
+    void addressOverdue_legacyOrder_refundsFullPrice() {
+        Long orderId = addressOverdueOrder(auctionId, buyer.getId());
+        Order legacy = orderRepository.findById(orderId).orElseThrow();
+        ReflectionTestUtils.setField(legacy, "penaltyRateBps", 0);
+        orderRepository.save(legacy);
+
+        scheduler.cancelOverdueOrders();
+
+        assertThat(balanceOf(buyer.getId())).isEqualTo(PRICE);
+        assertThat(balanceOf(seller.getId())).isZero();
+    }
+
+    @Test
+    @DisplayName("판매자 미발송 취소는 위약금 없이 전액 환불한다")
+    void shipOverdue_noPenalty() {
+        shipOverdueOrder();
+
+        scheduler.cancelOverdueOrders();
+
+        assertThat(balanceOf(seller.getId())).isZero();
     }
 
     @Test
@@ -148,7 +174,8 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
                 () -> orderService.cancelOverdue(orderId, OrderCancelReason.BUYER_NO_ADDRESS));
 
         assertThat(refundCount()).isEqualTo(1);
-        assertThat(balanceOf(buyer.getId())).isEqualTo(PRICE);
+        assertThat(balanceOf(buyer.getId())).isEqualTo(450_000L);
+        assertThat(balanceOf(seller.getId())).isEqualTo(50_000L);
     }
 
     @Test

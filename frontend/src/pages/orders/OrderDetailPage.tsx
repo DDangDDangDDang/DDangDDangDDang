@@ -6,8 +6,8 @@ import { api, call, errorMessage, useSession, type Schema } from '@/api';
 import { OrderStatusBadge, ProductImage } from '@/components/order/OrderBits';
 import { Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, ErrorState, Input, Notice, Select, Skeleton } from '@/components/ui';
 import { formatDateTime, formatPhone, formatPoint, onlyDigits } from '@/lib/format';
-import { COURIER_LABEL, ORDER_CANCEL_REASON_LABEL, type Courier } from '@/lib/labels';
-import { orderRoleOf, orderStage, requireOrderId } from '@/lib/order-view';
+import { COURIER_LABEL, type Courier } from '@/lib/labels';
+import { orderCancelMessage, orderDeadlineMessage, orderRoleOf, orderStage, requireOrderId } from '@/lib/order-view';
 import { OrderDelayCard } from './OrderDelayCard';
 import { OrderReviewSection } from './OrderReviewSection';
 import { TrackingCard } from './TrackingCard';
@@ -29,6 +29,7 @@ export function OrderDetailPage() {
 
   const order = query.data;
   const role = order ? orderRoleOf(order, session?.user.userId) : null;
+  const deadlineMessage = order ? orderDeadlineMessage(order) : null;
 
   return (
     <div className="mx-auto max-w-[880px]">
@@ -56,9 +57,9 @@ export function OrderDetailPage() {
       ) : (
         <div className="flex flex-col gap-4">
           <OrderSummary order={order} />
-          <OrderDeadline order={order} />
+          {deadlineMessage && <Notice tone="info">{deadlineMessage}</Notice>}
           {role && <OrderDelayCard order={order} role={role} />}
-          {order.status === 'CANCELED' && <CanceledNotice order={order} />}
+          {order.status === 'CANCELED' && <Notice tone="error">{orderCancelMessage(order)}</Notice>}
           {order.status !== 'CANCELED' && role === 'BUYER' && <BuyerPanel order={order} />}
           {order.status !== 'CANCELED' && role === 'SELLER' && (
             <>
@@ -91,28 +92,6 @@ function OrderSummary({ order }: { order: Order }) {
         </div>
       </CardBody>
     </Card>
-  );
-}
-
-/** 발송 전 주문의 남은 기한. 넘기면 자동 취소되고 구매자에게 환불된다. 기한 도입 전 주문은 보이지 않는다 */
-function OrderDeadline({ order }: { order: Order }) {
-  const stage = orderStage(order);
-  const deadline = stage === 'NEED_ADDRESS' ? order.addressDeadlineAt : stage === 'WAITING_SHIPMENT' ? order.shipDeadlineAt : null;
-  if (!deadline) return null;
-  return (
-    <Notice tone="info">
-      {stage === 'NEED_ADDRESS' ? '배송지 입력 기한' : '발송 기한'}: {formatDateTime(deadline)}까지. 기한이 지나면 주문이 취소되고 구매자에게 전액
-      환불돼요.
-    </Notice>
-  );
-}
-
-function CanceledNotice({ order }: { order: Order }) {
-  return (
-    <Notice tone="error">
-      {order.cancelReason ? `${ORDER_CANCEL_REASON_LABEL[order.cancelReason]} 처리된 주문이에요.` : '취소된 주문이에요.'} 결제 포인트는 구매자에게 전액
-      환불됐어요.
-    </Notice>
   );
 }
 

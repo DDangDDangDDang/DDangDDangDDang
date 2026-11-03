@@ -270,6 +270,29 @@ class PointServiceTest {
         assertThat(history.getValue().getRefId()).isEqualTo(77L);
     }
 
+    @Test
+    @DisplayName("낙찰취소는 구매자 환불과 판매자 위약금을 각각 주문 기준으로 남기고, 지갑은 ID 순서로 잠근다")
+    void refundOrderWithPenalty_recordsBothHistories() {
+        PointWallet seller = walletWithBalance(1L, 5L, 0L);
+        PointWallet buyer = walletWithBalance(2L, 10L, 0L);
+        given(pointWalletRepository.findByUserIdForUpdate(5L)).willReturn(Optional.of(seller));
+        given(pointWalletRepository.findByUserIdForUpdate(10L)).willReturn(Optional.of(buyer));
+        given(pointHistoryRepository.save(any(PointHistory.class))).willAnswer(call -> call.getArgument(0));
+
+        pointService.refundOrderWithPenalty(10L, 90_000L, 5L, 10_000L, 77L);
+
+        assertThat(buyer.getBalance()).isEqualTo(90_000L);
+        assertThat(seller.getBalance()).isEqualTo(10_000L);
+        InOrder order = inOrder(pointWalletRepository);
+        order.verify(pointWalletRepository).findByUserIdForUpdate(5L);
+        order.verify(pointWalletRepository).findByUserIdForUpdate(10L);
+        org.mockito.ArgumentCaptor<PointHistory> histories = org.mockito.ArgumentCaptor.forClass(PointHistory.class);
+        verify(pointHistoryRepository, times(2)).save(histories.capture());
+        assertThat(histories.getAllValues()).extracting(PointHistory::getType)
+                .containsExactly(PointHistoryType.ORDER_REFUND, PointHistoryType.ORDER_PENALTY);
+        assertThat(histories.getAllValues()).extracting(PointHistory::getRefId).containsOnly(77L);
+    }
+
     private PointWallet walletWithBalance(Long walletId, Long userId, long balance) {
         PointWallet wallet = wallet(walletId, userId);
         ReflectionTestUtils.setField(wallet, "balance", balance);
