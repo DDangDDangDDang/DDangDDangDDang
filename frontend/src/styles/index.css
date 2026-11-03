@@ -54,6 +54,12 @@
   --color-hammer-steel-dark: #7d7b75; /* 바닥을 찍는 끝면 */
   --color-hammer-metal: #8e8a80; /* 자루 끝 쇠붙이 */
   --color-hammer-etch: #6a6862; /* 머리에 새긴 문양 */
+  /* 망치 등급 배지 글자색 (카드 위 어두운 배경, 글자를 함께 써서 색만으로 구분하지 않는다) */
+  --color-grade-wood: #d2a679;
+  --color-grade-stone: #b4aea6;
+  --color-grade-silver: #dfe4ea;
+  --color-grade-gold: #ffd76a;
+  --color-grade-diamond: #8fe4ff;
   /* 카카오 로그인 버튼. 카카오 디자인 가이드가 정한 색이라 브랜드 색과 따로 둔다 (노란 바탕, 검은 글자) */
   --color-kakao: #fee500;
   --color-kakao-hover: #f5dc00;
