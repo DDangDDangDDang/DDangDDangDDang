@@ -19,7 +19,6 @@ import com.example.ddangddangddang.domain.auction.event.AuctionCanceledEvent;
 import com.example.ddangddangddang.domain.auction.event.LiveAuctionEvent;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
-import com.example.ddangddangddang.domain.livechat.exception.LiveChatErrorCode;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
@@ -30,20 +29,14 @@ import com.example.ddangddangddang.domain.product.exception.ProductErrorCode;
 import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.storage.FileStorage;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.nio.channels.spi.AbstractSelectableChannel;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.IllegalFormatCodePointException;
 import java.util.List;
 
 @RequiredArgsConstructor
