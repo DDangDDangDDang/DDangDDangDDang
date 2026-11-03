@@ -7,11 +7,14 @@ import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.review.entity.Review;
 import com.example.ddangddangddang.domain.review.repository.ReviewRepository;
+import com.example.ddangddangddang.global.config.CacheConfig;
 import com.example.ddangddangddang.support.MySqlIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -27,6 +30,13 @@ class HammerGradeServiceTest extends MySqlIntegrationTest {
     @Autowired private HammerGradeService hammerGradeService;
     @Autowired private OrderRepository orderRepository;
     @Autowired private ReviewRepository reviewRepository;
+    @Autowired private CacheManager cacheManager;
+
+    // 테스트마다 같은 회원 번호를 쓰므로 앞 테스트의 등급 캐시를 지운다
+    @BeforeEach
+    void clearCache() {
+        cacheManager.getCache(CacheConfig.HAMMER_GRADE).clear();
+    }
 
     @AfterEach
     void tearDown() {

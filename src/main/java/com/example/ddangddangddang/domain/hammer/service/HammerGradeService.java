@@ -5,7 +5,9 @@ import com.example.ddangddangddang.domain.hammer.repository.HammerScoreRepositor
 import com.example.ddangddangddang.domain.hammer.service.HammerScore.Deal;
 import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
+import com.example.ddangddangddang.global.config.CacheConfig;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +18,7 @@ import java.util.stream.Stream;
 /**
  * 회원의 망치 등급. 점수를 따로 저장하지 않고 최근 12개월의 주문·리뷰 기록으로 그때그때 계산한다.
  * (리뷰는 고치거나 지울 수 있고, 기록이 1년 지나면 저절로 빠지므로 저장해 둔 점수와 어긋날 일이 없다)
+ * 판매자 프로필을 부를 때마다 계산하지 않도록 Redis에 10분 캐시한다. (CacheConfig.HAMMER_GRADE) Redis가 안 되면 매번 계산한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -26,6 +29,7 @@ public class HammerGradeService {
 
     private final HammerScoreRepository hammerScoreRepository;
 
+    @Cacheable(cacheNames = CacheConfig.HAMMER_GRADE, key = "#userId")
     public HammerGrade gradeOf(Long userId) {
         LocalDateTime since = LocalDateTime.now().minusDays(WINDOW_DAYS);
 
