@@ -22,6 +22,7 @@ public class UserAddressController {
 
     //배송지 저장
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     ResponseEntity<ApiResponse<UserAddressResponse>> createAddress(@AuthenticationPrincipal AuthUser authUser,
                                                                   @Valid @RequestBody UserAddressRequest request){
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(userAddressService.createAddress(authUser.id(),request)));
@@ -49,6 +50,7 @@ public class UserAddressController {
 
     //배송지 삭제(기본 배송지를 지우면, 남은 것 중 가장 최근에 저장한 배송지가 기본인 된다)
     @DeleteMapping("/{addressId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     ResponseEntity<Void> deleteAddress(@AuthenticationPrincipal AuthUser authUser,
                                                                    @PathVariable Long addressId){
         userAddressService.deleteAddress(authUser.id(),addressId);

@@ -23,6 +23,7 @@ public class ReviewController {
 
     // 구매자 리뷰 작성
     @PostMapping()
+    @ResponseStatus(HttpStatus.CREATED)
     ResponseEntity<ApiResponse<ReviewResponse>> createReview(@AuthenticationPrincipal AuthUser authUser,
                                                                            @Valid @RequestBody ReviewCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(reviewService.createReview(authUser.id(),request)));
@@ -36,6 +37,7 @@ public class ReviewController {
     }
     // 구매자 리뷰 삭제
     @DeleteMapping("/{reviewId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     ResponseEntity<Void> deleteReview(@AuthenticationPrincipal AuthUser authUser,
                                                    @PathVariable Long reviewId) {
         reviewService.deleteReview(authUser.id(), reviewId);
@@ -60,6 +62,7 @@ public class ReviewController {
 
     // 판매자 답글 삭제
     @DeleteMapping("/{reviewId}/reply")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     ResponseEntity<Void> deleteReply(@AuthenticationPrincipal AuthUser authUser,
                                                    @PathVariable Long reviewId) {
         reviewService.deleteReply(authUser.id(), reviewId);
