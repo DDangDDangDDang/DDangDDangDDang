@@ -266,6 +266,24 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
                 .satisfies(history -> assertThat(history.orderCancelReason()).isNull());
     }
 
+    @Test
+    @DisplayName("한 번에 처리하는 수만큼 실패한 주문이 쌓여도 그 뒤의 주문은 취소된다")
+    void failingOrdersFillBatch_laterOrdersStillCancelled() {
+        ReflectionTestUtils.setField(scheduler, "batchSize", 2);
+        Long failing1 = addressOverdueOrder(auctionId, 999_998L);
+        Long failing2 = addressOverdueOrder(auctionId + 1_000_000, 999_999L);
+        Long succeeding = addressOverdueOrder(auctionId + 2_000_000, buyer.getId());
+        try {
+            scheduler.cancelOverdueOrders();
+        } finally {
+            ReflectionTestUtils.setField(scheduler, "batchSize", 100);
+        }
+
+        assertThat(orderRepository.findById(failing1).orElseThrow().getStatus()).isEqualTo(OrderStatus.ESCROW);
+        assertThat(orderRepository.findById(failing2).orElseThrow().getStatus()).isEqualTo(OrderStatus.ESCROW);
+        assertThat(orderRepository.findById(succeeding).orElseThrow().getStatus()).isEqualTo(OrderStatus.CANCELED);
+    }
+
     private Long soldAuction() {
         LocalDateTime startAt = LocalDateTime.now().plusHours(1);
         Long id = auctionService.auctionCreate(seller.getId(), new AuctionCreateRequest(
