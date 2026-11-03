@@ -86,7 +86,7 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
   const openStudio = shouldOpenStudio(liveStream, userId, readBroadcastOwner(), searchParams);
   // 방송 영상·소리는 앱 전체에서 이어 본다. 이 화면을 떠나도 방송 중이면 오른쪽 아래 작은 플레이어에서 이어지고, 돌아오면 다시 접속하지 않는다.
   // 내(판매자) 방송은 떠나면 끊는다. (작은 플레이어를 띄우지 않음) 스튜디오로 보낼 때는 시청자로 접속하지 않는다.
-  const { video, muted, toggleSound } = useWatchStream(
+  const { video, muted, toggleSound, volume, setVolume } = useWatchStream(
     { liveStreamId, title: liveStream?.title, live: isLive && !openStudio, sellerId: liveStream?.sellerId },
     refetchLiveStream,
   );
@@ -126,6 +126,8 @@ function LiveWatch({ liveStreamId }: { liveStreamId: number }) {
             video={video}
             muted={muted}
             onToggleSound={toggleSound}
+            volume={volume}
+            onVolumeChange={setVolume}
             overlay={
               // 경매 카드·선물·입찰·낙찰 안내를 판매자가 스튜디오에서 정한 배치대로 그린다. (바꾸면 방송 정보 변경으로 바로 반영)
               <StageOverlays

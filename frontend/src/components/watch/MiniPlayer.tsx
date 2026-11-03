@@ -1,10 +1,11 @@
-import { Eye, Loader2, RefreshCw, Volume2, VolumeX, X } from 'lucide-react';
+import { Eye, Loader2, RefreshCw, X } from 'lucide-react';
 import { Link, matchPath, useLocation } from 'react-router';
 import { useBroadcast } from '@/components/broadcast/broadcast-context';
 import { Badge, buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
 import { TrackAudio, TrackVideo } from './tracks';
+import { VolumeControl } from './VolumeControl';
 import { useWatch } from './watch-context';
 
 /**
@@ -13,7 +14,7 @@ import { useWatch } from './watch-context';
  * 판매자 작은 방송 창(MiniBroadcast)이 떠 있으면 그 왼쪽에 둔다.
  */
 export function MiniPlayer() {
-  const { session, pageOpen, mine, video, muted, toggleSound, ended, close } = useWatch();
+  const { session, pageOpen, mine, video, muted, toggleSound, volume, setVolume, ended, close } = useWatch();
   const broadcast = useBroadcast();
   const { pathname } = useLocation();
   // 시청 화면 경로에서는 숨긴다. 화면이 방송을 여는 effect가 돌기 전 첫 렌더에서 소리가 두 번 나지 않게.
@@ -63,7 +64,7 @@ export function MiniPlayer() {
         className="relative flex aspect-video items-center justify-center bg-stage text-neutral-400"
       >
         {playing && video.videoTrack && <TrackVideo track={video.videoTrack} />}
-        {!ended && video.audioTracks.map((track) => <TrackAudio key={track.sid} track={track} muted={muted} />)}
+        {!ended && video.audioTracks.map((track) => <TrackAudio key={track.sid} track={track} muted={muted} volume={volume} />)}
         {!playing && <Status ended={ended} phase={video.phase} />}
         {!ended && video.phase === 'connected' && video.viewerCount !== undefined && (
           <Badge className="absolute top-2 left-2 bg-stage/70 font-normal text-white">
@@ -75,15 +76,7 @@ export function MiniPlayer() {
 
       <div className="flex items-center gap-1.5 px-3 py-2">
         {!ended && (
-          <button
-            type="button"
-            aria-label={muted ? '소리 켜기' : '소리 끄기'}
-            title={muted ? '소리 켜기' : '소리 끄기'}
-            onClick={toggleSound}
-            className="flex size-8 items-center justify-center rounded-md bg-neutral-50 text-neutral-700 hover:bg-neutral-100"
-          >
-            {muted ? <VolumeX className="size-4" aria-hidden="true" /> : <Volume2 className="size-4" aria-hidden="true" />}
-          </button>
+          <VolumeControl tone="panel" muted={muted} volume={volume} onToggleSound={toggleSound} onVolumeChange={setVolume} />
         )}
         {(video.phase === 'disconnected' || video.phase === 'error') && !ended && (
           <button type="button" onClick={video.retry} className="flex items-center gap-1 text-caption font-semibold text-brand-700 underline">

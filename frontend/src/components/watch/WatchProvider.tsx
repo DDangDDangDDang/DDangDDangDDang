@@ -6,6 +6,28 @@ import { WatchContext, type Watch, type WatchSession } from './watch-context';
 /** 작은 플레이어로 보던 방송이 끝나면 이만큼 안내한 뒤 닫는다. */
 const ENDED_NOTICE_MS = 5_000;
 
+/** 방송 소리 크기(0~1)를 이 브라우저에 기억한다. */
+const VOLUME_KEY = 'ddang.watch-volume';
+const DEFAULT_VOLUME = 0.7;
+
+function readVolume(): number {
+  try {
+    const saved = localStorage.getItem(VOLUME_KEY);
+    const volume = Number(saved);
+    return saved !== null && volume >= 0 && volume <= 1 ? volume : DEFAULT_VOLUME;
+  } catch {
+    return DEFAULT_VOLUME;
+  }
+}
+
+function saveVolume(volume: number) {
+  try {
+    localStorage.setItem(VOLUME_KEY, String(volume));
+  } catch {
+    // 저장할 수 없는 브라우저(사생활 보호 모드 등)면 이번 화면에서만 쓴다.
+  }
+}
+
 /**
  * 시청자 방송 시청을 앱 전체에 하나만 둔다. (AppLayout)
  * - 시청 화면이 방송을 열면(useWatchStream) 여기서 LiveKit에 접속한다. 화면을 떠나도 방송 중이면 연결과 소리를 그대로 두고
@@ -18,6 +40,7 @@ export function WatchProvider({ children }: { children: ReactNode }) {
   const [pageStreamId, setPageStreamId] = useState<number>();
   const [ended, setEnded] = useState(false);
   const [muted, setMuted] = useState(true);
+  const [volume, setVolumeState] = useState(readVolume);
   // 방송이 끝나 방이 사라졌을 때: 시청 화면이 열려 있으면 화면이 방송 정보를 다시 불러오고, 작은 플레이어면 끝났다고 알린다.
   const pageStreamIdRef = useRef<number | undefined>(undefined);
   const onPageRoomClosedRef = useRef<(() => void) | undefined>(undefined);
@@ -80,9 +103,31 @@ export function WatchProvider({ children }: { children: ReactNode }) {
   const { startAudio } = video;
   const toggleSound = useCallback(() => {
     // 소리를 켤 때는 사용자가 누른 순간에 재생을 허용한다.
-    if (muted) void startAudio();
+    if (muted) {
+      void startAudio();
+      // 크기를 0으로 내려 둔 채 켜면 들리지 않으므로 기본 크기로 되돌린다.
+      if (volume === 0) {
+        setVolumeState(DEFAULT_VOLUME);
+        saveVolume(DEFAULT_VOLUME);
+      }
+    }
     setMuted(!muted);
-  }, [muted, startAudio]);
+  }, [muted, volume, startAudio]);
+
+  const setVolume = useCallback(
+    (next: number) => {
+      setVolumeState(next);
+      saveVolume(next);
+      // 음소거 중에 크기를 올리면 소리를 켠다. (슬라이더를 움직인 순간이라 브라우저가 재생을 막지 않는다) 0으로 내리면 음소거로 본다.
+      if (next > 0 && muted) {
+        void startAudio();
+        setMuted(false);
+      } else if (next === 0 && !muted) {
+        setMuted(true);
+      }
+    },
+    [muted, startAudio],
+  );
 
   const value = useMemo<Watch>(
     () => ({
@@ -92,13 +137,15 @@ export function WatchProvider({ children }: { children: ReactNode }) {
       video,
       muted,
       toggleSound,
+      volume,
+      setVolume,
       ended,
       open,
       update,
       leave,
       close,
     }),
-    [session, pageOpen, mine, video, muted, toggleSound, ended, open, update, leave, close],
+    [session, pageOpen, mine, video, muted, toggleSound, volume, setVolume, ended, open, update, leave, close],
   );
 
   return <WatchContext.Provider value={value}>{children}</WatchContext.Provider>;
