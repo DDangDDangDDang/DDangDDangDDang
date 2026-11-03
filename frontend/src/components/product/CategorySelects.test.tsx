@@ -16,6 +16,9 @@ function Harness({ mode, initial = '' }: { mode: 'leaf' | 'filter'; initial?: st
     <>
       <CategorySelects categories={categories} mode={mode} labels={['카테고리', '세부 카테고리']} value={value} onChange={setValue} />
       <output>{value || '없음'}</output>
+      <button type="button" onClick={() => setValue('')}>
+        비우기
+      </button>
     </>
   );
 }
@@ -57,5 +60,13 @@ describe('CategorySelects', () => {
     expect(screen.getByRole('status')).toHaveTextContent('11');
     await userEvent.selectOptions(screen.getByLabelText('세부 카테고리'), '');
     expect(screen.getByRole('status')).toHaveTextContent('1');
+  });
+
+  it('목록 거르기: 밖에서 값을 비우면 대분류도 "전체 카테고리"로 돌아간다', async () => {
+    render(<Harness mode="filter" />);
+    await userEvent.selectOptions(screen.getByLabelText('카테고리'), '1');
+    await userEvent.click(screen.getByRole('button', { name: '비우기' }));
+    expect(screen.getByLabelText('카테고리')).toHaveValue('');
+    expect(screen.getByLabelText('세부 카테고리')).toBeDisabled();
   });
 });

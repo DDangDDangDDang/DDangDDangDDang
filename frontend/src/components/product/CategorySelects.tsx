@@ -24,10 +24,11 @@ type Props = {
 export function CategorySelects({ categories, value, onChange, mode, labels, hideLabel, disabled, error }: Props) {
   // 상품 등록에서 대분류만 고른 동안은 값('')으로 대분류를 알 수 없어 따로 기억한다.
   const [pickedParentId, setPickedParentId] = useState('');
-  const parent = parentCategoryOf(categories, value) ?? parentCategoryOf(categories, pickedParentId);
+  // 거르기는 대분류만 골라도 value에 들어가므로, 밖에서 값을 비우면 대분류도 비운다.
+  const leaf = mode === 'leaf';
+  const parent = parentCategoryOf(categories, value) ?? (leaf ? parentCategoryOf(categories, pickedParentId) : undefined);
   const parentId = parent?.id === undefined ? '' : String(parent.id);
   const childId = value && value !== parentId ? value : '';
-  const leaf = mode === 'leaf';
 
   return (
     <div className="grid grid-cols-2 gap-2">
