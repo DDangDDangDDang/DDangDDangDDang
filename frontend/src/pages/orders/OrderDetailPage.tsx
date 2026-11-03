@@ -221,7 +221,8 @@ function BuyerShippingPanel({ order, onConfirmed }: { order: Order; onConfirmed:
 function AddressForm({ order, onDone, onCancel }: { order: Order; onDone: () => void; onCancel?: () => void }) {
   // 배송지를 처음 넣는 주문은 저장된 기본 배송지로 미리 채운다. 이미 넣은 주문을 고칠 때는 그 주문의 배송지로 채운다.
   const prefill = !hasDeliveryAddress(order);
-  const defaultQuery = useQuery({ ...defaultAddressQuery, enabled: prefill });
+  // 다른 화면·탭에서 기본 배송지를 지우거나 바꿨을 수 있으므로 들어올 때와 창으로 돌아올 때마다 다시 불러온다
+  const defaultQuery = useQuery({ ...defaultAddressQuery, enabled: prefill, refetchOnMount: 'always', refetchOnWindowFocus: 'always' });
 
   if (prefill && defaultQuery.isPending) return <Skeleton className="h-56" />;
   // 기본 배송지를 못 불러와도 빈 칸으로 직접 입력할 수 있게 한다
@@ -229,12 +230,25 @@ function AddressForm({ order, onDone, onCancel }: { order: Order; onDone: () => 
   return <AddressFormBody order={order} initial={initial} onDone={onDone} onCancel={onCancel} />;
 }
 
+function sameDelivery(a: DeliveryFields, b: DeliveryFields) {
+  return a.receiverName === b.receiverName && a.receiverPhone === b.receiverPhone && a.address === b.address && a.deliveryMemo === b.deliveryMemo;
+}
+
 function AddressFormBody({ order, initial, onDone, onCancel }: { order: Order; initial: DeliveryFields; onDone: () => void; onCancel?: () => void }) {
   const queryClient = useQueryClient();
   const [value, setValue] = useState(initial);
   const [selectedId, setSelectedId] = useState('');
-  const savedQuery = useQuery(addressListQuery);
+  // 다시 불러온 기본 배송지는 사용자가 아직 칸을 고치거나 저장된 배송지를 고르지 않았을 때만 채운다
+  const [touched, setTouched] = useState(false);
+  const [lastInitial, setLastInitial] = useState(initial);
+  if (!touched && !sameDelivery(lastInitial, initial)) {
+    setLastInitial(initial);
+    setValue(initial);
+  }
+  const savedQuery = useQuery({ ...addressListQuery, refetchOnMount: 'always', refetchOnWindowFocus: 'always' });
   const saved = savedQuery.data ?? [];
+  // 고른 배송지가 다른 곳에서 지워졌으면 선택만 푼다 (채운 값은 그대로 둔다)
+  if (selectedId && savedQuery.isSuccess && !saved.some((a) => String(a.addressId) === selectedId)) setSelectedId('');
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -260,7 +274,15 @@ function AddressFormBody({ order, initial, onDone, onCancel }: { order: Order; i
   function choose(addressId: string) {
     setSelectedId(addressId);
     const picked = saved.find((a) => String(a.addressId) === addressId);
-    if (picked) setValue(deliveryFieldsOf(picked));
+    if (picked) {
+      setTouched(true);
+      setValue(deliveryFieldsOf(picked));
+    }
+  }
+
+  function edit(next: DeliveryFields) {
+    setTouched(true);
+    setValue(next);
   }
 
   function handleSubmit(event: FormEvent) {
@@ -302,7 +324,7 @@ function AddressFormBody({ order, initial, onDone, onCancel }: { order: Order; i
           </Link>
         </div>
       )}
-      <AddressFields value={value} onChange={setValue} />
+      <AddressFields value={value} onChange={edit} />
       <p className="col-span-2 text-caption text-neutral-500">여기서 고친 내용은 이 주문에만 쓰이고, 저장된 배송지는 바뀌지 않아요.</p>
       {mutation.isError && (
         <div className="col-span-2">
