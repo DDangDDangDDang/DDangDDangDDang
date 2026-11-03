@@ -348,12 +348,14 @@ class OrderServiceTest {
         }
 
         @Test
-        @DisplayName("실패 횟수를 기록하면 1씩 오른다")
+        @DisplayName("실패 횟수를 기록하면 1씩 오르고 실패 시각이 남는다")
         void recordFailure_increments() {
-            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(shippedOrder(10L, 8)));
+            Order order = shippedOrder(10L, 8);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
 
             assertThat(orderService.recordAutoConfirmFailure(10L)).isEqualTo(1);
             assertThat(orderService.recordAutoConfirmFailure(10L)).isEqualTo(2);
+            assertThat(order.getAutoConfirmLastFailedAt()).isNotNull();
         }
 
         // 발송한 주문을 만들고, 발송 시각을 며칠 전으로 돌린다
