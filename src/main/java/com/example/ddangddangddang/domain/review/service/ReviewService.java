@@ -16,7 +16,6 @@ import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.exception.BusinessException;
-import com.google.protobuf.Descriptors;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
