@@ -97,7 +97,9 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
         assertThat(order.getCancelReason()).isEqualTo(OrderCancelReason.BUYER_NO_ADDRESS);
         assertThat(balanceOf(buyer.getId())).isEqualTo(450_000L);
         assertThat(balanceOf(seller.getId())).isEqualTo(50_000L);
-        assertThat(refundCount()).isEqualTo(1);
+        assertThat(countOf(PointHistoryType.WIN_CANCEL)).isEqualTo(1);
+        assertThat(countOf(PointHistoryType.WIN_CANCEL_PENALTY)).isEqualTo(1);
+        assertThat(countOf(PointHistoryType.ORDER_PENALTY)).isEqualTo(1);
     }
 
     @Test
@@ -122,6 +124,8 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
         scheduler.cancelOverdueOrders();
 
         assertThat(balanceOf(seller.getId())).isZero();
+        assertThat(countOf(PointHistoryType.ORDER_REFUND)).isEqualTo(1);
+        assertThat(countOf(PointHistoryType.WIN_CANCEL)).isZero();
     }
 
     @Test
@@ -173,7 +177,7 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
                 () -> orderService.cancelOverdue(orderId, OrderCancelReason.BUYER_NO_ADDRESS),
                 () -> orderService.cancelOverdue(orderId, OrderCancelReason.BUYER_NO_ADDRESS));
 
-        assertThat(refundCount()).isEqualTo(1);
+        assertThat(countOf(PointHistoryType.WIN_CANCEL)).isEqualTo(1);
         assertThat(balanceOf(buyer.getId())).isEqualTo(450_000L);
         assertThat(balanceOf(seller.getId())).isEqualTo(50_000L);
     }
@@ -293,8 +297,11 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
     }
 
     private long refundCount() {
-        return pointHistoryRepository.findAll().stream()
-                .filter(history -> history.getType() == PointHistoryType.ORDER_REFUND).count();
+        return countOf(PointHistoryType.ORDER_REFUND);
+    }
+
+    private long countOf(PointHistoryType type) {
+        return pointHistoryRepository.findAll().stream().filter(history -> history.getType() == type).count();
     }
 
     private void runConcurrently(Runnable first, java.util.concurrent.Callable<?> second) throws Exception {

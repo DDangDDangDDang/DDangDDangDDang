@@ -6873,7 +6873,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY" ]
+            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY", "WIN_CANCEL", "WIN_CANCEL_PENALTY" ]
           }
         }, {
           "name" : "cursor",
@@ -12248,7 +12248,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY" ]
+            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY", "WIN_CANCEL", "WIN_CANCEL_PENALTY" ]
           },
           "amount" : {
             "type" : "integer",
