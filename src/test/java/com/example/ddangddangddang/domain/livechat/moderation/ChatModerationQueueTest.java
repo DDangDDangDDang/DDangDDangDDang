@@ -252,7 +252,7 @@ class ChatModerationQueueTest {
     }
 
     private LiveStreamResponse liveStream(ChatModerationMode mode) {
-        return new LiveStreamResponse(LIVE_STREAM_ID, SELLER_ID, "테스트 방송", null, List.of(), null, List.of(), null, false, mode,
+        return new LiveStreamResponse(LIVE_STREAM_ID, SELLER_ID, "테스트 방송", null, List.of(), null, List.of(), null, false, null, mode,
                 null, LiveStreamStatus.LIVE, LocalDateTime.now(), null, LocalDateTime.now(), null);
     }
 

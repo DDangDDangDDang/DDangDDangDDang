@@ -85,6 +85,11 @@ public class LiveStream extends BaseTimeEntity {
     @Column(nullable = false)
     private boolean recorded;
 
+    // 라이브 봇 방송이 내보내는 녹화 영상의 저장소 키 (live-bots/...). 사람 판매자의 방송이면 null
+    // 봇 방송은 송출하는 사람이 없으므로 시청 화면이 이 영상을 방송 시작 시각에 맞춰 직접 반복 재생한다. (LiveBotService)
+    @Column(name = "video_key", length = 200)
+    private String videoKey;
+
     // 채팅 AI 검토 결과를 어떻게 처리할지 (ChatModerationMode). 이미 있는 방송과 SQL로 직접 넣는 행은 알림만(ALERT)으로 본다.
     @Enumerated(EnumType.STRING)
     @ColumnDefault("'ALERT'")
@@ -151,6 +156,21 @@ public class LiveStream extends BaseTimeEntity {
 
     public static LiveStream create(Long sellerId, String title, String description, LocalDateTime scheduledStartAt) {
         return new LiveStream(sellerId, title, description, scheduledStartAt);
+    }
+
+    /**
+     * 라이브 봇 방송을 만든다. 녹화 영상(videoKey)을 시청 화면이 직접 재생하므로 늘 녹화 영상 방송이다.
+     */
+    public static LiveStream createBot(Long botUserId, String title, String description, String videoKey) {
+        LiveStream liveStream = new LiveStream(botUserId, title, description, null);
+        liveStream.videoKey = videoKey;
+        liveStream.recorded = true;
+        return liveStream;
+    }
+
+    /** 라이브 봇 방송인지 (판매자 송출 대신 녹화 영상을 시청 화면이 재생) */
+    public boolean isBot() {
+        return videoKey != null;
     }
 
     public boolean update(Long requesterId, String title, String description) {

@@ -198,6 +198,19 @@ class LiveStreamIdleWatcherTest {
         return LocalDateTime.ofInstant(NOW, ZONE).minusMinutes(minutes);
     }
 
+    @Test
+    @DisplayName("라이브 봇 방송은 송출이 없어도 감시하지 않는다 (관리자가 끌 때까지 이어진다)")
+    void botStreamNotWatched() {
+        LiveStream bot = live(2L, 20L, minutesAgo(90));
+        given(bot.isBot()).willReturn(true);
+        given(liveStreamRepository.findAllByStatus(LiveStreamStatus.LIVE)).willReturn(List.of(bot));
+
+        watcher.check();
+
+        verify(mediaServerClient, never()).getPublishingRooms(any(), any());
+        verify(liveStreamService, never()).endForIdle(anyLong(), anyLong());
+    }
+
     private LiveStream live(Long id, Long sellerId, LocalDateTime startedAt) {
         LiveStream stream = mock(LiveStream.class);
         org.mockito.Mockito.lenient().when(stream.getId()).thenReturn(id);

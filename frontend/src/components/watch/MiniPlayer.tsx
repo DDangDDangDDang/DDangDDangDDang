@@ -4,6 +4,7 @@ import { useBroadcast } from '@/components/broadcast/broadcast-context';
 import { Badge, buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
+import { BotVideo } from './BotVideo';
 import { TrackAudio, TrackVideo } from './tracks';
 import { VolumeControl } from './VolumeControl';
 import { useWatch } from './watch-context';
@@ -25,7 +26,9 @@ export function MiniPlayer() {
   const sellerBroadcastShown = broadcast.publishing && broadcast.liveStream !== undefined && pathname !== '/studio';
   const watchPath = `/lives/${session.liveStreamId}`;
   const title = session.title || '방송';
-  const playing = !ended && video.phase === 'connected' && video.videoTrack;
+  // 라이브 봇 방송은 LiveKit 영상 대신 녹화 영상을 시작 시각에 맞춰 튼다. (시청 화면에서 보던 장면이 그대로 이어진다)
+  const botVideo = ended ? undefined : session.botVideo;
+  const playing = !!botVideo || (!ended && video.phase === 'connected' && video.videoTrack);
 
   return (
     <aside
@@ -63,7 +66,11 @@ export function MiniPlayer() {
         aria-label={`${title} 시청 화면으로 돌아가기`}
         className="relative flex aspect-video items-center justify-center bg-stage text-neutral-400"
       >
-        {playing && video.videoTrack && <TrackVideo track={video.videoTrack} />}
+        {botVideo ? (
+          <BotVideo url={botVideo.url} startedAt={botVideo.startedAt} muted={muted} volume={volume} />
+        ) : (
+          playing && video.videoTrack && <TrackVideo track={video.videoTrack} />
+        )}
         {!ended && video.audioTracks.map((track) => <TrackAudio key={track.sid} track={track} muted={muted} volume={volume} />)}
         {!playing && <Status ended={ended} phase={video.phase} />}
         {!ended && video.phase === 'connected' && video.viewerCount !== undefined && (

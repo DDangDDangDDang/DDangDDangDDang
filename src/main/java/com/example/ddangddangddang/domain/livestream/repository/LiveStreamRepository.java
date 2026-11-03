@@ -25,6 +25,9 @@ public interface LiveStreamRepository extends JpaRepository<LiveStream, Long> {
 
     boolean existsByActiveSellerId(Long sellerId);
 
+    // 여러 판매자의 종료되지 않은 방송 (관리자 라이브 봇 목록)
+    List<LiveStream> findAllByActiveSellerIdIn(Collection<Long> sellerIds);
+
     // 방송 썸네일만 바꾼다. 판매자가 1분마다 올리므로 버전을 올리지 않아, 같은 때 방송 정보를 고쳐도 충돌하지 않는다.
     // 읽은 뒤 다른 요청이 먼저 바꿨으면(이전 키가 다르면) 바꾸지 않는다. (0 반환) 지운 썸네일을 다시 가리키지 않게.
     @Modifying(clearAutomatically = true, flushAutomatically = true)

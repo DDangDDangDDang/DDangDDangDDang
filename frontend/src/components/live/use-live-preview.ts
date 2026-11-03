@@ -93,14 +93,24 @@ export function useLivePreview(liveStreamId: number | undefined, audio = false) 
   };
 }
 
+/** 라이브 봇 방송의 녹화 영상과 방송 시작 시각 (방송 카드의 videoUrl·startedAt) */
+export type BotVideoSource = { url: string; startedAt?: string };
+
 /**
  * 방송 카드에 보여 줄 미리보기 영상. active일 때만 연결한다.
  * 작은 플레이어(WatchProvider)로 이미 보고 있는 방송이면 새로 접속하지 않고 그 연결의 영상을 같이 보여 준다. (shared)
+ * 라이브 봇 방송(botVideo)은 LiveKit에 접속하지 않고 녹화 영상을 시작 시각에 맞춰 튼다. (bot)
  */
-export function useStreamPreview(liveStreamId: number, active: boolean, audio = false) {
+export function useStreamPreview(liveStreamId: number, active: boolean, audio = false, botVideo?: BotVideoSource) {
   const watch = useContext(WatchContext);
-  const shared = watch?.session?.liveStreamId === liveStreamId && watch.session.live;
-  const own = useLivePreview(active && !shared ? liveStreamId : undefined, audio);
-  if (shared) return { videoTrack: active ? watch.video.videoTrack : undefined, audioTrack: undefined, shared: true, startAudio: own.startAudio };
-  return { ...own, shared: false };
+  const shared = !botVideo && watch?.session?.liveStreamId === liveStreamId && watch.session.live;
+  const own = useLivePreview(active && !shared && !botVideo ? liveStreamId : undefined, audio);
+  if (botVideo) return { videoTrack: undefined, audioTrack: undefined, bot: active ? botVideo : undefined, shared: false, startAudio: own.startAudio };
+  if (shared) return { videoTrack: active ? watch.video.videoTrack : undefined, audioTrack: undefined, bot: undefined, shared: true, startAudio: own.startAudio };
+  return { ...own, bot: undefined, shared: false };
+}
+
+/** 방송 카드에서 봇 방송 영상 정보를 꺼낸다. 사람 판매자의 방송이면 undefined */
+export function cardBotVideo(card: { videoUrl?: string | null; startedAt?: string }): BotVideoSource | undefined {
+  return card.videoUrl ? { url: card.videoUrl, startedAt: card.startedAt } : undefined;
 }

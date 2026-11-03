@@ -164,6 +164,14 @@ public class User extends BaseTimeEntity {
         return new User(email, encodedPassword, nickname, null, UserRole.ADMIN);
     }
 
+    /**
+     * 라이브 봇 계정 (관리자가 만든다, LiveBotService). 비밀번호·소셜 계정이 없어 아무도 로그인할 수 없다.
+     * 이메일은 받을 수 없는 주소(.invalid)로 겹치지 않게 만든다. (비밀번호 찾기 등으로 들어올 수도 없음)
+     */
+    public static User createBot(String nickname) {
+        return new User("bot-" + java.util.UUID.randomUUID() + "@bot.invalid", null, nickname, null, UserRole.USER);
+    }
+
     /** 관리자 권한 부여. 이미 로그인한 상태면 다시 로그인해야 반영된다 (권한이 토큰에 들어 있음) */
     public void grantAdmin() {
         this.role = UserRole.ADMIN;

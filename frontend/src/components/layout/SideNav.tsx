@@ -1,4 +1,4 @@
-import { Banknote, FolderTree, Megaphone, Flag, Gavel, Gift, House, MapPin, Package, ReceiptText, ShoppingBag, Tv, UserCheck, Video, type LucideIcon } from 'lucide-react';
+import { Banknote, Bot, FolderTree, Megaphone, Flag, Gavel, Gift, House, MapPin, Package, ReceiptText, ShoppingBag, Tv, UserCheck, Video, type LucideIcon } from 'lucide-react';
 import { NavLink } from 'react-router';
 import { useSession } from '@/api';
 import { AdBanner } from '@/components/ad/AdBanner';
@@ -38,6 +38,7 @@ export function SideNav() {
                 <Item to="/admin/donation-policy" icon={Gift} label="도네이션 정책" />
                 <Item to="/admin/point-exchanges" icon={Banknote} label="환전 승인" />
                 <Item to="/admin/ads" icon={Megaphone} label="광고 관리" />
+                <Item to="/admin/live-bots" icon={Bot} label="라이브 봇" />
               </>
             )}
           </>

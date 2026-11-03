@@ -258,7 +258,7 @@ class LiveChatServiceTest {
     }
 
     private LiveStreamResponse liveStream(Long sellerId) {
-        return new LiveStreamResponse(LIVE_STREAM_ID, sellerId, "테스트 방송", null, List.of(), null, List.of(), null, false,
+        return new LiveStreamResponse(LIVE_STREAM_ID, sellerId, "테스트 방송", null, List.of(), null, List.of(), null, false, null,
                 ChatModerationMode.AUTO_HIDE, null, LiveStreamStatus.LIVE, LocalDateTime.now(), null, LocalDateTime.now(), null);
     }
 
