@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Package, Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ProductFields } from '@/components/product/ProductFields';
 import { ProductImageUploadUrlContext, useProductImageUploading } from '@/components/product/use-product-image-upload';
 import { SellerAvatar } from '@/components/seller/SellerAvatar';
-import { Badge, Button, buttonVariants, Card, Dialog, EmptyState, ErrorState, Input, Notice, Select, Skeleton } from '@/components/ui';
+import { Badge, Button, buttonVariants, Card, Dialog, EmptyState, ErrorState, Input, Notice, Pagination, Select, Skeleton } from '@/components/ui';
 import {
   auctionPhase,
   AUCTION_PHASE_LABEL,
@@ -20,9 +20,10 @@ import {
   type AuctionConditionValues,
 } from '@/lib/auction';
 import { formatDateTime, formatPoint, onlyDigits } from '@/lib/format';
-import { COURIER_LABEL, ORDER_STATUS_LABEL, PRODUCT_STATUS_LABEL, type Courier } from '@/lib/labels';
+import { COURIER_LABEL, ORDER_STATUS_LABEL, PRODUCT_STATUS_LABEL, type Courier, type OrderStatus } from '@/lib/labels';
 import { applyProductChange, productFormValuesOf, toProductRequest, validateProductForm, type ProductFormErrors, type ProductFormValues } from '@/lib/product-form';
 import { useCategories } from '@/lib/use-categories';
+import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 import { useNow } from '@/lib/use-now';
 
 type LiveBot = Schema<'LiveBotResponse'>;
@@ -30,6 +31,8 @@ type Product = Schema<'ProductResponse'>;
 type Auction = Schema<'AuctionResponse'>;
 
 const botsKey = ['admin', 'live-bots'] as const;
+const PRODUCT_PAGE_SIZE = 20;
+const ORDER_PAGE_SIZE = 20;
 const sellingKey = (botId: number) => ['admin', 'live-bots', botId, 'selling'] as const;
 
 /**
@@ -82,10 +85,14 @@ function ProductsSection({ bot }: { bot: LiveBot }) {
   const [creating, setCreating] = useState(false);
   const [auctionFor, setAuctionFor] = useState<Product>();
   const [done, setDone] = useState<string>();
+  const [page, setPage] = useState(0);
 
+  // 서버가 페이지 번호로 주는 목록이라 번호로 넘긴다. (최근 등록순)
   const products = useQuery({
-    queryKey: [...sellingKey(botId), 'products'],
-    queryFn: () => call(api.GET('/api/v1/admin/live-bots/{botId}/products', { params: { path: { botId }, query: { page: 0, size: 50 } } })),
+    queryKey: [...sellingKey(botId), 'products', page],
+    queryFn: () =>
+      call(api.GET('/api/v1/admin/live-bots/{botId}/products', { params: { path: { botId }, query: { page, size: PRODUCT_PAGE_SIZE } } })),
+    placeholderData: keepPreviousData,
   });
   const list = products.data?.content ?? [];
 
@@ -135,6 +142,7 @@ function ProductsSection({ bot }: { bot: LiveBot }) {
           </ul>
         )}
       </Card>
+      <Pagination page={page} totalPages={products.data?.totalPages ?? 0} onChange={setPage} label="상품 페이지" />
       {creating && (
         <ProductCreateDialog
           botId={botId}
@@ -362,20 +370,41 @@ const COURIER_OPTIONS = [
   ...(Object.entries(COURIER_LABEL) as [Courier, string][]).map(([value, label]) => ({ value, label })),
 ];
 
-/** 주문: 봇이 판 주문. 눌러서 배송지를 보고 발송 정보를 넣는다. */
+/** 주문 목록 보기: 처리할 주문(발송 전)이 먼저 보이도록 기본은 발송 전만 */
+const ORDER_FILTER_OPTIONS = [
+  { value: 'ESCROW', label: '발송 전' },
+  { value: '', label: '전체' },
+  ...(Object.entries(ORDER_STATUS_LABEL) as [OrderStatus, string][]).filter(([value]) => value !== 'ESCROW').map(([value, label]) => ({ value, label })),
+];
+
+/** 주문: 봇이 판 주문. 눌러서 배송지를 보고 발송 정보를 넣는다. 끝까지 내리면 다음 주문을 이어서 불러온다. */
 function OrdersSection({ bot }: { bot: LiveBot }) {
   const botId = bot.id ?? 0;
   const [openId, setOpenId] = useState<number>();
-  const orders = useQuery({
-    queryKey: [...sellingKey(botId), 'orders'],
-    queryFn: () => call(api.GET('/api/v1/admin/live-bots/{botId}/orders', { params: { path: { botId }, query: { size: 50 } } })),
+  const [status, setStatus] = useState<OrderStatus | ''>('ESCROW');
+  const orders = useInfiniteQuery({
+    queryKey: [...sellingKey(botId), 'orders', status],
+    queryFn: ({ pageParam }) =>
+      call(
+        api.GET('/api/v1/admin/live-bots/{botId}/orders', {
+          params: { path: { botId }, query: { status: status || undefined, cursor: pageParam, size: ORDER_PAGE_SIZE } },
+        }),
+      ),
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (last) => (last?.hasNext ? last.nextCursor : undefined),
     refetchInterval: 30_000,
   });
-  const list = orders.data?.content ?? [];
+  const sentinelRef = useInfiniteScroll(orders.hasNextPage, orders.isFetchingNextPage, orders.fetchNextPage);
+  const list = orders.data?.pages.flatMap((page) => page?.content ?? []) ?? [];
 
   return (
     <section aria-label="주문" className="flex flex-col gap-3">
-      <h2 className="text-title-md font-bold">주문</h2>
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-title-md font-bold">주문</h2>
+        <div className="w-[180px]">
+          <Select label="주문 상태" hideLabel options={ORDER_FILTER_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value as OrderStatus | '')} />
+        </div>
+      </div>
       <Card>
         {orders.isPending ? (
           <div className="p-4">
@@ -384,7 +413,10 @@ function OrdersSection({ bot }: { bot: LiveBot }) {
         ) : orders.isError ? (
           <ErrorState message={errorMessage(orders.error)} onRetry={() => void orders.refetch()} />
         ) : list.length === 0 ? (
-          <EmptyState title="아직 들어온 주문이 없어요" description="봇 경매가 낙찰되거나 즉시구매되면 여기에 나와요." />
+          <EmptyState
+            title={status === 'ESCROW' ? '발송할 주문이 없어요' : '주문이 없어요'}
+            description="봇 경매가 낙찰되거나 즉시구매되면 여기에 나와요. 지난 주문은 상태를 [전체]로 바꿔 보세요."
+          />
         ) : (
           <ul className="divide-y divide-neutral-100">
             {list.map((order) => (
@@ -403,7 +435,9 @@ function OrdersSection({ bot }: { bot: LiveBot }) {
             ))}
           </ul>
         )}
+        <div ref={sentinelRef} />
       </Card>
+      {orders.isFetchingNextPage && <Skeleton className="h-12" />}
       {openId !== undefined && <OrderDialog botId={botId} orderId={openId} onClose={() => setOpenId(undefined)} />}
     </section>
   );
