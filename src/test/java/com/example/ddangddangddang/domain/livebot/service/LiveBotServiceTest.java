@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.livebot.service;
 
+import com.example.ddangddangddang.domain.auction.dto.response.AuctionResponse;
+import com.example.ddangddangddang.domain.auction.service.AuctionService;
 import com.example.ddangddangddang.domain.livebot.dto.LiveBotCreateRequest;
 import com.example.ddangddangddang.domain.livebot.dto.LiveBotResponse;
 import com.example.ddangddangddang.domain.livebot.dto.LiveBotStartRequest;
@@ -14,10 +16,15 @@ import com.example.ddangddangddang.domain.livestream.repository.LiveStreamReposi
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
+import com.example.ddangddangddang.domain.order.dto.OrderSummaryResponse;
+import com.example.ddangddangddang.domain.order.entity.OrderRole;
+import com.example.ddangddangddang.domain.order.entity.OrderStatus;
+import com.example.ddangddangddang.domain.order.service.OrderService;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadRequest;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.domain.user.service.UserService;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.exception.ErrorCode;
 import com.example.ddangddangddang.global.storage.FileStorage;
 import org.junit.jupiter.api.DisplayName;
@@ -39,6 +46,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -64,6 +72,10 @@ class LiveBotServiceTest {
     private FileStorage fileStorage;
     @Mock
     private UserService userService;
+    @Mock
+    private AuctionService auctionService;
+    @Mock
+    private OrderService orderService;
 
     private static void assertError(Executable executable, ErrorCode code) {
         assertThatThrownBy(executable::execute)
@@ -181,11 +193,33 @@ class LiveBotServiceTest {
         verify(liveBotRepository, never()).delete(any());
 
         given(liveStreamRepository.existsByActiveSellerId(USER_ID)).willReturn(false);
+        given(auctionService.myOpenAuctions(USER_ID)).willReturn(List.of());
+        given(orderService.getOrders(USER_ID, OrderRole.SELLER, OrderStatus.ESCROW, null, 1)).willReturn(new CursorResponse<>(List.of(), null, false));
         liveBotService.delete(BOT_ID);
 
         verify(liveBotRepository).delete(bot);
         verify(fileStorage).delete(KEY);
         verify(userRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("지우기: 시작 전·진행 중 경매나 발송 전 주문이 남아 있으면 LIVEBOT_006 (지우면 관리자가 다룰 수 없게 된다)")
+    void deleteWhileSelling() {
+        given(liveBotRepository.findById(BOT_ID)).willReturn(Optional.of(bot()));
+        given(liveStreamRepository.existsByActiveSellerId(USER_ID)).willReturn(false);
+
+        // 진행 중 경매가 있다
+        given(auctionService.myOpenAuctions(USER_ID)).willReturn(List.of(mock(AuctionResponse.class)));
+        assertError(() -> liveBotService.delete(BOT_ID), LiveBotErrorCode.SELLING_NOW);
+
+        // 경매는 끝났지만 발송 전 주문이 있다
+        given(auctionService.myOpenAuctions(USER_ID)).willReturn(List.of());
+        given(orderService.getOrders(USER_ID, OrderRole.SELLER, OrderStatus.ESCROW, null, 1))
+                .willReturn(new CursorResponse<>(List.of(mock(OrderSummaryResponse.class)), null, false));
+        assertError(() -> liveBotService.delete(BOT_ID), LiveBotErrorCode.SELLING_NOW);
+
+        verify(liveBotRepository, never()).delete(any());
+        verify(fileStorage, never()).delete(any());
     }
 
     @Test

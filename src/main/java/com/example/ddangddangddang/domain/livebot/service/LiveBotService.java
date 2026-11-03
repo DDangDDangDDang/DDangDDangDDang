@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.livebot.service;
 
+import com.example.ddangddangddang.domain.auction.service.AuctionService;
 import com.example.ddangddangddang.domain.livebot.dto.LiveBotCreateRequest;
 import com.example.ddangddangddang.domain.livebot.dto.LiveBotResponse;
 import com.example.ddangddangddang.domain.livebot.dto.LiveBotStartRequest;
@@ -13,6 +14,9 @@ import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
 import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
+import com.example.ddangddangddang.domain.order.entity.OrderRole;
+import com.example.ddangddangddang.domain.order.entity.OrderStatus;
+import com.example.ddangddangddang.domain.order.service.OrderService;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadRequest;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadResponse;
 import com.example.ddangddangddang.domain.user.entity.User;
@@ -69,6 +73,9 @@ public class LiveBotService {
     private final FileStorage fileStorage;
     // 봇 프로필 사진은 회원이 자기 사진을 바꾸는 것과 같은 규칙·저장 위치를 쓴다. (profile-images/{봇 계정 ID}/...)
     private final UserService userService;
+    // 봇을 지울 때 남은 경매·발송 전 주문이 있는지만 본다.
+    private final AuctionService auctionService;
+    private final OrderService orderService;
 
     /** 관리자 목록. 봇마다 지금 켜 둔 방송을 함께 보여 준다 */
     public List<LiveBotResponse> getAll() {
@@ -139,12 +146,18 @@ public class LiveBotService {
     /**
      * 봇 지우기. 방송 중이면 먼저 꺼야 한다. 영상은 커밋 뒤에 지운다.
      * 봇 계정은 남긴다. (끝난 방송·채팅 기록이 이 계정을 판매자로 가리킨다)
+     * 봇 계정의 경매·주문은 판매 관리(LiveBotSellingService, 봇 ID로 찾는다)로만 다룰 수 있으므로,
+     * 시작 전·진행 중 경매나 발송 전 주문이 남아 있으면 지우지 않는다. (지우면 아무도 발송·취소할 수 없어 기한이 지나 취소된다)
      */
     @Transactional
     public void delete(Long botId) {
         LiveBot bot = findById(botId);
         if (liveStreamRepository.existsByActiveSellerId(bot.getUserId())) {
             throw new BusinessException(LiveBotErrorCode.LIVE_NOW);
+        }
+        if (!auctionService.myOpenAuctions(bot.getUserId()).isEmpty()
+                || !orderService.getOrders(bot.getUserId(), OrderRole.SELLER, OrderStatus.ESCROW, null, 1).content().isEmpty()) {
+            throw new BusinessException(LiveBotErrorCode.SELLING_NOW);
         }
         liveBotRepository.delete(bot);
         deleteAfterCommit(bot.getVideoKey());

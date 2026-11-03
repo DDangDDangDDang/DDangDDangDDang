@@ -181,6 +181,7 @@ export function LiveBotsAdminPage() {
         description={
           <div className="flex flex-col gap-2">
             <p>봇과 녹화 영상을 지워요. 지난 방송 기록에 남은 봇 닉네임은 그대로 둬요.</p>
+            <p>진행 중인 경매나 발송 전 주문이 남아 있으면 지울 수 없어요. 지우면 그 경매와 주문을 다룰 수 없게 되기 때문이에요.</p>
             {remove.isError && <Notice tone="error">{errorMessage(remove.error)}</Notice>}
           </div>
         }
