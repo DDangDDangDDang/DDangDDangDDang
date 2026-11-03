@@ -21,7 +21,7 @@ public enum NotificationCategory {
     AUCTION_RESULT("경매 결과", "낙찰·유찰 등 경매가 끝났을 때 (내 경매의 결과 포함)",
             Set.of(NotificationType.AUCTION_WON, NotificationType.AUCTION_SOLD, NotificationType.AUCTION_FAILED, NotificationType.AUCTION_ENDED, NotificationType.ORDER_CANCELED)),
     DONATION_POINT("도네이션 마일리지", "도네이션 마일리지가 적립되거나 곧 사라질 때",
-            Set.of(NotificationType.DONATION_POINT_EARNED, NotificationType.DONATION_POINT_EXPIRING));
+            Set.of(NotificationType.DONATION_POINT_EARNED, NotificationType.DONATION_POINT_EXPIRING, NotificationType.DONATION_POINT_SELLER_WELCOME));
 
     private final String label;
     private final String description;
