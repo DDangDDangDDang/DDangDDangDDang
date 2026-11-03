@@ -6,13 +6,13 @@ import { api, call, errorMessage, isErrorCode, type Schema } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
 import { AuctionConditionFields } from '@/components/auction/AuctionConditionFields';
 import { ProductImage } from '@/components/order/OrderBits';
-import { Badge, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Dialog, ErrorState, Notice, Pagination, Select, Skeleton } from '@/components/ui';
+import { Badge, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Dialog, ErrorState, Notice, Pagination, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { CategorySelects } from '@/components/product/CategorySelects';
 import { useCategories } from '@/lib/use-categories';
 import {
   auctionPhase,
   auctionStatusTab,
-  categoryFilterOptions,
   type AuctionStatusTab,
   EMPTY_AUCTION_CONDITION,
   featuredAuctions,
@@ -76,15 +76,16 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
       <CardBody>
         {!live && <Notice className="mb-3">방송을 시작하면 상품을 골라 바로 경매를 열 수 있어요.</Notice>}
         <div className="mb-2 flex items-center gap-3">
-          <div className="w-60">
-            <Select
-              label="카테고리로 거르기"
+          <div className="w-[320px]">
+            <CategorySelects
+              categories={categories.data ?? []}
+              mode="filter"
+              labels={['카테고리로 거르기', '세부 카테고리로 거르기']}
               hideLabel
-              options={[{ value: '', label: '전체 카테고리' }, ...categoryFilterOptions(categories.data ?? [])]}
               value={categoryId}
               disabled={categories.isPending}
-              onChange={(e) => {
-                setCategoryId(e.target.value);
+              onChange={(id) => {
+                setCategoryId(id);
                 setPage(0);
                 setSelected(undefined);
               }}

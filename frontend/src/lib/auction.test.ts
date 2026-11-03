@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   auctionPhase,
   auctionStatusTab,
-  categoryFilterOptions,
+  childCategoryOptions,
   durationLabel,
   EMPTY_AUCTION_CONDITION,
   LIVE_AUCTION_DURATIONS,
   featuredAuctions,
   formatAmountInput,
-  leafCategoryOptions,
+  parentCategoryOf,
+  parentCategoryOptions,
   parseAmount,
   secondsUntil,
   toAuctionCreateRequest,
@@ -65,15 +66,21 @@ describe('secondsUntil', () => {
 });
 
 describe('카테고리 선택지', () => {
-  it('상품 등록은 소분류만 고른다', () => {
-    expect(leafCategoryOptions(categories)).toEqual([
-      { value: '11', label: '카메라 › 필름 카메라' },
-      { value: '12', label: '카메라 › 렌즈' },
-    ]);
+  it('대분류 선택지, 상품 등록은 소분류가 있는 대분류만', () => {
+    expect(parentCategoryOptions(categories).map((o) => o.value)).toEqual(['1', '2']);
+    expect(parentCategoryOptions(categories, true)).toEqual([{ value: '1', label: '카메라' }]);
   });
 
-  it('검색 필터는 대분류와 소분류 모두', () => {
-    expect(categoryFilterOptions(categories).map((o) => o.value)).toEqual(['1', '11', '12', '2']);
+  it('고른 id가 속한 대분류와 그 소분류 선택지', () => {
+    expect(parentCategoryOf(categories, '12')?.id).toBe(1);
+    expect(parentCategoryOf(categories, '2')?.id).toBe(2);
+    expect(parentCategoryOf(categories, '')).toBeUndefined();
+    expect(parentCategoryOf(categories, '99')).toBeUndefined();
+    expect(childCategoryOptions(categories[0])).toEqual([
+      { value: '11', label: '필름 카메라' },
+      { value: '12', label: '렌즈' },
+    ]);
+    expect(childCategoryOptions(undefined)).toEqual([]);
   });
 });
 

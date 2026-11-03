@@ -6,8 +6,9 @@ import { api, call, errorMessage } from '@/api';
 import { AuctionCard, AuctionCardSkeleton } from '@/components/auction/AuctionBits';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button, buttonVariants, EmptyState, ErrorState, Input, Pagination, Select } from '@/components/ui';
-import { categoryFilterOptions, formatAmountInput, parseAmount } from '@/lib/auction';
+import { formatAmountInput, parseAmount } from '@/lib/auction';
 import { AUCTION_SORT_LABEL, AUCTION_STATUS_LABEL, type AuctionSort, type AuctionStatus } from '@/lib/labels';
+import { CategorySelects } from '@/components/product/CategorySelects';
 import { useCategories } from '@/lib/use-categories';
 
 const PAGE_SIZE = 20;
@@ -98,12 +99,13 @@ export function AuctionListPage() {
         <div className="flex-1">
           <Input label="상품명" type="search" placeholder="상품명으로 검색" maxLength={50} value={draft.q} onChange={(e) => setDraft({ ...draft, q: e.target.value })} />
         </div>
-        <div className="w-[200px]">
-          <Select
-            label="카테고리"
-            options={[{ value: '', label: '전체 카테고리' }, ...categoryFilterOptions(categories.data ?? [])]}
+        <div className="w-[320px]">
+          <CategorySelects
+            categories={categories.data ?? []}
+            mode="filter"
+            labels={['카테고리', '세부 카테고리']}
             value={filters.category}
-            onChange={(e) => update({ category: e.target.value })}
+            onChange={(category) => update({ category })}
           />
         </div>
         <div className="w-[140px]">
