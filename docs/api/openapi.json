@@ -11243,7 +11243,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_WON", "AUCTION_SOLD", "AUCTION_FAILED", "AUCTION_ENDED", "ORDER_CANCELED", "DONATION_POINT_EARNED", "DONATION_POINT_EXPIRING" ]
+            "enum" : [ "LIVE_STARTED", "AUCTION_STARTED", "AUCTION_OUTBID", "AUCTION_CLOSING_SOON", "AUCTION_CANCELED", "AUCTION_WON", "AUCTION_SOLD", "AUCTION_FAILED", "AUCTION_ENDED", "ORDER_CANCELED", "DONATION_POINT_EARNED", "DONATION_POINT_EXPIRING", "DONATION_POINT_SELLER_WELCOME" ]
           },
           "sellerId" : {
             "type" : "integer",
@@ -14019,7 +14019,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "EARN", "SALE", "GIFT", "RECEIVE", "EXPIRE", "SPEND", "SHOP" ]
+            "enum" : [ "EARN", "SALE", "GIFT", "RECEIVE", "EXPIRE", "SPEND", "SHOP", "SELLER_WELCOME" ]
           },
           "amount" : {
             "type" : "integer",

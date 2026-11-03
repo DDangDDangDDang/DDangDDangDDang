@@ -7,5 +7,6 @@ public enum DonationPointHistoryType {
     RECEIVE,  // 선물받음: +
     EXPIRE,   // 유효기간 만료: -
     SPEND,    // 예전 판매자 상점 구매: - (지금은 SHOP)
-    SHOP      // 마일리지 상점 구매 (닉네임 변경권 등): -
+    SHOP,     // 마일리지 상점 구매 (닉네임 변경권 등): -
+    SELLER_WELCOME // 판매자 승인 축하 지급: +
 }

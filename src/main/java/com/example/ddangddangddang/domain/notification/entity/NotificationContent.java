@@ -41,6 +41,8 @@ public record NotificationContent(String title, String body, String link) {
                     "구매 확정으로 적립했어요. 응원하는 판매자의 라이브 방송에서 선물해 보세요.", "/lives");
             case DONATION_POINT_EXPIRING -> new NotificationContent("도네이션 마일리지 " + mileage(notification.getPrice()) + "이 곧 사라져요",
                     "유효기간이 얼마 남지 않았어요. 사라지기 전에 응원하는 판매자에게 선물해 보세요.", "/lives");
+            case DONATION_POINT_SELLER_WELCOME -> new NotificationContent("판매자 승인 축하 도네이션 마일리지 " + mileage(notification.getPrice()) + "이 지급됐어요",
+                    "판매자가 된 걸 축하해요. 다른 판매자의 라이브 방송에서 선물해 보세요.", "/lives");
         };
     }
 

@@ -6,5 +6,6 @@ package com.example.ddangddangddang.domain.donation.entity;
 public enum DonationLotSource {
     PURCHASE, // 구매 확정 적립 (구매자). orderId가 있다
     SALE,     // 판매 확정 적립 (판매자). orderId가 있다
-    RECEIVE   // 선물받음 (판매자). donationId가 있다. 마일리지를 하나로 합칠 때 옮긴 받은 마일리지는 donationId가 없다
+    RECEIVE,  // 선물받음 (판매자). donationId가 있다. 마일리지를 하나로 합칠 때 옮긴 받은 마일리지는 donationId가 없다
+    SELLER_WELCOME // 판매자 승인 축하 (판매자 모집 이벤트). 한 회원에게 한 번만. orderId·donationId가 없다
 }

@@ -22,6 +22,7 @@ export const DONATION_HISTORY_LABEL: Record<DonationHistoryType, string> = {
   EXPIRE: '유효기간 만료',
   SPEND: '판매자 상점 (예전)',
   SHOP: '마일리지 상점',
+  SELLER_WELCOME: '판매자 승인 축하',
 };
 
 /** 늘어나는(+) 내역인지. 선물함·만료·상점 구매는 줄어든다(−). */
@@ -33,6 +34,7 @@ export const DONATION_HISTORY_INCREASES: Record<DonationHistoryType, boolean> = 
   EXPIRE: false,
   SPEND: false,
   SHOP: false,
+  SELLER_WELCOME: true,
 };
 
 /** 선물 창 빠른 금액 버튼. 최대 선물 이하만 보여 준다. */

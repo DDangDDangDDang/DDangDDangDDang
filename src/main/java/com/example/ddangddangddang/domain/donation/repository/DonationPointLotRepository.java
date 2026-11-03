@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.donation.repository;
 import com.example.ddangddangddang.domain.donation.entity.DonationLotSource;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointLot;
 import com.example.ddangddangddang.domain.order.entity.Order;
+import com.example.ddangddangddang.domain.seller.entity.SellerApplication;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -16,6 +17,26 @@ import java.util.List;
 public interface DonationPointLotRepository extends JpaRepository<DonationPointLot, Long> {
 
     boolean existsByOrderIdAndSource(Long orderId, DonationLotSource source);
+
+    /** 회원 한 명에게 한 번만 주는 묶음(판매자 승인 축하)을 이미 받았는지 */
+    boolean existsByUserIdAndSource(Long userId, DonationLotSource source);
+
+    /**
+     * 판매자 승인 축하 보정: from ~ to 사이에 승인됐는데 축하 묶음이 없는 판매자 신청. (지급 이벤트 처리가 실패한 신청) afterId보다 큰 신청을 ID 순으로
+     * 판매자 도메인을 읽기만 한다.
+     */
+    @Query("""
+            select a from SellerApplication a
+            where a.status = com.example.ddangddangddang.domain.seller.entity.SellerApplicationStatus.APPROVED
+              and a.reviewedAt >= :from and a.reviewedAt < :to
+              and a.id > :afterId
+              and not exists (select 1 from DonationPointLot l
+                              where l.userId = a.userId
+                                and l.source = com.example.ddangddangddang.domain.donation.entity.DonationLotSource.SELLER_WELCOME)
+            order by a.id asc
+            """)
+    List<SellerApplication> findApprovedWithoutWelcomeLot(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+                                                          @Param("afterId") Long afterId, Pageable pageable);
 
     /**
      * 적립 보정: from ~ to 사이에 구매 확정했는데 이 source(구매·판매)의 적립 묶음이 없는 주문. (적립 이벤트 처리가 실패한 주문) afterId보다 큰 주문을 ID 순으로

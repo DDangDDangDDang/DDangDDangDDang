@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.donation.service;
 
 import com.example.ddangddangddang.domain.donation.dto.DonationRequest;
+import com.example.ddangddangddang.domain.donation.entity.DonationPointHistoryType;
 import com.example.ddangddangddang.domain.donation.entity.DonationPointLot;
 import com.example.ddangddangddang.domain.donation.repository.DonationLotUsageRepository;
 import com.example.ddangddangddang.domain.donation.repository.DonationPointHistoryRepository;
@@ -133,6 +134,21 @@ class DonationConcurrencyTest extends MySqlIntegrationTest {
         assertThat(walletRepository.findByUserId(OTHER_SELLER).orElseThrow().getBalance()).isEqualTo(5_000);
         assertThat(remainingOf(SELLER)).isEqualTo(5_000);
         assertThat(remainingOf(OTHER_SELLER)).isEqualTo(5_000);
+    }
+
+    @Test
+    @DisplayName("판매자 승인 축하 마일리지는 동시에 10번 지급해도 한 번만 들어가고, 한 달 적립 한도와 따로 센다")
+    void sellerWelcomeOnce() throws Exception {
+        earn(SELLER, GIVER, 10);
+
+        List<Integer> rejected = run(10, () -> donationPointService.grantSellerWelcome(SELLER, 77L, 5_000L));
+
+        assertThat(rejected).isEmpty();
+        assertThat(walletRepository.findByUserId(SELLER).orElseThrow().getBalance()).isEqualTo(15_000);
+        assertThat(remainingOf(SELLER)).isEqualTo(15_000);
+        assertThat(historyRepository.findAll()).filteredOn(h -> h.getType() == DonationPointHistoryType.SELLER_WELCOME)
+                .singleElement()
+                .satisfies(h -> assertThat(h.getRefId()).isEqualTo(77L));
     }
 
     private long remainingOf(Long userId) {

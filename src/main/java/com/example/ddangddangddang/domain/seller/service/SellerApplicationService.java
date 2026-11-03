@@ -9,6 +9,7 @@ import com.example.ddangddangddang.domain.seller.entity.SellerApplication;
 import com.example.ddangddangddang.domain.seller.entity.SellerApplicationStatus;
 import com.example.ddangddangddang.domain.seller.entity.SellerIdentity;
 import com.example.ddangddangddang.domain.seller.entity.SellerTerms;
+import com.example.ddangddangddang.domain.seller.event.SellerApprovedEvent;
 import com.example.ddangddangddang.domain.seller.exception.SellerErrorCode;
 import com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository;
 import com.example.ddangddangddang.domain.seller.repository.SellerIdentityRepository;
@@ -17,6 +18,7 @@ import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.common.CursorResponse;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.data.domain.PageRequest;
@@ -43,6 +45,7 @@ public class SellerApplicationService {
     private final SellerIdentityRepository identityRepository;
     private final UserRepository userRepository;
     private final ChatContentFilter contentFilter;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 판매자 신청. 처음이면 새로 만들고, 반려된 신청이 있으면 고쳐 다시 낸다.
@@ -134,6 +137,8 @@ public class SellerApplicationService {
         SellerApplication application = findById(applicationId);
         application.approve(LocalDateTime.now());
         flush(application, SellerErrorCode.ALREADY_REVIEWED);
+        // 승인이 커밋된 뒤 판매자 승인 축하 마일리지를 준다. (SellerWelcomeRewarder)
+        eventPublisher.publishEvent(new SellerApprovedEvent(application.getId(), application.getUserId()));
         return SellerApplicationResponse.from(application);
     }
 
