@@ -16,7 +16,6 @@ import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.global.exception.BusinessException;
-import org.aspectj.weaver.ast.Or;
 import org.hibernate.exception.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
