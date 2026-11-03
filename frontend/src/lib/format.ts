@@ -46,6 +46,21 @@ export function formatPhone(phone: string): string {
   return phone;
 }
 
+/**
+ * 입력 중인 전화번호에 하이픈을 붙여 보여준다. 서버에는 숫자만 보낸다.
+ * 서울 지역번호(02)는 2자리, 그 밖(010, 031 등)은 3자리로 나눈다: "0101234" → "010-123-4", "0212345678" → "02-1234-5678"
+ */
+export function formatPhoneInput(value: string): string {
+  const d = onlyDigits(value);
+  const area = d.startsWith('02') ? 2 : 3;
+  const rest = d.slice(area);
+  if (rest.length === 0) return d;
+  // 가운데 자리는 남은 숫자가 8자리면 4자리, 아니면 3자리 (010-1234-5678, 02-123-4567)
+  const middle = rest.length >= 8 ? 4 : 3;
+  if (rest.length <= middle) return `${d.slice(0, area)}-${rest}`;
+  return `${d.slice(0, area)}-${rest.slice(0, middle)}-${rest.slice(middle)}`;
+}
+
 /** 입력값에서 숫자만 남긴다. (휴대폰 번호, 인증번호, 송장번호 입력) */
 export function onlyDigits(value: string): string {
   return value.replace(/\D/g, '');
