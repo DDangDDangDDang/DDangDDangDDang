@@ -1,6 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { Gift, Menu, MessageCircle, Search, Wallet } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import {
+  ChevronDown,
+  CircleUser,
+  Gift,
+  MessageCircle,
+  Search,
+  UserCog,
+  Wallet,
+} from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Link,
   matchPath,
@@ -17,6 +25,7 @@ import { BrandMark } from "@/components/layout/BrandMark";
 import { SideNav } from "@/components/layout/SideNav";
 import { LiveStartToasts } from "@/components/notification/LiveStartToasts";
 import { NotificationBell } from "@/components/notification/NotificationBell";
+import { useOpenSellerProfile } from "@/components/seller/seller-profile-context";
 import { SellerProfileProvider } from "@/components/seller/SellerProfileProvider";
 import { Button, buttonVariants } from "@/components/ui";
 import { DONATION_WALLET_KEY } from "@/lib/donation";
@@ -34,13 +43,6 @@ export function AppLayout() {
   const session = useSession();
   const { pathname } = useLocation();
   const showNav = !NO_NAV_PATHS.some((path) => matchPath(path, pathname));
-  const collapsedByPage = COLLAPSED_NAV_PATHS.some((path) =>
-    matchPath(path, pathname),
-  );
-  // 헤더의 메뉴 버튼으로 접고 편 상태는 그 화면에 있는 동안만 유지한다. 다른 화면으로 가면 화면 기본값으로 돌아간다.
-  const [toggled, setToggled] = useState<{ path: string; collapsed: boolean }>();
-  const collapsed =
-    toggled?.path === pathname ? toggled.collapsed : collapsedByPage;
 
   return (
     <BroadcastProvider>
@@ -50,16 +52,9 @@ export function AppLayout() {
             {session?.user.userId !== undefined && (
               <DmRealtime userId={session.user.userId} />
             )}
-            <AppHeader
-              onToggleNav={
-                showNav
-                  ? () => setToggled({ path: pathname, collapsed: !collapsed })
-                  : undefined
-              }
-              navCollapsed={collapsed}
-            />
+            <AppHeader />
             <div className="flex">
-              {showNav && <SideNav collapsed={collapsed} />}
+              {showNav && <SideNav />}
               <main className="min-w-0 flex-1 px-8 pt-6 pb-14">
                 <div className="mx-auto max-w-[1360px]">
                   <Outlet />
@@ -86,21 +81,7 @@ const NO_NAV_PATHS = [
   "/oauth/*",
 ];
 
-/** 왼쪽 메뉴를 접어 두는 화면: 영상·채팅처럼 본문이 넓어야 하는 화면 */
-const COLLAPSED_NAV_PATHS = [
-  "/lives/:liveStreamId",
-  "/studio",
-  "/messages",
-  "/messages/:userId",
-];
-
-function AppHeader({
-  onToggleNav,
-  navCollapsed,
-}: {
-  onToggleNav?: () => void;
-  navCollapsed: boolean;
-}) {
+function AppHeader() {
   const session = useSession();
   const navigate = useNavigate();
   // 로그인·회원가입 뒤 지금 보던 화면으로 돌아온다. (로그인·회원가입 화면 자체에서는 그대로)
@@ -110,22 +91,12 @@ function AppHeader({
     ? ""
     : `?redirect=${encodeURIComponent(here)}`;
   const [myInfoOpen, setMyInfoOpen] = useState(false);
+  const openProfile = useOpenSellerProfile();
 
   return (
     <header className="sticky top-0 z-30 border-b border-neutral-100 bg-neutral-25">
       <div className="flex h-16 items-center gap-4 px-4">
         <div className="flex w-[228px] shrink-0 items-center gap-2">
-          {onToggleNav && (
-            <button
-              type="button"
-              aria-label={navCollapsed ? "메뉴 펼치기" : "메뉴 접기"}
-              aria-expanded={!navCollapsed}
-              onClick={onToggleNav}
-              className="flex size-11 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900"
-            >
-              <Menu className="size-5" aria-hidden="true" />
-            </button>
-          )}
           <Link to="/" className="flex items-center gap-2.5 px-1">
             <BrandMark />
             <span className="text-logo font-bold tracking-tight text-brand-500">땅땅땅</span>
@@ -140,16 +111,12 @@ function AppHeader({
             <DmLink />
             <PointBalanceLink />
             <DonationPointLink />
-            {/* 내 정보는 탭 대신 닉네임을 눌러 창으로 연다. */}
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              aria-label={`${session.user.nickname ?? "내"} 정보 보기`}
-              onClick={() => setMyInfoOpen(true)}
-              className="rounded-md px-2 py-2 text-body font-semibold hover:bg-neutral-50"
-            >
-              {session.user.nickname}
-            </button>
+            <AccountMenu
+              nickname={session.user.nickname}
+              onOpenMyInfo={() => setMyInfoOpen(true)}
+              userId={session.user.userId}
+              onOpenProfile={openProfile}
+            />
             <Button
               variant="ghost"
               size="sm"
@@ -184,6 +151,95 @@ function AppHeader({
         <MyInfoDialog open={myInfoOpen} onClose={() => setMyInfoOpen(false)} />
       )}
     </header>
+  );
+}
+
+/**
+ * 헤더의 닉네임 메뉴: 누르면 "내 정보"(정보 수정 창)와 "내 프로필"(다른 회원에게 보이는 프로필 창)이 펼쳐진다.
+ * 바깥을 누르거나 Esc를 누르면 닫는다.
+ */
+function AccountMenu({
+  nickname,
+  userId,
+  onOpenMyInfo,
+  onOpenProfile,
+}: {
+  nickname?: string;
+  userId?: number;
+  onOpenMyInfo: () => void;
+  onOpenProfile: (userId: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // 닉네임이 없거나 빈 문자열이면 보이는 문구와 스크린리더 이름 모두 "내 계정"으로 맞춘다.
+  const label = nickname || "내 계정";
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: PointerEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const choose = (action: () => void) => {
+    setOpen(false);
+    action();
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`${label} 메뉴`}
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 rounded-md px-2 py-2 text-body font-semibold hover:bg-neutral-50"
+      >
+        {label}
+        <ChevronDown
+          className={`size-4 text-neutral-500 transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          aria-label="내 메뉴"
+          className="absolute top-12 right-0 z-50 flex w-40 flex-col rounded-lg border border-neutral-100 bg-neutral-0 py-1 shadow-md"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => choose(onOpenMyInfo)}
+            className="flex items-center gap-2 px-3 py-2.5 text-left text-body hover:bg-neutral-50"
+          >
+            <UserCog className="size-4 text-neutral-500" aria-hidden="true" />
+            내 정보
+          </button>
+          {userId !== undefined && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => choose(() => onOpenProfile(userId))}
+              className="flex items-center gap-2 px-3 py-2.5 text-left text-body hover:bg-neutral-50"
+            >
+              <CircleUser className="size-4 text-neutral-500" aria-hidden="true" />
+              내 프로필
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

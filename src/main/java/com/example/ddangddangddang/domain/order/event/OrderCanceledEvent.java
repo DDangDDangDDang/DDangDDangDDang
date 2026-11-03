@@ -7,5 +7,6 @@ import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
  * 주문 도메인은 누가 듣는지 모른다.
  */
 public record OrderCanceledEvent(Long orderId, Long auctionId, Long buyerId, Long sellerId,
-                                 String productName, OrderCancelReason reason) {
+                                 String productName, OrderCancelReason reason,
+                                 long refundAmount, long penaltyAmount) {
 }

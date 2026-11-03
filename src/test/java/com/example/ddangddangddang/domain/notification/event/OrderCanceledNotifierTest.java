@@ -44,9 +44,21 @@ class OrderCanceledNotifierTest {
         assertThat(content.link()).isEqualTo("/orders");
     }
 
-    @SuppressWarnings("unchecked")
+    @Test
+    @DisplayName("위약금이 있으면 금액을 알린다")
+    void orderCanceled_withPenalty_statesPenalty() {
+        NotificationContent content = NotificationContent.of(dispatched(10_000L).get(0));
+
+        assertThat(content.body()).isEqualTo("‘아이패드’ 주문이 배송지 미입력으로 취소됐어요. 위약금 10,000P는 판매자에게 지급되고 나머지는 구매자에게 환불돼요.");
+    }
+
     private List<Notification> dispatched() {
-        notifier.handle(new OrderCanceledEvent(7L, 123L, 1L, 2L, "아이패드", OrderCancelReason.BUYER_NO_ADDRESS));
+        return dispatched(0L);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Notification> dispatched(long penalty) {
+        notifier.handle(new OrderCanceledEvent(7L, 123L, 1L, 2L, "아이패드", OrderCancelReason.BUYER_NO_ADDRESS, 100_000L - penalty, penalty));
         ArgumentCaptor<List<Notification>> captor = ArgumentCaptor.forClass(List.class);
         then(notificationDispatcher).should().dispatch(captor.capture());
         assertThat(captor.getValue()).extracting(Notification::getType).containsOnly(NotificationType.ORDER_CANCELED);

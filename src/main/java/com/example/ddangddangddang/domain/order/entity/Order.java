@@ -39,7 +39,8 @@ public class Order extends BaseTimeEntity {
 
     public static final String UK_AUCTION_ID = "uk_orders_auction_id";
     public static final String UK_COURIER_TRACKING_NO = "uk_orders_courier_tracking_no";
-    private static final int ADDRESS_DEADLINE_HOURS = 24;
+    private static final int ADDRESS_DEADLINE_HOURS = 72;
+    private static final int NO_ADDRESS_PENALTY_BPS = 1_000;
     private static final int SHIP_DEADLINE_DAYS = 7;
     private static final int DELAY_EXTENSION_DAYS = 7;
 
@@ -84,6 +85,10 @@ public class Order extends BaseTimeEntity {
     /** 판매 수수료(포인트). 구매 확정 때 판매가에서 이만큼 떼고 판매자에게 정산한다. 수수료 도입 전 주문은 0 */
     @Column(nullable = false)
     private long commission;
+
+    /** 배송지 미입력 위약금률(bp, 1000 = 10%). 낙찰 때 고지한 조건이라 주문이 생길 때 정한다. 도입 전 주문은 0 */
+    @Column(nullable = false)
+    private int penaltyRateBps;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -156,6 +161,7 @@ public class Order extends BaseTimeEntity {
         this.commissionRateBps = commissionRateBps;
         this.commission = CommissionPolicy.commissionOf(finalPrice, commissionRateBps);
         this.status = OrderStatus.ESCROW;
+        this.penaltyRateBps = NO_ADDRESS_PENALTY_BPS;
         this.addressDeadlineAt = LocalDateTime.now().plusHours(ADDRESS_DEADLINE_HOURS);
     }
 
@@ -172,6 +178,11 @@ public class Order extends BaseTimeEntity {
             throw new IllegalArgumentException("수수료율이 올바르지 않습니다: " + commissionRateBps);
         }
         return new Order(auctionId, buyerId, sellerId, productName, productImageUrl, finalPrice, commissionRateBps);
+    }
+
+    /** 배송지 미입력으로 취소될 때 판매자에게 줄 위약금 (원 미만 버림). 나머지는 구매자에게 환불한다 */
+    public long getNoAddressPenalty() {
+        return CommissionPolicy.commissionOf(this.finalPrice, this.penaltyRateBps);
     }
 
     /** 판매자가 받을 금액 = 판매가 - 수수료. 구매 확정 때 이만큼 정산한다 */

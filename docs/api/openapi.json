@@ -6873,7 +6873,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND" ]
+            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY" ]
           }
         }, {
           "name" : "cursor",
@@ -9957,6 +9957,10 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "noAddressPenalty" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "ESCROW", "SHIPPING", "COMPLETED", "CANCELED" ]
@@ -12244,7 +12248,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND" ]
+            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY" ]
           },
           "amount" : {
             "type" : "integer",

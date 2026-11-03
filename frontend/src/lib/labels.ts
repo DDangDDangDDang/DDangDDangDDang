@@ -18,6 +18,7 @@ export const POINT_HISTORY_LABEL: Record<PointHistoryType, string> = {
   EXCHANGE: '환전',
   EXCHANGE_REFUND: '환전 실패 환불',
   ORDER_REFUND: '주문 취소 환불',
+  ORDER_PENALTY: '낙찰취소 위약금',
 };
 
 /** 사용 가능 포인트 기준으로 늘어나는(+) 종류인지. 묶임·구매·환전은 줄어든다(−). */
@@ -30,6 +31,7 @@ export const POINT_HISTORY_INCREASES: Record<PointHistoryType, boolean> = {
   EXCHANGE: false,
   EXCHANGE_REFUND: true,
   ORDER_REFUND: true,
+  ORDER_PENALTY: true,
 };
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {

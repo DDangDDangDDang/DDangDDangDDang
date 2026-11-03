@@ -42,11 +42,18 @@ public class OrderDmNotifier {
     @Async
     @TransactionalEventListener
     public void handle(OrderCanceledEvent event) {
-        String result = event.reason() == OrderCancelReason.BUYER_NO_ADDRESS
+        String reason = event.reason() == OrderCancelReason.BUYER_NO_ADDRESS
                 ? "배송지가 기한 안에 입력되지 않아 낙찰이 취소됐어요."
                 : "기한 안에 발송되지 않아 판매가 취소됐어요.";
+        String settlement = event.penaltyAmount() > 0
+                ? " 위약금 " + point(event.penaltyAmount()) + "는 판매자에게 지급되고, " + point(event.refundAmount()) + "는 구매자에게 환불됐습니다."
+                : " 결제 포인트는 구매자에게 전액 환불됐습니다.";
         send(event.orderId(), event.sellerId(), event.buyerId(), "order-cancel-" + event.orderId(),
-                label(event.auctionId(), event.productName()) + result + " 결제 포인트는 구매자에게 전액 환불됐습니다.");
+                label(event.auctionId(), event.productName()) + reason + settlement);
+    }
+
+    private String point(long amount) {
+        return String.format("%,dP", amount);
     }
 
     private String label(Long auctionId, String productName) {

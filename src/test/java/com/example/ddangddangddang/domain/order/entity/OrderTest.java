@@ -142,13 +142,13 @@ class OrderTest {
         private final LocalDateTime now = LocalDateTime.of(2026, 11, 2, 12, 0);
 
         @Test
-        @DisplayName("주문이 생기면 배송지 입력 기한이 24시간 뒤로 잡힌다")
-        void create_setsAddressDeadline24HoursLater() {
+        @DisplayName("주문이 생기면 배송지 입력 기한이 72시간 뒤로 잡힌다")
+        void create_setsAddressDeadline72HoursLater() {
             LocalDateTime before = LocalDateTime.now();
 
             Order order = order();
 
-            assertThat(order.getAddressDeadlineAt()).isBetween(before.plusHours(24), LocalDateTime.now().plusHours(24));
+            assertThat(order.getAddressDeadlineAt()).isBetween(before.plusHours(72), LocalDateTime.now().plusHours(72));
         }
 
         @Test
@@ -219,6 +219,30 @@ class OrderTest {
 
             assertThat(order.isAddressOverdue(now.plusYears(1))).isFalse();
             assertThat(order.isShipOverdue(now.plusYears(1))).isFalse();
+        }
+
+        @Test
+        @DisplayName("새 주문의 배송지 미입력 위약금은 낙찰가의 10%다")
+        void noAddressPenalty_is10PercentOfFinalPrice() {
+            assertThat(order().getPenaltyRateBps()).isEqualTo(1000);
+            assertThat(order().getNoAddressPenalty()).isEqualTo(50_000L);
+        }
+
+        @Test
+        @DisplayName("위약금의 소수점은 버린다")
+        void noAddressPenalty_floorsFraction() {
+            Order order = Order.create(100L, 1L, 2L, "아이패드", null, 10_009L);
+
+            assertThat(order.getNoAddressPenalty()).isEqualTo(1_000L);
+        }
+
+        @Test
+        @DisplayName("위약금 도입 전 주문은 위약금이 없다")
+        void noAddressPenalty_legacyOrderIsZero() {
+            Order order = order();
+            org.springframework.test.util.ReflectionTestUtils.setField(order, "penaltyRateBps", 0);
+
+            assertThat(order.getNoAddressPenalty()).isZero();
         }
 
         @Test

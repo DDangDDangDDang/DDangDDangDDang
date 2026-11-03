@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router';
@@ -152,5 +152,29 @@ describe('시청자 작은 플레이어', () => {
     await userEvent.click(screen.getByRole('button', { name: '판매자로 로그인' }));
     expect(screen.queryByRole('complementary', { name: '보던 방송' })).not.toBeInTheDocument();
     expect(video.calls.at(-1)).toMatchObject({ enabled: false });
+  });
+  it('소리 크기 슬라이더: 음소거 중에 올리면 소리를 켜고, 0으로 내리면 음소거하며, 크기를 이 브라우저에 기억한다', async () => {
+    localStorage.removeItem('ddang.watch-volume');
+    render(
+      <MemoryRouter>
+        <Harness />
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: '다른 화면으로' }));
+    const slider = screen.getByRole('slider', { name: '소리 크기' });
+    // 처음에는 음소거라 0으로 보인다.
+    expect(slider).toHaveValue('0');
+    expect(screen.getByRole('button', { name: '소리 켜기' })).toBeInTheDocument();
+
+    fireEvent.change(slider, { target: { value: '30' } });
+    expect(screen.getByRole('button', { name: '소리 끄기' })).toBeInTheDocument();
+    expect(localStorage.getItem('ddang.watch-volume')).toBe('0.3');
+
+    fireEvent.change(slider, { target: { value: '0' } });
+    expect(screen.getByRole('button', { name: '소리 켜기' })).toBeInTheDocument();
+
+    // 0인 채로 소리를 켜면 기본 크기로 되돌린다.
+    await userEvent.click(screen.getByRole('button', { name: '소리 켜기' }));
+    expect(slider).toHaveValue('70');
   });
 });
