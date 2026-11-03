@@ -81,4 +81,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Order o where o.id = :orderId")
     Optional<Order> findByIdForUpdate(@Param("orderId") Long orderId);
+
+    //발송 후 기한이 지나도 구매 확정 되지 않은 주문 ID (자동구매 확정 대상)
+    @Query(""" 
+            select o.id from Order o 
+            where o.status = :status and o.shippedAt <= :cutoff 
+            and o.autoConfirmFailCount < :maxFailCount
+            and (o.autoConfirmLastFailedAt is null or o.autoConfirmLastFailedAt <= :retryAfter)
+            order by o.id
+            """)
+    List<Long> findConfirmOverdueIds(@Param("status") OrderStatus status,
+                                     @Param("cutoff") LocalDateTime cutoff,
+                                     @Param("maxFailCount") int maxFailCount,
+                                     @Param("retryAfter") LocalDateTime retryAfter,
+                                     Pageable pageable);
 }

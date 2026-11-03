@@ -37,6 +37,14 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class OrderService {
+    // 발송 후 이 기간이 지날시 자동으로 구매 확정
+    static final int AUTO_CONFIRM_DAYS = 7;
+
+    // 자동 구매 확정이 실패하면 이 시간이 지난 두에 다시 시도한다( 잠깐의 장애로 바로 제외되지 않게)
+    static final int AUTO_CONFIRM_RETRY_HOURS =1;
+
+    //자동 구매 확정이 이 횟수 만큼 실패하면 대상에서 빼고 사람이 확인 한다.
+    static final int MAX_AUTO_CONFIRM_FAILURES = 10;
 
     private static final int MAX_PAGE_SIZE = 100;
     private final OrderRepository orderRepository;
@@ -157,14 +165,47 @@ public class OrderService {
         if (!order.isBuyer(userId)) {
             throw new BusinessException(OrderErrorCode.NOT_ORDER_BUYER);
         }
-        order.confirm();
-        // 판매가에서 수수료를 뗀 금액만 판매자에게 정산한다
-        pointService.settle(order.getSellerId(), order.getSettlementAmount(), order.getId());
-        // 커밋 뒤 구매자에게 도네이션 포인트를 적립한다. (도네이션 도메인이 듣는다)
-        eventPublisher.publishEvent(new OrderConfirmedEvent(order.getId(), order.getBuyerId(), order.getSellerId(), order.getFinalPrice()));
+        settlePurchase(order);
         return OrderResponse.from(order);
     }
 
+    /**
+     * 발송 후 7일이 지나도 구매 확정하지 않은 주문을 자동을 확정하고 정산한다. 스케줄러가 건별로 호출한다.
+     *
+     * 주문을 잠근 뒤 상태와 기한을 다시 확인하므로, 그 사이 구매자가 확정했거나 취소된 주문은 건너뛴다.
+     *
+     * @return 이번 호출로 확정했으면 true
+     */
+    @Transactional
+    public boolean autoConfirm(Long orderId){
+        Order order = findOrderForUpdate(orderId);
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(AUTO_CONFIRM_DAYS);
+        if (order.getStatus() != OrderStatus.SHIPPING || order.getShippedAt().isAfter(cutoff)){
+            return false;
+        }
+        settlePurchase(order);
+        return true;
+    }
+
+    /**
+     * 자동 구매 확정이 실패한 주문의 실패 횟수를 1 올린다
+     * 확정이 실패하면 그 트랜잭션은 취소되므로, 횟수는 따로 새 트랜잭션에서 기록한다.
+     *
+     * @return 올린 뒤의 실패 횟수
+     */
+    @Transactional
+    public int recordAutoConfirmFailure(Long orderId){
+        Order order = findOrderForUpdate(orderId);
+        order.recordAutoConfirmFailure(LocalDateTime.now());
+        return order.getAutoConfirmFailCount();
+    }
+
+    // 구매 확정: 주문 확정 상태를 바꾸고, 수수료를 뺀 금액을 판매자에게 정산후, 구매자 포인트 적립을 알린다.
+    private void settlePurchase(Order order){
+        order.confirm();
+        pointService.settle(order.getSellerId(), order.getSettlementAmount(), order.getId());
+        eventPublisher.publishEvent(new OrderConfirmedEvent(order.getId(),order.getBuyerId(),order.getSellerId(),order.getFinalPrice()));
+    }
     /**
      * 기한을 넘긴 주문을 취소하고 구매자에게 환불한다. 스케줄러가 건별로 호출한다.
      * 배송지 미입력이면 위약금을 판매자에게 주고 나머지를 환불하고, 미발송이면 전액 환불한다.
