@@ -63,6 +63,20 @@ export const HAMMER_GRADE_LABEL: Record<HammerGrade, string> = {
   DIAMOND: '다이아 망치',
 };
 
+export type SanctionType = NonNullable<Schema<'SanctionResponse'>['type']>;
+
+/** 관리자 화면에 쓰는 짧은 이름 */
+export const SANCTION_TYPE_LABEL: Record<SanctionType, string> = {
+  BID_BAN: '입찰 정지',
+  LISTING_BAN: '경매 등록 정지',
+};
+
+/** 정지를 부른 본인 책임 취소 */
+export const SANCTION_CAUSE_LABEL: Record<SanctionType, string> = {
+  BID_BAN: '배송지 미입력 낙찰취소',
+  LISTING_BAN: '미발송 판매 취소',
+};
+
 export const COURIER_LABEL: Record<Courier, string> = {
   CJ: 'CJ대한통운',
   LOTTE: '롯데택배',

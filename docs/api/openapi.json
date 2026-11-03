@@ -5086,6 +5086,54 @@
         }
       }
     },
+    "/api/v1/admin/sanctions/release" : {
+      "post" : {
+        "tags" : [ "admin-sanction-controller" ],
+        "operationId" : "adminSanctionRelease",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SanctionReleaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/point-exchanges/{exchangeId}/start" : {
       "post" : {
         "tags" : [ "admin-point-exchange-controller" ],
@@ -7144,6 +7192,44 @@
         }
       }
     },
+    "/api/v1/users/me/sanctions" : {
+      "get" : {
+        "tags" : [ "sanction-controller" ],
+        "operationId" : "sanctionGetMySanctions",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSanctionResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/me/products" : {
       "get" : {
         "tags" : [ "product-controller" ],
@@ -8730,6 +8816,44 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseCursorResponseSellerApplicationResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/sanctions" : {
+      "get" : {
+        "tags" : [ "admin-sanction-controller" ],
+        "operationId" : "adminSanctionGetReviewTargets",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListAdminSanctionResponse"
                 }
               }
             }
@@ -12406,6 +12530,20 @@
         },
         "required" : [ "reason" ]
       },
+      "SanctionReleaseRequest" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "BID_BAN", "LISTING_BAN" ]
+          }
+        },
+        "required" : [ "type", "userId" ]
+      },
       "AdminPointExchangeResponse" : {
         "type" : "object",
         "properties" : {
@@ -12927,6 +13065,40 @@
           },
           "profileImageUrl" : {
             "type" : "string"
+          }
+        }
+      },
+      "ApiResponseListSanctionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SanctionResponse"
+            }
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "SanctionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "BID_BAN", "LISTING_BAN" ]
+          },
+          "bannedUntil" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "cancelCount" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -14380,6 +14552,47 @@
           }
         }
       },
+      "AdminSanctionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "BID_BAN", "LISTING_BAN" ]
+          },
+          "cancelCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bannedUntil" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ApiResponseListAdminSanctionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AdminSanctionResponse"
+            }
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
       "ApiResponseCursorResponseAdminPointExchangeResponse" : {
         "type" : "object",
         "properties" : {
@@ -15314,6 +15527,14 @@
     "code" : "REVIEW_007",
     "status" : 404,
     "message" : "답글이 존재하지 않습니다."
+  }, {
+    "code" : "SANCTION_001",
+    "status" : 403,
+    "message" : "배송지 미입력 낙찰 취소가 반복되어 입찰·즉시 구매가 정지된 상태입니다."
+  }, {
+    "code" : "SANCTION_002",
+    "status" : 403,
+    "message" : "미발송 판매 취소가 반복되어 경매 등록이 정지된 상태입니다."
   }, {
     "code" : "SELLER_001",
     "status" : 409,
