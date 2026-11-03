@@ -224,17 +224,31 @@ function AddressForm({ order, onDone, onCancel }: { order: Order; onDone: () => 
   // 다른 화면·탭에서 기본 배송지를 지우거나 바꿨을 수 있으므로 들어올 때와 창으로 돌아올 때마다 다시 불러온다
   const defaultQuery = useQuery({ ...defaultAddressQuery, enabled: prefill, refetchOnMount: 'always', refetchOnWindowFocus: 'always' });
 
-  if (prefill && defaultQuery.isPending) return <Skeleton className="h-56" />;
+  // 첫 조회가 끝난 뒤에는 실패 후 다시 불러오는 중(데이터 없이 pending)이어도 폼을 그대로 둔다
+  if (prefill && defaultQuery.isPending && !defaultQuery.isFetched) return <Skeleton className="h-56" />;
   // 기본 배송지를 못 불러와도 빈 칸으로 직접 입력할 수 있게 한다
   const initial = prefill ? deliveryFieldsOf(defaultQuery.data) : deliveryFieldsOf(order);
-  return <AddressFormBody order={order} initial={initial} onDone={onDone} onCancel={onCancel} />;
+  return <AddressFormBody order={order} initial={initial} refreshing={prefill && defaultQuery.isFetching} onDone={onDone} onCancel={onCancel} />;
 }
 
 function sameDelivery(a: DeliveryFields, b: DeliveryFields) {
   return a.receiverName === b.receiverName && a.receiverPhone === b.receiverPhone && a.address === b.address && a.deliveryMemo === b.deliveryMemo;
 }
 
-function AddressFormBody({ order, initial, onDone, onCancel }: { order: Order; initial: DeliveryFields; onDone: () => void; onCancel?: () => void }) {
+function AddressFormBody({
+  order,
+  initial,
+  refreshing,
+  onDone,
+  onCancel,
+}: {
+  order: Order;
+  initial: DeliveryFields;
+  /** 기본 배송지를 다시 불러오는 중. 손대지 않은 폼은 끝날 때까지 예전 값으로 제출하지 못하게 한다 */
+  refreshing: boolean;
+  onDone: () => void;
+  onCancel?: () => void;
+}) {
   const queryClient = useQueryClient();
   const [value, setValue] = useState(initial);
   const [selectedId, setSelectedId] = useState('');
@@ -337,7 +351,7 @@ function AddressFormBody({ order, initial, onDone, onCancel }: { order: Order; i
             취소
           </Button>
         )}
-        <Button type="submit" loading={mutation.isPending} disabled={!isDeliveryFilled(value)}>
+        <Button type="submit" loading={mutation.isPending} disabled={!isDeliveryFilled(value) || (refreshing && !touched)}>
           {onCancel ? '배송지 수정' : '배송지 입력'}
         </Button>
       </div>
