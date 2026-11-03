@@ -270,6 +270,16 @@ function AddressFormBody({ order, initial, onDone, onCancel }: { order: Order; i
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+      {savedQuery.isError && (
+        <div className="col-span-2 flex items-center gap-3">
+          <div className="flex-1">
+            <Notice tone="error">저장된 배송지를 불러오지 못했어요. 직접 입력하거나 다시 불러와 주세요.</Notice>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void savedQuery.refetch()} loading={savedQuery.isFetching}>
+            다시 불러오기
+          </Button>
+        </div>
+      )}
       {saved.length > 0 && (
         <div className="col-span-2 flex items-end gap-2">
           <div className="flex-1">
