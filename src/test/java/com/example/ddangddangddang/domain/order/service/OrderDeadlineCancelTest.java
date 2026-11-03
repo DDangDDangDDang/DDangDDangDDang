@@ -97,7 +97,9 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
         assertThat(order.getCancelReason()).isEqualTo(OrderCancelReason.BUYER_NO_ADDRESS);
         assertThat(balanceOf(buyer.getId())).isEqualTo(450_000L);
         assertThat(balanceOf(seller.getId())).isEqualTo(50_000L);
-        assertThat(refundCount()).isEqualTo(1);
+        assertThat(countOf(PointHistoryType.WIN_CANCEL)).isEqualTo(1);
+        assertThat(countOf(PointHistoryType.WIN_CANCEL_PENALTY)).isEqualTo(1);
+        assertThat(countOf(PointHistoryType.ORDER_PENALTY)).isEqualTo(1);
     }
 
     @Test
@@ -122,6 +124,8 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
         scheduler.cancelOverdueOrders();
 
         assertThat(balanceOf(seller.getId())).isZero();
+        assertThat(countOf(PointHistoryType.ORDER_REFUND)).isEqualTo(1);
+        assertThat(countOf(PointHistoryType.WIN_CANCEL)).isZero();
     }
 
     @Test
@@ -173,7 +177,7 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
                 () -> orderService.cancelOverdue(orderId, OrderCancelReason.BUYER_NO_ADDRESS),
                 () -> orderService.cancelOverdue(orderId, OrderCancelReason.BUYER_NO_ADDRESS));
 
-        assertThat(refundCount()).isEqualTo(1);
+        assertThat(countOf(PointHistoryType.WIN_CANCEL)).isEqualTo(1);
         assertThat(balanceOf(buyer.getId())).isEqualTo(450_000L);
         assertThat(balanceOf(seller.getId())).isEqualTo(50_000L);
     }
@@ -262,6 +266,24 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
                 .satisfies(history -> assertThat(history.orderCancelReason()).isNull());
     }
 
+    @Test
+    @DisplayName("한 번에 처리하는 수만큼 실패한 주문이 쌓여도 그 뒤의 주문은 취소된다")
+    void failingOrdersFillBatch_laterOrdersStillCancelled() {
+        ReflectionTestUtils.setField(scheduler, "batchSize", 2);
+        Long failing1 = addressOverdueOrder(auctionId, 999_998L);
+        Long failing2 = addressOverdueOrder(auctionId + 1_000_000, 999_999L);
+        Long succeeding = addressOverdueOrder(auctionId + 2_000_000, buyer.getId());
+        try {
+            scheduler.cancelOverdueOrders();
+        } finally {
+            ReflectionTestUtils.setField(scheduler, "batchSize", 100);
+        }
+
+        assertThat(orderRepository.findById(failing1).orElseThrow().getStatus()).isEqualTo(OrderStatus.ESCROW);
+        assertThat(orderRepository.findById(failing2).orElseThrow().getStatus()).isEqualTo(OrderStatus.ESCROW);
+        assertThat(orderRepository.findById(succeeding).orElseThrow().getStatus()).isEqualTo(OrderStatus.CANCELED);
+    }
+
     private Long soldAuction() {
         LocalDateTime startAt = LocalDateTime.now().plusHours(1);
         Long id = auctionService.auctionCreate(seller.getId(), new AuctionCreateRequest(
@@ -293,8 +315,11 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
     }
 
     private long refundCount() {
-        return pointHistoryRepository.findAll().stream()
-                .filter(history -> history.getType() == PointHistoryType.ORDER_REFUND).count();
+        return countOf(PointHistoryType.ORDER_REFUND);
+    }
+
+    private long countOf(PointHistoryType type) {
+        return pointHistoryRepository.findAll().stream().filter(history -> history.getType() == type).count();
     }
 
     private void runConcurrently(Runnable first, java.util.concurrent.Callable<?> second) throws Exception {

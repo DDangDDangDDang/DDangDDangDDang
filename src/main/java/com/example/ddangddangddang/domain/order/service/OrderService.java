@@ -227,8 +227,8 @@ public class OrderService {
         order.cancel(reason, now);
         long penalty = reason == OrderCancelReason.BUYER_NO_ADDRESS ? order.getNoAddressPenalty() : 0;
         long refund = order.getFinalPrice() - penalty;
-        if (penalty > 0) {
-            pointService.refundOrderWithPenalty(order.getBuyerId(), refund, order.getSellerId(), penalty, order.getId());
+        if (reason == OrderCancelReason.BUYER_NO_ADDRESS) {
+            pointService.cancelWin(order.getBuyerId(), order.getFinalPrice(), order.getSellerId(), penalty, order.getId());
         } else {
             pointService.refundOrder(order.getBuyerId(), refund, order.getId());
         }

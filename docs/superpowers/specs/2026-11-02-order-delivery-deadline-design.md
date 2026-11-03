@@ -15,7 +15,7 @@
 
 | 항목 | 정책 |
 |---|---|
-| 낙찰취소 | 낙찰가의 10%(소수점 버림)를 판매자에게 위약금으로 지급, 나머지 환불. 위약금에 수수료 없음. 위약금 도입 전 주문은 전액 환불 |
+| 낙찰취소 | 낙찰가의 10%(소수점 버림)를 판매자에게 위약금으로 지급, 나머지 환불. 위약금에 수수료 없음. 위약금 도입 전 주문은 전액 환불. 내역은 구매자 `WIN_CANCEL`(+낙찰가), `WIN_CANCEL_PENALTY`(-위약금), 판매자 `ORDER_PENALTY`(+위약금)로 나눠 남긴다 |
 | 제품 미발송 | 구매자에게 전액 환불 |
 | 발송 기한 시작 | 구매자가 배송지를 처음 입력한 시각. 고쳐도 기한은 그대로 |
 | 지연 신청 | 주문당 1회, 사유 필수, 재신청 불가 |
@@ -73,7 +73,7 @@ ESCROW ─ 낙찰 후 24시간 내 배송지 미입력 ──→ CANCELED (BUYER
 
 ### 환불과 후속 처리
 
-- `PointService.refundOrder(buyerId, amount, orderId)`가 잔액을 늘리고 `ORDER_REFUND`(참조 ORDER)를 남긴다.
+- 판매자 미발송은 `PointService.refundOrder`가 `ORDER_REFUND`를, 배송지 미입력은 `PointService.cancelWin`이 낙찰취소 내역을 남긴다.
 - 정산 전에 취소되므로 판매자 정산금, 수수료, 마일리지는 건드릴 것이 없다.
 - `OrderCanceledEvent`를 발행한다.
   - 경매 도메인이 BEFORE_COMMIT으로 받아 상품을 `SOLD → ACTIVE`로 되돌린다. 삭제된 상품은 그대로 둔다.

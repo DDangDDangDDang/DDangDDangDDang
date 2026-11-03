@@ -23,6 +23,16 @@ class PointWalletTest {
     }
 
     @Test
+    @DisplayName("낙찰취소 위약금은 구매자의 사용 가능 포인트에서 뺀다")
+    void payOrderPenalty_decreasesBalance() {
+        PointWallet wallet = walletWithBalance(100_000L);
+
+        wallet.payOrderPenalty(10_000L);
+
+        assertThat(wallet.getBalance()).isEqualTo(90_000L);
+    }
+
+    @Test
     @DisplayName("주문 취소 환불은 사용 가능 포인트만 늘린다")
     void refundOrder_increasesBalanceOnly() {
         PointWallet wallet = walletWithBalance(1_000L);
