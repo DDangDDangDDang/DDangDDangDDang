@@ -52,6 +52,17 @@ export const ORDER_CANCEL_REASON_LABEL: Record<OrderCancelReason, string> = {
   SELLER_NOT_SHIPPED: '제품 미발송',
 };
 
+export type HammerGrade = NonNullable<Schema<'SellerProfileResponse'>['hammerGrade']>;
+
+export const HAMMER_GRADE_LABEL: Record<HammerGrade, string> = {
+  NEWBIE: '새 망치',
+  WOOD: '나무 망치',
+  STONE: '돌 망치',
+  SILVER: '은 망치',
+  GOLD: '금 망치',
+  DIAMOND: '다이아 망치',
+};
+
 export const COURIER_LABEL: Record<Courier, string> = {
   CJ: 'CJ대한통운',
   LOTTE: '롯데택배',

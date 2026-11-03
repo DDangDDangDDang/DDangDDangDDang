@@ -223,7 +223,10 @@ class SellerSubscriptionControllerTest {
                 .andExpect(jsonPath("$.data.contactPhone").value("0212345678"))
                 .andExpect(jsonPath("$.data.accountNumber").doesNotExist())
                 .andExpect(jsonPath("$.data.subscribed").value(false))
-                .andExpect(jsonPath("$.data.businessSeller").value(false));
+                .andExpect(jsonPath("$.data.businessSeller").value(false))
+                // 거래가 없는 회원은 새 망치 (점수 숫자는 내보내지 않는다)
+                .andExpect(jsonPath("$.data.hammerGrade").value("NEWBIE"))
+                .andExpect(jsonPath("$.data.hammerScore").doesNotExist());
     }
 
     @Test

@@ -13285,6 +13285,10 @@
           },
           "trust" : {
             "$ref" : "#/components/schemas/Trust"
+          },
+          "hammerGrade" : {
+            "type" : "string",
+            "enum" : [ "NEWBIE", "WOOD", "STONE", "SILVER", "GOLD", "DIAMOND" ]
           }
         }
       },
