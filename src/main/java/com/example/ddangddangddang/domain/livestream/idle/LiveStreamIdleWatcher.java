@@ -106,7 +106,10 @@ public class LiveStreamIdleWatcher {
         if (!idleRepository.tryLock(properties.interval().multipliedBy(4).dividedBy(5))) {
             return;
         }
-        List<LiveStream> liveStreams = liveStreamRepository.findAllByStatus(LiveStreamStatus.LIVE);
+        // 라이브 봇 방송은 송출하는 사람이 없으므로(시청 화면이 녹화 영상을 직접 재생) 감시하지 않는다. 관리자가 끌 때까지 이어진다.
+        List<LiveStream> liveStreams = liveStreamRepository.findAllByStatus(LiveStreamStatus.LIVE).stream()
+                .filter(liveStream -> !liveStream.isBot())
+                .toList();
         if (liveStreams.isEmpty()) {
             return;
         }

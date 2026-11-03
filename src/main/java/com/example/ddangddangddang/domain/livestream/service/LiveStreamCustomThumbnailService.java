@@ -110,7 +110,11 @@ public class LiveStreamCustomThumbnailService {
                 deleteAfterCommit(previous);
             }
         }
-        return LiveStreamResponse.from(liveStream, key == null ? null : fileStorage.publicUrl(key));
+        return LiveStreamResponse.from(liveStream, key == null ? null : fileStorage.publicUrl(key), publicUrl(liveStream.getVideoKey()));
+    }
+
+    private String publicUrl(String key) {
+        return key == null ? null : fileStorage.publicUrl(key);
     }
 
     private LiveStream findById(Long liveStreamId) {

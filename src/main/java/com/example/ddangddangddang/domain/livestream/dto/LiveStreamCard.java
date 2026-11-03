@@ -15,6 +15,7 @@ import java.util.List;
  * thumbnailUrl: 카드 썸네일 주소. 판매자가 직접 올린 썸네일이 먼저이고, 없으면 방송 중일 때 송출 화면을 캡처한 썸네일(1분마다 바뀐다).
  *   둘 다 없거나 끝난 방송의 캡처뿐이면 null → 판매자 이름 첫 글자
  * sellerProfileImageUrl: 판매자 프로필 이미지 주소 (없거나 회원을 찾지 못하면 null → 화면은 닉네임 첫 글자)
+ * videoUrl: 라이브 봇 방송의 녹화 영상 주소. 미리보기는 LiveKit 대신 이 영상을 방송 시작 시각에 맞춰 재생한다. 사람 판매자의 방송이면 null
  */
 public record LiveStreamCard(
         Long liveStreamId,
@@ -32,6 +33,7 @@ public record LiveStreamCard(
         boolean recorded,
         boolean powerSeller,
         String thumbnailUrl,
-        String sellerProfileImageUrl
+        String sellerProfileImageUrl,
+        String videoUrl
 ) {
 }
