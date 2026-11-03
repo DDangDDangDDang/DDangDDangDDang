@@ -32,7 +32,8 @@ import java.util.UUID;
                 @Index(name = "idx_orders_buyer_id", columnList = "buyerId, id"),
                 @Index(name = "idx_orders_seller_id", columnList = "sellerId, id"),
                 @Index(name = "idx_orders_status_address_deadline", columnList = "status, addressDeadlineAt"),
-                @Index(name = "idx_orders_status_ship_deadline", columnList = "status, shipDeadlineAt")
+                @Index(name = "idx_orders_status_ship_deadline", columnList = "status, shipDeadlineAt"),
+                @Index(name = "idx_orders_status_shipped_at", columnList = "status,shippedAt")
         })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order extends BaseTimeEntity {
@@ -123,6 +124,9 @@ public class Order extends BaseTimeEntity {
     @ColumnDefault("0")
     @Column(nullable = false)
     private int autoConfirmFailCount;
+
+    // 자동 구매 확정이 마지막으로 실패한 시간, 실패한 주문은 일정 시간이 지난 뒤에 다시 시도한다.
+    private LocalDateTime autoConfirmLastFailedAt;
 
     private LocalDateTime completedAt;
 
@@ -326,7 +330,8 @@ public class Order extends BaseTimeEntity {
     }
 
     // 자동 구매 확정 실패 획수를 1씩 올린다
-    public void recordAutoConfirmFailure(){
+    public void recordAutoConfirmFailure(LocalDateTime now){
         this.autoConfirmFailCount++;
+        this.autoConfirmLastFailedAt = now;
     }
 }

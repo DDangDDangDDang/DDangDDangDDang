@@ -40,6 +40,9 @@ public class OrderService {
     // 발송 후 이 기간이 지날시 자동으로 구매 확정
     static final int AUTO_CONFIRM_DAYS = 7;
 
+    // 자동 구매 확정이 실패하면 이 시간이 지난 두에 다시 시도한다( 잠깐의 장애로 바로 제외되지 않게)
+    static final int AUTO_CONFIRM_RETRY_HOURS =1;
+
     //자동 구매 확정이 이 횟수 만큼 실패하면 대상에서 빼고 사람이 확인 한다.
     static final int MAX_AUTO_CONFIRM_FAILURES = 10;
 
@@ -193,7 +196,7 @@ public class OrderService {
     @Transactional
     public int recordAutoConfirmFailure(Long orderId){
         Order order = findOrderForUpdate(orderId);
-        order.recordAutoConfirmFailure();
+        order.recordAutoConfirmFailure(LocalDateTime.now());
         return order.getAutoConfirmFailCount();
     }
 

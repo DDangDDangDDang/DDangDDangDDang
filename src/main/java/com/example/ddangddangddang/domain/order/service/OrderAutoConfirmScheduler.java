@@ -27,8 +27,10 @@ public class OrderAutoConfirmScheduler {
 
     @Scheduled(fixedDelayString = "${order.auto-confirm.delay-ms:60000}")
     public void confirmOverdueOrders(){
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(OrderService.AUTO_CONFIRM_DAYS);
-        List<Long> orderIds = orderRepository.findConfirmOverdueIds(OrderStatus.SHIPPING, cutoff,OrderService.MAX_AUTO_CONFIRM_FAILURES, PageRequest.of(0, BATCH_SIZE));
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime cutoff = now.minusDays(OrderService.AUTO_CONFIRM_DAYS);
+        LocalDateTime retryAfter = now.minusHours(OrderService.AUTO_CONFIRM_RETRY_HOURS);
+        List<Long> orderIds = orderRepository.findConfirmOverdueIds(OrderStatus.SHIPPING, cutoff,OrderService.MAX_AUTO_CONFIRM_FAILURES, retryAfter, PageRequest.of(0, BATCH_SIZE));
         for (Long orderId : orderIds){
             try {
                 orderService.autoConfirm(orderId);

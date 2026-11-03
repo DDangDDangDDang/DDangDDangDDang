@@ -87,10 +87,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             select o.id from Order o 
             where o.status = :status and o.shippedAt <= :cutoff 
             and o.autoConfirmFailCount < :maxFailCount
+            and (o.autoConfirmLastFailedAt is null or o.autoConfirmLastFailedAt <= :retryAfter)
             order by o.id
             """)
     List<Long> findConfirmOverdueIds(@Param("status") OrderStatus status,
                                      @Param("cutoff") LocalDateTime cutoff,
                                      @Param("maxFailCount") int maxFailCount,
+                                     @Param("retryAfter") LocalDateTime retryAfter,
                                      Pageable pageable);
 }

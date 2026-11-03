@@ -57,7 +57,7 @@ class OrderAutoConfirmSchedulerTest {
 
     private void givenOverdueOrders(Long... orderIds) {
         given(orderRepository.findConfirmOverdueIds(eq(OrderStatus.SHIPPING), any(),
-                eq(OrderService.MAX_AUTO_CONFIRM_FAILURES), any()))
+                eq(OrderService.MAX_AUTO_CONFIRM_FAILURES), any(), any()))
                 .willReturn(List.of(orderIds));
     }
 }
