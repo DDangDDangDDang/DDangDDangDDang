@@ -27,9 +27,10 @@ public class OrderCanceledNotifier {
     @TransactionalEventListener
     public void handle(OrderCanceledEvent event) {
         try {
+            Long penalty = event.penaltyAmount() > 0 ? event.penaltyAmount() : null;
             notificationDispatcher.dispatch(List.of(
-                    Notification.auction(event.buyerId(), NotificationType.ORDER_CANCELED, event.auctionId(), event.productName(), null),
-                    Notification.auction(event.sellerId(), NotificationType.ORDER_CANCELED, event.auctionId(), event.productName(), null)));
+                    Notification.auction(event.buyerId(), NotificationType.ORDER_CANCELED, event.auctionId(), event.productName(), penalty),
+                    Notification.auction(event.sellerId(), NotificationType.ORDER_CANCELED, event.auctionId(), event.productName(), penalty)));
         } catch (RuntimeException e) {
             log.warn("주문 취소 알림을 보내지 못했습니다. orderId={}", event.orderId(), e);
         }

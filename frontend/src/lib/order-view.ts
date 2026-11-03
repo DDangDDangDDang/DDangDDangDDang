@@ -1,4 +1,6 @@
 import type { Schema } from '@/api';
+import { formatDateTime, formatPoint } from './format';
+import { ORDER_CANCEL_REASON_LABEL } from './labels';
 
 type Order = Schema<'OrderResponse'>;
 
@@ -37,6 +39,31 @@ export function orderStage(order: Order): OrderStage {
     default:
       return hasDeliveryAddress(order) ? 'WAITING_SHIPMENT' : 'NEED_ADDRESS';
   }
+}
+
+/** 발송 전 주문의 기한 안내. 기한이 없는 도입 전 주문이나 발송 뒤에는 null */
+export function orderDeadlineMessage(order: Order): string | null {
+  const stage = orderStage(order);
+  if (stage === 'NEED_ADDRESS' && order.addressDeadlineAt) {
+    const penalty = order.noAddressPenalty ?? 0;
+    const result =
+      penalty > 0
+        ? `기한이 지나면 낙찰이 취소되고 위약금 ${formatPoint(penalty)}는 판매자에게 지급돼요.`
+        : '기한이 지나면 낙찰이 취소되고 구매자에게 전액 환불돼요.';
+    return `배송지 입력 기한: ${formatDateTime(order.addressDeadlineAt)}까지. ${result}`;
+  }
+  if (stage === 'WAITING_SHIPMENT' && order.shipDeadlineAt) {
+    return `발송 기한: ${formatDateTime(order.shipDeadlineAt)}까지. 기한이 지나면 주문이 취소되고 구매자에게 전액 환불돼요.`;
+  }
+  return null;
+}
+
+/** 취소된 주문의 안내. 배송지 미입력 취소만 위약금이 있다 */
+export function orderCancelMessage(order: Order): string {
+  const title = order.cancelReason ? `${ORDER_CANCEL_REASON_LABEL[order.cancelReason]} 처리된 주문이에요.` : '취소된 주문이에요.';
+  const penalty = order.cancelReason === 'BUYER_NO_ADDRESS' ? (order.noAddressPenalty ?? 0) : 0;
+  if (penalty === 0) return `${title} 결제 포인트는 구매자에게 전액 환불됐어요.`;
+  return `${title} 위약금 ${formatPoint(penalty)}는 판매자에게 지급되고, ${formatPoint((order.finalPrice ?? 0) - penalty)}는 구매자에게 환불됐어요.`;
 }
 
 /** API 호출에 쓸 주문 ID. 서버 응답에는 항상 있지만, 타입상 선택값이라 없으면 오류로 알린다. */

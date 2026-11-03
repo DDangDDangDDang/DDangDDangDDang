@@ -149,6 +149,23 @@ public class PointService {
         record(wallet, PointHistoryType.ORDER_REFUND, amount, PointReferenceType.ORDER, orderId);
     }
 
+    /**
+     * 구매자 배송지 미입력 취소: 위약금을 뺀 금액을 구매자에게 환불하고 위약금을 판매자에게 지급한다.
+     * 두 지갑을 사용자 ID 순서로 잠가 다른 지갑 작업과 데드락이 나지 않게 한다.
+     */
+    @Transactional
+    public void refundOrderWithPenalty(Long buyerId, long refundAmount, Long sellerId, long penalty, Long orderId) {
+        Map<Long, PointWallet> wallets = findWalletsForUpdate(buyerId, sellerId);
+
+        PointWallet buyerWallet = wallets.get(buyerId);
+        buyerWallet.refundOrder(refundAmount);
+        record(buyerWallet, PointHistoryType.ORDER_REFUND, refundAmount, PointReferenceType.ORDER, orderId);
+
+        PointWallet sellerWallet = wallets.get(sellerId);
+        sellerWallet.receiveOrderPenalty(penalty);
+        record(sellerWallet, PointHistoryType.ORDER_PENALTY, penalty, PointReferenceType.ORDER, orderId);
+    }
+
     // private 메서드 추가
     private PointWallet findWalletForUpdate(Long userId) {
         return pointWalletRepository.findByUserIdForUpdate(userId)

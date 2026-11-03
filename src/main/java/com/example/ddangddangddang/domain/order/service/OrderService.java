@@ -166,7 +166,8 @@ public class OrderService {
     }
 
     /**
-     * 기한을 넘긴 주문을 취소하고 구매자에게 전액 환불한다. 스케줄러가 건별로 호출한다.
+     * 기한을 넘긴 주문을 취소하고 구매자에게 환불한다. 스케줄러가 건별로 호출한다.
+     * 배송지 미입력이면 위약금을 판매자에게 주고 나머지를 환불하고, 미발송이면 전액 환불한다.
      *
      * 주문을 잠근 뒤 상태와 기한을 다시 확인하므로, 그 사이 발송됐거나 이미 취소된 주문은 건너뛴다.
      * 정산 전 취소라 판매자 정산금·수수료·마일리지는 건드릴 것이 없다.
@@ -183,9 +184,15 @@ public class OrderService {
             return false;
         }
         order.cancel(reason, now);
-        pointService.refundOrder(order.getBuyerId(), order.getFinalPrice(), order.getId());
+        long penalty = reason == OrderCancelReason.BUYER_NO_ADDRESS ? order.getNoAddressPenalty() : 0;
+        long refund = order.getFinalPrice() - penalty;
+        if (penalty > 0) {
+            pointService.refundOrderWithPenalty(order.getBuyerId(), refund, order.getSellerId(), penalty, order.getId());
+        } else {
+            pointService.refundOrder(order.getBuyerId(), refund, order.getId());
+        }
         eventPublisher.publishEvent(new OrderCanceledEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
-                order.getSellerId(), order.getProductName(), reason));
+                order.getSellerId(), order.getProductName(), reason, refund, penalty));
         return true;
     }
 

@@ -32,7 +32,10 @@ public record NotificationContent(String title, String body, String link) {
             case AUCTION_FAILED -> new NotificationContent("경매가 유찰됐어요", product + " 경매가 입찰 없이 끝났어요.", auctionLink);
             case AUCTION_ENDED -> new NotificationContent("경매가 끝났어요", product + " 경매가 마감됐어요.", auctionLink);
             case ORDER_CANCELED -> new NotificationContent("주문이 취소됐어요",
-                    product + " 주문이 기한 초과로 취소됐어요. 결제 포인트는 구매자에게 전액 환불돼요.", "/orders");
+                    notification.getPrice() == null
+                            ? product + " 주문이 기한 초과로 취소됐어요. 결제 포인트는 구매자에게 전액 환불돼요."
+                            : product + " 주문이 배송지 미입력으로 취소됐어요. 위약금 " + point(notification.getPrice())
+                                    + "는 판매자에게 지급되고 나머지는 구매자에게 환불돼요.", "/orders");
             // 도네이션 마일리지는 방송 중인 판매자에게 선물하므로 라이브 목록으로 보낸다.
             case DONATION_POINT_EARNED -> new NotificationContent("도네이션 마일리지 " + mileage(notification.getPrice()) + "이 적립됐어요",
                     "구매 확정으로 적립했어요. 응원하는 판매자의 라이브 방송에서 선물해 보세요.", "/lives");
