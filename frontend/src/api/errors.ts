@@ -18,6 +18,7 @@ export class ApiError extends Error {
  * 적지 않은 코드는 서버 메시지를 그대로 쓴다.
  */
 const USER_MESSAGES: Partial<Record<ErrorCode, string>> = {
+  ADDRESS_003: '배송지는 10개까지 저장할 수 있어요. 안 쓰는 배송지를 지운 뒤 추가해 주세요.',
   LIVECHAT_004: '같은 내용을 연달아 보낼 수 없어요. 잠시 후에 보내 주세요.',
   LIVECHAT_005: '내 방송의 채팅만 관리할 수 있어요.',
   AUCTION_002:'판매 중인 상품만 경매에 올릴 수 있어요.',

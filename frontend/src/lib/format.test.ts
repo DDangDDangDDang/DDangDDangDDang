@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { formatDotDate, formatNumber, formatPoint, formatRemaining } from './format';
+import { formatDotDate, formatNumber, formatPhoneInput, formatPoint, formatRemaining } from './format';
 
 describe('format', () => {
+  it('입력 중인 전화번호에 하이픈을 붙인다', () => {
+    expect(formatPhoneInput('010')).toBe('010');
+    expect(formatPhoneInput('0101234')).toBe('010-123-4');
+    expect(formatPhoneInput('01012345678')).toBe('010-1234-5678');
+    expect(formatPhoneInput('0311234567')).toBe('031-123-4567');
+    expect(formatPhoneInput('021234567')).toBe('02-123-4567');
+    expect(formatPhoneInput('0212345678')).toBe('02-1234-5678');
+    expect(formatPhoneInput('010-12a3')).toBe('010-123');
+  });
+
   it('포인트는 천 단위 구분과 P를 붙인다', () => {
     expect(formatPoint(152000)).toBe('152,000 P');
     expect(formatNumber(1284)).toBe('1,284');

@@ -17,6 +17,7 @@ import { DevComponentsPage } from '@/pages/DevComponentsPage';
 import { HomePage } from '@/pages/HomePage';
 import { LiveListPage } from '@/pages/live/LiveListPage';
 import { LiveWatchPage } from '@/pages/live/LiveWatchPage';
+import { AddressesPage } from '@/pages/me/AddressesPage';
 import { MyInfoPage } from '@/pages/me/MyInfoPage';
 import { MessagesPage } from '@/pages/messages/MessagesPage';
 import { PointsPage } from '@/pages/me/PointsPage';
@@ -77,6 +78,7 @@ export const router = createBrowserRouter([
           { path: '/me/donation-shop', element: <Navigate to="/shop" replace /> },
           { path: '/me/seller', element: <SellerApplicationPage /> },
           { path: '/me/notifications', element: <NotificationSettingsPage /> },
+          { path: '/me/addresses', element: <AddressesPage /> },
           { path: '/me/auction-alerts', element: <AlertedAuctionsPage /> },
           { path: '/orders', element: <OrdersPage /> },
           { path: '/orders/:orderId', element: <OrderDetailPage /> },

@@ -1,4 +1,5 @@
 import type { Schema } from '@/api';
+import { dateTimeInputOf } from './datetime-input';
 import { formatDateTime, formatPoint } from './format';
 import { ORDER_CANCEL_REASON_LABEL } from './labels';
 
@@ -56,6 +57,26 @@ export function orderDeadlineMessage(order: Order): string | null {
     return `발송 기한: ${formatDateTime(order.shipDeadlineAt)}까지. 기한이 지나면 주문이 취소되고 구매자에게 전액 환불돼요.`;
   }
   return null;
+}
+
+/** 발송 후 이 날수가 지나면 서버가 자동으로 구매 확정한다. (OrderService.AUTO_CONFIRM_DAYS) */
+export const AUTO_CONFIRM_DAYS = 7;
+
+/** 배송 중 주문의 자동 구매 확정 예정 시각(서버 시각 문자열). 발송 시각이 없으면 null */
+export function autoConfirmAt(order: Order): string | null {
+  if (order.status !== 'SHIPPING' || !order.shippedAt) return null;
+  // 서버 시각은 시간대 없는 서울 시각이라, 같은 방식으로 읽고 써야 formatDateTime과 어긋나지 않는다.
+  const date = new Date(order.shippedAt);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setDate(date.getDate() + AUTO_CONFIRM_DAYS);
+  return `${dateTimeInputOf(date)}:00`;
+}
+
+/** 배송 중 주문의 자동 구매 확정 안내 */
+export function autoConfirmMessage(order: Order): string {
+  const at = autoConfirmAt(order);
+  const base = `발송 후 ${AUTO_CONFIRM_DAYS}일이 지나면 자동으로 구매 확정돼요.`;
+  return at ? `${base} (${formatDateTime(at)} 자동 확정 예정)` : base;
 }
 
 /** 취소된 주문의 안내. 배송지 미입력 취소만 위약금이 있다 */
