@@ -17,6 +17,7 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -112,6 +113,11 @@ public class Order extends BaseTimeEntity {
     private String trackingNo;
 
     private LocalDateTime shippedAt;
+
+    // 자동 구매 확정이 실패 획수. 정해진 횟수를 넘으면 자동 확정 대상에서 빠지고 사람이 확인
+    @ColumnDefault("0")
+    @Column(nullable = false)
+    private int autoConfirmFailCount;
 
     private LocalDateTime completedAt;
 
@@ -306,5 +312,10 @@ public class Order extends BaseTimeEntity {
 
     public boolean isParticipant(Long userId) {
         return isBuyer(userId) || isSeller(userId);
+    }
+
+    // 자동 구매 확정 실패 획수를 1씩 올린다
+    public void recordAutoConfirmFailure(){
+        this.autoConfirmFailCount++;
     }
 }
