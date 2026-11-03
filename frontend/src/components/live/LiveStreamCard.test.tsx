@@ -5,7 +5,7 @@ import type { Schema } from '@/api';
 import { LiveStreamCard } from './LiveStreamCard';
 
 // 미리보기 연결(LiveKit)은 하지 않는다.
-vi.mock('./use-live-preview', () => ({ useStreamPreview: () => ({}) }));
+vi.mock('./use-live-preview', () => ({ useStreamPreview: () => ({}), cardBotVideo: () => undefined }));
 
 const card: Schema<'LiveStreamCard'> = {
   liveStreamId: 7,

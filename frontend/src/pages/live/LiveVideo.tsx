@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 import { errorMessage, type Schema } from "@/api";
+import { BotVideo } from "@/components/watch/BotVideo";
 import { TrackAudio, TrackVideo } from "@/components/watch/tracks";
 import { VolumeControl } from "@/components/watch/VolumeControl";
 import { RecordedBadge } from "@/components/live/RecordedBadge";
@@ -36,7 +37,9 @@ type Props = {
 export function LiveVideo({ liveStream, video, overlay, muted, onToggleSound, volume, onVolumeChange }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const isLive = liveStream.status === "LIVE";
-  const playing = isLive && video.phase === "connected" && video.videoTrack;
+  // 라이브 봇 방송은 LiveKit 영상 대신 녹화 영상을 직접 튼다. (방에는 시청자 수를 세려고 들어가기만 한다)
+  const botVideoUrl = isLive ? liveStream.videoUrl : undefined;
+  const playing = isLive && (!!botVideoUrl || (video.phase === "connected" && video.videoTrack));
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen();
@@ -48,7 +51,11 @@ export function LiveVideo({ liveStream, video, overlay, muted, onToggleSound, vo
       ref={stageRef}
       className="relative flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-stage text-neutral-400"
     >
-      {video.videoTrack && <TrackVideo track={video.videoTrack} />}
+      {botVideoUrl ? (
+        <BotVideo url={botVideoUrl} startedAt={liveStream.startedAt} muted={muted} volume={volume} />
+      ) : (
+        video.videoTrack && <TrackVideo track={video.videoTrack} />
+      )}
       {video.audioTracks.map((track) => (
         <TrackAudio key={track.sid} track={track} muted={muted} volume={volume} />
       ))}

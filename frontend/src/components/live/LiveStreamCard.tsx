@@ -12,7 +12,7 @@ import { useHoverIntent } from '@/lib/use-hover-intent';
 import { Hashtags } from './Hashtags';
 import { PreviewVideo } from './PreviewVideo';
 import { RecordedBadge } from './RecordedBadge';
-import { useStreamPreview } from './use-live-preview';
+import { cardBotVideo, useStreamPreview } from './use-live-preview';
 import { PowerSellerBadge } from '@/components/donation/PowerSellerBadge';
 
 type Card = Schema<'LiveStreamCard'>;
@@ -27,7 +27,7 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
   const seller = card.sellerNickname || '판매자';
   // 방송 중인 카드에 마우스를 잠시 올려 두면 썸네일 자리에서 소리 없이 미리 보여 준다. (치지직처럼) 떠나면 바로 끊는다.
   const { hovered, onMouseEnter, onMouseLeave } = useHoverIntent();
-  const { videoTrack } = useStreamPreview(card.liveStreamId ?? 0, isLive && card.liveStreamId !== undefined && hovered);
+  const { videoTrack, bot } = useStreamPreview(card.liveStreamId ?? 0, isLive && card.liveStreamId !== undefined && hovered, false, cardBotVideo(card));
 
   return (
     <Link
@@ -37,8 +37,8 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
       onMouseEnter={isLive ? onMouseEnter : undefined}
       onMouseLeave={onMouseLeave}
     >
-      <LiveThumbnail name={seller} imageUrl={card.thumbnailUrl} className="transition-shadow group-hover:ring-2 group-hover:ring-brand-500 group-hover:ring-offset-2 group-hover:ring-offset-neutral-25">
-        <PreviewVideo track={videoTrack} />
+      <LiveThumbnail name={seller} imageUrl={card.thumbnailUrl} videoUrl={isLive ? card.videoUrl : undefined} className="transition-shadow group-hover:ring-2 group-hover:ring-brand-500 group-hover:ring-offset-2 group-hover:ring-offset-neutral-25">
+        <PreviewVideo track={videoTrack} bot={bot} />
         <div className="absolute top-2.5 left-2.5 flex gap-1.5">
           {isLive ? (
             <Badge variant="live">LIVE</Badge>
@@ -80,8 +80,21 @@ export function LiveStreamCard({ card, showIncrease = false }: { card: Card; sho
 /**
  * 방송 썸네일 자리. 썸네일(imageUrl: 판매자가 올린 이미지, 없으면 방송 중 송출 화면 캡처. 서버가 고른다)이 있으면 그 이미지를, 없거나 불러오지 못하면 판매자 이름 첫 글자를 어두운 바탕에 크게 그린다.
  * 같은 판매자는 늘 같은 바탕색이 나오도록 이름으로 색을 고른다. 미리보기 영상 등(children)은 그 위에 겹친다.
+ * 라이브 봇 방송은 송출 화면 캡처가 없으므로, 썸네일이 없으면 녹화 영상(videoUrl)의 앞부분 한 장면을 보여 준다.
  */
-export function LiveThumbnail({ name, imageUrl, className, children }: { name: string; imageUrl?: string | null; className?: string; children?: ReactNode }) {
+export function LiveThumbnail({
+  name,
+  imageUrl,
+  videoUrl,
+  className,
+  children,
+}: {
+  name: string;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  className?: string;
+  children?: ReactNode;
+}) {
   const tone = THUMB_TONES[[...name].reduce((sum, ch) => sum + (ch.codePointAt(0) ?? 0), 0) % THUMB_TONES.length];
   // 불러오지 못한 주소. 썸네일이 새로 바뀌면(1분마다 다른 주소) 다시 시도한다.
   const [failedUrl, setFailedUrl] = useState<string>();
@@ -92,6 +105,9 @@ export function LiveThumbnail({ name, imageUrl, className, children }: { name: s
       {showImage ? (
         // 제목·판매자는 카드에 글자로 있으므로 장식 이미지로 둔다.
         <img src={imageUrl} alt="" onError={() => setFailedUrl(imageUrl)} className="absolute inset-0 size-full object-cover" />
+      ) : videoUrl ? (
+        // 주소 끝의 #t=1로 1초 장면에서 멈춘 채 보여 준다. (재생하지 않고 앞부분만 받는다)
+        <video aria-hidden="true" src={`${videoUrl}#t=1`} preload="metadata" muted playsInline className="absolute inset-0 size-full object-cover" />
       ) : (
         <span aria-hidden="true" className="text-display font-bold text-neutral-900/25">
           {[...name][0]}

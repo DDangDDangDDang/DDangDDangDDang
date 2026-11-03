@@ -1,19 +1,29 @@
 import { useIsMutating, useMutation } from '@tanstack/react-query';
-import { ApiError, api, call, uploadToSignedUrl } from '@/api';
+import { createContext, useContext } from 'react';
+import { ApiError, api, call, uploadToSignedUrl, type Schema } from '@/api';
 import type { ProductImage } from '@/lib/product-image';
 
 /** 상품 이미지 업로드 (갤러리·설명 공용). 화면은 이 키로 올리는 중인지 본다. */
 const PRODUCT_IMAGE_UPLOAD_KEY = ['product-image-upload'] as const;
+
+type UploadUrlRequest = (body: Schema<'ProductImageUploadRequest'>) => Promise<Schema<'ProductImageUploadResponse'> | undefined>;
+
+/**
+ * 상품 이미지 업로드 URL을 받는 방법. 기본은 로그인한 판매자 본인 (POST /products/image-uploads).
+ * 관리자가 라이브 봇 이름으로 상품을 올릴 때는 봇 계정의 업로드 URL을 받도록 바꾼다. (이미지 키에 판매자 ID가 들어가 서버가 확인한다)
+ */
+export const ProductImageUploadUrlContext = createContext<UploadUrlRequest>((body) => call(api.POST('/api/v1/products/image-uploads', { body })));
 
 /**
  * 상품 이미지 한 장 올리기: 업로드 URL 받기 → 저장소(S3)에 바로 올리기. 키는 상품을 저장할 때 서버가 확인한다.
  * 갤러리와 설명 속 이미지가 같이 쓴다.
  */
 export function useProductImageUpload(onUploaded: (image: ProductImage) => void) {
+  const requestUploadUrl = useContext(ProductImageUploadUrlContext);
   return useMutation({
     mutationKey: PRODUCT_IMAGE_UPLOAD_KEY,
     mutationFn: async (file: File): Promise<ProductImage> => {
-      const signed = await call(api.POST('/api/v1/products/image-uploads', { body: { contentType: file.type, contentLength: file.size } }));
+      const signed = await requestUploadUrl({ contentType: file.type, contentLength: file.size });
       if (!signed?.uploadUrl || !signed.imageKey || !signed.imageUrl) throw new ApiError('UPLOAD_FAILED', '업로드 URL을 받지 못했어요.', 0);
       await uploadToSignedUrl(signed.uploadUrl, file);
       return { key: signed.imageKey, url: signed.imageUrl };

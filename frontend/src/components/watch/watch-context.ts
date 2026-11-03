@@ -8,6 +8,8 @@ export type WatchSession = {
   live: boolean;
   /** 방송의 판매자. 로그인한 사용자의 방송이면 화면을 떠날 때 끊고 작은 플레이어를 띄우지 않는다. */
   sellerId?: number;
+  /** 라이브 봇 방송의 녹화 영상과 방송 시작 시각. 있으면 LiveKit 영상 대신 이 영상을 시작 시각에 맞춰 튼다. */
+  botVideo?: { url: string; startedAt?: string };
 };
 
 /**
@@ -56,7 +58,9 @@ export function useWatchStream(session: WatchSession, onRoomClosed: () => void) 
   useEffect(() => {
     onRoomClosedRef.current = onRoomClosed;
   });
-  const { liveStreamId, title, live, sellerId } = session;
+  const { liveStreamId, title, live, sellerId, botVideo } = session;
+  const botVideoUrl = botVideo?.url;
+  const botStartedAt = botVideo?.startedAt;
 
   useEffect(() => {
     open({ liveStreamId, live: false }, () => onRoomClosedRef.current());
@@ -64,8 +68,8 @@ export function useWatchStream(session: WatchSession, onRoomClosed: () => void) 
   }, [liveStreamId, open, leave]);
 
   useEffect(() => {
-    update({ liveStreamId, title, live, sellerId });
-  }, [liveStreamId, title, live, sellerId, update]);
+    update({ liveStreamId, title, live, sellerId, botVideo: botVideoUrl ? { url: botVideoUrl, startedAt: botStartedAt } : undefined });
+  }, [liveStreamId, title, live, sellerId, botVideoUrl, botStartedAt, update]);
 
   return watch;
 }

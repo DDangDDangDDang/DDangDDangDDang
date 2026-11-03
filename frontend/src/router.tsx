@@ -8,6 +8,8 @@ import { PasswordResetPage } from '@/pages/auth/PasswordResetPage';
 import { SignupPage } from '@/pages/auth/SignupPage';
 import { CategoryAdminPage } from '@/pages/admin/CategoryAdminPage';
 import { AdsAdminPage } from '@/pages/admin/AdsAdminPage';
+import { LiveBotsAdminPage } from '@/pages/admin/LiveBotsAdminPage';
+import { LiveBotSellingPage } from '@/pages/admin/LiveBotSellingPage';
 import { DmReportsPage } from '@/pages/admin/DmReportsPage';
 import { PointExchangesAdminPage } from '@/pages/admin/PointExchangesAdminPage';
 import { SellerApplicationsPage } from '@/pages/admin/SellerApplicationsPage';
@@ -100,6 +102,8 @@ export const router = createBrowserRouter([
           { path: '/admin/donation-policy', element: <DonationPolicyPage /> },
           { path: '/admin/point-exchanges', element: <PointExchangesAdminPage /> },
           { path: '/admin/ads', element: <AdsAdminPage /> },
+          { path: '/admin/live-bots', element: <LiveBotsAdminPage /> },
+          { path: '/admin/live-bots/:botId', element: <LiveBotSellingPage /> },
         ],
       },
 
