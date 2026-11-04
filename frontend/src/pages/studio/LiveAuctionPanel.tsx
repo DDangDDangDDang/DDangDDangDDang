@@ -23,7 +23,9 @@ import {
 } from '@/lib/auction';
 import { formatDateTime, formatNumber, formatPoint } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
+import { productSaleState } from '@/lib/product-state';
 import { ProductCreateDialog } from './ProductCreateDialog';
+import { ProductEditDialog } from './ProductEditDialog';
 import type { LiveAuctions } from './use-live-auctions';
 
 type Product = Schema<'ProductResponse'>;
@@ -35,11 +37,13 @@ const PRODUCT_PAGE_SIZE = 10;
  * 경매 상품: 내 판매 중 상품 목록에서 [경매 시작] → 시작가·입찰 단위·진행 시간을 정해 방송 중 경매를 연다.
  * 미리 만든(시작 전·진행 중) 경매가 있는 상품은 [이 방송에 올리기]로 그 경매를 방송에 보여준다. (일정은 그대로)
  * [상품 등록]은 창으로 열어 스튜디오를 떠나지 않고 등록하고, 방송 중이면 그 상품의 경매 조건 입력을 바로 연다.
+ * 경매가 없는 상품(내 상품에서 수정할 수 있는 상품)은 [수정]으로 창을 열어 바로 고친다. 삭제는 방송 중 실수를 막으려고 내 상품 화면에만 둔다.
  * 목록은 최신순으로 10개씩 페이지를 나누고, 카테고리(대분류를 고르면 그 아래 소분류까지)로 거를 수 있다.
  */
 export function LiveAuctionProducts({ live, auctions }: { live: boolean; auctions: LiveAuctions }) {
   const [selected, setSelected] = useState<number>();
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<number>();
   const [page, setPage] = useState(0);
   const [categoryId, setCategoryId] = useState('');
   const categories = useCategories();
@@ -126,6 +130,7 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
                   activeAuction={auctions.activeAuctionOf(product.id)}
                   onOpen={() => setSelected(product.id)}
                   onClose={() => setSelected(undefined)}
+                  onEdit={() => setEditingId(product.id)}
                   auctions={auctions}
                 />
               </li>
@@ -153,6 +158,7 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
           if (live) setSelected(productId);
         }}
       />
+      <ProductEditDialog productId={editingId} onClose={() => setEditingId(undefined)} />
     </Card>
   );
 }
@@ -164,6 +170,7 @@ function ProductRow({
   activeAuction,
   onOpen,
   onClose,
+  onEdit,
   auctions,
 }: {
   product: Product;
@@ -172,8 +179,11 @@ function ProductRow({
   activeAuction?: Schema<'AuctionResponse'>;
   onOpen: () => void;
   onClose: () => void;
+  onEdit: () => void;
   auctions: LiveAuctions;
 }) {
+  // 내 상품 화면과 같은 규칙: 시작 전·진행 중 경매가 없는 상품만 고칠 수 있다. (서버도 PRODUCT_004로 막음)
+  const editable = !activeAuction && productSaleState(product).editable;
   const [values, setValues] = useState<AuctionConditionValues>(EMPTY_AUCTION_CONDITION);
   const [errors, setErrors] = useState<AuctionConditionErrors>({});
   const start = auctions.start;
@@ -209,9 +219,16 @@ function ProductRow({
         {activeAuction ? (
           <ActiveAuction auction={activeAuction} live={live} auctions={auctions} />
         ) : open ? null : (
-          <Button size="sm" variant="secondary" disabled={!live} onClick={onOpen}>
-            경매 시작
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            {editable && (
+              <Button size="sm" variant="outline" aria-label={`${product.name || '상품'} 수정`} onClick={onEdit}>
+                수정
+              </Button>
+            )}
+            <Button size="sm" variant="secondary" disabled={!live} onClick={onOpen}>
+              경매 시작
+            </Button>
+          </div>
         )}
       </div>
       {open && !activeAuction && (
