@@ -68,6 +68,8 @@ public class UserAddressService {
     // 배송지 수정 (기본 여부는 바꾸지 않는다)
     @Transactional
     public UserAddressResponse updateAddress(Long userId,Long addressId,UserAddressRequest request){
+        // 수정도 잠근다. 기본 변경과 겹치면 수정의 UPDATE가 읽어 둔 이전 기본 여부를 다시 저장해 기본 배송지가 둘이 될 수 있다
+        lockUser(userId);
         UserAddress myAddress = findMyAddress(userId, addressId);
         myAddress.update(request.addressName(),request.receiverName(),request.receiverPhone(),request.address(),request.deliveryMemo());
         return UserAddressResponse.from(myAddress);
