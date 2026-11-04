@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.notification.event;
 
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
+import com.example.ddangddangddang.domain.notification.repository.NotificationRepository;
 import com.example.ddangddangddang.domain.notification.service.NotificationDispatcher;
 import com.example.ddangddangddang.domain.seller.repository.SellerSubscriptionRepository;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
@@ -49,6 +50,9 @@ class LiveStartedNotifierTest {
     @Mock
     private NotificationDispatcher notificationDispatcher;
 
+    @Mock
+    private NotificationRepository notificationRepository;
+
     private final LiveStream liveStream = mock(LiveStream.class);
 
     @BeforeEach
@@ -77,11 +81,14 @@ class LiveStartedNotifierTest {
     }
 
     @Test
-    @DisplayName("30분 안에 이 판매자의 방송으로 이미 알렸으면 다시 알리지 않고, 알렸다는 기록도 남기지 않는다")
+    @DisplayName("30분 안에 이 판매자의 방송으로 이미 알렸으면 다시 알리지 않고, 이미 보낸 알림을 이 방송으로 옮긴다")
     void skipsWhenNotifiedRecently() {
         given(liveStreamRepository.existsBySellerIdAndSubscribersNotifiedAtAfter(eq(SELLER_ID), any())).willReturn(true);
+        given(liveStream.getTitle()).willReturn("다시 켠 방송");
 
         notifier.notifySubscribers(LIVE_STREAM_ID);
+
+        verify(notificationRepository).moveLiveStartedTo(eq(SELLER_ID), any(), eq(LIVE_STREAM_ID), eq("다시 켠 방송"), eq(false));
 
         verify(subscriptionRepository, never()).findSubscriberIds(any());
         verify(liveStreamRepository, never()).markSubscribersNotified(anyLong(), any());

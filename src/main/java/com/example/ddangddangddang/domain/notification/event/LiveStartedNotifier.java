@@ -4,6 +4,7 @@ import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
 import com.example.ddangddangddang.domain.notification.entity.Notification;
+import com.example.ddangddangddang.domain.notification.repository.NotificationRepository;
 import com.example.ddangddangddang.domain.notification.service.NotificationDispatcher;
 import com.example.ddangddangddang.domain.seller.repository.SellerSubscriptionRepository;
 import com.example.ddangddangddang.domain.user.entity.User;
@@ -38,6 +39,7 @@ public class LiveStartedNotifier {
     private final LiveStreamRepository liveStreamRepository;
     private final UserRepository userRepository;
     private final NotificationDispatcher notificationDispatcher;
+    private final NotificationRepository notificationRepository;
 
     @Async
     @TransactionalEventListener
@@ -55,8 +57,12 @@ public class LiveStartedNotifier {
             return;
         }
         Long sellerId = liveStream.getSellerId();
-        if (notifiedRecently(sellerId)) {
-            log.info("최근 {} 안에 방송 시작을 알려 이번에는 알리지 않습니다. sellerId={}, liveStreamId={}", RENOTIFY_INTERVAL, sellerId, liveStreamId);
+        LocalDateTime since = LocalDateTime.now().minus(RENOTIFY_INTERVAL);
+        if (notifiedRecently(sellerId, since)) {
+            // 새로 알리지 않는 대신, 이미 보낸 알림이 끝난 방송이 아니라 이 방송으로 가게 옮긴다.
+            int moved = notificationRepository.moveLiveStartedTo(sellerId, since, liveStreamId, liveStream.getTitle(), liveStream.isRecorded());
+            log.info("최근 {} 안에 방송 시작을 알려 새로 알리지 않고 알림 {}건을 이 방송으로 옮깁니다. sellerId={}, liveStreamId={}",
+                    RENOTIFY_INTERVAL, moved, sellerId, liveStreamId);
             return;
         }
         List<Long> subscriberIds = subscriptionRepository.findSubscriberIds(sellerId);
@@ -75,8 +81,7 @@ public class LiveStartedNotifier {
      * 이 판매자의 방송으로 RENOTIFY_INTERVAL 안에 구독자에게 알린 적이 있는지.
      * 시작한 시각이 아니라 실제로 알린 시각을 본다. 그래야 30분 안에 껐다 켜기를 이어 가도, 마지막 알림에서 30분이 지나면 다시 알린다.
      */
-    private boolean notifiedRecently(Long sellerId) {
-        return liveStreamRepository.existsBySellerIdAndSubscribersNotifiedAtAfter(
-                sellerId, LocalDateTime.now().minus(RENOTIFY_INTERVAL));
+    private boolean notifiedRecently(Long sellerId, LocalDateTime since) {
+        return liveStreamRepository.existsBySellerIdAndSubscribersNotifiedAtAfter(sellerId, since);
     }
 }
