@@ -59,6 +59,9 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
     @Autowired private UserRepository userRepository;
 
     private User seller;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository sellerApplicationRepository;
     private User buyer;
     private Product product;
     private Long auctionId;
@@ -66,6 +69,7 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
     @BeforeEach
     void setUp() {
         seller = userRepository.save(User.create("deadline-seller@test.com", "pw", "deadlineSeller", "01011112222"));
+        com.example.ddangddangddang.support.SellerFixture.verify(sellerApplicationRepository, seller.getId());
         buyer = userRepository.save(User.create("deadline-buyer@test.com", "pw", "deadlineBuyer", "01033334444"));
         pointWalletRepository.save(PointWallet.create(buyer.getId()));
         pointWalletRepository.save(PointWallet.create(seller.getId()));
@@ -82,6 +86,7 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
         auctionRepository.deleteAllInBatch();
         productRepository.deleteAllInBatch();
         categoryRepository.deleteAllInBatch();
+        sellerApplicationRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
     }
 

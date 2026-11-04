@@ -54,6 +54,9 @@ class SanctionServiceTest extends MySqlIntegrationTest {
 
     private User buyer;
     private User seller;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository sellerApplicationRepository;
     private Product product;
     private LocalDateTime now;
     private Object originalCountedFrom;
@@ -62,6 +65,7 @@ class SanctionServiceTest extends MySqlIntegrationTest {
     void setUp() {
         buyer = userRepository.save(User.create("sanction-buyer@test.com", "pw", "sanctionBuyer", "01055556666"));
         seller = userRepository.save(User.create("sanction-seller@test.com", "pw", "sanctionSeller", "01077778888"));
+        com.example.ddangddangddang.support.SellerFixture.verify(sellerApplicationRepository, seller.getId());
         Category category = categoryRepository.save(new Category(null, "전자기기", 1));
         product = productRepository.save(new Product(seller, category, "아이패드", "설명"));
         // 시행일 전 취소는 세지 않는다. 테스트에서는 아주 옛날로 두고, 끝나면 되돌린다 (컨텍스트를 함께 쓰는 다른 테스트에 영향이 없게)
@@ -78,6 +82,7 @@ class SanctionServiceTest extends MySqlIntegrationTest {
         auctionRepository.deleteAllInBatch();
         productRepository.deleteAllInBatch();
         categoryRepository.deleteAllInBatch();
+        sellerApplicationRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
     }
 

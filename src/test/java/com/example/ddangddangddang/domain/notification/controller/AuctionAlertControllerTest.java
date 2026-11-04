@@ -89,6 +89,9 @@ class AuctionAlertControllerTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository sellerApplicationRepository;
+
     @MockitoBean
     private RefreshTokenRepository refreshTokenRepository;
 
@@ -328,6 +331,8 @@ class AuctionAlertControllerTest {
     }
 
     private Long createAuction(Member seller, LocalDateTime startAt, LocalDateTime endAt) throws Exception {
+        // 경매를 등록하려면 판매자 인증이 있어야 한다.
+        com.example.ddangddangddang.support.SellerFixture.verify(sellerApplicationRepository, seller.id());
         Category parent = categoryRepository.save(new Category(null, "알림" + UUID.randomUUID().toString().substring(0, 6), 1));
         Category leaf = categoryRepository.save(new Category(parent, "카메라", 1));
         Long productId = productRepository.save(new Product(userRepository.findById(seller.id()).orElseThrow(), leaf, "알림 상품", "테스트 상품")).getId();

@@ -20,6 +20,7 @@ import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.storage.FileStorage;
+import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,6 +43,7 @@ public class ProductService {
     private final AuctionRepository auctionRepository;
     private final ProductImageResolver imageResolver;
     private final FileStorage fileStorage;
+    private final SellerVerification sellerVerification;
 
     //상품 상세 조회(삭제된 상품은 제외)
     @Transactional(readOnly = true)
@@ -81,8 +83,23 @@ public class ProductService {
         return imageResolver.createUpload(sellerId, request.contentType(), request.contentLength());
     }
 
-    //상품 생성(하위 카테고리 내에서만 생성(대분류에는 등록X))
+    //상품 생성(하위 카테고리 내에서만 생성(대분류에는 등록X)). 판매자 인증(관리자 승인)을 받은 회원만 등록할 수 있다
     public ProductResponse creation(Long sellerId, ProductRequest request) {
+        if (!sellerVerification.isVerified(sellerId)) {
+            throw new BusinessException(ProductErrorCode.NOT_VERIFIED_SELLER);
+        }
+        return create(sellerId, request);
+    }
+
+    /**
+     * 방송 봇의 상품 등록 (LiveBotSellingService 전용). 봇 계정은 관리자가 만들고 운영해 판매자 인증이 없으므로 인증을 보지 않는다.
+     * 회원 요청에서는 부르지 않는다.
+     */
+    public ProductResponse creationAsBot(Long botUserId, ProductRequest request) {
+        return create(botUserId, request);
+    }
+
+    private ProductResponse create(Long sellerId, ProductRequest request) {
         User seller = userRepository.findById(sellerId).orElseThrow(
                 () -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
         Category category = findCategory(request.categoryId());
