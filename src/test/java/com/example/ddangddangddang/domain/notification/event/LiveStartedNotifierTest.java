@@ -19,7 +19,11 @@ import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -29,7 +33,6 @@ class LiveStartedNotifierTest {
 
     private static final Long LIVE_STREAM_ID = 7L;
     private static final Long SELLER_ID = 3L;
-    private static final LocalDateTime STARTED_AT = LocalDateTime.of(2026, 11, 4, 20, 0);
 
     @InjectMocks
     private LiveStartedNotifier notifier;
@@ -50,34 +53,49 @@ class LiveStartedNotifierTest {
 
     @BeforeEach
     void setUp() {
-        given(liveStream.getId()).willReturn(LIVE_STREAM_ID);
         given(liveStream.getSellerId()).willReturn(SELLER_ID);
-        given(liveStream.getStartedAt()).willReturn(STARTED_AT);
         given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
     }
 
     @Test
-    @DisplayName("최근 30분 안에 시작한 다른 방송이 없으면 구독자에게 알린다")
+    @DisplayName("최근 30분 안에 알린 적이 없으면, 이 방송으로 알렸다고 먼저 남기고 구독자에게 알린다")
     void notifies() {
-        given(liveStreamRepository.existsBySellerIdAndIdNotAndStartedAtBetween(
-                SELLER_ID, LIVE_STREAM_ID, STARTED_AT.minus(LiveStartedNotifier.RENOTIFY_INTERVAL), STARTED_AT)).willReturn(false);
+        LocalDateTime before = LocalDateTime.now();
+        given(liveStreamRepository.existsBySellerIdAndSubscribersNotifiedAtAfter(eq(SELLER_ID), any())).willReturn(false);
         given(subscriptionRepository.findSubscriberIds(SELLER_ID)).willReturn(List.of(10L, 11L));
         given(userRepository.findById(SELLER_ID)).willReturn(Optional.empty());
 
         notifier.notifySubscribers(LIVE_STREAM_ID);
 
-        verify(notificationDispatcher).dispatch(anyList());
+        // 기준 시각은 지금에서 30분 전
+        verify(liveStreamRepository).existsBySellerIdAndSubscribersNotifiedAtAfter(eq(SELLER_ID), argThat(since ->
+                !since.isBefore(before.minus(LiveStartedNotifier.RENOTIFY_INTERVAL))
+                        && !since.isAfter(LocalDateTime.now().minus(LiveStartedNotifier.RENOTIFY_INTERVAL))));
+        var order = inOrder(liveStreamRepository, notificationDispatcher);
+        order.verify(liveStreamRepository).markSubscribersNotified(eq(LIVE_STREAM_ID), any());
+        order.verify(notificationDispatcher).dispatch(anyList());
     }
 
     @Test
-    @DisplayName("판매자가 껐다 켜기를 반복해 30분 안에 시작한 다른 방송이 있으면 다시 알리지 않는다")
-    void skipsWhenStartedRecently() {
-        given(liveStreamRepository.existsBySellerIdAndIdNotAndStartedAtBetween(
-                SELLER_ID, LIVE_STREAM_ID, STARTED_AT.minus(LiveStartedNotifier.RENOTIFY_INTERVAL), STARTED_AT)).willReturn(true);
+    @DisplayName("30분 안에 이 판매자의 방송으로 이미 알렸으면 다시 알리지 않고, 알렸다는 기록도 남기지 않는다")
+    void skipsWhenNotifiedRecently() {
+        given(liveStreamRepository.existsBySellerIdAndSubscribersNotifiedAtAfter(eq(SELLER_ID), any())).willReturn(true);
 
         notifier.notifySubscribers(LIVE_STREAM_ID);
 
         verify(subscriptionRepository, never()).findSubscriberIds(any());
+        verify(liveStreamRepository, never()).markSubscribersNotified(anyLong(), any());
         verify(notificationDispatcher, never()).dispatch(anyList());
+    }
+
+    @Test
+    @DisplayName("구독자가 없으면 알렸다는 기록을 남기지 않는다 (나중에 구독자가 생겼을 때 막히지 않게)")
+    void noSubscribers() {
+        given(liveStreamRepository.existsBySellerIdAndSubscribersNotifiedAtAfter(eq(SELLER_ID), any())).willReturn(false);
+        given(subscriptionRepository.findSubscriberIds(SELLER_ID)).willReturn(List.of());
+
+        notifier.notifySubscribers(LIVE_STREAM_ID);
+
+        verify(liveStreamRepository, never()).markSubscribersNotified(anyLong(), any());
     }
 }
