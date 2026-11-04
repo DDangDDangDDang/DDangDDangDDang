@@ -58,8 +58,8 @@ public class AuctionService {
         // 미발송 판매 취소가 반복된 회원은 경매를 등록할 수 없다 (상품을 잠근 뒤에 읽는다. createLiveAuction 참고)
         sanctionService.requireNotBanned(sellerId, SanctionType.LISTING_BAN);
 
-        //시작 시간< 종료 시간
-        if (!request.startAt().isBefore(request.endAt())) {
+        //시작 시간< 종료 시간, 종료 시간은 지금 이후 ( 지난 시각으로 만들면 스케줄러가 바로 유찰시킨다)
+        if (!request.startAt().isBefore(request.endAt()) || !request.endAt().isAfter(LocalDateTime.now())) {
             throw new BusinessException(AuctionErrorCode.INVALID_TIME);
         }
 
