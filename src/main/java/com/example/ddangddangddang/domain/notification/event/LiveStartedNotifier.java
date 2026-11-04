@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -28,6 +29,9 @@ import java.util.List;
 public class LiveStartedNotifier {
 
     public static final String NOTIFICATION_QUEUE = NotificationDispatcher.NOTIFICATION_QUEUE;
+
+    // 판매자가 방송을 껐다 켜기를 반복해도 구독자에게는 이 간격에 한 번만 알린다.
+    static final Duration RENOTIFY_INTERVAL = Duration.ofMinutes(30);
 
     private final SellerSubscriptionRepository subscriptionRepository;
     private final LiveStreamRepository liveStreamRepository;
@@ -50,6 +54,10 @@ public class LiveStartedNotifier {
             return;
         }
         Long sellerId = liveStream.getSellerId();
+        if (startedRecently(liveStream)) {
+            log.info("최근 {} 안에 방송 시작을 알려 이번에는 알리지 않습니다. sellerId={}, liveStreamId={}", RENOTIFY_INTERVAL, sellerId, liveStreamId);
+            return;
+        }
         List<Long> subscriberIds = subscriptionRepository.findSubscriberIds(sellerId);
         if (subscriberIds.isEmpty()) {
             return;
@@ -58,5 +66,14 @@ public class LiveStartedNotifier {
         notificationDispatcher.dispatch(subscriberIds.stream()
                 .map(id -> Notification.liveStarted(id, sellerId, nickname, liveStreamId, liveStream.getTitle(), liveStream.isRecorded()))
                 .toList());
+    }
+
+    /** 이 방송 전 RENOTIFY_INTERVAL 안에 같은 판매자가 시작한 다른 방송이 있는지. (그때 이미 알렸다) */
+    private boolean startedRecently(LiveStream liveStream) {
+        if (liveStream.getStartedAt() == null) {
+            return false;
+        }
+        return liveStreamRepository.existsBySellerIdAndIdNotAndStartedAtBetween(liveStream.getSellerId(), liveStream.getId(),
+                liveStream.getStartedAt().minus(RENOTIFY_INTERVAL), liveStream.getStartedAt());
     }
 }

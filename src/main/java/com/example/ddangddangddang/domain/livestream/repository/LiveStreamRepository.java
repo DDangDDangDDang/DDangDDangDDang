@@ -57,6 +57,9 @@ public interface LiveStreamRepository extends JpaRepository<LiveStream, Long> {
     // 홈 화면에서 시청자 수 정보가 아직 없을 때 채우는 용도. 최근 시작한 방송부터
     List<LiveStream> findByStatusOrderByStartedAtDesc(LiveStreamStatus status, Pageable pageable);
 
+    /** 판매자가 그 기간에 시작한 다른 방송이 있는지. (방송 시작 알림을 반복해서 보내지 않기 위해, LiveStartedNotifier) */
+    boolean existsBySellerIdAndIdNotAndStartedAtBetween(Long sellerId, Long id, java.time.LocalDateTime from, java.time.LocalDateTime to);
+
     // 홈 화면 방송 예정: 시작 예정 시간이 from 이후인 방송을 가까운 순으로 (시작 예정 시간을 정하지 않은 방송은 제외)
     List<LiveStream> findByStatusAndScheduledStartAtGreaterThanEqualOrderByScheduledStartAtAsc(
             LiveStreamStatus status, LocalDateTime from, Pageable pageable);

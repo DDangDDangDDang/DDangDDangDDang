@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.livechat.service;
 
+import com.example.ddangddangddang.domain.user.service.EquippedBadge;
 import com.example.ddangddangddang.domain.user.service.NicknameBadges;
 
 import com.example.ddangddangddang.domain.livechat.dto.ChatMessageResponse;
@@ -56,8 +57,11 @@ public class LiveChatService {
         validateNotRepeated(sender.id(), trimmed);
         liveStreamService.validateLive(liveStreamId);
 
-        // 보낸 사람이 장착한 스킨·뱃지·색상을 함께 보낸다. (메시지마다 읽으므로 캐시, NicknameBadges)
-        ChatMessageResponse message = ChatMessageResponse.chat(liveStreamId, sender.id(), sender.nickname(), nicknameBadges.equipped(sender.id()), trimmed);
+        // 보낸 사람이 장착한 스킨·뱃지·색상과 지금 닉네임을 함께 보낸다. (메시지마다 읽으므로 캐시, NicknameBadges)
+        // 토큰의 닉네임은 닉네임을 바꾼 뒤에도 토큰이 만료될 때까지 옛 값이라, 캐시에 닉네임이 있으면 그것을 쓴다.
+        EquippedBadge equipped = nicknameBadges.equipped(sender.id());
+        String nickname = equipped.nickname() != null ? equipped.nickname() : sender.nickname();
+        ChatMessageResponse message = ChatMessageResponse.chat(liveStreamId, sender.id(), nickname, equipped, trimmed);
         broadcast(liveStreamId, message);
         // 애매한 내용은 전송한 뒤 AI가 따로 검토해 방송 설정대로 처리한다. (AI를 끈 상태면 아무것도 하지 않음)
         chatModerationQueue.enqueue(message);
