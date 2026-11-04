@@ -25,7 +25,7 @@ export const AUCTION_PHASE_LABEL: Record<AuctionPhase, string> = {
 
 export function auctionPhase(auction: { status?: AuctionStatus; endAt?: string }, now: Date): AuctionPhase | undefined {
   if (!auction.status) return undefined;
-  if (auction.status === 'ONGOING' && auction.endAt && new Date(auction.endAt) <= now) return 'CLOSING';
+  if (auction.status === 'ONGOING' && auction.endAt && seoulTimeMillis(auction.endAt) <= now.getTime()) return 'CLOSING';
   return auction.status;
 }
 
@@ -61,7 +61,8 @@ export function featuredAuctions<T extends { id?: number; status?: AuctionStatus
 /** 서버 시각까지 남은 초 (지났으면 0) */
 export function secondsUntil(serverTime: string | undefined, now: Date): number {
   if (!serverTime) return 0;
-  return Math.max(0, Math.floor((new Date(serverTime).getTime() - now.getTime()) / 1000));
+  // 서버 시각은 시간대 없는 서울 시각이라 브라우저 시간대와 상관없이 서울 시각으로 읽는다
+  return Math.max(0, Math.floor((seoulTimeMillis(serverTime) - now.getTime()) / 1000));
 }
 
 /** 고른 카테고리 id가 속한 대분류. 대분류 id면 그 대분류, 비었거나 없는 id면 undefined */
