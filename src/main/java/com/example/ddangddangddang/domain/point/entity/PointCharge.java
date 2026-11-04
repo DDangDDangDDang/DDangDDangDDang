@@ -13,7 +13,11 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "point_charges",
         // 결제 확인 보정(PointChargeRecoveryScheduler): 오래된 PENDING 충전을 만든 시각 순으로 찾는다
-        indexes = @Index(name = "idx_point_charges_status_created", columnList = "status, created_at"))
+        indexes = {
+                @Index(name = "idx_point_charges_status_created", columnList = "status, created_at"),
+                // 결제 취소분을 다 회수하지 못한 충전을 찾는다 (대부분 0이라 거의 비어 있음)
+                @Index(name = "idx_point_charges_unreclaimed", columnList = "unreclaimed_amount")
+        })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PointCharge extends BaseTimeEntity {
 
@@ -45,6 +49,13 @@ public class PointCharge extends BaseTimeEntity {
      */
     @Column(nullable = false)
     private long cancelledAmount;
+
+    /**
+     * 결제가 취소됐지만 아직 회수하지 못한 포인트. 취소될 때 이미 쓰거나 입찰에 묶여 있어 모자랐던 만큼이다.
+     * 지갑의 reclaimDebt와 같이 늘고 줄며, 사용 가능 포인트가 생기면 결제 확인 보정 스케줄러가 마저 회수한다.
+     */
+    @Column(nullable = false)
+    private long unreclaimedAmount;
 
     private PointCharge(Long userId, Long amount, String paymentId){
         this.userId = userId;
@@ -128,6 +139,22 @@ public class PointCharge extends BaseTimeEntity {
             throw new BusinessException(PointErrorCode.INVALID_AMOUNT);
         }
         this.cancelledAmount += cancelled;
+    }
+
+    /** 취소분 중 지금 회수하지 못한 금액을 남긴다. 나중에 collectUnreclaimed로 마저 회수한다. */
+    public void recordShortfall(long shortfall) {
+        if (shortfall < 0 || unreclaimedAmount + shortfall > cancelledAmount) {
+            throw new BusinessException(PointErrorCode.INVALID_AMOUNT);
+        }
+        this.unreclaimedAmount += shortfall;
+    }
+
+    /** 남아 있던 미회수 금액 중 collected만큼 회수했다. */
+    public void recordCollected(long collected) {
+        if (collected < 0 || collected > unreclaimedAmount) {
+            throw new BusinessException(PointErrorCode.INVALID_AMOUNT);
+        }
+        this.unreclaimedAmount -= collected;
     }
 
     private void validatePending() {

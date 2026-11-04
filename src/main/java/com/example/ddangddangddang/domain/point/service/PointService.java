@@ -101,8 +101,8 @@ public class PointService {
     @Transactional
     public void purchaseWithHeld(Long userId, long amount, Long auctionId) {
         PointWallet wallet = findWalletForUpdate(userId);
-        wallet.purchaseWithHeld(amount);
-        record(wallet, PointHistoryType.PURCHASE, amount, PointReferenceType.AUCTION, auctionId);
+        long earnedPortion = wallet.purchaseWithHeld(amount);
+        pointHistoryRepository.save(PointHistory.purchase(wallet, amount, earnedPortion, auctionId));
     }
 
     /**
@@ -121,16 +121,16 @@ public class PointService {
         record(prevWallet, PointHistoryType.RELEASE, prevAmount, PointReferenceType.AUCTION, auctionId);
 
         PointWallet buyerWallet = wallets.get(buyerId);
-        buyerWallet.purchase(price);
-        record(buyerWallet, PointHistoryType.PURCHASE, price, PointReferenceType.AUCTION, auctionId);
+        long earnedPortion = buyerWallet.purchase(price);
+        pointHistoryRepository.save(PointHistory.purchase(buyerWallet, price, earnedPortion, auctionId));
     }
 
     /** 즉시구매: 사용 가능 포인트를 바로 차감한다. */
     @Transactional
     public void purchase(Long userId, long amount, Long auctionId) {
         PointWallet wallet = findWalletForUpdate(userId);
-        wallet.purchase(amount);
-        record(wallet, PointHistoryType.PURCHASE, amount, PointReferenceType.AUCTION, auctionId);
+        long earnedPortion = wallet.purchase(amount);
+        pointHistoryRepository.save(PointHistory.purchase(wallet, amount, earnedPortion, auctionId));
     }
 
     /** 구매 확정: 판매자에게 낙찰 금액을 정산한다. */
@@ -141,11 +141,11 @@ public class PointService {
         record(wallet, PointHistoryType.SETTLE, amount, PointReferenceType.ORDER, orderId);
     }
 
-    /** 주문 취소: 구매자에게 낙찰 금액을 환불한다. */
+    /** 주문 취소: 구매자에게 낙찰 금액을 환불한다. 구매 때 번 포인트로 낸 몫은 번 포인트로 돌려준다. */
     @Transactional
-    public void refundOrder(Long buyerId, long amount, Long orderId) {
+    public void refundOrder(Long buyerId, long amount, Long orderId, Long auctionId) {
         PointWallet wallet = findWalletForUpdate(buyerId);
-        wallet.refundOrder(amount);
+        wallet.refundOrder(amount, earnedPortionOf(wallet, auctionId));
         record(wallet, PointHistoryType.ORDER_REFUND, amount, PointReferenceType.ORDER, orderId);
     }
 
@@ -155,11 +155,11 @@ public class PointService {
      * 두 지갑을 사용자 ID 순서로 잠가 다른 지갑 작업과 데드락이 나지 않게 한다.
      */
     @Transactional
-    public void cancelWin(Long buyerId, long finalPrice, Long sellerId, long penalty, Long orderId) {
+    public void cancelWin(Long buyerId, long finalPrice, Long sellerId, long penalty, Long orderId, Long auctionId) {
         Map<Long, PointWallet> wallets = penalty > 0 ? findWalletsForUpdate(buyerId, sellerId) : findWalletsForUpdate(buyerId);
 
         PointWallet buyerWallet = wallets.get(buyerId);
-        buyerWallet.refundOrder(finalPrice);
+        buyerWallet.refundOrder(finalPrice, earnedPortionOf(buyerWallet, auctionId));
         record(buyerWallet, PointHistoryType.WIN_CANCEL, finalPrice, PointReferenceType.ORDER, orderId);
         if (penalty == 0) {
             return;
@@ -170,6 +170,14 @@ public class PointService {
         PointWallet sellerWallet = wallets.get(sellerId);
         sellerWallet.receiveOrderPenalty(penalty);
         record(sellerWallet, PointHistoryType.ORDER_PENALTY, penalty, PointReferenceType.ORDER, orderId);
+    }
+
+    /** 이 경매를 살 때 번 포인트로 낸 몫. 이 기능 전에 산 주문은 기록이 없어 0(충전한 포인트로 환불)이다. */
+    private long earnedPortionOf(PointWallet wallet, Long auctionId) {
+        return pointHistoryRepository.findFirstByWalletIdAndTypeAndRefTypeAndRefIdOrderByIdDesc(
+                        wallet.getId(), PointHistoryType.PURCHASE, PointReferenceType.AUCTION, auctionId)
+                .map(PointHistory::getEarnedPortion)
+                .orElse(0L);
     }
 
     // private 메서드 추가

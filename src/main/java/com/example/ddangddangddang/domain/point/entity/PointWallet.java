@@ -22,8 +22,11 @@ import lombok.NoArgsConstructor;
  * 그래서 판매 정산·위약금으로 번 포인트(earnedBalance)를 따로 센다.
  * - 쓸 때(낙찰·즉시구매·위약금 지급·충전 회수)는 충전한 포인트부터 쓴다. 번 포인트는 마지막에 쓴다.
  * - 입찰 홀딩·해제는 포인트가 지갑 안에서 옮겨 갈 뿐이라 번 포인트에 영향이 없다.
- * - 주문 취소로 돌려받은 포인트는 어디서 왔는지 모르므로 충전한 포인트로 본다. (환전할 수 없는 쪽으로 안전하게)
+ * - 주문 취소로 돌려받은 포인트는 그 주문에 썼던 번 포인트만큼 번 포인트로 돌아오고, 나머지는 충전한 포인트로 돌아온다.
  * 환전할 수 있는 양은 번 포인트와 사용 가능 포인트 중 작은 값이다. (번 포인트 일부가 입찰에 묶여 있을 수 있음)
+ *
+ * 충전 결제가 취소됐는데 포인트를 이미 쓰거나 입찰에 묶어 둬 다 회수하지 못하면, 모자란 만큼을 reclaimDebt로 남긴다.
+ * 그만큼은 사용 가능 포인트로 치지 않아(입찰·구매·환전 불가) 카드 환불과 포인트를 함께 쓸 수 없고, 포인트가 생기면 마저 회수한다.
  */
 @Getter
 @Entity
@@ -53,6 +56,10 @@ public class PointWallet extends BaseTimeEntity {
     @Column(nullable = false)
     private long earnedBalance;
 
+    /** 결제 취소로 회수해야 하는데 아직 회수하지 못한 포인트. 사용 가능 포인트에서 이만큼은 쓸 수 없다. */
+    @Column(nullable = false)
+    private long reclaimDebt;
+
     /** 비관적 락을 쓰지 않는 경로에서 동시 수정이 일어났을 때를 대비한 안전장치 */
     @Version
     private Long version;
@@ -68,9 +75,14 @@ public class PointWallet extends BaseTimeEntity {
         return new PointWallet(userId);
     }
 
+    /** 실제로 쓸 수 있는 포인트: 사용 가능 포인트에서 회수할 포인트(reclaimDebt)를 뺀 만큼 */
+    public long getSpendableBalance() {
+        return Math.max(0, balance - reclaimDebt);
+    }
+
     /** 지금 환전할 수 있는 포인트: 번 포인트 중 입찰에 묶이지 않은 만큼 */
     public long getExchangeableBalance() {
-        return Math.max(0, Math.min(earnedBalance, balance));
+        return Math.max(0, Math.min(earnedBalance, getSpendableBalance()));
     }
 
     /** 충전: 사용 가능 + (환전할 수 없는 포인트) */
@@ -82,7 +94,7 @@ public class PointWallet extends BaseTimeEntity {
     /** 입찰: 사용 가능 -> 홀딩 */
     public void hold(long amount) {
         validateAmount(amount);
-        if (balance < amount) {
+        if (getSpendableBalance() < amount) {
             throw new BusinessException(PointErrorCode.INSUFFICIENT_BALANCE);
         }
         this.balance -= amount;
@@ -97,22 +109,32 @@ public class PointWallet extends BaseTimeEntity {
         this.balance += amount;
     }
 
-    /** 낙찰: 홀딩된 포인트 차감 */
-    public void purchaseWithHeld(long amount) {
+    /**
+     * 낙찰: 홀딩된 포인트 차감
+     *
+     * @return 이 중 번 포인트로 낸 금액 (주문이 취소되면 그만큼 번 포인트로 돌려준다)
+     */
+    public long purchaseWithHeld(long amount) {
         validateAmount(amount);
         validateHeld(amount);
-        spendChargedFirst(amount);
+        long fromEarned = spendChargedFirst(amount);
         this.heldBalance -= amount;
+        return fromEarned;
     }
 
-    /** 즉시구매: 사용 가능 포인트 바로 차감 */
-    public void purchase(long amount) {
+    /**
+     * 즉시구매: 사용 가능 포인트 바로 차감
+     *
+     * @return 이 중 번 포인트로 낸 금액 (주문이 취소되면 그만큼 번 포인트로 돌려준다)
+     */
+    public long purchase(long amount) {
         validateAmount(amount);
-        if (balance < amount) {
+        if (getSpendableBalance() < amount) {
             throw new BusinessException(PointErrorCode.INSUFFICIENT_BALANCE);
         }
-        spendChargedFirst(amount);
+        long fromEarned = spendChargedFirst(amount);
         this.balance -= amount;
+        return fromEarned;
     }
 
     /** 구매 확정 정산: 판매자 사용 가능 + (환전할 수 있는 포인트) */
@@ -125,7 +147,7 @@ public class PointWallet extends BaseTimeEntity {
     /** 환전 신청: 번 포인트에서만 차감한다. 충전한 포인트는 환전할 수 없다 (홀딩된 포인트도 환전할 수 없다) */
     public void exchange(long amount) {
         validateAmount(amount);
-        if (balance < amount) {
+        if (getSpendableBalance() < amount) {
             throw new BusinessException(PointErrorCode.INSUFFICIENT_BALANCE);
         }
         if (getExchangeableBalance() < amount) {
@@ -142,10 +164,14 @@ public class PointWallet extends BaseTimeEntity {
         this.earnedBalance += amount;
     }
 
-    /** 주문 취소: 낙찰로 차감했던 포인트를 구매자의 사용 가능 포인트로 돌려준다 (환전할 수 없는 포인트로 돌아온다) */
-    public void refundOrder(long amount) {
+    /**
+     * 주문 취소: 낙찰로 차감했던 포인트를 구매자의 사용 가능 포인트로 돌려준다.
+     * 구매 때 번 포인트로 낸 만큼(earnedPortion)은 번 포인트로, 나머지는 충전한 포인트로 돌아온다.
+     */
+    public void refundOrder(long amount, long earnedPortion) {
         validateAmount(amount);
         this.balance += amount;
+        this.earnedBalance += Math.max(0, Math.min(earnedPortion, amount));
     }
 
     /** 낙찰취소 위약금: 돌려받은 낙찰 금액에서 구매자가 낸다. 환불 직후라 잔액은 항상 충분하다 */
@@ -164,29 +190,47 @@ public class PointWallet extends BaseTimeEntity {
 
     /**
      * 충전 결제가 취소(환불)돼 그만큼 포인트를 회수한다. 사용 가능 포인트에서만 뺀다. (입찰에 묶인 포인트는 건드리지 않음)
-     * 이미 써 버려 모자라면 있는 만큼만 회수한다.
+     * 이미 써 버리거나 입찰에 묶여 모자라면 있는 만큼만 회수하고, 모자란 만큼은 reclaimDebt로 남겨 나중에 마저 회수한다.
      *
-     * @return 실제로 회수한 포인트
+     * @return 지금 회수한 포인트
      */
     public long reclaimCharge(long amount) {
         validateAmount(amount);
-        long reclaimed = Math.min(amount, balance);
-        if (reclaimed > 0) {
-            spendChargedFirst(reclaimed);
-            this.balance -= reclaimed;
-        }
+        long reclaimed = takeFromBalance(Math.min(amount, getSpendableBalance()));
+        this.reclaimDebt += amount - reclaimed;
         return reclaimed;
+    }
+
+    /**
+     * 남아 있는 회수할 포인트(reclaimDebt) 중 최대 max만큼을 사용 가능 포인트에서 회수한다.
+     *
+     * @return 회수한 포인트
+     */
+    public long collectReclaimDebt(long max) {
+        long collected = takeFromBalance(Math.min(Math.min(max, reclaimDebt), balance));
+        this.reclaimDebt -= collected;
+        return collected;
+    }
+
+    private long takeFromBalance(long amount) {
+        if (amount <= 0) {
+            return 0;
+        }
+        spendChargedFirst(amount);
+        this.balance -= amount;
+        return amount;
     }
 
     /**
      * 포인트가 지갑 밖으로 나갈 때 충전한 포인트부터 쓰고, 모자란 만큼만 번 포인트에서 쓴다.
      * 반드시 balance·heldBalance를 줄이기 전에 부른다.
      */
-    private void spendChargedFirst(long amount) {
+    private long spendChargedFirst(long amount) {
         long total = balance + heldBalance;
         long charged = Math.max(0, total - earnedBalance);
-        long fromEarned = Math.max(0, amount - charged);
-        this.earnedBalance = Math.max(0, earnedBalance - fromEarned);
+        long fromEarned = Math.min(earnedBalance, Math.max(0, amount - charged));
+        this.earnedBalance -= fromEarned;
+        return fromEarned;
     }
 
     private void validateAmount(long amount) {

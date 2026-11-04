@@ -21,7 +21,8 @@ import java.util.Base64;
  *
  * 키는 point.exchange.account-encryption-key (Base64로 쓴 32바이트). 운영은 Secrets Manager의 POINT_ACCOUNT_ENCRYPTION_KEY로 넣는다.
  * 키를 바꾸면 이미 저장한 계좌번호를 읽을 수 없으므로 바꾸지 않는다.
- * 암호화를 넣기 전에 저장된 평문 계좌번호는 접두사가 없으므로 그대로 읽는다. (다음에 그 행을 저장할 때 암호화된다)
+ * 암호화를 넣기 전에 저장된 평문 계좌번호는 접두사가 없으므로 그대로 읽는다. 그런 행은 서버가 뜰 때
+ * AccountNumberReencryptRunner가 암호화해 다시 저장한다. (끝난 환전 행은 다시 저장되지 않으므로)
  *
  * Spring Boot는 Hibernate가 컨버터를 스프링 빈으로 만들게 하므로 설정값을 주입받을 수 있다.
  */
@@ -63,6 +64,11 @@ public class AccountNumberConverter implements AttributeConverter<String, String
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("계좌번호를 암호화하지 못했습니다.", e);
         }
+    }
+
+    /** 이미 암호화된 값인지 (평문이면 false) */
+    public static boolean isEncrypted(String stored) {
+        return stored != null && stored.startsWith(PREFIX);
     }
 
     @Override

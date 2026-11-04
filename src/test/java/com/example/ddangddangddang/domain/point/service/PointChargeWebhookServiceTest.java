@@ -145,6 +145,47 @@ class PointChargeWebhookServiceTest {
     }
 
     @Test
+    @DisplayName("입찰에 묶여 회수하지 못한 취소분은 남겨 두고, 입찰이 풀리면 마저 회수한다")
+    void shortfallIsCollectedLater() {
+        PointCharge charge = pendingCharge();
+        charge.complete();
+        PointWallet wallet = wallet();
+        wallet.charge(AMOUNT);
+        wallet.hold(AMOUNT);
+        given(pointChargeRepository.findByPaymentId(PAYMENT_ID)).willReturn(Optional.of(charge));
+        given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+        given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
+        given(paymentGateway.getPayment(PAYMENT_ID))
+                .willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.CANCELLED, AMOUNT, AMOUNT));
+        PointChargeProcessor processor =
+                new PointChargeProcessor(pointChargeRepository, pointWalletRepository, pointHistoryRepository);
+
+        pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
+
+        assertThat(charge.getCancelledAmount()).isEqualTo(AMOUNT);
+        assertThat(charge.getUnreclaimedAmount()).isEqualTo(AMOUNT);
+        assertThat(wallet.getReclaimDebt()).isEqualTo(AMOUNT);
+        verify(pointHistoryRepository, never()).save(any());
+
+        // 아직 쓸 수 있는 포인트가 없으면 회수하지 않는다
+        assertThat(processor.collectUnreclaimed(PAYMENT_ID)).isZero();
+
+        wallet.release(AMOUNT);
+        assertThat(wallet.getSpendableBalance()).isZero();
+
+        assertThat(processor.collectUnreclaimed(PAYMENT_ID)).isEqualTo(AMOUNT);
+        assertThat(wallet.getBalance()).isZero();
+        assertThat(wallet.getReclaimDebt()).isZero();
+        assertThat(charge.getUnreclaimedAmount()).isZero();
+        org.mockito.ArgumentCaptor<com.example.ddangddangddang.domain.point.entity.PointHistory> history =
+                org.mockito.ArgumentCaptor.forClass(com.example.ddangddangddang.domain.point.entity.PointHistory.class);
+        verify(pointHistoryRepository).save(history.capture());
+        assertThat(history.getValue().getType())
+                .isEqualTo(com.example.ddangddangddang.domain.point.entity.PointHistoryType.CHARGE_CANCEL);
+        assertThat(history.getValue().getAmount()).isEqualTo(AMOUNT);
+    }
+
+    @Test
     @DisplayName("결제 확인 보정: PENDING인데 포트원에 결제 완료면 포인트를 지급하고, 결제가 없으면 그대로 둔다")
     void recoverPending() {
         PointCharge paidCharge = pendingCharge();

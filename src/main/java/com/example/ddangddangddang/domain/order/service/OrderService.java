@@ -228,9 +228,10 @@ public class OrderService {
         long penalty = reason == OrderCancelReason.BUYER_NO_ADDRESS ? order.getNoAddressPenalty() : 0;
         long refund = order.getFinalPrice() - penalty;
         if (reason == OrderCancelReason.BUYER_NO_ADDRESS) {
-            pointService.cancelWin(order.getBuyerId(), order.getFinalPrice(), order.getSellerId(), penalty, order.getId());
+            pointService.cancelWin(order.getBuyerId(), order.getFinalPrice(), order.getSellerId(), penalty, order.getId(),
+                    order.getAuctionId());
         } else {
-            pointService.refundOrder(order.getBuyerId(), refund, order.getId());
+            pointService.refundOrder(order.getBuyerId(), refund, order.getId(), order.getAuctionId());
         }
         eventPublisher.publishEvent(new OrderCanceledEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
                 order.getSellerId(), order.getProductName(), reason, refund, penalty));

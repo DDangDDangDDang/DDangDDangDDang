@@ -32,4 +32,12 @@ public interface PointChargeRepository extends JpaRepository<PointCharge, Long> 
                                          @Param("to") LocalDateTime to,
                                          @Param("afterId") Long afterId,
                                          Pageable pageable);
+
+    /** 결제 취소분을 다 회수하지 못한 충전 중 afterId보다 큰 것. ID 순으로 */
+    @Query("""
+            select c from PointCharge c
+            where c.unreclaimedAmount > 0 and c.id > :afterId
+            order by c.id asc
+            """)
+    List<PointCharge> findUnreclaimed(@Param("afterId") Long afterId, Pageable pageable);
 }

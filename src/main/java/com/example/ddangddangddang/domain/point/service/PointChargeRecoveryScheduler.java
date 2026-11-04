@@ -22,6 +22,8 @@ import java.util.List;
  * - 방금 만든 충전(결제창에서 결제 중)과 겹치지 않도록 minAge보다 오래된 것만 본다.
  * - maxAge보다 오래된 충전은 보지 않는다. (결제하지 않고 버려진 요청을 계속 조회하지 않게)
  * - 반영은 PointChargeProcessor가 충전 요청 행을 잠그고 PENDING인지 다시 확인하므로, 프론트·웹훅과 동시에 와도 한 번만 지급된다.
+ *
+ * 같은 주기에 결제 취소 때 다 회수하지 못한 포인트도 마저 회수한다. (입찰이 풀리거나 포인트가 들어와 사용 가능 포인트가 생긴 경우)
  */
 @Slf4j
 @Component
@@ -32,21 +34,29 @@ public class PointChargeRecoveryScheduler {
 
     private final PointChargeRepository pointChargeRepository;
     private final PointChargeService pointChargeService;
+    private final PointChargeProcessor pointChargeProcessor;
     private final Duration minAge;
     private final Duration maxAge;
 
     public PointChargeRecoveryScheduler(PointChargeRepository pointChargeRepository,
                                         PointChargeService pointChargeService,
+                                        PointChargeProcessor pointChargeProcessor,
                                         @Value("${point.charge.recovery.min-age-minutes:10}") long minAgeMinutes,
                                         @Value("${point.charge.recovery.max-age-hours:24}") long maxAgeHours) {
         this.pointChargeRepository = pointChargeRepository;
         this.pointChargeService = pointChargeService;
+        this.pointChargeProcessor = pointChargeProcessor;
         this.minAge = Duration.ofMinutes(minAgeMinutes);
         this.maxAge = Duration.ofHours(maxAgeHours);
     }
 
     @Scheduled(fixedDelayString = "${point.charge.recovery.delay-ms:300000}")
-    public void recoverPending() {
+    public void run() {
+        recoverPending();
+        collectUnreclaimed();
+    }
+
+    void recoverPending() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime from = now.minus(maxAge);
         LocalDateTime to = now.minus(minAge);
@@ -61,6 +71,24 @@ public class PointChargeRecoveryScheduler {
                 } catch (Exception e) {
                     // 한 건이 실패해도(포트원 오류 등) 나머지는 계속한다. 실패한 건은 다음 주기에 다시 본다.
                     log.warn("충전 결제 확인 보정 실패 paymentId={}", charge.getPaymentId(), e);
+                }
+            }
+            if (charges.size() < BATCH_SIZE) {
+                return;
+            }
+            afterId = charges.get(charges.size() - 1).getId();
+        }
+    }
+
+    void collectUnreclaimed() {
+        Long afterId = 0L;
+        while (true) {
+            List<PointCharge> charges = pointChargeRepository.findUnreclaimed(afterId, PageRequest.of(0, BATCH_SIZE));
+            for (PointCharge charge : charges) {
+                try {
+                    pointChargeProcessor.collectUnreclaimed(charge.getPaymentId());
+                } catch (Exception e) {
+                    log.warn("남겨 둔 결제 취소분 회수 실패 paymentId={}", charge.getPaymentId(), e);
                 }
             }
             if (charges.size() < BATCH_SIZE) {

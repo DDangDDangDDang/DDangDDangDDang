@@ -201,8 +201,37 @@ class PointControllerTest {
                     "select account_number from point_exchanges where id = ?", String.class, exchangeId);
             assertThat(stored).startsWith("enc:v1:").doesNotContain("110123456789");
         }
+
+        @Test
+        @DisplayName("암호화 전에 평문으로 저장된 계좌번호는 서버 시작 작업이 암호화하고, 원래 값으로 읽힌다")
+        void legacyPlaintextIsReencrypted() throws Exception {
+            PointWallet wallet = pointWalletRepository.findByUserId(userId).orElseThrow();
+            wallet.settle(10_000L);
+            pointWalletRepository.saveAndFlush(wallet);
+            String response = mockMvc.perform(post("/api/v1/points/exchanges")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(EXCHANGE_BODY))
+                    .andExpect(status().isCreated())
+                    .andReturn().getResponse().getContentAsString();
+            long exchangeId = ((Number) JsonPath.read(response, "$.data.exchangeId")).longValue();
+            jdbcTemplate.update("update point_exchanges set account_number = ? where id = ?", "110123456789", exchangeId);
+
+            reencryptRunner.run(null);
+
+            String stored = jdbcTemplate.queryForObject(
+                    "select account_number from point_exchanges where id = ?", String.class, exchangeId);
+            assertThat(stored).startsWith("enc:v1:");
+            assertThat(accountNumberConverter.convertToEntityAttribute(stored)).isEqualTo("110123456789");
+        }
     }
 
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private com.example.ddangddangddang.domain.point.service.AccountNumberReencryptRunner reencryptRunner;
+
+    @Autowired
+    private com.example.ddangddangddang.domain.point.entity.AccountNumberConverter accountNumberConverter;
 }

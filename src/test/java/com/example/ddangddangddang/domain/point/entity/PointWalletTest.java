@@ -38,7 +38,7 @@ class PointWalletTest {
         PointWallet wallet = walletWithBalance(1_000L);
         wallet.hold(400L);
 
-        wallet.refundOrder(5_000L);
+        wallet.refundOrder(5_000L, 0L);
 
         assertThat(wallet.getBalance()).isEqualTo(5_600L);
         assertThat(wallet.getHeldBalance()).isEqualTo(400L);
@@ -244,15 +244,66 @@ class PointWalletTest {
     }
 
     @Test
-    @DisplayName("주문 취소로 돌려받은 포인트는 환전할 수 없는 포인트로 돌아온다")
-    void refundOrderIsNotExchangeable() {
-        PointWallet wallet = walletWithEarned(10_000L);
-        wallet.purchase(10_000L);
+    @DisplayName("주문 취소로 돌려받은 포인트는 구매 때 번 포인트로 낸 몫만 환전할 수 있는 포인트로 돌아온다")
+    void refundOrderRestoresEarnedPortion() {
+        PointWallet wallet = walletWithBalance(3_000L);
+        wallet.settle(7_000L);
 
-        wallet.refundOrder(10_000L);
+        long earnedPortion = wallet.purchase(10_000L);
+        wallet.refundOrder(10_000L, earnedPortion);
 
+        assertThat(earnedPortion).isEqualTo(7_000L);
         assertThat(wallet.getBalance()).isEqualTo(10_000L);
+        assertThat(wallet.getExchangeableBalance()).isEqualTo(7_000L);
+    }
+
+    @Test
+    @DisplayName("충전한 포인트로만 산 주문이 취소되면 환전할 수 없는 포인트로 돌아온다")
+    void refundOrderOfChargedPurchaseIsNotExchangeable() {
+        PointWallet wallet = walletWithBalance(10_000L);
+
+        long earnedPortion = wallet.purchase(10_000L);
+        wallet.refundOrder(10_000L, earnedPortion);
+
+        assertThat(earnedPortion).isZero();
         assertThat(wallet.getExchangeableBalance()).isZero();
+    }
+
+    @Test
+    @DisplayName("결제 취소분을 다 회수하지 못하면 남은 만큼은 쓸 수 없고, 입찰이 풀리면 마저 회수한다")
+    void reclaimShortfallBlocksSpendingUntilCollected() {
+        PointWallet wallet = walletWithBalance(100_000L);
+        wallet.hold(100_000L);
+
+        long reclaimed = wallet.reclaimCharge(100_000L);
+
+        assertThat(reclaimed).isZero();
+        assertThat(wallet.getReclaimDebt()).isEqualTo(100_000L);
+
+        wallet.release(100_000L);
+
+        assertThat(wallet.getBalance()).isEqualTo(100_000L);
+        assertThat(wallet.getSpendableBalance()).isZero();
+        assertThatThrownBy(() -> wallet.hold(1_000L)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> wallet.purchase(1_000L)).isInstanceOf(BusinessException.class);
+
+        long collected = wallet.collectReclaimDebt(100_000L);
+
+        assertThat(collected).isEqualTo(100_000L);
+        assertThat(wallet.getBalance()).isZero();
+        assertThat(wallet.getReclaimDebt()).isZero();
+    }
+
+    @Test
+    @DisplayName("회수할 포인트가 남아 있으면 번 포인트도 그만큼 환전할 수 없다")
+    void reclaimDebtLimitsExchange() {
+        PointWallet wallet = walletWithBalance(10_000L);
+        wallet.hold(10_000L);
+        wallet.reclaimCharge(10_000L);
+        wallet.settle(10_000L);
+
+        assertThat(wallet.getExchangeableBalance()).isZero();
+        assertThatThrownBy(() -> wallet.exchange(1_000L)).isInstanceOf(BusinessException.class);
     }
 
     @Test
