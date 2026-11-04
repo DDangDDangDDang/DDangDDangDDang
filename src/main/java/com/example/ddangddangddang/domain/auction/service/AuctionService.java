@@ -2,6 +2,8 @@ package com.example.ddangddangddang.domain.auction.service;
 
 import java.util.stream.Collectors;
 import java.util.Map;
+
+import com.example.ddangddangddang.domain.auction.repository.AuctionViewRepository;
 import com.example.ddangddangddang.domain.hammer.entity.SanctionType;
 import com.example.ddangddangddang.domain.hammer.service.SanctionService;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
@@ -30,6 +32,7 @@ import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.storage.FileStorage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,6 +44,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 @Transactional
@@ -53,6 +57,10 @@ public class AuctionService {
     private final FileStorage fileStorage;
     private final SanctionService sanctionService;
     private final SellerVerification sellerVerification;
+    private final AuctionViewRepository auctionViewRepository;
+
+    //같은 사람이 이 시간 안에 다시 보면 조회수를 세지 않는다
+    private static final Duration VIEW_DEDUPLICATION_WINDOW = Duration.ofMinutes(30);
 
     //경매(일반) 생성 : 본인 상품이고 판매 중이며 대기 or 진행 중인 경매가 아닐때 생성이 가능합니다
     public AuctionResponse auctionCreate(Long sellerId, AuctionCreateRequest request) {
@@ -78,12 +86,34 @@ public class AuctionService {
 
     //경매 상세 조회
     @Transactional(readOnly = true)
-    public AuctionResponse findAddBy(Long auctionId) {
+    public AuctionResponse findAddBy(Long auctionId, Long userId, String ip) {
         Auction auction = auctionRepository.findById(auctionId).orElseThrow(
                 () -> new BusinessException(AuctionErrorCode.NOT_FOUND)
         );
-
+        countView(auction,userId,ip);
         return AuctionResponse.from(auction, this::imageUrl);
+    }
+
+    /**
+     * 조회수 세기 (인기 경매 점수에 사용된다)
+     * - 끝난 경매는 세지 않는다 (인기 목록에서 빠진 경매라 셀 필요가 없다)
+     * - 판매자가 자기 경매를 본 건 세지 않는다 (자기 경매는 살 수 없으니 구매 관심에서 제외로 조회수에서는 제외 된다)
+     * - Redis가 고장 나도 경매 상세는 보여야 하므로, 실패하면 경고 로그만 남긴다.
+     */
+    private void countView(Auction auction, Long userId, String ip){
+        if (auction.getStatus() != AuctionStatus.READY && auction.getStatus() != AuctionStatus.ONGOING){
+            return;
+        }
+        if (userId != null && userId.equals(auction.getProduct().getSeller().getId())){
+            return;
+        }
+        // 로그인했으면 회원 ID로, 안 했으면 IP로 같은 사람을 구분한다.
+        String viewer = userId != null ? "user:" + userId : "ip:" + ip;
+        try {
+            auctionViewRepository.increaseIfFirstView(auction.getId(),viewer,VIEW_DEDUPLICATION_WINDOW);
+        } catch (RuntimeException e){
+            log.warn("경매 조회수 기록 실패 auctionId={}",auction.getId(), e);
+        }
     }
 
     //경매 취소(본인 경매이며 대기OR진행 중이며 입찰이 0건일시에만 취소가 가능합니다)
