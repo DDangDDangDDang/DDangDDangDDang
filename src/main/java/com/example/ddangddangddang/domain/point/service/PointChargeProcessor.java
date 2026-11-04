@@ -61,7 +61,7 @@ public class PointChargeProcessor {
         }
 
         // 정상 결제 → 포인트 지급 + 원장 기록 + 상태 변경
-        return PointChargeCompleteResponse.of(charge, applyCharge(charge).getBalance());
+        return PointChargeCompleteResponse.of(charge, applyCharge(charge).getSpendableBalance());
     }
 
     /**
@@ -151,7 +151,7 @@ public class PointChargeProcessor {
             return null;
         }
         return pointWalletRepository.findByUserId(charge.getUserId())
-                .map(PointWallet::getBalance)
+                .map(PointWallet::getSpendableBalance)
                 .orElse(null);
     }
 }

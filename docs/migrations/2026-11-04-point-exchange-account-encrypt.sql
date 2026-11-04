@@ -4,8 +4,10 @@
 -- ddl-auto(update)는 이미 있는 컬럼의 길이를 늘려 주지 않으므로, 그대로 배포하면 환전 신청 저장이 "Data too long"으로 실패한다.
 --
 -- 이 버전을 배포하기 "전에" 실행한다. 이미 255여도 다시 실행해도 된다.
--- 기존 평문 계좌번호는 그대로 읽히고, 서버가 뜰 때 AccountNumberReencryptRunner가 한 번 암호화해 다시 저장한다.
---   확인: SELECT COUNT(*) FROM point_exchanges WHERE account_number NOT LIKE 'enc:v1:%';  -- 배포 뒤 0이어야 한다
+-- 기존 평문 계좌번호는 그대로 읽힌다. 배포가 안정된 뒤(롤백할 일이 없을 때) POINT_EXCHANGE_REENCRYPTONSTARTUP=true로
+-- 서버를 한 번 다시 시작하면 AccountNumberReencryptRunner가 평문 행을 암호화해 다시 저장한다. (기본은 꺼져 있음)
+--   확인: SELECT COUNT(*) FROM point_exchanges WHERE account_number NOT LIKE 'enc:v1:%';  -- 켠 뒤 0이어야 한다
+-- 주의: 이 버전 배포 뒤 새로 저장한 계좌번호는 암호화돼 있어, 이전 이미지로 롤백하면 그 행은 암호문으로 보인다.
 -- 확인: SHOW CREATE TABLE point_exchanges;
 --
 -- 같이 준비할 것: 앱 비밀값(Secrets Manager ddang/app, dev도 따로)에 POINT_ACCOUNT_ENCRYPTION_KEY를 넣는다.

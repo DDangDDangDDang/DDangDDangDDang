@@ -217,7 +217,8 @@ class PointControllerTest {
             long exchangeId = ((Number) JsonPath.read(response, "$.data.exchangeId")).longValue();
             jdbcTemplate.update("update point_exchanges set account_number = ? where id = ?", "110123456789", exchangeId);
 
-            reencryptRunner.run(null);
+            new com.example.ddangddangddang.domain.point.service.AccountNumberReencryptRunner(jdbcTemplate, accountNumberConverter)
+                    .run(null);
 
             String stored = jdbcTemplate.queryForObject(
                     "select account_number from point_exchanges where id = ?", String.class, exchangeId);
@@ -228,9 +229,6 @@ class PointControllerTest {
 
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
-
-    @Autowired
-    private com.example.ddangddangddang.domain.point.service.AccountNumberReencryptRunner reencryptRunner;
 
     @Autowired
     private com.example.ddangddangddang.domain.point.entity.AccountNumberConverter accountNumberConverter;
