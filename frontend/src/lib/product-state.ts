@@ -22,6 +22,9 @@ export function productSaleState(product: Product): ProductSaleState {
   // 유찰·취소된 상품: 경매를 안 연 상품과 구분해 보여 준다. 다시 경매에 올려야 팔리므로 수정·삭제·다시 올리기는 그대로 된다.
   if (product.auctionStatus === 'FAILED') return { label: '유찰', variant: 'warning', editable: true };
   if (product.auctionStatus === 'CANCELED') return { label: '취소됨', variant: 'neutral', editable: true };
+  // 낙찰됐지만 배송지 미입력·미발송으로 주문이 자동 취소된 상품: 상품은 ACTIVE로 돌아오고 경매는 ENDED로 남는다.
+  // (팔린 상품은 위의 SOLD에서 먼저 걸러지므로, 여기 오는 ENDED는 거래가 취소된 경우뿐이다)
+  if (product.auctionStatus === 'ENDED') return { label: '거래 취소됨', variant: 'neutral', editable: true };
   // 경매를 아직 열지 않은 상품
   return { label: '판매 준비 중', variant: 'info', editable: true };
 }
