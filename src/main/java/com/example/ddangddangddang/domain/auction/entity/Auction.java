@@ -9,6 +9,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -67,6 +68,12 @@ public class Auction extends BaseTimeEntity {
 
     @Column(nullable = false)
     private int bidCount;
+
+    //조회수. 스케줄러가 Redis 조회수를 주기적으로 옮겨 적는다 (AuctionViewRepository)
+    //엔티티 저장(입찰 등) 때는 이 칸을 쓰지 않는다. 읽어 둔 옛 값으로 스케줄러가 적은 값을 덮어쓰지 않게 하려고
+    @ColumnDefault("0")
+    @Column(nullable = false,updatable = false)
+    private long viewCount = 0;
 
     private LocalDateTime canceledAt;
 
