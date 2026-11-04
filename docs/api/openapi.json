@@ -1307,6 +1307,140 @@
         }
       }
     },
+    "/api/v1/users/me/reauth/verify" : {
+      "post" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userVerifyReauthCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReauthCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVerificationTokenResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/reauth/password" : {
+      "post" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userReauthWithPassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReauthPasswordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVerificationTokenResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/reauth/code" : {
+      "post" : {
+        "tags" : [ "user-controller" ],
+        "operationId" : "userSendReauthCode",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCodeSentResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/me/profile-image/upload-url" : {
       "post" : {
         "tags" : [ "user-controller" ],
@@ -4013,6 +4147,104 @@
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/PhoneCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCodeSentResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/v1/auth/signup/email/verify" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "authVerifySignupEmail",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmailVerifyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVerificationTokenResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/v1/auth/signup/email/code" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "authSendSignupEmailCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmailCodeRequest"
               }
             }
           },
@@ -9635,6 +9867,9 @@
           },
           "profileImageUrl" : {
             "type" : "string"
+          },
+          "hasPassword" : {
+            "type" : "boolean"
           }
         }
       },
@@ -9650,9 +9885,13 @@
             "type" : "string",
             "minLength" : 1,
             "pattern" : "^\\d{6}$"
+          },
+          "reauthToken" : {
+            "type" : "string",
+            "minLength" : 1
           }
         },
-        "required" : [ "code", "phoneNumber" ]
+        "required" : [ "code", "phoneNumber", "reauthToken" ]
       },
       "EmailChangeRequest" : {
         "type" : "object",
@@ -9667,9 +9906,13 @@
             "type" : "string",
             "minLength" : 1,
             "pattern" : "^\\d{6}$"
+          },
+          "reauthToken" : {
+            "type" : "string",
+            "minLength" : 1
           }
         },
-        "required" : [ "code", "email" ]
+        "required" : [ "code", "email", "reauthToken" ]
       },
       "ApiResponseMyInfoUpdateResponse" : {
         "type" : "object",
@@ -10506,6 +10749,72 @@
           }
         }
       },
+      "ReauthCodeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^\\d{6}$"
+          }
+        },
+        "required" : [ "code" ]
+      },
+      "ApiResponseVerificationTokenResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/VerificationTokenResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "VerificationTokenResponse" : {
+        "type" : "object",
+        "properties" : {
+          "verificationToken" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ReauthPasswordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "password" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "password" ]
+      },
+      "ApiResponseCodeSentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CodeSentResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CodeSentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "ProfileImageUploadRequest" : {
         "type" : "object",
         "properties" : {
@@ -10560,29 +10869,6 @@
           }
         },
         "required" : [ "phoneNumber" ]
-      },
-      "ApiResponseCodeSentResponse" : {
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/CodeSentResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
-          }
-        }
-      },
-      "CodeSentResponse" : {
-        "type" : "object",
-        "properties" : {
-          "expiresIn" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
       },
       "EmailChangeCodeRequest" : {
         "type" : "object",
@@ -10686,7 +10972,8 @@
           "nickname" : {
             "type" : "string",
             "maxLength" : 10,
-            "minLength" : 2
+            "minLength" : 2,
+            "pattern" : "(?U)^\\S(?:.*\\S)?$"
           }
         },
         "required" : [ "nickname" ]
@@ -12065,7 +12352,8 @@
           "nickname" : {
             "type" : "string",
             "maxLength" : 10,
-            "minLength" : 2
+            "minLength" : 2,
+            "pattern" : "(?U)^\\S(?:.*\\S)?$"
           },
           "phoneNumber" : {
             "type" : "string",
@@ -12075,9 +12363,13 @@
           "phoneVerificationToken" : {
             "type" : "string",
             "minLength" : 1
+          },
+          "emailVerificationToken" : {
+            "type" : "string",
+            "minLength" : 1
           }
         },
-        "required" : [ "email", "nickname", "password", "phoneNumber", "phoneVerificationToken" ]
+        "required" : [ "email", "emailVerificationToken", "nickname", "password", "phoneNumber", "phoneVerificationToken" ]
       },
       "ApiResponseSignupResponse" : {
         "type" : "object",
@@ -12124,27 +12416,34 @@
         },
         "required" : [ "code", "phoneNumber" ]
       },
-      "ApiResponseVerificationTokenResponse" : {
+      "EmailVerifyRequest" : {
         "type" : "object",
         "properties" : {
-          "success" : {
-            "type" : "boolean"
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 100,
+            "minLength" : 0
           },
-          "data" : {
-            "$ref" : "#/components/schemas/VerificationTokenResponse"
-          },
-          "error" : {
-            "$ref" : "#/components/schemas/ErrorResponse"
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^\\d{6}$"
           }
-        }
+        },
+        "required" : [ "code", "email" ]
       },
-      "VerificationTokenResponse" : {
+      "EmailCodeRequest" : {
         "type" : "object",
         "properties" : {
-          "verificationToken" : {
-            "type" : "string"
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 100,
+            "minLength" : 0
           }
-        }
+        },
+        "required" : [ "email" ]
       },
       "ApiResponseLoginResponse" : {
         "type" : "object",
@@ -12295,7 +12594,8 @@
           "nickname" : {
             "type" : "string",
             "maxLength" : 10,
-            "minLength" : 2
+            "minLength" : 2,
+            "pattern" : "(?U)^\\S(?:.*\\S)?$"
           },
           "email" : {
             "type" : "string",
@@ -12311,6 +12611,9 @@
           "phoneVerificationToken" : {
             "type" : "string",
             "minLength" : 1
+          },
+          "emailVerificationToken" : {
+            "type" : "string"
           }
         },
         "required" : [ "email", "nickname", "phoneNumber", "phoneVerificationToken", "signupToken" ]
@@ -12887,7 +13190,7 @@
             "type" : "string",
             "maxLength" : 10,
             "minLength" : 2,
-            "pattern" : ".*\\S.*"
+            "pattern" : "(?U)^\\S(?:.*\\S)?$"
           },
           "bio" : {
             "type" : "string",
@@ -15055,6 +15358,10 @@
     "status" : 503,
     "message" : "일시적으로 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요."
   }, {
+    "code" : "COMMON_009",
+    "status" : 409,
+    "message" : "이미 등록된 정보와 겹쳐 처리하지 못했습니다. 입력을 확인하고 다시 시도해 주세요."
+  }, {
     "code" : "COMMON_999",
     "status" : 500,
     "message" : "서버 내부 오류가 발생했습니다."
@@ -15746,6 +16053,18 @@
     "code" : "USER_015",
     "status" : 400,
     "message" : "가지고 있지 않은 뱃지입니다."
+  }, {
+    "code" : "USER_016",
+    "status" : 400,
+    "message" : "닉네임에 사용할 수 없는 내용이 포함되어 있습니다."
+  }, {
+    "code" : "USER_017",
+    "status" : 400,
+    "message" : "비밀번호가 맞지 않습니다."
+  }, {
+    "code" : "USER_018",
+    "status" : 400,
+    "message" : "등록된 휴대폰 번호가 없습니다. 비밀번호 찾기로 비밀번호를 만든 뒤 다시 시도해 주세요."
   }, {
     "code" : "VERIFY_001",
     "status" : 400,

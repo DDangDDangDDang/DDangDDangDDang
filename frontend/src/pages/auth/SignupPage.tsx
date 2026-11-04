@@ -15,11 +15,12 @@ export function SignupPage() {
   const [params] = useSearchParams();
   const redirect = safeRedirect(params.get('redirect'));
 
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
   // 휴대폰 인증을 마치면 서버가 준 인증 토큰과 인증한 번호를 둔다. 번호를 바꾸면 다시 인증해야 한다.
   const [verified, setVerified] = useState<{ phoneNumber: string; token: string } | null>(null);
+  // 이메일 인증도 같다. 남의 이메일로 가입하지 못하게, 인증한 이메일로만 가입한다.
+  const [emailVerified, setEmailVerified] = useState<{ email: string; token: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -27,20 +28,30 @@ export function SignupPage() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!verified) return;
+    if (!verified || !emailVerified) return;
+    const email = emailVerified.email;
     setSubmitting(true);
     setError(undefined);
     try {
       await call(
         api.POST('/api/v1/auth/signup', {
-          body: { email, password, nickname, phoneNumber: verified.phoneNumber, phoneVerificationToken: verified.token },
+          body: {
+            email,
+            password,
+            nickname,
+            phoneNumber: verified.phoneNumber,
+            phoneVerificationToken: verified.token,
+            emailVerificationToken: emailVerified.token,
+          },
         }),
       );
     } catch (e) {
       setError(errorMessage(e));
-      // 이미 가입된 번호(USER_004)이거나 인증이 만료·사용됨(VERIFY_004)이면 인증 토큰을 다시 쓸 수 없으므로 휴대폰 인증을 다시 연다.
-      // 이메일·닉네임 중복(USER_001·002)은 서버가 토큰을 쓰기 전에 검사하므로 인증을 그대로 둔다.
+      // 이미 가입된 번호(USER_004)면 휴대폰 인증을, 이미 쓰는 이메일(USER_001)이면 이메일 인증을 다시 연다.
+      // 인증이 만료됨(VERIFY_004)은 어느 쪽인지 알 수 없어 둘 다 다시 연다.
+      // 닉네임 문제(USER_002·016)는 서버가 토큰을 쓰기 전에 검사하므로 인증을 그대로 둔다.
       if (isErrorCode(e, 'USER_004') || isErrorCode(e, 'VERIFY_004')) setVerified(null);
+      if (isErrorCode(e, 'USER_001') || isErrorCode(e, 'VERIFY_004')) setEmailVerified(null);
       setSubmitting(false);
       return;
     }
@@ -55,7 +66,7 @@ export function SignupPage() {
     }
   }
 
-  const canSubmit = Boolean(verified && email && password && nickname);
+  const canSubmit = Boolean(verified && emailVerified && password && nickname);
 
   return (
     <AuthCard
@@ -72,7 +83,24 @@ export function SignupPage() {
       <SocialLoginButtons redirect={redirect} />
       <OrDivider />
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Input label="이메일" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <VerificationField
+          kind="email"
+          verified={emailVerified !== null}
+          onTargetChange={() => setEmailVerified(null)}
+          sendCode={async (target) => {
+            const data = await call(api.POST('/api/v1/auth/signup/email/code', { body: { email: target } }));
+            return data?.expiresIn ?? 300;
+          }}
+          verify={async (target, code) => {
+            const data = await call(api.POST('/api/v1/auth/signup/email/verify', { body: { email: target, code } }));
+            if (data?.verificationToken) {
+              setEmailVerified({ email: target, token: data.verificationToken });
+              setError(undefined);
+            }
+          }}
+          sentMessage="이메일로 인증번호를 보냈어요. 메일이 안 보이면 스팸함도 확인해 주세요."
+          verifiedMessage="이메일 인증을 완료했어요."
+        />
         <Input
           label="비밀번호"
           type="password"
@@ -116,7 +144,9 @@ export function SignupPage() {
         <Button type="submit" size="lg" loading={submitting} disabled={!canSubmit}>
           가입하기
         </Button>
-        {!verified && <p className="text-center text-caption text-neutral-500">휴대폰 인증을 마치면 가입할 수 있어요.</p>}
+        {(!verified || !emailVerified) && (
+          <p className="text-center text-caption text-neutral-500">이메일과 휴대폰 인증을 마치면 가입할 수 있어요.</p>
+        )}
       </form>
     </AuthCard>
   );

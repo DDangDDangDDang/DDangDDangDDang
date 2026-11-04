@@ -85,7 +85,7 @@ export function MyInfoContent({ onNavigate }: { onNavigate?: () => void }) {
               </dl>
             </CardBody>
           </Card>
-          <ContactChangeDialog kind={contactDialog ?? 'email'} open={contactDialog !== undefined} onClose={() => setContactDialog(undefined)} />
+          <ContactChangeDialog kind={contactDialog ?? 'email'} me={me} open={contactDialog !== undefined} onClose={() => setContactDialog(undefined)} />
         </>
       )}
 

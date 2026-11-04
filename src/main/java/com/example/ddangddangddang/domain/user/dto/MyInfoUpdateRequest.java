@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.domain.user.dto;
 
+import com.example.ddangddangddang.domain.auth.dto.NicknameFormat;
 import com.example.ddangddangddang.domain.user.entity.User;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -13,7 +14,7 @@ import jakarta.validation.constraints.Size;
 public record MyInfoUpdateRequest(
 
         @Size(min = 2, max = 10, message = "닉네임은 2~10자여야 합니다.")
-        @Pattern(regexp = ".*\\S.*", message = "닉네임은 필수입니다.")
+        @Pattern(regexp = NicknameFormat.REGEX, message = NicknameFormat.MESSAGE)
         String nickname,
 
         @Size(max = User.BIO_MAX_LENGTH, message = "소개는 150자 이하입니다.")

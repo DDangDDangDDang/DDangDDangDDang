@@ -21,13 +21,16 @@ type VerificationFieldProps = {
   /** 인증번호를 보낸 뒤 보여줄 안내 */
   sentMessage?: string;
   verifiedMessage?: string;
+  /** 받는 곳이 정해져 있으면(지금 휴대폰 번호로 본인 확인 등) 그 값을 보여주기만 하고 바꾸지 못하게 한다. */
+  fixedTarget?: string;
 };
 
 /**
  * 받는 곳 입력 + [인증번호 받기] → 인증번호 입력 + [확인].
  * - 인증번호 유효시간(서버 응답, 보통 5분) 타이머
  * - [인증번호 받기]는 1분 동안 비활성화
- * 회원가입·이메일 찾기(휴대폰), 비밀번호 재설정(이메일)에서 쓴다.
+ * 회원가입(휴대폰·이메일)·이메일 찾기(휴대폰), 비밀번호 재설정(이메일), 연락처 변경에서 쓴다.
+ * 한 화면에 두 개(가입: 이메일·휴대폰)가 있어도 구분되도록 "휴대폰 인증"·"이메일 인증" 묶음으로 그린다.
  */
 export function VerificationField({
   kind,
@@ -37,8 +40,9 @@ export function VerificationField({
   onTargetChange,
   sentMessage = '인증번호를 보냈어요.',
   verifiedMessage = '인증을 완료했어요.',
+  fixedTarget,
 }: VerificationFieldProps) {
-  const [target, setTarget] = useState('');
+  const [target, setTarget] = useState(fixedTarget ?? '');
   const [code, setCode] = useState('');
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [resendAt, setResendAt] = useState<number | null>(null);
@@ -96,7 +100,7 @@ export function VerificationField({
   const isPhone = kind === 'phone';
 
   return (
-    <div className="flex flex-col gap-3">
+    <div role="group" aria-label={isPhone ? '휴대폰 인증' : '이메일 인증'} className="flex flex-col gap-3">
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <Input
@@ -107,7 +111,7 @@ export function VerificationField({
             placeholder={isPhone ? '01012345678' : 'name@example.com'}
             hint={isPhone ? '하이픈 없이 숫자만 입력해 주세요.' : undefined}
             value={target}
-            disabled={verified}
+            disabled={verified || fixedTarget !== undefined}
             error={sendError}
             onChange={(e) => {
               const next = isPhone ? onlyDigits(e.target.value).slice(0, 11) : e.target.value.trim();

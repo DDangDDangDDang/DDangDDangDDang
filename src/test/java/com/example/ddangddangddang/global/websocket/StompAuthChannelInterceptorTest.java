@@ -76,13 +76,15 @@ class StompAuthChannelInterceptorTest {
     @DisplayName("토큰으로 연결한 회원은 개인 큐도 구독할 수 있다")
     void memberCanSubscribePrivateQueues() {
         Instant expiresAt = Instant.now().plusSeconds(600);
-        given(accessTokenAuthenticator.authenticateForSession("good"))
-                .willReturn(new AuthenticatedToken(new UsernamePasswordAuthenticationToken("member", null, List.of()), "jti", expiresAt));
+        AuthenticatedToken token = new AuthenticatedToken(
+                new UsernamePasswordAuthenticationToken("member", null, List.of()), "jti", expiresAt, 1L, Instant.now());
+        given(accessTokenAuthenticator.authenticateForSession("good")).willReturn(token);
 
         send(StompCommand.CONNECT, null, "good");
 
         assertThatCode(() -> send(StompCommand.SUBSCRIBE, "/user/queue/dm", "member")).doesNotThrowAnyException();
-        verify(accessTokenAuthenticator).validateStillActive("jti", expiresAt);
+        // 연결에 쓴 토큰이 로그아웃·비밀번호 변경으로 막혔는지 회원·발급 시각까지 다시 확인한다
+        verify(accessTokenAuthenticator).validateStillActive(token);
     }
 
     @Test
