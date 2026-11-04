@@ -8,6 +8,7 @@ import com.example.ddangddangddang.domain.auth.oauth.SocialUser;
 import com.example.ddangddangddang.domain.auth.oauth.OAuthErrorCode;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignup;
 import com.example.ddangddangddang.domain.auth.oauth.PendingSocialSignupRepository;
+import com.example.ddangddangddang.domain.auth.verification.VerificationErrorCode;
 import com.example.ddangddangddang.domain.auth.verification.VerificationPurpose;
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.point.service.PointService;
@@ -17,6 +18,7 @@ import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.SocialAccountRepository;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
+import com.example.ddangddangddang.domain.user.service.NicknamePolicy;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import java.time.Duration;
 import java.util.Optional;
@@ -52,6 +54,7 @@ public class OAuthService {
     private final PointService pointService;
     private final AuthService authService;
     private final SignupVerificationService signupVerificationService;
+    private final NicknamePolicy nicknamePolicy;
 
     public SocialLoginResult login(SocialProvider provider, String authorizationCode) {
         SocialUser socialUser = providerClients.get(provider).getUser(authorizationCode);
@@ -122,7 +125,24 @@ public class OAuthService {
         if (userRepository.existsByNickname(request.nickname())) {
             throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME);
         }
+        nicknamePolicy.validate(request.nickname());
+        // 제공자가 확인해 준 이메일을 그대로 쓰면 다시 인증하지 않는다. 다른 이메일을 쓰면 그 이메일로 받은 인증이 있어야 한다.
+        // 두 토큰을 먼저 모두 확인한 뒤에 써서, 하나가 틀렸을 때 다른 하나를 헛되이 쓰지 않게 한다.
+        boolean emailVerifiedByProvider = pending.email() != null && pending.email().equalsIgnoreCase(request.email());
+        if (!emailVerifiedByProvider) {
+            if (request.emailVerificationToken() == null) {
+                throw new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+            }
+            verificationService.requireMatchingToken(
+                    VerificationPurpose.SIGNUP_PHONE, request.phoneVerificationToken(), request.phoneNumber());
+            verificationService.requireMatchingToken(
+                    VerificationPurpose.SIGNUP_EMAIL, request.emailVerificationToken(), request.email());
+        }
         consumePhoneVerification(request);
+        if (!emailVerifiedByProvider) {
+            verificationService.consumeMatchingToken(
+                    VerificationPurpose.SIGNUP_EMAIL, request.emailVerificationToken(), request.email());
+        }
 
         User user = userRepository.save(User.createSocial(request.email(), request.nickname(), request.phoneNumber()));
         pointService.createWallet(user.getId());

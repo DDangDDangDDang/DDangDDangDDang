@@ -49,6 +49,7 @@ public class UserService {
     private final UserPolicyProperties policy;
     private final FileStorage fileStorage;
     private final ChatContentFilter contentFilter;
+    private final NicknamePolicy nicknamePolicy;
     private final Clock clock;
 
     @Autowired
@@ -64,6 +65,7 @@ public class UserService {
         this.policy = policy;
         this.fileStorage = fileStorage;
         this.contentFilter = contentFilter;
+        this.nicknamePolicy = new NicknamePolicy(contentFilter);
         this.clock = clock;
     }
 
@@ -129,9 +131,11 @@ public class UserService {
     }
 
     private void changeNickname(User user, String nickname, LocalDateTime now) {
-        if (userRepository.existsByNickname(nickname)) {
+        // 자기 자신은 빼고 본다. ("Abc" → "abc"처럼 대소문자만 바꾸는 것은 허용)
+        if (userRepository.existsByNicknameAndIdNot(nickname, user.getId())) {
             throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME);
         }
+        nicknamePolicy.validate(nickname);
         user.changeNickname(nickname, now);
         try {
             userRepository.flush();

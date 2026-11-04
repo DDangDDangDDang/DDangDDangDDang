@@ -15,6 +15,7 @@ public enum CommonErrorCode implements ErrorCode {
     INVALID_DESTINATION(HttpStatus.FORBIDDEN, "COMMON_005", "허용되지 않은 메시지 경로입니다."),
     LOCK_CONFLICT(HttpStatus.CONFLICT, "COMMON_006", "요청이 몰려 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "COMMON_007", "지원하지 않는 요청 형식입니다."),
+    DUPLICATE_DATA(HttpStatus.CONFLICT, "COMMON_009", "이미 등록된 정보와 겹쳐 처리하지 못했습니다. 입력을 확인하고 다시 시도해 주세요."),
     SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "COMMON_008", "일시적으로 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 내부 오류가 발생했습니다.");
 

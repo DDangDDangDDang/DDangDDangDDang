@@ -62,6 +62,13 @@ public class VerificationService {
             throw new BusinessException(VerificationErrorCode.INVALID_CODE);
         }
 
+        return issueToken(purpose, target);
+    }
+
+    /**
+     * 인증번호 없이 인증 완료 토큰을 바로 발급한다. 다른 방법(비밀번호 확인 등)으로 본인임을 확인했을 때 쓴다.
+     */
+    public String issueToken(VerificationPurpose purpose, String target) {
         String token = UUID.randomUUID().toString();
         verificationCodeRepository.saveToken(purpose, token, target, TOKEN_TTL);
         return token;
@@ -79,6 +86,16 @@ public class VerificationService {
      * 토큰이 expectedTarget(예: 가입 요청의 휴대폰 번호)을 인증한 것일 때만 쓴다.
      * 다른 번호의 토큰이면 예외를 던지고 토큰은 남겨 둔다. (다른 번호로 인증하고 남의 번호를 보내는 것 방지)
      */
+    /**
+     * 토큰이 expectedTarget을 인증한 것인지 확인만 하고 쓰지는 않는다.
+     * 토큰 여러 개를 함께 쓰는 요청(가입: 휴대폰 + 이메일)에서, 하나가 틀렸을 때 나머지를 헛되이 쓰지 않도록 먼저 모두 확인한다.
+     */
+    public void requireMatchingToken(VerificationPurpose purpose, String token, String expectedTarget) {
+        if (!verificationCodeRepository.tokenMatches(purpose, token, expectedTarget)) {
+            throw new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+        }
+    }
+
     public void consumeMatchingToken(VerificationPurpose purpose, String token, String expectedTarget) {
         if (!verificationCodeRepository.consumeTokenIfMatches(purpose, token, expectedTarget)) {
             throw new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);

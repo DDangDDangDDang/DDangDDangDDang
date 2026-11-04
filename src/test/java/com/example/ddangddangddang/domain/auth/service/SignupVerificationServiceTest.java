@@ -5,6 +5,7 @@ import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.message.EmailSender;
 import com.example.ddangddangddang.global.message.SmsSender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,9 @@ class SignupVerificationServiceTest {
     @Mock
     private SmsSender smsSender;
 
+    @Mock
+    private EmailSender emailSender;
+
     @Test
     @DisplayName("인증번호를 만들어 문자로 보내고 만료까지 남은 시간(초)을 반환한다")
     void sendCode() {
@@ -74,5 +78,29 @@ class SignupVerificationServiceTest {
         assertThat(expiresIn).isEqualTo(300);
         verify(smsSender).send(eq(PHONE), contains("123456"));
         verify(userRepository, never()).existsByPhoneNumber(anyString());
+    }
+
+    @Test
+    @DisplayName("가입할 이메일로 인증번호를 메일로 보낸다")
+    void sendEmailCode() {
+        given(verificationService.issueCode(VerificationPurpose.SIGNUP_EMAIL, "new@test.com")).willReturn("654321");
+
+        long expiresIn = signupVerificationService.sendEmailCode("new@test.com");
+
+        assertThat(expiresIn).isEqualTo(300);
+        verify(emailSender).send(eq("new@test.com"), anyString(), contains("654321"));
+    }
+
+    @Test
+    @DisplayName("이미 가입된 이메일이면 인증번호를 만들지도 보내지도 않는다")
+    void duplicateEmail() {
+        given(userRepository.existsByEmail("used@test.com")).willReturn(true);
+
+        assertThatThrownBy(() -> signupVerificationService.sendEmailCode("used@test.com"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.DUPLICATE_EMAIL);
+        verify(verificationService, never()).issueCode(any(), anyString());
+        verify(emailSender, never()).send(anyString(), anyString(), anyString());
     }
 }

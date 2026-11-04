@@ -64,6 +64,17 @@ class TokenBlacklistRepositoryTest {
     }
 
     @Test
+    @DisplayName("로그아웃 기록은 비밀번호 변경 기록과 따로 남아, 막힌 이유를 구분할 수 있다")
+    void logoutSeparateFromPasswordChange() {
+        repository.logoutTokensIssuedBefore(1L, CHANGED_AT, Duration.ofMinutes(30));
+
+        assertThat(repository.isLoggedOutForUser(1L, Instant.parse("2026-10-20T11:59:59Z"))).isTrue();
+        assertThat(repository.isLoggedOutForUser(1L, Instant.parse("2026-10-20T12:00:00Z"))).isFalse();
+        assertThat(repository.isInvalidatedForUser(1L, Instant.parse("2026-10-20T11:59:59Z"))).isFalse();
+        assertThat(redisTemplate.getExpire("blacklist:logout:1")).isBetween(1790L, 1800L);
+    }
+
+    @Test
     @DisplayName("다른 회원의 토큰과 무효화 기록이 없는 회원은 영향이 없다")
     void otherUser() {
         repository.invalidateTokensIssuedBefore(1L, CHANGED_AT, Duration.ofMinutes(30));

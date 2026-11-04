@@ -2,6 +2,7 @@ package com.example.ddangddangddang.global.exception;
 
 import com.example.ddangddangddang.global.common.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -85,6 +86,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleLockFailure(PessimisticLockingFailureException e) {
         log.warn("락 획득 실패: {}", e.getMostSpecificCause().getMessage());
         return toResponse(CommonErrorCode.LOCK_CONFLICT, CommonErrorCode.LOCK_CONFLICT.getMessage());
+    }
+
+    /**
+     * 유니크 제약 위반 등. 먼저 조회로 중복을 막지만, 같은 값으로 동시에 들어온 요청(가입 등)은 DB 제약이 막는다.
+     * 서버 오류(500)가 아니라 409로 응답한다. 어느 값이 겹쳤는지는 화면에서 다시 시도하면 조회 검사가 알려 준다.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+        log.warn("데이터 제약 위반: {}", e.getMostSpecificCause().getMessage());
+        return toResponse(CommonErrorCode.DUPLICATE_DATA, CommonErrorCode.DUPLICATE_DATA.getMessage());
     }
 
     private ResponseEntity<ApiResponse<Void>> toResponse(ErrorCode errorCode, String message) {

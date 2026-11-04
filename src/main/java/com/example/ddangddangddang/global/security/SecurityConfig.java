@@ -28,6 +28,8 @@ public class SecurityConfig {
             "/api/v1/auth/signup",
             "/api/v1/auth/signup/phone/code",
             "/api/v1/auth/signup/phone/verify",
+            "/api/v1/auth/signup/email/code",
+            "/api/v1/auth/signup/email/verify",
             "/api/v1/auth/find-email/code",
             "/api/v1/auth/find-email/verify",
             "/api/v1/auth/password-reset/code",

@@ -29,6 +29,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -258,6 +259,7 @@ class UserControllerTest {
         @DisplayName("새 이메일로 인증번호를 받고 확인하면 이메일이 바뀌고, 새 토큰으로 바뀐 이메일로 로그인할 수 있다")
         void changeEmail() throws Exception {
             given(verificationService.issueCode(VerificationPurpose.CHANGE_EMAIL, "new@test.com")).willReturn("123456");
+            String reauthToken = reauthWithPassword();
             given(verificationService.verifyCode(VerificationPurpose.CHANGE_EMAIL, "new@test.com", "123456")).willReturn("token");
 
             mockMvc.perform(post("/api/v1/users/me/email/code")
@@ -273,8 +275,8 @@ class UserControllerTest {
                             .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"email": "new@test.com", "code": "123456"}
-                                    """))
+                                    {"email": "new@test.com", "code": "123456", "reauthToken": "%s"}
+                                    """.formatted(reauthToken)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.user.email").value("new@test.com"))
                     .andReturn().getResponse().getContentAsString();
@@ -309,15 +311,66 @@ class UserControllerTest {
         void changePhoneNumber() throws Exception {
             given(verificationService.verifyCode(eq(VerificationPurpose.CHANGE_PHONE), eq("01099998888"), eq("123456")))
                     .willReturn("token");
+            String reauthToken = reauthWithPassword();
 
             mockMvc.perform(put("/api/v1/users/me/phone-number")
                             .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"phoneNumber": "01099998888", "code": "123456"}
-                                    """))
+                                    {"phoneNumber": "01099998888", "code": "123456", "reauthToken": "%s"}
+                                    """.formatted(reauthToken)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.phoneNumber").value("01099998888"));
+        }
+
+        @Test
+        @DisplayName("본인 확인 없이 바꾸려 하면 400, 다른 회원의 확인 토큰이면 400 VERIFY_004로 바꾸지 않는다")
+        void changeWithoutReauth() throws Exception {
+            mockMvc.perform(put("/api/v1/users/me/email")
+                            .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"email": "new@test.com", "code": "123456"}
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+
+            mockMvc.perform(put("/api/v1/users/me/email")
+                            .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"email": "new@test.com", "code": "123456", "reauthToken": "%s"}
+                                    """.formatted(SignupFixture.tokenOf("user:999999"))))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VERIFY_004"));
+        }
+
+        @Test
+        @DisplayName("본인 확인 비밀번호가 틀리면 400 USER_017")
+        void reauthWrongPassword() throws Exception {
+            mockMvc.perform(post("/api/v1/users/me/reauth/password")
+                            .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"password": "Wrong1234!"}
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("USER_017"));
+        }
+
+        // 비밀번호로 본인 확인하고 받은 토큰. VerificationService가 Mock이라 "verified:{대상}" 토큰을 주게 한다. (SignupFixture)
+        private String reauthWithPassword() throws Exception {
+            given(verificationService.issueToken(eq(VerificationPurpose.REAUTH), anyString()))
+                    .willAnswer(invocation -> SignupFixture.tokenOf(invocation.getArgument(1)));
+            String response = mockMvc.perform(post("/api/v1/users/me/reauth/password")
+                            .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"password": "Abcd1234!"}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+            return JsonPath.read(response, "$.data.verificationToken");
         }
 
         @Test

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import com.example.ddangddangddang.domain.auth.repository.LoginAttemptRepository;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -75,6 +76,9 @@ class AccountRecoveryServiceTest {
 
     @Mock
     private JwtProvider jwtProvider;
+
+    @Mock
+    private LoginAttemptRepository loginAttemptRepository;
 
     @Nested
     @DisplayName("이메일 찾기")

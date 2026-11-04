@@ -39,18 +39,29 @@ public class AccessTokenAuthenticator {
      */
     public AuthenticatedToken authenticateForSession(String token) {
         Claims claims = verify(token);
-        return new AuthenticatedToken(toAuthentication(claims), claims.getId(), claims.getExpiration().toInstant());
+        return new AuthenticatedToken(toAuthentication(claims), claims.getId(), claims.getExpiration().toInstant(),
+                Long.valueOf(claims.getSubject()), claims.getIssuedAt().toInstant());
     }
 
     /**
-     * 이미 검증한 토큰이 지금도 유효한지 확인한다. 연결 뒤에 만료됐거나 로그아웃(블랙리스트)됐으면 예외를 던진다.
+     * 이미 검증한 토큰이 지금도 유효한지 확인한다.
+     * 연결 뒤에 만료됐거나, 로그아웃(이 토큰 또는 회원의 이전 토큰 전부)됐거나, 비밀번호가 바뀌었으면 예외를 던진다.
      */
-    public void validateStillActive(String tokenId, Instant expiresAt) {
-        if (!Instant.now().isBefore(expiresAt)) {
+    public void validateStillActive(AuthenticatedToken token) {
+        if (!Instant.now().isBefore(token.expiresAt())) {
             throw new BusinessException(AuthErrorCode.EXPIRED_TOKEN);
         }
-        if (tokenBlacklistRepository.exists(tokenId)) {
+        validateNotRevoked(token.tokenId(), token.userId(), token.issuedAt());
+    }
+
+    // 로그아웃·비밀번호 변경으로 막힌 토큰인지. HTTP 요청과 WebSocket이 같은 규칙으로 확인한다.
+    private void validateNotRevoked(String tokenId, Long userId, Instant issuedAt) {
+        if (tokenBlacklistRepository.exists(tokenId) || tokenBlacklistRepository.isLoggedOutForUser(userId, issuedAt)) {
             throw new BusinessException(AuthErrorCode.LOGGED_OUT_TOKEN);
+        }
+        // 비밀번호를 바꾸기 전에 발급된 토큰이면 막는다. (탈취된 토큰이 만료 전까지 계속 쓰이는 것 방지)
+        if (tokenBlacklistRepository.isInvalidatedForUser(userId, issuedAt)) {
+            throw new BusinessException(AuthErrorCode.PASSWORD_CHANGED);
         }
     }
 
@@ -64,18 +75,11 @@ public class AccessTokenAuthenticator {
             throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
         }
 
-        if (tokenBlacklistRepository.exists(claims.getId())) {
-            throw new BusinessException(AuthErrorCode.LOGGED_OUT_TOKEN);
-        }
-
         if (!TokenType.ACCESS.name().equals(claims.get(JwtProvider.CLAIM_TYPE, String.class))) {
             throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
         }
 
-        // 비밀번호를 바꾸기 전에 발급된 토큰이면 막는다. (탈취된 토큰이 만료 전까지 계속 쓰이는 것 방지)
-        if (tokenBlacklistRepository.isInvalidatedForUser(Long.valueOf(claims.getSubject()), claims.getIssuedAt().toInstant())) {
-            throw new BusinessException(AuthErrorCode.PASSWORD_CHANGED);
-        }
+        validateNotRevoked(claims.getId(), Long.valueOf(claims.getSubject()), claims.getIssuedAt().toInstant());
 
         return claims;
     }

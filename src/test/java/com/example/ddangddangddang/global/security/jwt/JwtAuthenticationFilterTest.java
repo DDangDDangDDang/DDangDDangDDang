@@ -147,6 +147,17 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("로그아웃 전에 발급된 다른 토큰(재발급 전 토큰 등)도 401 AUTH_004")
+    void tokenIssuedBeforeLogout() throws Exception {
+        given(tokenBlacklistRepository.isLoggedOutForUser(eq(1L), any())).willReturn(true);
+
+        mockMvc.perform(get("/api/v1/test/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.createAccessToken(user(1L, UserRole.USER)))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_004"));
+    }
+
+    @Test
     @DisplayName("다른 회원이 비밀번호를 바꿔도 내 토큰은 그대로 쓸 수 있다")
     void otherUserPasswordChanged() throws Exception {
         given(tokenBlacklistRepository.isInvalidatedForUser(eq(2L), any())).willReturn(true);

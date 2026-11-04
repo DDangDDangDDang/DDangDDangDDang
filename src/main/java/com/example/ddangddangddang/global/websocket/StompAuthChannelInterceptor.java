@@ -16,7 +16,6 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -38,9 +37,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     private static final String APP_DESTINATION_PREFIX = "/app/";
 
-    // CONNECT에 쓴 토큰 정보를 WebSocket 세션 속성에 저장하는 키
-    private static final String TOKEN_ID_ATTRIBUTE = "accessTokenId";
-    private static final String TOKEN_EXPIRES_AT_ATTRIBUTE = "accessTokenExpiresAt";
+    // CONNECT에 쓴 토큰 정보(AuthenticatedToken)를 WebSocket 세션 속성에 저장하는 키
+    private static final String TOKEN_ATTRIBUTE = "accessToken";
     // 토큰 없이 연결한 손님 연결 표시
     private static final String GUEST_ATTRIBUTE = "guest";
 
@@ -114,19 +112,16 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         AuthenticatedToken authenticatedToken = accessTokenAuthenticator.authenticateForSession(token);
         accessor.setUser(authenticatedToken.authentication());
 
-        Map<String, Object> sessionAttributes = sessionAttributes(accessor);
-        sessionAttributes.put(TOKEN_ID_ATTRIBUTE, authenticatedToken.tokenId());
-        sessionAttributes.put(TOKEN_EXPIRES_AT_ATTRIBUTE, authenticatedToken.expiresAt());
+        sessionAttributes(accessor).put(TOKEN_ATTRIBUTE, authenticatedToken);
     }
 
     private void validateAuthenticated(StompHeaderAccessor accessor) {
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
         if (accessor.getUser() == null || sessionAttributes == null
-                || !(sessionAttributes.get(TOKEN_ID_ATTRIBUTE) instanceof String tokenId)
-                || !(sessionAttributes.get(TOKEN_EXPIRES_AT_ATTRIBUTE) instanceof Instant expiresAt)) {
+                || !(sessionAttributes.get(TOKEN_ATTRIBUTE) instanceof AuthenticatedToken token)) {
             throw new BusinessException(AuthErrorCode.TOKEN_NOT_FOUND);
         }
-        accessTokenAuthenticator.validateStillActive(tokenId, expiresAt);
+        accessTokenAuthenticator.validateStillActive(token);
     }
 
     private boolean isGuest(StompHeaderAccessor accessor) {

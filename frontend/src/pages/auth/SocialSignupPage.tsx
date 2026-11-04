@@ -30,7 +30,9 @@ export function SocialSignupPage() {
     const pending = useLocation().state as SocialSignupLocationState | null;
 
     const [nickname, setNickname] = useState((pending?.nickname ?? '').slice(0, NICKNAME_MAX));
-    const [email, setEmail] = useState(pending?.email ?? '');
+    // 제공자가 확인해 준 이메일이 있으면 그대로 쓴다(다시 인증하지 않음). 다른 이메일을 쓰려면 그 이메일로 인증한다.
+    const [useProviderEmail, setUseProviderEmail] = useState(Boolean(pending?.email));
+    const [emailVerified, setEmailVerified] = useState<{ email: string; token: string } | null>(null);
     // 휴대폰 인증을 마치면 서버가 준 인증 토큰과 인증한 번호를 둔다. 번호를 바꾸면 다시 인증해야 한다.
     const [verified, setVerified] = useState<{ phoneNumber: string; token: string } | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -71,6 +73,8 @@ export function SocialSignupPage() {
     async function handleSubmit(event: FormEvent) {
         event.preventDefault();
         if (!verified) return;
+        const email = useProviderEmail ? pending?.email : emailVerified?.email;
+        if (!email) return;
         setSubmitting(true);
         setError(undefined);
         try {
@@ -80,6 +84,7 @@ export function SocialSignupPage() {
                 email,
                 phoneNumber: verified.phoneNumber,
                 phoneVerificationToken: verified.token,
+                emailVerificationToken: useProviderEmail ? undefined : emailVerified?.token,
             });
             if (data?.linkedExistingAccount) {
                 setLinkedNickname(data.user?.nickname ?? '');
@@ -92,6 +97,8 @@ export function SocialSignupPage() {
             // 인증이 만료·사용됐거나(VERIFY_004), 그 번호의 계정에 같은 제공자의 다른 계정이 연결돼 있으면(OAUTH_004) 다른 번호로 다시 인증하게 연다.
             // 이메일·닉네임 중복(USER_001·002)은 서버가 토큰을 쓰기 전에 검사하므로 인증을 그대로 둔다.
             if (isErrorCode(e, 'VERIFY_004') || isErrorCode(e, 'OAUTH_004')) setVerified(null);
+            // 이메일 인증도 만료됐을 수 있고(VERIFY_004), 그사이 다른 사람이 그 이메일로 가입했을 수도 있다(USER_001)
+            if (isErrorCode(e, 'VERIFY_004') || isErrorCode(e, 'USER_001')) setEmailVerified(null);
         } finally {
             setSubmitting(false);
         }
@@ -106,7 +113,7 @@ export function SocialSignupPage() {
         );
     }
 
-    const canSubmit = Boolean(verified && nickname.trim() && email.trim());
+    const canSubmit = Boolean(verified && nickname.trim() && (useProviderEmail || emailVerified));
 
     return (
         <AuthCard title={`${label}로 가입하기`} description="처음 오셨네요. 몇 가지만 더 입력하면 가입이 끝나요.">
@@ -120,15 +127,41 @@ export function SocialSignupPage() {
                     maxLength={NICKNAME_MAX}
                     required
                 />
-                <Input
-                    label="이메일"
-                    type="email"
-                    autoComplete="email"
-                    hint={pending.email ? `${label} 계정의 이메일이에요. 바꿔도 돼요.` : '이메일 찾기·비밀번호 재설정에 쓰여요.'}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                />
+                {useProviderEmail ? (
+                    <div className="flex items-start gap-2">
+                        <div className="flex-1">
+                            <Input
+                                label="이메일"
+                                type="email"
+                                value={pending.email}
+                                disabled
+                                hint={`${label} 계정에서 확인된 이메일이라 따로 인증하지 않아도 돼요.`}
+                            />
+                        </div>
+                        <Button variant="outline" className="mt-[26px] w-[136px]" onClick={() => setUseProviderEmail(false)}>
+                            다른 이메일 쓰기
+                        </Button>
+                    </div>
+                ) : (
+                    <VerificationField
+                        kind="email"
+                        verified={emailVerified !== null}
+                        onTargetChange={() => setEmailVerified(null)}
+                        sendCode={async (target) => {
+                            const data = await call(api.POST('/api/v1/auth/signup/email/code', { body: { email: target } }));
+                            return data?.expiresIn ?? 300;
+                        }}
+                        verify={async (target, code) => {
+                            const data = await call(api.POST('/api/v1/auth/signup/email/verify', { body: { email: target, code } }));
+                            if (data?.verificationToken) {
+                                setEmailVerified({ email: target, token: data.verificationToken });
+                                setError(undefined);
+                            }
+                        }}
+                        sentMessage="이메일로 인증번호를 보냈어요. 메일이 안 보이면 스팸함도 확인해 주세요."
+                        verifiedMessage="이메일 인증을 완료했어요."
+                    />
+                )}
 
                 <VerificationField
                     kind="phone"

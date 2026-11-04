@@ -8,11 +8,11 @@ import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
+import com.example.ddangddangddang.domain.user.service.NicknamePolicy;
 import com.example.ddangddangddang.domain.auth.exception.AuthErrorCode;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
-import com.example.ddangddangddang.domain.auth.verification.VerificationErrorCode;
 import com.example.ddangddangddang.domain.auth.verification.VerificationPurpose;
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +43,7 @@ public class AuthService {
     private final PointService pointService;
     private final VerificationService verificationService;
     private final LoginAttemptRepository loginAttemptRepository;
+    private final NicknamePolicy nicknamePolicy;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -55,12 +56,17 @@ public class AuthService {
         if (userRepository.existsByPhoneNumber(request.phoneNumber())) {
             throw new BusinessException(UserErrorCode.DUPLICATE_PHONE_NUMBER);
         }
-        // 중복 검사를 먼저 해야 이메일 중복 같은 실패로 인증 토큰을 헛되이 쓰지 않는다
-        String verifiedPhoneNumber = verificationService.consumeToken(
-                VerificationPurpose.SIGNUP_PHONE, request.phoneVerificationToken());
-        if (!verifiedPhoneNumber.equals(request.phoneNumber())) {
-            throw new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
-        }
+        nicknamePolicy.validate(request.nickname());
+        // 중복 검사와 두 인증 토큰 확인을 먼저 모두 마치고 나서 토큰을 쓴다.
+        // 이메일 중복이나 이메일 인증 만료 같은 실패로 휴대폰 인증 토큰을 헛되이 쓰지 않게 하기 위함
+        verificationService.requireMatchingToken(
+                VerificationPurpose.SIGNUP_PHONE, request.phoneVerificationToken(), request.phoneNumber());
+        verificationService.requireMatchingToken(
+                VerificationPurpose.SIGNUP_EMAIL, request.emailVerificationToken(), request.email());
+        verificationService.consumeMatchingToken(
+                VerificationPurpose.SIGNUP_PHONE, request.phoneVerificationToken(), request.phoneNumber());
+        verificationService.consumeMatchingToken(
+                VerificationPurpose.SIGNUP_EMAIL, request.emailVerificationToken(), request.email());
 
         User user = User.create(
                 request.email(),
@@ -160,6 +166,9 @@ public class AuthService {
      */
     public void logout(Long userId, String accessToken) {
         refreshTokenRepository.deleteByUserId(userId);
+        // 재발급 전에 받은 Access Token(다른 탭, WebSocket 연결에 쓴 토큰)도 함께 막는다.
+        // 로그인 유지(Refresh Token)는 회원당 하나라, 로그아웃하면 원래 모든 곳에서 다시 로그인해야 한다.
+        tokenBlacklistRepository.logoutTokensIssuedBefore(userId, Instant.now(), jwtProvider.getAccessTokenValidity());
 
         Claims claims = jwtProvider.parseClaims(accessToken);
         Duration remaining = Duration.between(Instant.now(), claims.getExpiration().toInstant());

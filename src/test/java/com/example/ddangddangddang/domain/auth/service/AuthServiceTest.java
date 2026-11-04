@@ -11,6 +11,7 @@ import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
+import com.example.ddangddangddang.domain.user.service.NicknamePolicy;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
@@ -44,6 +45,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -77,18 +80,20 @@ class AuthServiceTest {
     @Mock
     private LoginAttemptRepository loginAttemptRepository;
 
+    @Mock
+    private NicknamePolicy nicknamePolicy;
+
     @Nested
     @DisplayName("회원가입")
     class Signup {
 
         private final SignupRequest request =
-                new SignupRequest("user@test.com", "Abcd1234!", "경매왕", "01012345678", "phone-token");
+                new SignupRequest("user@test.com", "Abcd1234!", "경매왕", "01012345678", "phone-token", "email-token");
         @Test
         @DisplayName("성공하면 비밀번호를 암호화해서 저장하고 포인트 지갑을 만든다")
         void success() {
             given(userRepository.existsByEmail(request.email())).willReturn(false);
             given(userRepository.existsByNickname(request.nickname())).willReturn(false);
-            given(verificationService.consumeToken(VerificationPurpose.SIGNUP_PHONE, "phone-token")).willReturn("01012345678");
             given(passwordEncoder.encode(request.password())).willReturn("encoded");
             given(userRepository.save(any(User.class))).willAnswer(invocation -> {
                 User saved = invocation.getArgument(0);
@@ -102,6 +107,35 @@ class AuthServiceTest {
             assertThat(response.nickname()).isEqualTo("경매왕");
             verify(userRepository).save(any(User.class));
             verify(pointService).createWallet(1L);
+            verify(nicknamePolicy).validate("경매왕");
+            verify(verificationService).consumeMatchingToken(VerificationPurpose.SIGNUP_PHONE, "phone-token", "01012345678");
+            verify(verificationService).consumeMatchingToken(VerificationPurpose.SIGNUP_EMAIL, "email-token", "user@test.com");
+        }
+
+        @Test
+        @DisplayName("이메일 인증이 없거나 다른 이메일의 것이면 휴대폰 인증 토큰도 쓰지 않고 예외가 발생한다")
+        void emailNotVerified() {
+            lenient().doThrow(new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN)).when(verificationService)
+                    .requireMatchingToken(VerificationPurpose.SIGNUP_EMAIL, "email-token", "user@test.com");
+
+            assertThatThrownBy(() -> authService.signup(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+            verify(verificationService, never()).consumeMatchingToken(any(), any(), any());
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("닉네임에 쓸 수 없는 내용이 있으면 토큰을 쓰기 전에 예외가 발생한다")
+        void nicknameNotAllowed() {
+            willThrow(new BusinessException(UserErrorCode.NICKNAME_NOT_ALLOWED)).given(nicknamePolicy).validate("경매왕");
+
+            assertThatThrownBy(() -> authService.signup(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.NICKNAME_NOT_ALLOWED);
+            verify(verificationService, never()).consumeMatchingToken(any(), any(), any());
         }
 
         @Test
@@ -135,7 +169,7 @@ class AuthServiceTest {
     class SignupPhone {
 
         private final SignupRequest request =
-                new SignupRequest("user@test.com", "Abcd1234!", "경매왕", "01012345678", "phone-token");
+                new SignupRequest("user@test.com", "Abcd1234!", "경매왕", "01012345678", "phone-token", "email-token");
 
         @Test
         @DisplayName("휴대폰 번호가 이미 가입돼 있으면 토큰을 쓰기 전에 예외가 발생한다")
@@ -146,18 +180,20 @@ class AuthServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(UserErrorCode.DUPLICATE_PHONE_NUMBER);
-            verify(verificationService, never()).consumeToken(any(), any());
+            verify(verificationService, never()).consumeMatchingToken(any(), any(), any());
         }
 
         @Test
         @DisplayName("토큰으로 인증된 번호와 가입 요청 번호가 다르면 예외가 발생한다")
         void tokenForOtherPhone() {
-            given(verificationService.consumeToken(VerificationPurpose.SIGNUP_PHONE, "phone-token")).willReturn("01099999999");
+            willThrow(new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN)).given(verificationService)
+                    .requireMatchingToken(VerificationPurpose.SIGNUP_PHONE, "phone-token", "01012345678");
 
             assertThatThrownBy(() -> authService.signup(request))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+            verify(verificationService, never()).consumeMatchingToken(any(), any(), any());
             verify(userRepository, never()).save(any());
         }
     }
@@ -358,10 +394,13 @@ class AuthServiceTest {
             Date expiration = Date.from(Instant.now().plus(Duration.ofMinutes(10)));
             Claims claims = Jwts.claims().id("jti-1").subject("1").expiration(expiration).build();
             given(jwtProvider.parseClaims("access-token")).willReturn(claims);
+            given(jwtProvider.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
 
             authService.logout(1L, "access-token");
 
             verify(refreshTokenRepository).deleteByUserId(1L);
+            // 재발급 전에 받은 다른 Access Token(다른 탭, WebSocket 연결)도 함께 막는다
+            verify(tokenBlacklistRepository).logoutTokensIssuedBefore(eq(1L), any(Instant.class), eq(Duration.ofMinutes(30)));
             verify(tokenBlacklistRepository).save(eq("jti-1"), argThat(ttl ->
                     ttl.compareTo(Duration.ofMinutes(9)) > 0 && ttl.compareTo(Duration.ofMinutes(10)) <= 0));
         }
