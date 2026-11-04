@@ -7882,7 +7882,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY", "WIN_CANCEL", "WIN_CANCEL_PENALTY" ]
+            "enum" : [ "CHARGE", "CHARGE_CANCEL", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY", "WIN_CANCEL", "WIN_CANCEL_PENALTY" ]
           }
         }, {
           "name" : "cursor",
@@ -12620,6 +12620,9 @@
             "type" : "string",
             "maxLength" : 200,
             "minLength" : 0
+          },
+          "transferNotMade" : {
+            "type" : "boolean"
           }
         },
         "required" : [ "reason" ]
@@ -13663,6 +13666,10 @@
           "totalBalance" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "exchangeableBalance" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -13707,7 +13714,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "CHARGE", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY", "WIN_CANCEL", "WIN_CANCEL_PENALTY" ]
+            "enum" : [ "CHARGE", "CHARGE_CANCEL", "HOLD", "RELEASE", "PURCHASE", "SETTLE", "EXCHANGE", "EXCHANGE_REFUND", "ORDER_REFUND", "ORDER_PENALTY", "WIN_CANCEL", "WIN_CANCEL_PENALTY" ]
           },
           "amount" : {
             "type" : "integer",
@@ -15420,6 +15427,10 @@
     "status" : 400,
     "message" : "결제 ID가 올바르지 않습니다."
   }, {
+    "code" : "POINT_015",
+    "status" : 400,
+    "message" : "충전 금액은 1,000 이상 1,000,000 이하여야 합니다."
+  }, {
     "code" : "POINT_021",
     "status" : 404,
     "message" : "충전 요청이 존재하지 않습니다."
@@ -15459,6 +15470,14 @@
     "code" : "POINT_046",
     "status" : 400,
     "message" : "송금 ID가 올바르지 않습니다."
+  }, {
+    "code" : "POINT_047",
+    "status" : 400,
+    "message" : "환전할 수 있는 포인트가 부족합니다. 충전한 포인트는 환전할 수 없고, 결제 취소로만 돌려받을 수 있습니다."
+  }, {
+    "code" : "POINT_048",
+    "status" : 400,
+    "message" : "송금 중인 신청을 반려하려면 이체하지 않았음을 확인해 주세요."
   }, {
     "code" : "POINT_051",
     "status" : 401,

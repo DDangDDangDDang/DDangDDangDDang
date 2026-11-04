@@ -17,6 +17,7 @@ public enum PointErrorCode implements ErrorCode {
 
     INVALID_CHARGE_STATUS(HttpStatus.BAD_REQUEST, "POINT_013", "현재 상태에서는 포인트 충전이 불가능합니다"),
     INVALID_PAYMENT_ID(HttpStatus.BAD_REQUEST, "POINT_014", "결제 ID가 올바르지 않습니다."),
+    CHARGE_AMOUNT_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "POINT_015", "충전 금액은 1,000 이상 1,000,000 이하여야 합니다."),
 
     CHARGE_NOT_FOUND(HttpStatus.NOT_FOUND, "POINT_021", "충전 요청이 존재하지 않습니다."),
     CHARGE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "POINT_022", "본인의 충전 요청만 처리할 수 있습니다."),
@@ -30,6 +31,8 @@ public enum PointErrorCode implements ErrorCode {
     EXCHANGE_AMOUNT_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "POINT_044", "환전 금액은 1,000 이상 1,000,000 이하여야 합니다."),
     INVALID_BANK_ACCOUNT(HttpStatus.BAD_REQUEST, "POINT_045", "계좌 정보가 올바르지 않습니다."),
     INVALID_PAYOUT_ID(HttpStatus.BAD_REQUEST, "POINT_046", "송금 ID가 올바르지 않습니다."),
+    INSUFFICIENT_EXCHANGEABLE_BALANCE(HttpStatus.BAD_REQUEST, "POINT_047", "환전할 수 있는 포인트가 부족합니다. 충전한 포인트는 환전할 수 없고, 결제 취소로만 돌려받을 수 있습니다."),
+    REJECT_TRANSFER_NOT_CONFIRMED(HttpStatus.BAD_REQUEST, "POINT_048", "송금 중인 신청을 반려하려면 이체하지 않았음을 확인해 주세요."),
 
     INVALID_WEBHOOK_SIGNATURE(HttpStatus.UNAUTHORIZED, "POINT_051", "웹훅 서명이 올바르지 않습니다."),
     INVALID_WEBHOOK_PAYLOAD(HttpStatus.BAD_REQUEST, "POINT_052", "웹훅 본문을 해석할 수 없습니다.");

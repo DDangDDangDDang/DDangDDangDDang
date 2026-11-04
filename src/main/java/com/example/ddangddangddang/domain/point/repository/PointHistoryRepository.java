@@ -2,12 +2,14 @@ package com.example.ddangddangddang.domain.point.repository;
 
 import com.example.ddangddangddang.domain.point.entity.PointHistory;
 import com.example.ddangddangddang.domain.point.entity.PointHistoryType;
+import com.example.ddangddangddang.domain.point.entity.PointReferenceType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface PointHistoryRepository extends JpaRepository<PointHistory, Long> {
 
@@ -26,4 +28,8 @@ public interface PointHistoryRepository extends JpaRepository<PointHistory, Long
                                     @Param("type") PointHistoryType type,
                                     @Param("cursor") Long cursor,
                                     Pageable pageable);
+
+    /** 주문 취소 때 그 경매의 구매 내역(번 포인트로 낸 몫)을 찾는다. */
+    Optional<PointHistory> findFirstByWalletIdAndTypeAndRefTypeAndRefIdOrderByIdDesc(
+            Long walletId, PointHistoryType type, PointReferenceType refType, Long refId);
 }

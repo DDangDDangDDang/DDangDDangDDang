@@ -54,13 +54,13 @@ public class AdminPointExchangeController {
         return ResponseEntity.ok(ApiResponse.ok(adminPointExchangeService.completePayout(authUser.id(), exchangeId)));
     }
 
-    /** 반려 (PENDING·PROCESSING → FAILED). 포인트는 즉시 환불된다 */
+    /** 반려 (PENDING·PROCESSING → FAILED). 포인트는 즉시 환불된다. 송금 중이면 transferNotMade=true가 필요하다 */
     @PostMapping("/{exchangeId}/reject")
     public ResponseEntity<ApiResponse<AdminPointExchangeResponse>> reject(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable Long exchangeId,
             @Valid @RequestBody PointExchangeRejectRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(
-                adminPointExchangeService.reject(authUser.id(), exchangeId, request.reason())));
+                adminPointExchangeService.reject(authUser.id(), exchangeId, request.reason(), request.confirmsTransferNotMade())));
     }
 }

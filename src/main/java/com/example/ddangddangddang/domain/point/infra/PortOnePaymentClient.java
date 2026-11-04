@@ -102,12 +102,14 @@ public class PortOnePaymentClient implements PaymentGateway {
     record PortOnePaymentResponse(String id, String status, Amount amount) {
 
         @JsonIgnoreProperties(ignoreUnknown = true)
-        record Amount(long total) {
+        // cancelled는 취소가 없으면 빠져 올 수 있어 Long으로 받는다
+        record Amount(long total, Long cancelled) {
         }
 
         PaymentInfo toPaymentInfo() {
             long total = amount == null ? 0L : amount.total();
-            return new PaymentInfo(id, PaymentStatus.from(status), total);
+            long cancelled = amount == null || amount.cancelled() == null ? 0L : amount.cancelled();
+            return new PaymentInfo(id, PaymentStatus.from(status), total, cancelled);
         }
     }
 }

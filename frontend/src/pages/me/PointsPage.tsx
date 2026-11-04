@@ -48,11 +48,13 @@ function WalletSummary() {
     { label: '사용 가능 포인트', value: query.data?.balance, emphasis: true },
     { label: '입찰로 묶인 포인트', value: query.data?.heldBalance },
     { label: '합계', value: query.data?.totalBalance },
+    // 판매 정산 등으로 받은 포인트 중 묶이지 않은 만큼. 충전한 포인트는 환전할 수 없다.
+    { label: '환전 가능 포인트', value: query.data?.exchangeableBalance },
   ];
 
   return (
     <Card>
-      <dl className="grid grid-cols-3 divide-x divide-neutral-100">
+      <dl className="grid grid-cols-4 divide-x divide-neutral-100">
         {items.map((item) => (
           <div key={item.label} className="flex flex-col gap-1 px-6 py-5">
             <dt className="flex h-8 items-center justify-between gap-2 text-label text-neutral-500">

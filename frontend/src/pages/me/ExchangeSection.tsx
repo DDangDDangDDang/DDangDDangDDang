@@ -39,7 +39,8 @@ const STATUS_BADGE: Record<ExchangeStatus, NonNullable<BadgeProps['variant']>> =
 export function ExchangeSection() {
   // 잔액 요약과 같은 캐시를 쓴다.
   const wallet = useQuery({ queryKey: ['points', 'wallet'], queryFn: () => call(api.GET('/api/v1/points/wallet')) });
-  const balance = wallet.data?.balance;
+  // 환전은 판매 정산 등으로 받은 포인트로만 할 수 있다. 충전한 포인트는 결제 취소로만 돌려받는다.
+  const exchangeable = wallet.data?.exchangeableBalance;
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState<string>();
 
@@ -50,6 +51,9 @@ export function ExchangeSection() {
           <CardTitle id="exchange-title">포인트 환전</CardTitle>
           <span className="text-caption text-neutral-500">
             판매 정산 등으로 받은 포인트를 내 계좌로 보내요. 한 번에 {formatNumber(EXCHANGE_MIN)}~{formatNumber(EXCHANGE_MAX)} P
+          </span>
+          <span className="text-caption text-neutral-500">
+            충전한 포인트는 환전할 수 없어요. 돌려받으려면 결제 취소(카드 환불)를 고객센터에 요청해 주세요.
           </span>
         </div>
         {!open && (
@@ -69,7 +73,7 @@ export function ExchangeSection() {
         {done && <Notice tone="success">{done}</Notice>}
         {open && (
           <ExchangeForm
-            balance={balance}
+            exchangeable={exchangeable}
             onClose={() => setOpen(false)}
             onDone={(message) => {
               setOpen(false);
@@ -83,7 +87,7 @@ export function ExchangeSection() {
   );
 }
 
-function ExchangeForm({ balance, onClose, onDone }: { balance?: number; onClose: () => void; onDone: (message: string) => void }) {
+function ExchangeForm({ exchangeable, onClose, onDone }: { exchangeable?: number; onClose: () => void; onDone: (message: string) => void }) {
   const queryClient = useQueryClient();
   const [values, setValues] = useState<ExchangeFormValues>(EMPTY_EXCHANGE_FORM);
   const [errors, setErrors] = useState<ExchangeFormErrors>({});
@@ -106,7 +110,7 @@ function ExchangeForm({ balance, onClose, onDone }: { balance?: number; onClose:
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const next = validateExchangeForm(values, balance);
+    const next = validateExchangeForm(values, exchangeable);
     setErrors(next);
     if (Object.keys(next).length === 0) setConfirming(true);
   };
@@ -122,7 +126,7 @@ function ExchangeForm({ balance, onClose, onDone }: { balance?: number; onClose:
           value={values.amount ? formatNumber(Number(values.amount.replace(/\D/g, '')) || 0) : ''}
           onChange={(e) => update({ amount: e.target.value.replace(/\D/g, '') })}
           error={errors.amount}
-          hint={balance !== undefined ? `사용 가능 ${formatPoint(balance)}` : undefined}
+          hint={exchangeable !== undefined ? `환전 가능 ${formatPoint(exchangeable)} (충전한 포인트 제외)` : undefined}
         />
         <Select label="은행" options={BANK_OPTIONS} value={values.bankCode} onChange={(e) => update({ bankCode: e.target.value })} error={errors.bankCode} />
         <Input

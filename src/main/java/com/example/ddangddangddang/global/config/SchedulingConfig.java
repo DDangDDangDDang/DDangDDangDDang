@@ -12,7 +12,7 @@ import org.springframework.scheduling.config.ScheduledTaskRegistrar;
  *
  * 지정하지 않으면 스레드 1개를 모든 작업이 나눠 쓰거나(스프링 기본값), WebSocket 브로커의 스케줄러를 빌려 쓴다.
  * 그러면 환전 송금(외부 호출)이나 새벽 정리 작업이 오래 걸릴 때 1초마다 도는 경매 시작·마감이 그만큼 밀린다.
- * 작업 수(현재 9개)만큼 스레드를 두어, 한 작업이 느려도 다른 작업은 제때 돈다.
+ * 작업 수(현재 12개)만큼 스레드를 두어, 한 작업이 느려도 다른 작업은 제때 돈다. @Scheduled 작업을 더하면 기본값도 함께 올린다.
  *
  * 스케줄러를 빈으로 등록하지 않는다. TaskScheduler 빈이 둘이 되면 브로커 스케줄러를 타입으로 찾는 곳이 헷갈린다.
  */
@@ -21,7 +21,7 @@ public class SchedulingConfig implements SchedulingConfigurer, DisposableBean {
 
     private final ThreadPoolTaskScheduler scheduler;
 
-    public SchedulingConfig(@Value("${app.scheduling.pool-size:9}") int poolSize) {
+    public SchedulingConfig(@Value("${app.scheduling.pool-size:12}") int poolSize) {
         scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(poolSize);
         scheduler.setThreadNamePrefix("scheduled-");

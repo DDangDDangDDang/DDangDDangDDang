@@ -283,9 +283,17 @@ function RejectDialog({
   onStatusChanged: () => void;
 }) {
   const [reason, setReason] = useState('');
+  // 송금 중인 건은 "이체하지 않았다"를 확인해야 반려할 수 있다. (서버도 확인 없이는 POINT_048로 거부)
+  const [transferNotMade, setTransferNotMade] = useState(false);
+  const processing = exchange?.status === 'PROCESSING';
   const reject = useMutation({
     mutationFn: () =>
-      call(api.POST('/api/v1/admin/point-exchanges/{exchangeId}/reject', { params: { path: { exchangeId: exchange?.exchangeId ?? 0 } }, body: { reason: reason.trim() } })),
+      call(
+        api.POST('/api/v1/admin/point-exchanges/{exchangeId}/reject', {
+          params: { path: { exchangeId: exchange?.exchangeId ?? 0 } },
+          body: { reason: reason.trim(), transferNotMade: processing ? transferNotMade : undefined },
+        }),
+      ),
     onSuccess: () => {
       onRejected(`${exchange?.nickname || '회원'}님의 환전 신청을 반려했어요. ${formatPoint(exchange?.amount ?? 0)}는 회원에게 돌아갔어요.`);
       onClose();
@@ -305,14 +313,20 @@ function RejectDialog({
       className="w-[520px]"
     >
       <div className="flex flex-col gap-3">
-        {exchange?.status === 'PROCESSING' && <Notice tone="error">이미 이체했다면 반려하지 마세요. 돈과 포인트가 모두 회원에게 가요.</Notice>}
+        {processing && <Notice tone="error">이미 이체했다면 반려하지 마세요. 돈과 포인트가 모두 회원에게 가요.</Notice>}
         <Textarea label="반려 사유" placeholder="예) 예금주와 회원 정보가 일치하지 않아요." maxLength={200} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+        {processing && (
+          <label className="flex items-center gap-2 text-body text-neutral-700">
+            <input type="checkbox" checked={transferNotMade} onChange={(e) => setTransferNotMade(e.target.checked)} className="size-4 accent-brand-500" />
+            은행 이체를 하지 않았어요.
+          </label>
+        )}
         {reject.isError && <Notice tone="error">{actionError(reject.error)}</Notice>}
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose} disabled={reject.isPending}>
             닫기
           </Button>
-          <Button disabled={!reason.trim()} loading={reject.isPending} onClick={() => reject.mutate()}>
+          <Button disabled={!reason.trim() || (processing && !transferNotMade)} loading={reject.isPending} onClick={() => reject.mutate()}>
             반려하기
           </Button>
         </div>

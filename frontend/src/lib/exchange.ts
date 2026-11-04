@@ -21,12 +21,15 @@ function amountOf(value: string): number | undefined {
 }
 
 /** 사용 가능 포인트(balance)를 넘는 금액도 막는다. 잔액을 모르면 서버가 검사한다. (POINT_004) */
-export function validateExchangeForm(values: ExchangeFormValues, balance?: number): ExchangeFormErrors {
+/**
+ * @param exchangeable 환전할 수 있는 포인트 (지갑의 exchangeableBalance). 판매 정산 등으로 받은 포인트만 들어가고 충전한 포인트는 빠진다.
+ */
+export function validateExchangeForm(values: ExchangeFormValues, exchangeable?: number): ExchangeFormErrors {
   const errors: ExchangeFormErrors = {};
   const amount = amountOf(values.amount);
   if (!amount) errors.amount = '환전할 포인트를 입력해 주세요.';
   else if (amount < EXCHANGE_MIN || amount > EXCHANGE_MAX) errors.amount = '환전은 1,000 P 이상 1,000,000 P 이하로 신청할 수 있어요.';
-  else if (balance !== undefined && amount > balance) errors.amount = '사용 가능 포인트보다 많이 환전할 수 없어요.';
+  else if (exchangeable !== undefined && amount > exchangeable) errors.amount = '환전할 수 있는 포인트보다 많이 신청할 수 없어요. 충전한 포인트는 환전할 수 없어요.';
 
   if (!/^\d{3}$/.test(values.bankCode)) errors.bankCode = '은행을 골라 주세요.';
 

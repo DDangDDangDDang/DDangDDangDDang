@@ -61,7 +61,7 @@ public class PointChargeProcessor {
         }
 
         // 정상 결제 → 포인트 지급 + 원장 기록 + 상태 변경
-        return PointChargeCompleteResponse.of(charge, applyCharge(charge).getBalance());
+        return PointChargeCompleteResponse.of(charge, applyCharge(charge).getSpendableBalance());
     }
 
     /**
@@ -83,6 +83,67 @@ public class PointChargeProcessor {
     }
 
     /**
+     * 충전 완료 뒤 결제가 취소(환불)된 만큼 포인트를 회수한다. 락 순서는 applyPayment와 같이 "충전 요청 → 지갑"이다.
+     * 웹훅이 두 번 와도 충전 요청에 회수한 누적 금액을 남기므로 같은 취소분을 두 번 회수하지 않는다.
+     * 이미 써 버리거나 입찰에 묶여 모자라면 있는 만큼만 회수하고, 남은 금액을 충전 요청(unreclaimedAmount)과
+     * 지갑(reclaimDebt)에 남긴다. 그만큼은 쓸 수 없고, 포인트가 생기면 collectUnreclaimed가 마저 회수한다.
+     *
+     * @param paymentCancelledTotal 포트원이 알려 준 이 결제의 취소 합계
+     */
+    @Transactional
+    public void applyCancellation(String paymentId, long paymentCancelledTotal) {
+        PointCharge charge = pointChargeRepository.findByPaymentIdForUpdate(paymentId)
+                .orElseThrow(() -> new BusinessException(PointErrorCode.CHARGE_NOT_FOUND));
+        long cancelled = charge.newlyCancelled(paymentCancelledTotal);
+        if (cancelled <= 0) {
+            return;
+        }
+
+        PointWallet wallet = pointWalletRepository.findByUserIdForUpdate(charge.getUserId())
+                .orElseThrow(() -> new BusinessException(PointErrorCode.WALLET_NOT_FOUND));
+        long reclaimed = wallet.reclaimCharge(cancelled);
+        charge.recordCancellation(cancelled);
+        charge.recordShortfall(cancelled - reclaimed);
+        if (reclaimed > 0) {
+            pointHistoryRepository.save(PointHistory.of(
+                    wallet, PointHistoryType.CHARGE_CANCEL, reclaimed, PointReferenceType.CHARGE, charge.getId()));
+        }
+        if (reclaimed < cancelled) {
+            log.warn("결제 취소분을 모두 회수하지 못해 남겨 둠 paymentId={}, userId={}, cancelled={}, reclaimed={}, shortfall={}",
+                    paymentId, charge.getUserId(), cancelled, reclaimed, cancelled - reclaimed);
+        } else {
+            log.info("결제 취소로 충전 포인트 회수 paymentId={}, userId={}, reclaimed={}", paymentId, charge.getUserId(), reclaimed);
+        }
+    }
+
+    /**
+     * 결제 취소 때 다 회수하지 못하고 남겨 둔 포인트를 사용 가능 포인트가 생긴 만큼 마저 회수한다.
+     * 락 순서는 applyCancellation과 같이 "충전 요청 → 지갑"이다.
+     *
+     * @return 이번에 회수한 포인트
+     */
+    @Transactional
+    public long collectUnreclaimed(String paymentId) {
+        PointCharge charge = pointChargeRepository.findByPaymentIdForUpdate(paymentId)
+                .orElseThrow(() -> new BusinessException(PointErrorCode.CHARGE_NOT_FOUND));
+        if (charge.getUnreclaimedAmount() <= 0) {
+            return 0;
+        }
+        PointWallet wallet = pointWalletRepository.findByUserIdForUpdate(charge.getUserId())
+                .orElseThrow(() -> new BusinessException(PointErrorCode.WALLET_NOT_FOUND));
+        long collected = wallet.collectReclaimDebt(charge.getUnreclaimedAmount());
+        if (collected <= 0) {
+            return 0;
+        }
+        charge.recordCollected(collected);
+        pointHistoryRepository.save(PointHistory.of(
+                wallet, PointHistoryType.CHARGE_CANCEL, collected, PointReferenceType.CHARGE, charge.getId()));
+        log.info("남겨 둔 결제 취소분 회수 paymentId={}, userId={}, collected={}, remaining={}",
+                paymentId, charge.getUserId(), collected, charge.getUnreclaimedAmount());
+        return collected;
+    }
+
+    /**
      * 완료된 충전이면 지갑의 현재 잔액, 아니면 null
      */
     public Long findBalanceIfCompleted(PointCharge charge) {
@@ -90,7 +151,7 @@ public class PointChargeProcessor {
             return null;
         }
         return pointWalletRepository.findByUserId(charge.getUserId())
-                .map(PointWallet::getBalance)
+                .map(PointWallet::getSpendableBalance)
                 .orElse(null);
     }
 }
