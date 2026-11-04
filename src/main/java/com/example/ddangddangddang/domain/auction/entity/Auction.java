@@ -10,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Entity
@@ -31,6 +32,13 @@ public class Auction extends BaseTimeEntity {
 
     //마감 재시도 규칙: 실패할 때마다 다음 시도까지 1초, 2초, 4초 ... 최대 5분을 기다리고, 이 횟수만큼 실패하면 멈춘다
     public static final int MAX_CLOSE_FAILURES = 10;
+
+    //금액 상한(원 = 포인트): 시작가·입찰 단위·즉시구매가·입찰 금액. 계산이 long 범위를 넘지 않게 하고 실수 입력을 막는다
+    public static final long MAX_PRICE = 100_000_000L;
+    //일반 경매(시작·마감 시각을 정하는 경매) 진행 시간과 시작 시각 범위. 방송 중 경매는 LiveAuctionCreateRequest(30초~3일)
+    public static final Duration MIN_DURATION = Duration.ofMinutes(1);
+    public static final Duration MAX_DURATION = Duration.ofDays(14);
+    public static final Duration MAX_START_AHEAD = Duration.ofDays(30);
     private static final long MAX_CLOSE_RETRY_DELAY_SECONDS = 300;
 
 
@@ -156,7 +164,15 @@ public class Auction extends BaseTimeEntity {
     /** 다음 입찰이 넘어야 하는 최소 금액. 첫 입찰은 시작가부터, 이후는 현재가 + 입찰 단위 */
     public long minimumBidAmount() {
         requireBidding();
-        return this.bidCount == 0 ? this.startPrice : this.currentPrice + this.bidUnit;
+        if (this.bidCount == 0) {
+            return this.startPrice;
+        }
+        // 상한 도입 전에 만든 경매의 큰 입찰 단위로 넘치면(음수가 되면) 어떤 입찰도 받지 않는다
+        try {
+            return Math.addExact(this.currentPrice, this.bidUnit);
+        } catch (ArithmeticException e) {
+            return Long.MAX_VALUE;
+        }
     }
 
     /**
@@ -171,6 +187,9 @@ public class Auction extends BaseTimeEntity {
         }
         if (bidderId.equals(this.highestBidderId)) {
             throw new BusinessException(AuctionErrorCode.ALREADY_HIGHEST_BIDDER);
+        }
+        if (amount > MAX_PRICE) {
+            throw new BusinessException(AuctionErrorCode.PRICE_TOO_HIGH);
         }
         if (amount < minimumBidAmount()) {
             throw new BusinessException(AuctionErrorCode.BID_TOO_LOW);

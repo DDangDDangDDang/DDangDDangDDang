@@ -63,7 +63,7 @@ public class LiveBotSellingService {
 
     /** 상품 등록 (판매자는 봇 계정) */
     public ProductResponse createProduct(Long botId, ProductRequest request) {
-        return productService.creation(botUserId(botId), request);
+        return productService.creationAsBot(botUserId(botId), request);
     }
 
     // ---------- 경매 ----------
@@ -76,7 +76,7 @@ public class LiveBotSellingService {
     /** 지금 켜 둔 봇 방송에서 경매를 바로 시작한다. 방송이 꺼져 있으면 LIVEBOT_004. 방송이 끝나도 경매는 정한 시간까지 이어진다 */
     public AuctionResponse startLiveAuction(Long botId, LiveAuctionCreateRequest request) {
         LiveBot bot = findById(botId);
-        return auctionService.createLiveAuction(bot.getUserId(), liveStreamId(bot), request);
+        return auctionService.createLiveAuctionAsBot(bot.getUserId(), liveStreamId(bot), request);
     }
 
     /** 경매를 봇 방송 영상 위에 띄운다. (최대 2개, 사람 방송과 같은 규칙) */

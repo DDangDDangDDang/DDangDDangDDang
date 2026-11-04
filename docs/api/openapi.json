@@ -12472,7 +12472,8 @@
           "amount" : {
             "type" : "integer",
             "format" : "int64",
-            "exclusiveMinimum" : 0
+            "exclusiveMinimum" : 0,
+            "maximum" : 100000000
           }
         },
         "required" : [ "amount" ]
@@ -14931,6 +14932,22 @@
     "status" : 400,
     "message" : "시작가와 최소 입찰 단위를 비우면 즉시구매가를 입력해야 합니다."
   }, {
+    "code" : "AUCTION_024",
+    "status" : 400,
+    "message" : "경매 금액은 1억 원까지 정할 수 있습니다."
+  }, {
+    "code" : "AUCTION_025",
+    "status" : 400,
+    "message" : "경매 진행 시간은 1분 이상 14일 이내로 정해 주세요."
+  }, {
+    "code" : "AUCTION_026",
+    "status" : 400,
+    "message" : "경매 시작 시각은 30일 이내로 정해 주세요."
+  }, {
+    "code" : "AUCTION_027",
+    "status" : 403,
+    "message" : "판매자 인증을 받은 회원만 경매를 등록할 수 있습니다."
+  }, {
     "code" : "AUTH_001",
     "status" : 401,
     "message" : "인증 토큰이 필요합니다."
@@ -15526,6 +15543,10 @@
     "code" : "PRODUCT_010",
     "status" : 400,
     "message" : "상품 설명에는 이미지를 20장까지 넣을 수 있습니다."
+  }, {
+    "code" : "PRODUCT_011",
+    "status" : 403,
+    "message" : "판매자 인증을 받은 회원만 상품을 등록할 수 있습니다."
   }, {
     "code" : "REVIEW_001",
     "status" : 404,

@@ -36,6 +36,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.ddangddangddang.domain.seller.service.SellerVerification;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -50,6 +52,7 @@ public class AuctionService {
     private final ApplicationEventPublisher eventPublisher;
     private final FileStorage fileStorage;
     private final SanctionService sanctionService;
+    private final SellerVerification sellerVerification;
 
     //경매(일반) 생성 : 본인 상품이고 판매 중이며 대기 or 진행 중인 경매가 아닐때 생성이 가능합니다
     public AuctionResponse auctionCreate(Long sellerId, AuctionCreateRequest request) {
@@ -58,10 +61,11 @@ public class AuctionService {
         // 미발송 판매 취소가 반복된 회원은 경매를 등록할 수 없다 (상품을 잠근 뒤에 읽는다. createLiveAuction 참고)
         sanctionService.requireNotBanned(sellerId, SanctionType.LISTING_BAN);
 
-        //시작 시간< 종료 시간
-        if (!request.startAt().isBefore(request.endAt())) {
-            throw new BusinessException(AuctionErrorCode.INVALID_TIME);
-        }
+        // 판매자 인증(관리자 승인)을 받은 회원만 경매를 등록할 수 있다
+        requireVerifiedSeller(sellerId);
+
+        //시작 시간< 종료 시간, 진행 시간·시작 시각 범위
+        scheduleVerification(request.startAt(), request.endAt(), LocalDateTime.now());
 
         //가격 규칙: 시작가·입찰 단위는 둘 다 있거나 둘 다 없음(즉시구매 전용), 즉시구매가 > 시작가
         priceVerification(request.startPrice(), request.bidUnit(), request.buyNowPrice());
@@ -118,6 +122,18 @@ public class AuctionService {
 
     // 라이브 중 경매 생성 : 방송 주인이 라이브 중 경매 생성,생성 즉시 AuctionStatus는 ONGOING변환
     public AuctionResponse createLiveAuction (Long sellerId, Long liveId,LiveAuctionCreateRequest request){
+        return createLiveAuction(sellerId, liveId, request, true);
+    }
+
+    /**
+     * 방송 봇의 경매 생성 (LiveBotSellingService 전용). 봇 계정은 관리자가 만들고 운영해 판매자 인증이 없으므로 인증을 보지 않는다.
+     * 회원 요청에서는 부르지 않는다.
+     */
+    public AuctionResponse createLiveAuctionAsBot(Long botUserId, Long liveId, LiveAuctionCreateRequest request) {
+        return createLiveAuction(botUserId, liveId, request, false);
+    }
+
+    private AuctionResponse createLiveAuction(Long sellerId, Long liveId, LiveAuctionCreateRequest request, boolean requireVerified){
         // 상품 검증(공통) - 반드시 이 트랜잭션의 첫 조회여야 한다 (동시성)
         // productVerification은 상품 행을 비관적 락으로 잡은 뒤 "대기/진행 중 경매가 있는지" 확인한다.
         // MySQL(REPEATABLE READ)은 트랜잭션의 첫 일반 조회 시점에 스냅샷을 고정하므로,
@@ -125,6 +141,9 @@ public class AuctionService {
         Product product = productVerification(sellerId, request.productId());
         // 미발송 판매 취소가 반복된 회원은 경매를 등록할 수 없다 (위 '첫 조회' 규칙 때문에 상품을 잠근 뒤에 읽는다)
         sanctionService.requireNotBanned(sellerId, SanctionType.LISTING_BAN);
+        if (requireVerified) {
+            requireVerifiedSeller(sellerId);
+        }
         // 방송 검증(존재, 방송 주인, 방송 중)
         LiveStream liveStream = ownLiveStream(sellerId, liveId);
         // 가격 규칙 (일반 경매와 같다)
@@ -292,6 +311,9 @@ public class AuctionService {
      * - 입찰을 받는 경매의 즉시구매가는 시작가보다 커야 한다
      */
     static void priceVerification(Long startPrice, Long bidUnit, Long buyNowPrice) {
+        if (exceedsMaxPrice(startPrice) || exceedsMaxPrice(bidUnit) || exceedsMaxPrice(buyNowPrice)) {
+            throw new BusinessException(AuctionErrorCode.PRICE_TOO_HIGH);
+        }
         if ((startPrice == null) != (bidUnit == null)) {
             throw new BusinessException(AuctionErrorCode.INVALID_PRICE_SETTING);
         }
@@ -303,6 +325,33 @@ public class AuctionService {
         }
         if (buyNowPrice != null && buyNowPrice <= startPrice) {
             throw new BusinessException(AuctionErrorCode.INVALID_BUY_NOW_PRICE);
+        }
+    }
+
+    private static boolean exceedsMaxPrice(Long price) {
+        return price != null && price > Auction.MAX_PRICE;
+    }
+
+    /**
+     * 일반 경매 시각 검증: 마감 > 시작, 진행 시간 1분~14일, 시작은 30일 이내.
+     * 상한이 없으면 먼 미래로 마감을 잡아 상품을 경매 중으로 계속 묶어 둘 수 있다. (경매 중인 상품은 수정·삭제 불가)
+     */
+    static void scheduleVerification(LocalDateTime startAt, LocalDateTime endAt, LocalDateTime now) {
+        if (!startAt.isBefore(endAt)) {
+            throw new BusinessException(AuctionErrorCode.INVALID_TIME);
+        }
+        Duration duration = Duration.between(startAt, endAt);
+        if (duration.compareTo(Auction.MIN_DURATION) < 0 || duration.compareTo(Auction.MAX_DURATION) > 0) {
+            throw new BusinessException(AuctionErrorCode.INVALID_DURATION);
+        }
+        if (startAt.isAfter(now.plus(Auction.MAX_START_AHEAD))) {
+            throw new BusinessException(AuctionErrorCode.START_TOO_FAR);
+        }
+    }
+
+    private void requireVerifiedSeller(Long sellerId) {
+        if (!sellerVerification.isVerified(sellerId)) {
+            throw new BusinessException(AuctionErrorCode.NOT_VERIFIED_SELLER);
         }
     }
 

@@ -57,6 +57,8 @@ class ProductServiceTest {
     private AuctionRepository auctionRepository;
     @Mock
     private FileStorage fileStorage;
+    @Mock
+    private com.example.ddangddangddang.domain.seller.service.SellerVerification sellerVerification;
 
     private ProductService productService;
     private User seller;
@@ -65,13 +67,14 @@ class ProductServiceTest {
     @BeforeEach
     void setUp() {
         productService = new ProductService(productRepository, userRepository, categoryRepository, auctionRepository,
-                new ProductImageResolver(fileStorage), fileStorage);
+                new ProductImageResolver(fileStorage), fileStorage, sellerVerification);
         seller = User.create("seller@test.com", "pw", "seller");
         ReflectionTestUtils.setField(seller, "id", SELLER_ID);
         category = new Category(null, "카메라", 1);
         ReflectionTestUtils.setField(category, "id", CATEGORY_ID);
 
         given(userRepository.findById(SELLER_ID)).willReturn(Optional.of(seller));
+        given(sellerVerification.isVerified(SELLER_ID)).willReturn(true);
         given(categoryRepository.findById(CATEGORY_ID)).willReturn(Optional.of(category));
         given(productRepository.save(any(Product.class))).willAnswer(inv -> inv.getArgument(0));
         given(fileStorage.publicUrl(anyString())).willAnswer(inv -> "https://cdn/" + inv.getArgument(0));
@@ -108,6 +111,28 @@ class ProductServiceTest {
         assertThat(response.thumbnailUrl()).isNull();
         assertThat(response.images()).isEmpty();
         assertThat(response.descriptionImages()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("판매자 인증을 받지 않은 회원은 상품을 등록할 수 없다(PRODUCT_011)")
+    void createRequiresVerifiedSeller() {
+        given(sellerVerification.isVerified(SELLER_ID)).willReturn(false);
+
+        assertThatThrownBy(() -> productService.creation(SELLER_ID,
+                new ProductRequest(CATEGORY_ID, "필름 카메라", null, null)))
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ProductErrorCode.NOT_VERIFIED_SELLER);
+        then(productRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("방송 봇은 판매자 인증 없이 상품을 등록한다")
+    void botCreatesWithoutVerification() {
+        given(sellerVerification.isVerified(SELLER_ID)).willReturn(false);
+
+        ProductResponse response = productService.creationAsBot(SELLER_ID, new ProductRequest(CATEGORY_ID, "필름 카메라", null, null));
+
+        assertThat(response.name()).isEqualTo("필름 카메라");
     }
 
     @Test

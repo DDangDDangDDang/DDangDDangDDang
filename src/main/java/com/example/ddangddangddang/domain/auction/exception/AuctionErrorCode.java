@@ -33,7 +33,11 @@ public enum AuctionErrorCode implements ErrorCode {
     BID_UNIT_MISMATCH(HttpStatus.BAD_REQUEST, "AUCTION_020", "입찰 금액은 입찰 단위만큼씩 올려야 합니다."),
     BIDDING_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "AUCTION_021", "즉시구매로만 살 수 있는 경매입니다."),
     INVALID_PRICE_SETTING(HttpStatus.BAD_REQUEST, "AUCTION_022", "시작가와 최소 입찰 단위는 둘 다 입력하거나 둘 다 비워야 합니다."),
-    BUY_NOW_PRICE_REQUIRED(HttpStatus.BAD_REQUEST, "AUCTION_023", "시작가와 최소 입찰 단위를 비우면 즉시구매가를 입력해야 합니다.");
+    BUY_NOW_PRICE_REQUIRED(HttpStatus.BAD_REQUEST, "AUCTION_023", "시작가와 최소 입찰 단위를 비우면 즉시구매가를 입력해야 합니다."),
+    PRICE_TOO_HIGH(HttpStatus.BAD_REQUEST, "AUCTION_024", "경매 금액은 1억 원까지 정할 수 있습니다."),
+    INVALID_DURATION(HttpStatus.BAD_REQUEST, "AUCTION_025", "경매 진행 시간은 1분 이상 14일 이내로 정해 주세요."),
+    START_TOO_FAR(HttpStatus.BAD_REQUEST, "AUCTION_026", "경매 시작 시각은 30일 이내로 정해 주세요."),
+    NOT_VERIFIED_SELLER(HttpStatus.FORBIDDEN, "AUCTION_027", "판매자 인증을 받은 회원만 경매를 등록할 수 있습니다.");
 
 
 
