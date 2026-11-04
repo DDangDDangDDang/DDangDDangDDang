@@ -37,7 +37,9 @@ public enum AuctionErrorCode implements ErrorCode {
     PRICE_TOO_HIGH(HttpStatus.BAD_REQUEST, "AUCTION_024", "경매 금액은 1억 원까지 정할 수 있습니다."),
     INVALID_DURATION(HttpStatus.BAD_REQUEST, "AUCTION_025", "경매 진행 시간은 1분 이상 14일 이내로 정해 주세요."),
     START_TOO_FAR(HttpStatus.BAD_REQUEST, "AUCTION_026", "경매 시작 시각은 30일 이내로 정해 주세요."),
-    NOT_VERIFIED_SELLER(HttpStatus.FORBIDDEN, "AUCTION_027", "판매자 인증을 받은 회원만 경매를 등록할 수 있습니다.");
+    NOT_VERIFIED_SELLER(HttpStatus.FORBIDDEN, "AUCTION_027", "판매자 인증을 받은 회원만 경매를 등록할 수 있습니다."),
+    BID_TOO_HIGH(HttpStatus.BAD_REQUEST, "AUCTION_028", "입찰 금액은 1억 원까지 넣을 수 있습니다."),
+    BID_LIMIT_REACHED(HttpStatus.CONFLICT, "AUCTION_029", "입찰할 수 있는 최고 금액(1억 원)에 닿아 이 경매에는 더 입찰할 수 없습니다.");
 
 
 

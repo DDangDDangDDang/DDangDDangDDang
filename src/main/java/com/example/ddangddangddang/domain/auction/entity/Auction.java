@@ -188,8 +188,12 @@ public class Auction extends BaseTimeEntity {
         if (bidderId.equals(this.highestBidderId)) {
             throw new BusinessException(AuctionErrorCode.ALREADY_HIGHEST_BIDDER);
         }
+        // 상한 도입 전에 만든 경매는 다음 최소 입찰가가 상한을 넘을 수 있다. 입찰자 탓이 아니므로 따로 알린다
+        if (minimumBidAmount() > MAX_PRICE) {
+            throw new BusinessException(AuctionErrorCode.BID_LIMIT_REACHED);
+        }
         if (amount > MAX_PRICE) {
-            throw new BusinessException(AuctionErrorCode.PRICE_TOO_HIGH);
+            throw new BusinessException(AuctionErrorCode.BID_TOO_HIGH);
         }
         if (amount < minimumBidAmount()) {
             throw new BusinessException(AuctionErrorCode.BID_TOO_LOW);
