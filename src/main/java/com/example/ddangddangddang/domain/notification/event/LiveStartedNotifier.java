@@ -4,6 +4,7 @@ import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.event.LiveStreamStartedEvent;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
 import com.example.ddangddangddang.domain.notification.entity.Notification;
+import com.example.ddangddangddang.domain.notification.repository.NotificationRepository;
 import com.example.ddangddangddang.domain.notification.service.NotificationDispatcher;
 import com.example.ddangddangddang.domain.seller.repository.SellerSubscriptionRepository;
 import com.example.ddangddangddang.domain.user.entity.User;
@@ -14,6 +15,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -29,10 +32,14 @@ public class LiveStartedNotifier {
 
     public static final String NOTIFICATION_QUEUE = NotificationDispatcher.NOTIFICATION_QUEUE;
 
+    // 판매자가 방송을 껐다 켜기를 반복해도 구독자에게는 이 간격에 한 번만 알린다.
+    static final Duration RENOTIFY_INTERVAL = Duration.ofMinutes(30);
+
     private final SellerSubscriptionRepository subscriptionRepository;
     private final LiveStreamRepository liveStreamRepository;
     private final UserRepository userRepository;
     private final NotificationDispatcher notificationDispatcher;
+    private final NotificationRepository notificationRepository;
 
     @Async
     @TransactionalEventListener
@@ -50,13 +57,31 @@ public class LiveStartedNotifier {
             return;
         }
         Long sellerId = liveStream.getSellerId();
+        LocalDateTime since = LocalDateTime.now().minus(RENOTIFY_INTERVAL);
+        if (notifiedRecently(sellerId, since)) {
+            // 새로 알리지 않는 대신, 이미 보낸 알림이 끝난 방송이 아니라 이 방송으로 가게 옮긴다.
+            int moved = notificationRepository.moveLiveStartedTo(sellerId, since, liveStreamId, liveStream.getTitle(), liveStream.isRecorded());
+            log.info("최근 {} 안에 방송 시작을 알려 새로 알리지 않고 알림 {}건을 이 방송으로 옮깁니다. sellerId={}, liveStreamId={}",
+                    RENOTIFY_INTERVAL, moved, sellerId, liveStreamId);
+            return;
+        }
         List<Long> subscriberIds = subscriptionRepository.findSubscriberIds(sellerId);
         if (subscriberIds.isEmpty()) {
             return;
         }
+        // 보내기 전에 남긴다. 보내다 실패해도 같은 판매자의 다음 재시작에서 겹쳐 보내지 않게 한다.
+        liveStreamRepository.markSubscribersNotified(liveStreamId, LocalDateTime.now());
         String nickname = userRepository.findById(sellerId).map(User::getNickname).orElse(null);
         notificationDispatcher.dispatch(subscriberIds.stream()
                 .map(id -> Notification.liveStarted(id, sellerId, nickname, liveStreamId, liveStream.getTitle(), liveStream.isRecorded()))
                 .toList());
+    }
+
+    /**
+     * 이 판매자의 방송으로 RENOTIFY_INTERVAL 안에 구독자에게 알린 적이 있는지.
+     * 시작한 시각이 아니라 실제로 알린 시각을 본다. 그래야 30분 안에 껐다 켜기를 이어 가도, 마지막 알림에서 30분이 지나면 다시 알린다.
+     */
+    private boolean notifiedRecently(Long sellerId, LocalDateTime since) {
+        return liveStreamRepository.existsBySellerIdAndSubscribersNotifiedAtAfter(sellerId, since);
     }
 }

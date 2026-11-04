@@ -93,10 +93,23 @@ class LiveChatServiceTest {
     }
 
     @Test
+    @DisplayName("닉네임을 바꿔 토큰의 닉네임이 옛 값이어도, 채팅에는 지금 닉네임을 쓴다")
+    void sendWithCurrentNickname() {
+        given(chatRateLimitRepository.increment(SENDER.id(), LiveChatService.RATE_LIMIT_WINDOW)).willReturn(1L);
+        given(nicknameBadges.equipped(SENDER.id())).willReturn(new EquippedBadge(null, null, null, "새닉네임"));
+
+        liveChatService.send(LIVE_STREAM_ID, SENDER, "안녕하세요");
+
+        ArgumentCaptor<ChatMessageResponse> captor = ArgumentCaptor.forClass(ChatMessageResponse.class);
+        then(stompBroadcaster).should().broadcast(eq("/topic/live-streams/10/chat"), captor.capture());
+        assertThat(captor.getValue().nickname()).isEqualTo("새닉네임");
+    }
+
+    @Test
     @DisplayName("보낸 사람이 장착한 닉네임 뱃지를 채팅 메시지에 담는다")
     void sendWithBadge() {
         given(chatRateLimitRepository.increment(SENDER.id(), LiveChatService.RATE_LIMIT_WINDOW)).willReturn(1L);
-        given(nicknameBadges.equipped(SENDER.id())).willReturn(new EquippedBadge(NicknameBadge.ANGEL_WINGS, NicknameBadge.TITLE_BID_KING, NicknameBadge.COLOR_MINT));
+        given(nicknameBadges.equipped(SENDER.id())).willReturn(new EquippedBadge(NicknameBadge.ANGEL_WINGS, NicknameBadge.TITLE_BID_KING, NicknameBadge.COLOR_MINT, null));
 
         liveChatService.send(LIVE_STREAM_ID, SENDER, "안녕하세요");
 

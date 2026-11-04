@@ -57,6 +57,15 @@ public interface LiveStreamRepository extends JpaRepository<LiveStream, Long> {
     // 홈 화면에서 시청자 수 정보가 아직 없을 때 채우는 용도. 최근 시작한 방송부터
     List<LiveStream> findByStatusOrderByStartedAtDesc(LiveStreamStatus status, Pageable pageable);
 
+    /** 판매자의 방송으로 since 이후에 구독자에게 방송 시작을 알린 적이 있는지. (반복해서 알리지 않기 위해, LiveStartedNotifier) */
+    boolean existsBySellerIdAndSubscribersNotifiedAtAfter(Long sellerId, LocalDateTime since);
+
+    /** 이 방송으로 구독자에게 방송 시작을 알렸다고 남긴다. 알림 처리는 트랜잭션 밖(@Async)에서 하므로 여기서 연다. */
+    @org.springframework.transaction.annotation.Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update LiveStream s set s.subscribersNotifiedAt = :notifiedAt where s.id = :id")
+    int markSubscribersNotified(@Param("id") Long id, @Param("notifiedAt") LocalDateTime notifiedAt);
+
     // 홈 화면 방송 예정: 시작 예정 시간이 from 이후인 방송을 가까운 순으로 (시작 예정 시간을 정하지 않은 방송은 제외)
     List<LiveStream> findByStatusAndScheduledStartAtGreaterThanEqualOrderByScheduledStartAtAsc(
             LiveStreamStatus status, LocalDateTime from, Pageable pageable);

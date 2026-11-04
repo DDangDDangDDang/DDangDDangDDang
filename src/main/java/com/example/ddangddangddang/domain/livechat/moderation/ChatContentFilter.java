@@ -55,6 +55,11 @@ public class ChatContentFilter {
     private static final Pattern PUNCTUATION = Pattern.compile("[\\p{P}\\p{S}]");
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
+    // 보이지 않는 문자: 형식 문자(Cf, 폭 없는 공백 U+200B·방향 표시 등), 한글 채움 문자(U+115F·U+1160·U+3164·U+FFA0), 빈 점자(U+2800).
+    // "010(U+200B)1234(U+200B)5678"이나 금칙어 글자 사이에 끼워 규칙을 피하지 못하게 검사 전에 지운다. (닉네임은 NicknamePolicy가 아예 막음)
+    // NFKC는 U+3164·U+FFA0를 U+1160으로 바꿀 뿐 지우지 않아 정규화 뒤에 지운다.
+    private static final Pattern INVISIBLE = Pattern.compile("[\\p{Cf}\\u115F\\u1160\\u3164\\uFFA0\\u2800]");
+
     private final List<String> bannedWords;
 
     public ChatContentFilter(ChatModerationProperties properties) {
@@ -82,7 +87,7 @@ public class ChatContentFilter {
             return Optional.empty();
         }
         // 전각 문자(０１０, ｏｐｅｎ.ｋａｋａｏ)를 보통 문자로 바꿔 규칙을 피하지 못하게 한다.
-        String normalized = Normalizer.normalize(content, Normalizer.Form.NFKC);
+        String normalized = removeInvisible(Normalizer.normalize(content, Normalizer.Form.NFKC));
         if (containsPhoneNumber(normalized) || containsPhoneNumber(koreanDigitsToNumbers(normalized))) {
             return Optional.of(ContentViolation.PHONE_NUMBER);
         }
@@ -99,6 +104,10 @@ public class ChatContentFilter {
             return Optional.of(ContentViolation.BANNED_WORD);
         }
         return Optional.empty();
+    }
+
+    static String removeInvisible(String content) {
+        return INVISIBLE.matcher(content).replaceAll("");
     }
 
     private boolean containsPhoneNumber(String content) {
@@ -172,7 +181,7 @@ public class ChatContentFilter {
 
     // 소문자로 바꾸고 문장부호·기호를 지운다. 공백은 남긴다.
     private static String compactKeepingSpaces(String content) {
-        return PUNCTUATION.matcher(Normalizer.normalize(content, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT)).replaceAll("");
+        return PUNCTUATION.matcher(removeInvisible(Normalizer.normalize(content, Normalizer.Form.NFKC)).toLowerCase(Locale.ROOT)).replaceAll("");
     }
 
     // 금칙어 자체는 공백까지 지운 형태로 비교한다.

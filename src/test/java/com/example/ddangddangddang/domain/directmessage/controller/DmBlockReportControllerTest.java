@@ -134,6 +134,14 @@ class DmBlockReportControllerTest extends DmApiTestSupport {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.data.messageId").doesNotExist())
                     .andExpect(jsonPath("$.data.reportedContent").doesNotExist());
+
+            // 대화 전체 신고는 하루에 한 번. 같은 방을 계속 신고해 관리자 목록을 도배하지 못한다.
+            report(alice, roomId, null, "HARASSMENT", "또 신고")
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.error.code").value("DM_016"));
+            // 메시지 신고는 그대로 할 수 있다.
+            Long another = sendAndGetId(bob, roomId, "또 스팸");
+            report(alice, roomId, another, "SPAM", null).andExpect(status().isCreated());
         }
 
         @Test

@@ -23,6 +23,8 @@ locals {
     JWT_COOKIE_SECURE      = tostring(local.dev_https)
     KAKAO_REDIRECT_URI     = "${local.dev_origin}/oauth/kakao/callback"
     GOOGLE_REDIRECT_URI    = "${local.dev_origin}/oauth/google/callback"
+    # WebSocket 연결을 받을 페이지 출처 (WebSocketConfig)
+    APP_WEBSOCKET_ALLOWED_ORIGINS = local.dev_origin
   })
 
   dev_livekit_url = var.dev_livekit_url != "" ? var.dev_livekit_url : var.livekit_url
