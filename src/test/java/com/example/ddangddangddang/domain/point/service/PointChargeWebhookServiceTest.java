@@ -91,12 +91,86 @@ class PointChargeWebhookServiceTest {
         PointCharge charge = pendingCharge();
         charge.complete();
         given(pointChargeRepository.findByPaymentId(PAYMENT_ID)).willReturn(Optional.of(charge));
+        given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.PAID, AMOUNT));
 
         boolean handled = pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
 
         assertThat(handled).isTrue();
-        verify(paymentGateway, never()).getPayment(anyString());
+        verify(pointWalletRepository, never()).findByUserIdForUpdate(any());
         verify(pointHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("충전 완료 뒤 결제가 전액 취소되면 그만큼 포인트를 회수하고 CHARGE_CANCEL 이력을 남긴다")
+    void cancelledAfterCompleted() {
+        PointCharge charge = pendingCharge();
+        charge.complete();
+        PointWallet wallet = wallet();
+        wallet.charge(AMOUNT);
+        given(pointChargeRepository.findByPaymentId(PAYMENT_ID)).willReturn(Optional.of(charge));
+        given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+        given(paymentGateway.getPayment(PAYMENT_ID))
+                .willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.CANCELLED, AMOUNT, AMOUNT));
+        given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
+
+        pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
+
+        assertThat(wallet.getBalance()).isZero();
+        assertThat(charge.getCancelledAmount()).isEqualTo(AMOUNT);
+        verify(pointHistoryRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("같은 취소 웹훅이 다시 와도 두 번 회수하지 않고, 부분 취소는 새로 취소된 만큼만 회수한다")
+    void partialCancelIsIdempotent() {
+        PointCharge charge = pendingCharge();
+        charge.complete();
+        PointWallet wallet = wallet();
+        wallet.charge(AMOUNT);
+        given(pointChargeRepository.findByPaymentId(PAYMENT_ID)).willReturn(Optional.of(charge));
+        given(pointChargeRepository.findByPaymentIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(charge));
+        given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
+        given(paymentGateway.getPayment(PAYMENT_ID))
+                .willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.PARTIAL_CANCELLED, AMOUNT, 3_000L))
+                .willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.PARTIAL_CANCELLED, AMOUNT, 3_000L))
+                .willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.CANCELLED, AMOUNT, AMOUNT));
+
+        pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
+        pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
+        assertThat(wallet.getBalance()).isEqualTo(AMOUNT - 3_000L);
+
+        pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
+        assertThat(wallet.getBalance()).isZero();
+        assertThat(charge.getCancelledAmount()).isEqualTo(AMOUNT);
+    }
+
+    @Test
+    @DisplayName("결제 확인 보정: PENDING인데 포트원에 결제 완료면 포인트를 지급하고, 결제가 없으면 그대로 둔다")
+    void recoverPending() {
+        PointCharge paidCharge = pendingCharge();
+        PointWallet wallet = wallet();
+        givenCharge(paidCharge);
+        given(paymentGateway.getPayment(PAYMENT_ID)).willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.PAID, AMOUNT));
+        given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
+
+        pointChargeService.recoverPending(PAYMENT_ID);
+
+        assertThat(paidCharge.getStatus()).isEqualTo(PointChargeType.COMPLETE);
+        assertThat(wallet.getBalance()).isEqualTo(AMOUNT);
+    }
+
+    @Test
+    @DisplayName("결제 확인 보정: 포트원에 결제가 없으면(결제창에서 결제 안 함) 예외 없이 PENDING으로 둔다")
+    void recoverPendingNotPaidYet() {
+        PointCharge charge = pendingCharge();
+        given(pointChargeRepository.findByPaymentId(PAYMENT_ID)).willReturn(Optional.of(charge));
+        given(paymentGateway.getPayment(PAYMENT_ID))
+                .willThrow(new com.example.ddangddangddang.global.exception.BusinessException(
+                        com.example.ddangddangddang.domain.point.exception.PointErrorCode.PAYMENT_NOT_FOUND));
+
+        pointChargeService.recoverPending(PAYMENT_ID);
+
+        assertThat(charge.getStatus()).isEqualTo(PointChargeType.PENDING);
     }
 
     @Test

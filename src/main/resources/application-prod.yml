@@ -28,6 +28,11 @@ logging:
 jwt:
   secret: ${JWT_SECRET}
 
+# 환전 계좌번호 암호화 키 (Base64로 쓴 32바이트). 한 번 정하면 바꾸지 않는다. (AccountNumberConverter)
+point:
+  exchange:
+    account-encryption-key: ${POINT_ACCOUNT_ENCRYPTION_KEY}
+
 # API 명세·Swagger UI는 개발용이라 운영에서는 끈다. (프론트엔드는 저장소의 docs/api/openapi.json을 쓴다)
 springdoc:
   api-docs:

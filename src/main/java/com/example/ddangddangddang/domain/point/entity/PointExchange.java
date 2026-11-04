@@ -5,6 +5,7 @@ import com.example.ddangddangddang.global.entity.BaseTimeEntity;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -54,8 +55,12 @@ public class PointExchange extends BaseTimeEntity {
     @Column(nullable = false, length = 3)
     private String bankCode;
 
-    /** 숫자만 저장한다. 실서비스에서는 암호화 저장이 필요하다 */
-    @Column(nullable = false, length = 20)
+    /**
+     * 숫자만 저장한다. DB에는 암호화해서 넣는다. (AccountNumberConverter)
+     * 암호문은 평문보다 길어서 컬럼 길이를 늘렸다. 운영 DB는 docs/migrations/2026-11-04-point-exchange-account-encrypt.sql 참고
+     */
+    @Convert(converter = AccountNumberConverter.class)
+    @Column(nullable = false, length = 255)
     private String accountNumber;
 
     @Column(nullable = false, length = 30)

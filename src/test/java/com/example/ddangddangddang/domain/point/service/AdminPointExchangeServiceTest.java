@@ -103,10 +103,36 @@ class AdminPointExchangeServiceTest {
     void reject() {
         PointExchange exchange = pending();
 
-        AdminPointExchangeResponse response = adminPointExchangeService.reject(ADMIN_ID, EXCHANGE_ID, "예금주 불일치");
+        AdminPointExchangeResponse response = adminPointExchangeService.reject(ADMIN_ID, EXCHANGE_ID, "예금주 불일치", false);
 
         assertThat(response.status()).isEqualTo(PointExchangeType.FAILED);
         assertThat(response.failReason()).isEqualTo("예금주 불일치");
+        verify(pointExchangeLedger).refund(exchange);
+    }
+
+    @Test
+    @DisplayName("반려: 송금 중인 건은 이체하지 않았다는 확인이 없으면 반려하지 않는다")
+    void rejectProcessingWithoutConfirm() {
+        PointExchange exchange = pending();
+        exchange.startManualPayout(ADMIN_ID, LocalDateTime.now());
+
+        assertThatThrownBy(() -> adminPointExchangeService.reject(ADMIN_ID, EXCHANGE_ID, "계좌 오류", false))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PointErrorCode.REJECT_TRANSFER_NOT_CONFIRMED);
+        assertThat(exchange.getStatus()).isEqualTo(PointExchangeType.PROCESSING);
+        verify(pointExchangeLedger, never()).refund(any());
+    }
+
+    @Test
+    @DisplayName("반려: 송금 중인 건도 이체하지 않았다고 확인하면 반려하고 환불한다")
+    void rejectProcessingWithConfirm() {
+        PointExchange exchange = pending();
+        exchange.startManualPayout(ADMIN_ID, LocalDateTime.now());
+
+        AdminPointExchangeResponse response = adminPointExchangeService.reject(ADMIN_ID, EXCHANGE_ID, "계좌 오류", true);
+
+        assertThat(response.status()).isEqualTo(PointExchangeType.FAILED);
         verify(pointExchangeLedger).refund(exchange);
     }
 
@@ -117,7 +143,7 @@ class AdminPointExchangeServiceTest {
         exchange.startManualPayout(ADMIN_ID, LocalDateTime.now());
         exchange.completeManualPayout(ADMIN_ID);
 
-        assertThatThrownBy(() -> adminPointExchangeService.reject(ADMIN_ID, EXCHANGE_ID, "실수"))
+        assertThatThrownBy(() -> adminPointExchangeService.reject(ADMIN_ID, EXCHANGE_ID, "실수", true))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(PointErrorCode.INVALID_EXCHANGE_STATUS);

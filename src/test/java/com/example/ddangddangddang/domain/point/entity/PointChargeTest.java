@@ -52,6 +52,34 @@ class PointChargeTest {
         }
 
         @Test
+        @DisplayName("한 번에 1,000P 미만이나 1,000,000P 초과로는 충전할 수 없다")
+        void amountOutOfRange() {
+            assertThatThrownBy(() -> PointCharge.create(1L, 999L, PAYMENT_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(PointErrorCode.CHARGE_AMOUNT_OUT_OF_RANGE);
+            assertThatThrownBy(() -> PointCharge.create(1L, 1_000_001L, PAYMENT_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(PointErrorCode.CHARGE_AMOUNT_OUT_OF_RANGE);
+            assertThat(PointCharge.create(1L, 1_000L, PAYMENT_ID).getAmount()).isEqualTo(1_000L);
+            assertThat(PointCharge.create(1L, 1_000_000L, PAYMENT_ID).getAmount()).isEqualTo(1_000_000L);
+        }
+
+        @Test
+        @DisplayName("완료되지 않은 충전은 결제가 취소돼도 회수할 금액이 없고, 회수 금액은 충전 금액을 넘지 않는다")
+        void newlyCancelled() {
+            PointCharge charge = PointCharge.create(1L, 10_000L, PAYMENT_ID);
+            assertThat(charge.newlyCancelled(10_000L)).isZero();
+
+            charge.complete();
+            assertThat(charge.newlyCancelled(4_000L)).isEqualTo(4_000L);
+            charge.recordCancellation(4_000L);
+            assertThat(charge.newlyCancelled(4_000L)).isZero();
+            assertThat(charge.newlyCancelled(99_000L)).isEqualTo(6_000L);
+        }
+
+        @Test
         @DisplayName("paymentId가 비어 있으면 예외가 발생한다")
         void blankPaymentId() {
             assertThatThrownBy(() -> PointCharge.create(1L, 10_000L, " "))

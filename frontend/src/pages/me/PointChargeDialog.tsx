@@ -186,6 +186,7 @@ function ChargeForm({
         <dd className="num text-title-md font-bold">{formatPoint(value ?? 0)}</dd>
       </dl>
 
+      <Notice>충전한 포인트는 입찰·구매에 쓸 수 있고, 계좌로 환전할 수는 없어요. 돌려받으려면 결제 취소(카드 환불)를 요청해 주세요.</Notice>
       {!config && <Notice tone="error">충전 설정이 필요합니다. 관리자에게 결제 설정(포트원 상점 ID·채널 키)을 요청해 주세요.</Notice>}
       {charge.isError && <Notice tone="error">{chargeErrorMessage(charge.error)}</Notice>}
       {recheck.isError && <Notice tone="error">결제 결과를 확인하지 못했어요. {errorMessage(recheck.error)}</Notice>}

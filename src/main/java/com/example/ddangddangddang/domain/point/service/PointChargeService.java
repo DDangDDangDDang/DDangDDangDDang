@@ -73,14 +73,51 @@ public class PointChargeService {
         }
 
         PointCharge charge = found.get();
+        if (charge.isCompleted()) {
+            // 충전이 끝난 뒤 온 웹훅: 결제가 취소(환불)됐을 수 있으므로 다시 조회해 취소분을 회수한다.
+            syncCancellation(charge);
+            return true;
+        }
         if (!charge.isPending()) {
-            // 이미 complete 경로에서 처리됨. 단, 완료 후 결제가 취소된 경우는 아직 처리하지 않는다 (TODO: 포인트 회수)
             log.info("이미 처리된 충전 요청의 웹훅 paymentId={}, status={}", paymentId, charge.getStatus());
             return true;
         }
 
         syncWithPayment(charge);
         return true;
+    }
+
+    /**
+     * 결제 확인 보정(PointChargeRecoveryScheduler). 프론트 호출과 웹훅이 모두 오지 않아 PENDING으로 남은 충전을
+     * 포트원에 다시 조회해 반영한다. 아직 결제창에서 결제하지 않았으면(포트원에 결제 없음) 그대로 둔다.
+     */
+    public void recoverPending(String paymentId) {
+        PointCharge charge = pointChargeRepository.findByPaymentId(paymentId)
+                .orElseThrow(() -> new BusinessException(PointErrorCode.CHARGE_NOT_FOUND));
+        if (!charge.isPending()) {
+            return;
+        }
+        try {
+            syncWithPayment(charge);
+        } catch (BusinessException e) {
+            if (e.getErrorCode() != PointErrorCode.PAYMENT_NOT_FOUND) {
+                throw e;
+            }
+            // 결제창을 열지 않았거나 결제 전에 닫음. 다음 보정에서 다시 본다.
+        }
+    }
+
+    /**
+     * 완료된 충전의 결제가 취소(환불)됐으면 새로 취소된 만큼 포인트를 회수한다.
+     * 충전한 포인트는 환전할 수 없고 결제 취소로만 돌려받으므로, 취소된 결제의 포인트가 남아 있으면 안 된다.
+     */
+    private void syncCancellation(PointCharge charge) {
+        PaymentInfo payment = paymentGateway.getPayment(charge.getPaymentId());
+        if (charge.newlyCancelled(payment.cancelledAmount()) <= 0) {
+            log.info("취소분 없는 충전 완료 웹훅 paymentId={}, status={}", charge.getPaymentId(), payment.status());
+            return;
+        }
+        pointChargeProcessor.applyCancellation(charge.getPaymentId(), payment.cancelledAmount());
     }
 
     /**

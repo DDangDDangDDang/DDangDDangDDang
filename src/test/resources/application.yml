@@ -44,6 +44,9 @@ seller:
     provider: fake   # 포트원 본인인증 대신 어떤 ID든 성인(1990-01-01생)으로 인증한다 (FakeIdentityVerifier)
 
 point:
+  charge:
+    recovery:
+      enabled: false   # 테스트 중 결제 확인 보정이 포트원(가짜 주소)을 부르지 않게 끈다
   payout:
     provider: fake
   exchange:

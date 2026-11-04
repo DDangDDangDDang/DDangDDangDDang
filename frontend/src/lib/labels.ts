@@ -11,6 +11,7 @@ export type Courier = NonNullable<Schema<'OrderResponse'>['courier']>;
 
 export const POINT_HISTORY_LABEL: Record<PointHistoryType, string> = {
   CHARGE: '충전',
+  CHARGE_CANCEL: '충전 결제 취소',
   HOLD: '입찰(묶임)',
   RELEASE: '입찰 해제',
   PURCHASE: '낙찰·구매',
@@ -26,6 +27,7 @@ export const POINT_HISTORY_LABEL: Record<PointHistoryType, string> = {
 /** 사용 가능 포인트 기준으로 늘어나는(+) 종류인지. 묶임·구매·환전은 줄어든다(−). */
 export const POINT_HISTORY_INCREASES: Record<PointHistoryType, boolean> = {
   CHARGE: true,
+  CHARGE_CANCEL: false,
   HOLD: false,
   RELEASE: true,
   PURCHASE: false,

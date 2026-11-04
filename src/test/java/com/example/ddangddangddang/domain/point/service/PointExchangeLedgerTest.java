@@ -93,6 +93,8 @@ class PointExchangeLedgerTest {
         PointWallet wallet = PointWallet.create(USER_ID);
         ReflectionTestUtils.setField(wallet, "id", 10L);
         ReflectionTestUtils.setField(wallet, "balance", balance);
+        // 환전은 정산받은 포인트로만 할 수 있다
+        ReflectionTestUtils.setField(wallet, "earnedBalance", balance);
         return wallet;
     }
 

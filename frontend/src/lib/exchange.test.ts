@@ -15,7 +15,7 @@ describe('validateExchangeForm', () => {
   it('금액은 1,000~1,000,000 P, 사용 가능 포인트 이하', () => {
     expect(validateExchangeForm({ ...valid, amount: '999' }).amount).toContain('1,000 P 이상');
     expect(validateExchangeForm({ ...valid, amount: '1000001' }).amount).toContain('1,000,000 P 이하');
-    expect(validateExchangeForm({ ...valid, amount: '60000' }, 50_000).amount).toBe('사용 가능 포인트보다 많이 환전할 수 없어요.');
+    expect(validateExchangeForm({ ...valid, amount: '60000' }, 50_000).amount).toBe('환전할 수 있는 포인트보다 많이 신청할 수 없어요. 충전한 포인트는 환전할 수 없어요.');
   });
 
   it('계좌번호는 숫자·하이픈 10~20자', () => {

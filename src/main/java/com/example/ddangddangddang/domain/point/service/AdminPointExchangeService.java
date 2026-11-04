@@ -82,13 +82,20 @@ public class AdminPointExchangeService {
         return toResponse(exchange);
     }
 
-    /** 반려. 차감했던 포인트를 돌려준다. 이미 이체한 건을 반려하면 돈과 포인트가 둘 다 나가니 주의 */
+    /**
+     * 반려. 차감했던 포인트를 돌려준다.
+     * 송금 중(PROCESSING)이면 관리자가 이미 이체했을 수 있다. 이체한 건을 반려하면 돈과 포인트가 둘 다 나가므로
+     * "이체하지 않았다"는 확인(transferNotMade)이 있어야 반려한다.
+     */
     @Transactional
-    public AdminPointExchangeResponse reject(Long adminId, Long exchangeId, String reason) {
+    public AdminPointExchangeResponse reject(Long adminId, Long exchangeId, String reason, boolean transferNotMade) {
         PointExchange exchange = findForUpdate(exchangeId);
+        if (exchange.isProcessing() && !transferNotMade) {
+            throw new BusinessException(PointErrorCode.REJECT_TRANSFER_NOT_CONFIRMED);
+        }
         exchange.reject(adminId, reason);
         pointExchangeLedger.refund(exchange);
-        log.info("[수동지급] 반려 exchangeId={}, adminId={}, reason={}", exchangeId, adminId, reason);
+        log.info("[수동지급] 반려 exchangeId={}, adminId={}, reason={}, transferNotMade={}", exchangeId, adminId, reason, transferNotMade);
         return toResponse(exchange);
     }
 
