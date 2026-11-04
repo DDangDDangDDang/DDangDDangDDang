@@ -1,5 +1,5 @@
 import type { Schema } from '@/api';
-import { fromDateTimeInput } from './datetime-input';
+import { fromDateTimeInput, seoulTimeMillis } from './datetime-input';
 import type { AuctionStatus } from './labels';
 
 /*
@@ -167,8 +167,9 @@ export function validateAuctionCondition(values: AuctionConditionValues, mode: '
   }
 
   if (mode === 'schedule') {
-    const startAt = values.startAt ? new Date(values.startAt) : undefined;
-    const endAt = values.endAt ? new Date(values.endAt) : undefined;
+    // 입력값은 서울 시각이다. 브라우저 시간대로 읽으면 해외 시간대(서머타임 등)에서 기간이 서버와 다르게 계산된다
+    const startAt = values.startAt ? new Date(seoulTimeMillis(`${values.startAt}:00`)) : undefined;
+    const endAt = values.endAt ? new Date(seoulTimeMillis(`${values.endAt}:00`)) : undefined;
     if (!startAt) errors.startAt = '시작 시각을 정해 주세요.';
     else if (startAt <= now) errors.startAt = '시작 시각은 지금 이후로 정해 주세요.';
     else if (startAt.getTime() - now.getTime() > MAX_START_AHEAD_MS) errors.startAt = '시작 시각은 30일 이내로 정해 주세요.';

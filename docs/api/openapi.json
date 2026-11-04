@@ -12472,8 +12472,7 @@
           "amount" : {
             "type" : "integer",
             "format" : "int64",
-            "exclusiveMinimum" : 0,
-            "maximum" : 100000000
+            "exclusiveMinimum" : 0
           }
         },
         "required" : [ "amount" ]

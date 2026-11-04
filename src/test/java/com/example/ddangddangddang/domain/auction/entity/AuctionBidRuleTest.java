@@ -53,6 +53,7 @@ class AuctionBidRuleTest {
             org.springframework.test.util.ReflectionTestUtils.setField(auction, "buyNowPrice", null);
 
             assertError(() -> auction.validateBid(BIDDER, Auction.MAX_PRICE + 1_000L, NOW), AuctionErrorCode.BID_TOO_HIGH);
+            assertThatCode(() -> auction.validateBid(BIDDER, Auction.MAX_PRICE, NOW)).doesNotThrowAnyException();
         }
 
         @Test

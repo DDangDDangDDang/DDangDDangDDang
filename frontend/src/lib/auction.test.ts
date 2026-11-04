@@ -16,7 +16,8 @@ import {
   toLiveAuctionCreateRequest,
   validateAuctionCondition, auctionPriceLabel } from './auction';
 
-const NOW = new Date('2026-10-21T12:00:00');
+// 서울 시각 기준 (입력값을 서울 시각으로 읽으므로 브라우저 시간대와 상관없이 같은 결과)
+const NOW = new Date('2026-10-21T12:00:00+09:00');
 
 const categories = [
   { id: 1, name: '카메라', children: [{ id: 11, name: '필름 카메라' }, { id: 12, name: '렌즈' }] },
