@@ -96,13 +96,15 @@ public interface LiveStreamRepository extends JpaRepository<LiveStream, Long> {
                                   @Param("cursorAt") LocalDateTime cursorAt, @Param("cursorId") Long cursorId,
                                   Pageable pageable);
 
-    // 방송 예정: 시작 예정 시간이 가까운 순 (시작 예정 시간을 정하지 않은 방송은 제외)
+    // 방송 예정: 시작 예정 시간이 가까운 순 (시작 예정 시간을 정하지 않은 방송, since보다 전에 시작했어야 하는 방송은 제외)
+    // since는 홈 예정 목록과 같이 지금에서 조금 전이다. 시작하지 않고 버려진 예정 방송이 목록 맨 앞을 계속 차지하지 않게 한다.
     @Query("select s from LiveStream s where s.status = com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus.SCHEDULED"
-            + " and s.scheduledStartAt is not null and " + SEARCH_CONDITION + """
+            + " and s.scheduledStartAt is not null and s.scheduledStartAt >= :since and " + SEARCH_CONDITION + """
             and (:cursorAt is null or s.scheduledStartAt > :cursorAt or (s.scheduledStartAt = :cursorAt and s.id > :cursorId))
             order by s.scheduledStartAt asc, s.id asc
             """)
     List<LiveStream> findScheduledList(@Param("sellerId") Long sellerId, @Param("pattern") String pattern,
+                                       @Param("since") LocalDateTime since,
                                        @Param("cursorAt") LocalDateTime cursorAt, @Param("cursorId") Long cursorId,
                                        Pageable pageable);
 
