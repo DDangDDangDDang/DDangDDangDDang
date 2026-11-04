@@ -26,10 +26,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @RequiredArgsConstructor
 @Service
@@ -105,6 +102,11 @@ public class ProductService {
 
         if (!product.getSeller().getId().equals(sellerId)) {
             throw new BusinessException(ProductErrorCode.NOT_OWNER);
+        }
+
+        // 판매 완료된 상품은 주문,경매 이력이 이상품 정보를 보여 주므로 수정하지 않는다(화면도 판매 완료는 수정 불가)
+        if (product.getStatus() == Status.SOLD){
+            throw new BusinessException(ProductErrorCode.SOLD_PRODUCT_NOT_EDITABLE);
         }
 
         // 진행 OR 대기 중 경매 있을시
