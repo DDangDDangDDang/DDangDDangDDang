@@ -114,7 +114,7 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("판매자 인증을 받지 않은 회원은 상품을 등록할 수 없다(PRODUCT_011)")
+    @DisplayName("판매자 인증을 받지 않은 회원은 상품을 등록할 수 없다(PRODUCT_012)")
     void createRequiresVerifiedSeller() {
         given(sellerVerification.isVerified(SELLER_ID)).willReturn(false);
 
@@ -197,14 +197,17 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("판매된 상품은 주문이 대표 이미지를 쓰고 있어 빠진 이미지를 지우지 않는다")
+    @DisplayName("판매된 상품은 수정할 수 없고, 주문이 사용하는 대표 이미지도 지우지 않는다")
     void soldProductImagesKept() {
         Product product = savedProduct(List.of(KEY_A), "설명");
         product.sold();
 
-        productService.updateProduct(SELLER_ID, PRODUCT_ID, new UpdateRequest(null, null, null, List.of()));
+        assertThatThrownBy(()->productService.updateProduct(SELLER_ID, PRODUCT_ID, new UpdateRequest(null, null, null, List.of())))
+                .extracting(e->((BusinessException) e).getErrorCode())
+                        .isEqualTo(ProductErrorCode.SOLD_PRODUCT_NOT_EDITABLE);
+        assertThat(product.getImageKeys()).containsExactly(KEY_A);
+        assertThat(product.getThumbnailKey()).isEqualTo(KEY_A);
 
-        assertThat(product.getThumbnailKey()).isNull();
         then(fileStorage).should(never()).delete(anyString());
     }
 

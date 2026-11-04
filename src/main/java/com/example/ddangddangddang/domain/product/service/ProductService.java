@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
+
 @RequiredArgsConstructor
 @Service
 @Transactional
@@ -67,10 +68,10 @@ public class ProductService {
 
         //상품별 최근 경매 : 상품마다 최신 경매 id 조회 ->그 id 경매만 조회
         HashMap<Long, Auction> latestAuctions = new HashMap<>();
-        if (!productIds.isEmpty()){
+        if (!productIds.isEmpty()) {
             List<Long> latestIds = auctionRepository.findLatestIdsByProductIds(productIds);
-            for (Auction auction : auctionRepository.findAllById(latestIds)){
-                latestAuctions.put(auction.getProduct().getId(),auction);
+            for (Auction auction : auctionRepository.findAllById(latestIds)) {
+                latestAuctions.put(auction.getProduct().getId(), auction);
             }
         }
         return products.map(product -> ProductResponse.from(product, latestAuctions.get(product.getId()), fileStorage::publicUrl));
@@ -124,8 +125,13 @@ public class ProductService {
             throw new BusinessException(ProductErrorCode.NOT_OWNER);
         }
 
+        // 판매 완료된 상품은 주문,경매 이력이 이상품 정보를 보여 주므로 수정하지 않는다(화면도 판매 완료는 수정 불가)
+        if (product.getStatus() == Status.SOLD) {
+            throw new BusinessException(ProductErrorCode.SOLD_PRODUCT_NOT_EDITABLE);
+        }
+
         // 진행 OR 대기 중 경매 있을시
-        if (auctionRepository.existsByProductIdAndStatusIn(product.getId(), List.of(AuctionStatus.READY,AuctionStatus.ONGOING))){
+        if (auctionRepository.existsByProductIdAndStatusIn(product.getId(), List.of(AuctionStatus.READY, AuctionStatus.ONGOING))) {
             throw new BusinessException(ProductErrorCode.IN_AUCTION);
         }
 
@@ -150,15 +156,14 @@ public class ProductService {
         if (imageKeys != null) {
             product.changeImages(imageKeys);
         }
-        // 판매된 상품은 주문이 대표 이미지 주소를 그대로 들고 있어 빠진 이미지도 지우지 않는다.
-        if (product.getStatus() != Status.SOLD) {
-            // 같은 판매자가 한 키를 다른 상품에도 넣었을 수 있으므로, 다른 상품이 쓰는 키는 지우지 않는다.
-            imageResolver.deleteRemovedImagesAfterCommit(sellerId, before,
-                    ProductImageResolver.usedKeys(product.getImageKeys(), product.getDescription()),
-                    key -> productRepository.existsImageKeyInOtherProduct(sellerId, product.getId(), key)
-                            || productRepository.existsKeyInOtherDescription(sellerId, product.getId(), key));
-        }
 
+        // 수정하면서 지운 이미지는 저장소에서도 지운다.
+        // 팔린 상품은 위에서 수정을 막았으니, 주문에 보이는 사진이 지워질 일은 없다.
+        // 같은 사진을 내 다른 상품에서도 쓰고 있을시 저장소에서는 지우지를 않는다.
+        imageResolver.deleteRemovedImagesAfterCommit(sellerId, before,
+                ProductImageResolver.usedKeys(product.getImageKeys(), product.getDescription()),
+                key -> productRepository.existsImageKeyInOtherProduct(sellerId, product.getId(), key)
+                        || productRepository.existsKeyInOtherDescription(sellerId, product.getId(), key));
         return ProductResponse.from(product, fileStorage::publicUrl);
 
     }

@@ -285,7 +285,7 @@ class LiveAuctionControllerTest {
     }
 
     @Test
-    @DisplayName("판매자 인증을 받지 않은 회원은 상품(PRODUCT_011)도 경매(AUCTION_027)도 등록할 수 없다")
+    @DisplayName("판매자 인증을 받지 않은 회원은 상품(PRODUCT_012)도 경매(AUCTION_027)도 등록할 수 없다")
     void unverifiedMemberCannotSell() throws Exception {
         Member member = signupAndLogin();
         Category parent = categoryRepository.save(new Category(null, "인증" + UUID.randomUUID().toString().substring(0, 6), 1));
@@ -297,7 +297,7 @@ class LiveAuctionControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"categoryId\": %d, \"name\": \"카메라\"}".formatted(leaf.getId())))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("PRODUCT_011"));
+                .andExpect(jsonPath("$.error.code").value("PRODUCT_012"));
         mockMvc.perform(post("/api/v1/auctions").header(HttpHeaders.AUTHORIZATION, member.bearer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"productId\": %d, \"startPrice\": 10000, \"bidUnit\": 1000, \"startAt\": \"%s\", \"endAt\": \"%s\"}"

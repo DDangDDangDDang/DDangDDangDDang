@@ -64,7 +64,7 @@ public class AuctionService {
         // 판매자 인증(관리자 승인)을 받은 회원만 경매를 등록할 수 있다
         requireVerifiedSeller(sellerId);
 
-        //시작 시간< 종료 시간, 진행 시간·시작 시각 범위
+        //시작 시간< 종료 시간, 종료 시간은 지금 이후, 진행 시간·시작 시각 범위
         scheduleVerification(request.startAt(), request.endAt(), LocalDateTime.now());
 
         //가격 규칙: 시작가·입찰 단위는 둘 다 있거나 둘 다 없음(즉시구매 전용), 즉시구매가 > 시작가
@@ -333,11 +333,12 @@ public class AuctionService {
     }
 
     /**
-     * 일반 경매 시각 검증: 마감 > 시작, 진행 시간 1분~14일, 시작은 30일 이내.
+     * 일반 경매 시각 검증: 마감 > 시작, 마감은 지금 이후, 진행 시간 1분~14일, 시작은 30일 이내.
+     * (마감이 지난 시각으로 만들면 스케줄러가 바로 유찰시킨다)
      * 상한이 없으면 먼 미래로 마감을 잡아 상품을 경매 중으로 계속 묶어 둘 수 있다. (경매 중인 상품은 수정·삭제 불가)
      */
     static void scheduleVerification(LocalDateTime startAt, LocalDateTime endAt, LocalDateTime now) {
-        if (!startAt.isBefore(endAt)) {
+        if (!startAt.isBefore(endAt) || !endAt.isAfter(now)) {
             throw new BusinessException(AuctionErrorCode.INVALID_TIME);
         }
         Duration duration = Duration.between(startAt, endAt);
