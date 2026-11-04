@@ -18,8 +18,9 @@ import java.util.regex.Pattern;
 public class NicknamePolicy {
 
     // 보이지 않는 문자: 제어 문자(Cc)와 형식 문자(Cf, 폭 없는 공백 U+200B·방향 표시 등).
+    // 한글 채움 문자(U+115F·U+1160·U+3164·U+FFA0)와 빈 점자(U+2800)는 글자로 분류돼 위 범주에 없지만 투명하게 보여 함께 막는다.
     // "씨(U+200B)발"처럼 금칙어 사이에 끼워 검사를 피하거나, 같아 보이는 다른 닉네임을 만드는 데 쓰인다.
-    private static final Pattern INVISIBLE = Pattern.compile("[\\p{Cc}\\p{Cf}]");
+    private static final Pattern INVISIBLE = Pattern.compile("[\\p{Cc}\\p{Cf}\\u115F\\u1160\\u3164\\uFFA0\\u2800]");
 
     private final ChatContentFilter contentFilter;
 

@@ -25,11 +25,24 @@ class NicknamePolicyTest {
     }
 
     @Test
-    @DisplayName("폭 없는 공백 같은 보이지 않는 문자가 있으면 USER_016 (금칙어 사이에 끼워 검사를 피하지 못하게)")
+    @DisplayName("폭 없는 공백, 한글 채움 문자 같은 보이지 않는 문자가 있으면 USER_016 (금칙어 사이에 끼워 검사를 피하지 못하게)")
     void invisibleCharacters() {
         assertThatThrownBy(() -> policy.validate("금\u200B칙어"))
                 .extracting("errorCode").isEqualTo(UserErrorCode.NICKNAME_NOT_ALLOWED);
         assertThatThrownBy(() -> policy.validate("경매\u200D왕"))
+                .extracting("errorCode").isEqualTo(UserErrorCode.NICKNAME_NOT_ALLOWED);
+        // 한글 채움 문자·빈 점자 (투명 닉네임, 금칙어 우회)
+        assertThatThrownBy(() -> policy.validate("금\u3164칙어"))
+                .extracting("errorCode").isEqualTo(UserErrorCode.NICKNAME_NOT_ALLOWED);
+        assertThatThrownBy(() -> policy.validate("abc\u3164"))
+                .extracting("errorCode").isEqualTo(UserErrorCode.NICKNAME_NOT_ALLOWED);
+        assertThatThrownBy(() -> policy.validate("abc\uFFA0"))
+                .extracting("errorCode").isEqualTo(UserErrorCode.NICKNAME_NOT_ALLOWED);
+        assertThatThrownBy(() -> policy.validate("\u115Fabc"))
+                .extracting("errorCode").isEqualTo(UserErrorCode.NICKNAME_NOT_ALLOWED);
+        assertThatThrownBy(() -> policy.validate("ab\u1160c"))
+                .extracting("errorCode").isEqualTo(UserErrorCode.NICKNAME_NOT_ALLOWED);
+        assertThatThrownBy(() -> policy.validate("\u2800abc"))
                 .extracting("errorCode").isEqualTo(UserErrorCode.NICKNAME_NOT_ALLOWED);
     }
 
