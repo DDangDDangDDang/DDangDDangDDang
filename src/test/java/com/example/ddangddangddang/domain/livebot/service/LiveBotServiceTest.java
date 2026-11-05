@@ -20,6 +20,7 @@ import com.example.ddangddangddang.domain.order.dto.OrderSummaryResponse;
 import com.example.ddangddangddang.domain.order.entity.OrderRole;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.service.OrderService;
+import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadRequest;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.domain.user.service.UserService;
@@ -76,6 +77,8 @@ class LiveBotServiceTest {
     private AuctionService auctionService;
     @Mock
     private OrderService orderService;
+    @Mock
+    private PointService pointService;
 
     private static void assertError(Executable executable, ErrorCode code) {
         assertThatThrownBy(executable::execute)
@@ -111,7 +114,7 @@ class LiveBotServiceTest {
     }
 
     @Test
-    @DisplayName("봇 만들기: 로그인할 수 없는 계정(비밀번호 없음, .invalid 이메일)을 만들고 영상과 묶는다")
+    @DisplayName("봇 만들기: 로그인할 수 없는 계정(비밀번호 없음, .invalid 이메일)과 포인트 지갑을 만들고 영상과 묶는다")
     void create() {
         given(fileStorage.find(KEY)).willReturn(Optional.of(new FileStorage.StoredFile(1000L, "video/mp4")));
         given(userRepository.existsByNickname("땅땅봇")).willReturn(false);
@@ -128,6 +131,8 @@ class LiveBotServiceTest {
         verify(userRepository).save(user.capture());
         assertThat(user.getValue().hasPassword()).isFalse();
         assertThat(user.getValue().getEmail()).startsWith("bot-").endsWith("@bot.invalid");
+        // 봇이 판 주문도 구매 확정 정산·낙찰 취소 위약금으로 판매자 지갑을 쓴다
+        verify(pointService).createWallet(USER_ID);
         assertThat(response.nickname()).isEqualTo("땅땅봇");
         assertThat(response.userId()).isEqualTo(USER_ID);
         assertThat(response.liveStreamId()).isNull();
@@ -141,6 +146,7 @@ class LiveBotServiceTest {
 
         assertError(() -> liveBotService.create(new LiveBotCreateRequest("땅땅봇", KEY)), UserErrorCode.DUPLICATE_NICKNAME);
         verify(userRepository, never()).save(any());
+        verify(pointService, never()).createWallet(any());
     }
 
     @Test
