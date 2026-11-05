@@ -19,11 +19,16 @@ services:
       - caddy_config:/config
     mem_limit: 128m
     restart: unless-stopped
+    # CloudWatch Logs로 보낸다. (infra/logs.tf) 서버의 docker compose logs도 이중 로깅으로 계속 볼 수 있다.
+    # non-blocking: CloudWatch가 느리거나 끊겨도 앱이 로그를 쓰다 멈추지 않는다. (버퍼가 차면 그 로그는 버린다)
     logging:
-      driver: json-file
+      driver: awslogs
       options:
-        max-size: 10m
-        max-file: "3"
+        awslogs-region: ${AWS_REGION:?AWS_REGION이 필요합니다}
+        awslogs-group: ${LOG_GROUP:?LOG_GROUP이 필요합니다}
+        awslogs-stream: web
+        mode: non-blocking
+        max-buffer-size: 4m
 
   app:
     image: ${APP_IMAGE:?APP_IMAGE가 필요합니다}
@@ -35,11 +40,16 @@ services:
     mem_limit: 1536m
     stop_grace_period: 30s
     restart: unless-stopped
+    # CloudWatch Logs로 보낸다. (infra/logs.tf) 서버의 docker compose logs도 이중 로깅으로 계속 볼 수 있다.
+    # non-blocking: CloudWatch가 느리거나 끊겨도 앱이 로그를 쓰다 멈추지 않는다. (버퍼가 차면 그 로그는 버린다)
     logging:
-      driver: json-file
+      driver: awslogs
       options:
-        max-size: 10m
-        max-file: "5"
+        awslogs-region: ${AWS_REGION:?AWS_REGION이 필요합니다}
+        awslogs-group: ${LOG_GROUP:?LOG_GROUP이 필요합니다}
+        awslogs-stream: app
+        mode: non-blocking
+        max-buffer-size: 4m
 
 volumes:
   caddy_data:

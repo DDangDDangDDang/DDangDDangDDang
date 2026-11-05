@@ -36,6 +36,18 @@ variable "ec2_instance_type" {
   default     = "t3.small"
 }
 
+variable "log_retention_days" {
+  description = "운영 EC2 컨테이너 로그(CloudWatch Logs /ddang/ec2) 보관 일수"
+  type        = number
+  default     = 30
+}
+
+variable "dev_log_retention_days" {
+  description = "dev 서버 컨테이너 로그(CloudWatch Logs /ddang/dev) 보관 일수"
+  type        = number
+  default     = 7
+}
+
 variable "ec2_volume_size" {
   description = "EC2 디스크(GB). OS와 Docker 이미지·로그만 들어간다."
   type        = number
@@ -103,6 +115,10 @@ variable "app_secret_keys" {
     "KAKAO_CLIENT_SECRET",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
+    # 배송 조회(tracker.delivery). 자동 구매 확정이 송장 조회로 배송 완료를 확인하므로 운영에는 꼭 넣는다.
+    # 비어 있으면 조회가 실패해 모든 주문이 발송 14일 뒤 관리자 확인으로 넘어간다. Free 플랜 키는 21일마다 만료된다.
+    "DELIVERY_TRACKER_CLIENT_ID",
+    "DELIVERY_TRACKER_CLIENT_SECRET",
   ]
 }
 
