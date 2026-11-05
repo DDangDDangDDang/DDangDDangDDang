@@ -22,8 +22,8 @@ public class AuctionViewCountService {
 
     /**
      * Redis 조회수를 DB에 적고, 그중 끝난 경매의 ID를 돌려준다
-     * +1씩 더하지 않고 값을 그대로 덮어써서, 몇번을 실행해도 결과가 같다
-     * 그래서 한번 실패해도 다음 실행에서 맞는 값으로 다시 적힌다.*/
+     * 더하지 않고 값을 덮어쓰되 DB 값보다 클 때만 쓴다. 그래서 여러 번 실행해도 결과가 같고, 조회수가 줄지 않는다.
+     * 한번 실패해도 다음 실행에서 맞는 값으로 다시 적힌다.*/
     @Transactional
     public List<Long> writeViewCounts(Map<Long,Long> viewCounts){
         viewCounts.forEach(auctionRepository::updateViewCount);
