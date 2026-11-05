@@ -229,7 +229,7 @@ public class UserService {
         return "profile-images/" + userId + "/";
     }
 
-    // 파일을 못 지워도 프로필 변경은 성공으로 둔다. (지우지 못한 파일은 저장소에 남는다. 5MB 이하 이미지 한 장이라 그대로 둔다)
+    // 파일을 못 지워도 프로필 변경은 성공으로 둔다. (지우지 못한 파일은 저장소에 남는다. 파일당 5MB 이하지만 삭제가 거듭 실패하면 여러 장이 쌓일 수 있다)
     private void deleteAfterCommit(String key) {
         Runnable delete = () -> {
             try {
