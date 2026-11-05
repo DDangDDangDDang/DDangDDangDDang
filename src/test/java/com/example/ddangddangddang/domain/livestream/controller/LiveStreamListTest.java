@@ -159,14 +159,18 @@ class LiveStreamListTest {
         @Test
         @DisplayName("시작 예정 시간에서 30분 넘게 지나도록 시작하지 않은 방송은 방송 예정 목록에 나오지 않는다")
         void overdueScheduledExcluded() throws Exception {
+            // 30분 기준의 바로 앞뒤(31분 전은 빠지고 29분 전은 남는다)까지 본다.
             scheduled(token + " 버려진 방송", LocalDateTime.now().minusHours(3));
+            scheduled(token + " 31분 지남", LocalDateTime.now().minusMinutes(31));
+            Long within = scheduled(token + " 29분 지남", LocalDateTime.now().minusMinutes(29));
             Long justPassed = scheduled(token + " 방금 지남", LocalDateTime.now().minusMinutes(10));
             Long upcoming = scheduled(token + " 곧 시작", LocalDateTime.now().plusHours(1));
 
             list(Map.of("status", "SCHEDULED", "keyword", token))
-                    .andExpect(jsonPath("$.data.content.length()").value(2))
-                    .andExpect(jsonPath("$.data.content[0].liveStreamId").value(justPassed))
-                    .andExpect(jsonPath("$.data.content[1].liveStreamId").value(upcoming));
+                    .andExpect(jsonPath("$.data.content.length()").value(3))
+                    .andExpect(jsonPath("$.data.content[0].liveStreamId").value(within))
+                    .andExpect(jsonPath("$.data.content[1].liveStreamId").value(justPassed))
+                    .andExpect(jsonPath("$.data.content[2].liveStreamId").value(upcoming));
         }
 
         @Test
