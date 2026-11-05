@@ -15,6 +15,8 @@ locals {
   ec2_app_environment = merge(local.common_app_environment, {
     # HTTPS로 서비스할 때만 쿠키에 Secure를 붙인다. (HTTP에서 붙이면 브라우저가 쿠키를 저장하지 않는다)
     JWT_COOKIE_SECURE = tostring(local.ec2_https)
+    # WebSocket 연결을 받을 페이지 출처. 프론트와 같은 주소다. (WebSocketConfig, 쉼표로 여러 개)
+    APP_WEBSOCKET_ALLOWED_ORIGINS = join(",", distinct(compact([var.domain_name == "" ? "" : "https://${var.domain_name}", local.ec2_origin])))
     }, local.ec2_https ? {} : {
     # 도메인이 없으면 프론트가 고정 IP 주소의 콜백을 쓰므로 백엔드도 같은 값을 쓴다. (도메인이 있으면 ecr.tf의 공통 값)
     # 구글은 IP·HTTP 주소를 redirect URI로 받지 않아 구글 로그인은 도메인을 연결해야 동작한다.

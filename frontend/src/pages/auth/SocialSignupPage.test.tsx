@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,6 +21,8 @@ vi.mock('@/api', async (importOriginal) => {
         return { expiresIn: 300 };
       }
       if (r.path === '/api/v1/auth/signup/phone/verify') return { verificationToken: 'phone-token' };
+      if (r.path === '/api/v1/auth/signup/email/code') return { expiresIn: 300 };
+      if (r.path === '/api/v1/auth/signup/email/verify') return { verificationToken: 'email-token' };
       return undefined;
     },
   };
@@ -108,6 +110,29 @@ describe('SocialSignupPage', () => {
       phoneNumber: '01012345678',
       phoneVerificationToken: 'phone-token',
     });
+  });
+
+  it('제공자 이메일 대신 다른 이메일을 쓰려면 그 이메일로 인증해야 가입할 수 있고, 인증 토큰을 함께 보낸다', async () => {
+    socialSignup.mockResolvedValue({ linkedExistingAccount: false, accessToken: 'a', user: { userId: 1, nickname: '카카오닉' } });
+    renderPage();
+    const user = await verifyPhone();
+
+    await user.click(screen.getByRole('button', { name: '다른 이메일 쓰기' }));
+    expect(screen.getByRole('button', { name: '가입하기' })).toBeDisabled();
+
+    const emailGroup = screen.getByRole('group', { name: '이메일 인증' });
+    await user.type(within(emailGroup).getByLabelText('이메일'), 'other@test.com');
+    await user.click(within(emailGroup).getByRole('button', { name: '인증번호 받기' }));
+    await user.type(await within(emailGroup).findByLabelText('인증번호'), '111111');
+    await user.click(within(emailGroup).getByRole('button', { name: '확인' }));
+    expect(await screen.findByText('이메일 인증을 완료했어요.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '가입하기' }));
+    expect(await screen.findByText('도착 /auctions/1')).toBeInTheDocument();
+    expect(socialSignup).toHaveBeenCalledWith('kakao', expect.objectContaining({
+      email: 'other@test.com',
+      emailVerificationToken: 'email-token',
+    }));
   });
 
   it('기존 계정에 연결됐으면 안내하고 [계속하기]로 이동한다', async () => {

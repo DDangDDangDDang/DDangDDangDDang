@@ -286,8 +286,8 @@ class OAuthControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"signupToken": "signup-token", "nickname": "새회원", "email": "new@test.com",
-                                     "phoneNumber": "%s", "phoneVerificationToken": "%s"}
-                                    """.formatted(PHONE, SignupFixture.tokenOf("01099999999"))))
+                                     "phoneNumber": "%s", "phoneVerificationToken": "%s", "emailVerificationToken": "%s"}
+                                    """.formatted(PHONE, SignupFixture.tokenOf("01099999999"), SignupFixture.tokenOf("new@test.com"))))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("VERIFY_004"));
 
@@ -318,8 +318,8 @@ class OAuthControllerTest {
         private String signupBody(String email, String nickname, String phone) {
             return """
                     {"signupToken": "signup-token", "nickname": "%s", "email": "%s",
-                     "phoneNumber": "%s", "phoneVerificationToken": "%s"}
-                    """.formatted(nickname, email, phone, SignupFixture.tokenOf(phone));
+                     "phoneNumber": "%s", "phoneVerificationToken": "%s", "emailVerificationToken": "%s"}
+                    """.formatted(nickname, email, phone, SignupFixture.tokenOf(phone), SignupFixture.tokenOf(email));
         }
     }
 }

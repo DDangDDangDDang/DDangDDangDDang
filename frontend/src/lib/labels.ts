@@ -54,6 +54,26 @@ export const ORDER_CANCEL_REASON_LABEL: Record<OrderCancelReason, string> = {
   SELLER_NOT_SHIPPED: '제품 미발송',
 };
 
+export type OrderIssueType = NonNullable<Schema<'OrderResponse'>['issueType']>;
+
+/** 구매자가 신고하는 문제 종류 */
+export const ORDER_ISSUE_TYPE_LABEL: Record<OrderIssueType, string> = {
+  NOT_RECEIVED: '상품을 받지 못했어요',
+  WRONG_ITEM: '주문한 상품과 달라요',
+  DAMAGED: '상품이 파손됐어요',
+  OTHER: '기타',
+};
+
+export type OrderReviewReason = NonNullable<Schema<'OrderResponse'>['reviewReason']>;
+
+/** 자동 구매 확정이 멈추고 관리자가 확인하는 이유 */
+export const ORDER_REVIEW_REASON_LABEL: Record<OrderReviewReason, string> = {
+  BUYER_REPORTED: '구매자 문제 신고',
+  TRACKING_NOT_FOUND: '송장 조회 안 됨',
+  TRACKING_NOT_DELIVERED: '배송 완료 안 됨',
+  TRACKING_UNAVAILABLE: '배송 조회 장애',
+};
+
 export type HammerGrade = NonNullable<Schema<'SellerProfileResponse'>['hammerGrade']>;
 
 export const HAMMER_GRADE_LABEL: Record<HammerGrade, string> = {

@@ -115,6 +115,12 @@ public class LiveStream extends BaseTimeEntity {
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
+    // 이 방송으로 구독자에게 방송 시작을 알린 시각. 알리지 않았으면 null (구독자가 없거나, 30분 안에 다른 방송으로 이미 알림)
+    // 다음 방송이 다시 알릴지를 "마지막으로 알린 시각"으로 판단한다. (LiveStartedNotifier)
+    // 알림 처리에서만 바꾸므로 엔티티 변경 대신 LiveStreamRepository.markSubscribersNotified로 고친다. (버전을 올리지 않는다)
+    @Column(name = "subscribers_notified_at")
+    private LocalDateTime subscribersNotifiedAt;
+
     // 종료되지 않은(대기 중·방송 중) 방송이면 sellerId, 종료되면 null. 이 컬럼에 유니크를 걸어 판매자당 하나만 허용한다.
     // (유니크 인덱스는 null을 여러 개 허용하므로 종료된 방송은 몇 개든 남을 수 있다)
     @Column(name = "active_seller_id")

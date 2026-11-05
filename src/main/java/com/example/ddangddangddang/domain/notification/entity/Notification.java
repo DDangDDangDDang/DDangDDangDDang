@@ -15,8 +15,12 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
         name = "notifications",
-        // 내 알림 목록(최신순)과 안 읽은 알림 수
-        indexes = @Index(name = "idx_notification_user", columnList = "user_id, id")
+        indexes = {
+                // 내 알림 목록(최신순)과 안 읽은 알림 수
+                @Index(name = "idx_notification_user", columnList = "user_id, id"),
+                // 판매자가 30분 안에 방송을 다시 시작했을 때 그 판매자의 방송 시작 알림을 새 방송으로 옮긴다 (LiveStartedNotifier)
+                @Index(name = "idx_notification_seller_type", columnList = "seller_id, type, created_at")
+        }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

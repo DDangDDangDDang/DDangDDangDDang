@@ -13,6 +13,10 @@ public record PhoneNumberChangeRequest(
 
         @NotBlank(message = "인증번호는 필수입니다.")
         @Pattern(regexp = "^\\d{6}$", message = "인증번호는 6자리 숫자입니다.")
-        String code
+        String code,
+
+        // 바꾸기 전 본인 확인으로 받은 토큰 (POST /api/v1/users/me/reauth/password 또는 /reauth/verify)
+        @NotBlank(message = "본인 확인이 필요합니다.")
+        String reauthToken
 ) {
 }

@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.order.controller;
 import com.example.ddangddangddang.domain.order.dto.OrderAddressRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderDelayRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderResponse;
+import com.example.ddangddangddang.domain.order.dto.OrderIssueRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderShipRequest;
 import com.example.ddangddangddang.domain.order.dto.OrderSummaryResponse;
 import com.example.ddangddangddang.domain.order.entity.OrderRole;
@@ -74,6 +75,15 @@ public class OrderController {
             @PathVariable Long orderId,
             @Valid @RequestBody OrderAddressRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(orderService.registerDeliveryAddress(authUser.id(), orderId, request)));
+    }
+
+    /** 구매자의 문제 신고 (받지 못함·다른 상품·파손 등). 자동 구매 확정이 멈추고 관리자가 확인한다. */
+    @PostMapping("/{orderId}/issue")
+    public ResponseEntity<ApiResponse<OrderResponse>> reportIssue(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long orderId,
+            @Valid @RequestBody OrderIssueRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(orderService.reportIssue(authUser.id(), orderId, request.type(), request.detail())));
     }
 
     /** 판매자의 발송 지연 신청. 주문당 한 번, 구매자에게 메신저로 안내한다. */

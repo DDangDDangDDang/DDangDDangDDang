@@ -117,7 +117,7 @@ class UserServiceTest {
         void success() {
             User user = user();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(userRepository.existsByNickname("새닉네임")).willReturn(false);
+            given(userRepository.existsByNicknameAndIdNot(eq("새닉네임"), any())).willReturn(false);
             given(jwtProvider.createAccessToken(user)).willReturn("new-access-token");
             given(jwtProvider.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
 
@@ -143,7 +143,7 @@ class UserServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(UserErrorCode.NICKNAME_CHANGE_TOO_SOON);
             assertThat(user.getNickname()).isEqualTo("바꾼닉네임");
-            verify(userRepository, never()).existsByNickname(anyString());
+            verify(userRepository, never()).existsByNicknameAndIdNot(anyString(), any());
         }
 
         @Test
@@ -152,7 +152,7 @@ class UserServiceTest {
             User user = user();
             user.changeNickname("바꾼닉네임", NOW.minus(INTERVAL));
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(userRepository.existsByNickname("새닉네임")).willReturn(false);
+            given(userRepository.existsByNicknameAndIdNot(eq("새닉네임"), any())).willReturn(false);
             given(jwtProvider.createAccessToken(user)).willReturn("new-access-token");
             given(jwtProvider.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
 
@@ -188,7 +188,7 @@ class UserServiceTest {
             MyInfoUpdateResponse response = userService.updateMyInfo(1L, new MyInfoUpdateRequest("경매왕"));
 
             assertThat(response.user().nickname()).isEqualTo("경매왕");
-            verify(userRepository, never()).existsByNickname(anyString());
+            verify(userRepository, never()).existsByNicknameAndIdNot(anyString(), any());
             verify(userRepository, never()).flush();
         }
 
@@ -197,7 +197,7 @@ class UserServiceTest {
         void duplicate() {
             User user = user();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(userRepository.existsByNickname("남의닉네임")).willReturn(true);
+            given(userRepository.existsByNicknameAndIdNot(eq("남의닉네임"), any())).willReturn(true);
 
             assertThatThrownBy(() -> userService.updateMyInfo(1L, new MyInfoUpdateRequest("남의닉네임")))
                     .isInstanceOf(BusinessException.class)
@@ -210,7 +210,7 @@ class UserServiceTest {
         @DisplayName("동시에 같은 닉네임으로 바꿔 유니크 제약에 걸리면 USER_002")
         void uniqueViolationOnFlush() {
             given(userRepository.findById(1L)).willReturn(Optional.of(user()));
-            given(userRepository.existsByNickname("새닉네임")).willReturn(false);
+            given(userRepository.existsByNicknameAndIdNot(eq("새닉네임"), any())).willReturn(false);
             willThrow(new DataIntegrityViolationException("duplicate")).given(userRepository).flush();
 
             assertThatThrownBy(() -> userService.updateMyInfo(1L, new MyInfoUpdateRequest("새닉네임")))
@@ -230,7 +230,7 @@ class UserServiceTest {
             User user = user();
             user.changeNickname("바꾼닉네임", NOW.minusDays(1));
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(userRepository.existsByNickname("새닉네임")).willReturn(false);
+            given(userRepository.existsByNicknameAndIdNot(eq("새닉네임"), any())).willReturn(false);
             given(jwtProvider.createAccessToken(user)).willReturn("new-access-token");
             given(jwtProvider.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
 
@@ -251,7 +251,7 @@ class UserServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(UserErrorCode.NICKNAME_TICKET_NOT_NEEDED);
-            verify(userRepository, never()).existsByNickname(anyString());
+            verify(userRepository, never()).existsByNicknameAndIdNot(anyString(), any());
         }
 
         @Test
@@ -260,7 +260,7 @@ class UserServiceTest {
             User user = user();
             user.changeNickname("바꾼닉네임", NOW.minusDays(1));
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(userRepository.existsByNickname("남의닉네임")).willReturn(true);
+            given(userRepository.existsByNicknameAndIdNot(eq("남의닉네임"), any())).willReturn(true);
 
             assertThatThrownBy(() -> userService.changeNicknameWithTicket(1L, "바꾼닉네임"))
                     .isInstanceOf(BusinessException.class)
@@ -291,7 +291,7 @@ class UserServiceTest {
             assertThat(response.user().bio()).isEqualTo("빈티지 카메라 모아요");
             assertThat(user.getNickname()).isEqualTo("경매왕");
             assertThat(user.getNicknameChangedAt()).isNull();
-            verify(userRepository, never()).existsByNickname(anyString());
+            verify(userRepository, never()).existsByNicknameAndIdNot(anyString(), any());
         }
 
         @Test

@@ -4,6 +4,9 @@ import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
 import com.example.ddangddangddang.domain.order.entity.OrderDelayStatus;
+import com.example.ddangddangddang.domain.order.entity.OrderIssueType;
+import com.example.ddangddangddang.domain.order.entity.OrderReviewReason;
+import com.example.ddangddangddang.domain.order.entity.OrderReviewResult;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 
 import java.time.LocalDateTime;
@@ -36,8 +39,32 @@ public record OrderResponse(
         OrderDelayStatus delayStatus,     // 지연 신청 전이면 null
         String delayReason,
         OrderCancelReason cancelReason,
-        LocalDateTime canceledAt
+        LocalDateTime canceledAt,
+        OrderReviewReason reviewReason,   // 관리자 확인이 필요한 이유. 없으면 null (있고 reviewResult가 없으면 자동 구매 확정이 멈춘 상태)
+        OrderIssueType issueType,         // 구매자가 신고한 문제 종류. 구매자 신고가 아니면 null
+        String issueDetail,
+        LocalDateTime reviewRequestedAt,
+        OrderReviewResult reviewResult,   // 관리자 처리 결과(정산·환불). 처리 전이면 null
+        LocalDateTime reviewResolvedAt,
+        LocalDateTime deliveredAt         // 송장 조회로 배송 완료를 확인한 시각
 ) {
+
+    /**
+     * 주문 참여자에게 보여 줄 응답. 판매자에게는 구매자가 쓴 신고 내용(issueDetail)을 빼고 준다.
+     * 신고 내용은 관리자가 확인할 때 참고하는 것이라 화면에서도 관리자만 본다고 안내한다. (신고 종류는 판매자도 본다)
+     */
+    public static OrderResponse forParticipant(Order order, Long userId) {
+        OrderResponse response = from(order);
+        return order.isSeller(userId) ? response.withoutIssueDetail() : response;
+    }
+
+    private OrderResponse withoutIssueDetail() {
+        return new OrderResponse(orderId, orderNo, auctionId, buyerId, sellerId, productName, productImageUrl, finalPrice,
+                commissionRateBps, commission, settlementAmount, noAddressPenalty, status, receiverName, receiverPhone, address,
+                deliveryMemo, courier, trackingNo, createdAt, shippedAt, completedAt, addressDeadlineAt, shipDeadlineAt,
+                delayStatus, delayReason, cancelReason, canceledAt, reviewReason, issueType, null, reviewRequestedAt,
+                reviewResult, reviewResolvedAt, deliveredAt);
+    }
 
     public static OrderResponse from(Order order) {
         return new OrderResponse(
@@ -68,7 +95,14 @@ public record OrderResponse(
                 order.getDelayStatus(),
                 order.getDelayReason(),
                 order.getCancelReason(),
-                order.getCanceledAt()
+                order.getCanceledAt(),
+                order.getReviewReason(),
+                order.getIssueType(),
+                order.getIssueDetail(),
+                order.getReviewRequestedAt(),
+                order.getReviewResult(),
+                order.getReviewResolvedAt(),
+                order.getDeliveredAt()
         );
     }
 }

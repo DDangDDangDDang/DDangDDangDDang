@@ -23,7 +23,10 @@ public enum UserErrorCode implements ErrorCode {
     NICKNAME_TICKET_NOT_NEEDED(HttpStatus.BAD_REQUEST, "USER_012", "지금은 변경권 없이 닉네임을 바꿀 수 있습니다."),
     SAME_NICKNAME(HttpStatus.BAD_REQUEST, "USER_013", "지금 쓰고 있는 닉네임입니다."),
     BADGE_ALREADY_OWNED(HttpStatus.CONFLICT, "USER_014", "이미 가지고 있는 뱃지입니다."),
-    BADGE_NOT_OWNED(HttpStatus.BAD_REQUEST, "USER_015", "가지고 있지 않은 뱃지입니다.");
+    BADGE_NOT_OWNED(HttpStatus.BAD_REQUEST, "USER_015", "가지고 있지 않은 뱃지입니다."),
+    NICKNAME_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "USER_016", "닉네임에 사용할 수 없는 내용이 포함되어 있습니다."),
+    WRONG_PASSWORD(HttpStatus.BAD_REQUEST, "USER_017", "비밀번호가 맞지 않습니다."),
+    NO_PHONE_NUMBER(HttpStatus.BAD_REQUEST, "USER_018", "등록된 휴대폰 번호가 없습니다. 비밀번호 찾기로 비밀번호를 만든 뒤 다시 시도해 주세요.");
 
     private final HttpStatus status;
     private final String code;

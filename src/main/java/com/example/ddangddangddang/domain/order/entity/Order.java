@@ -44,6 +44,7 @@ public class Order extends BaseTimeEntity {
     private static final int NO_ADDRESS_PENALTY_BPS = 1_000;
     private static final int SHIP_DEADLINE_DAYS = 7;
     private static final int DELAY_EXTENSION_DAYS = 7;
+    public static final int ISSUE_DETAIL_MAX_LENGTH = 500;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -152,6 +153,37 @@ public class Order extends BaseTimeEntity {
     private OrderCancelReason cancelReason;
 
     private LocalDateTime canceledAt;
+
+    // ===== 관리자 확인 (구매자 문제 신고, 송장 확인 실패) =====
+    // 관리자가 확인해야 하는 이유. 이 값이 있는 발송된 주문은 자동 구매 확정을 멈춘다. 확인이 필요 없으면 null
+    // MySQL ENUM이 아니라 문자열 컬럼으로 둔다. (값을 더할 때 ddl-auto가 ENUM 정의를 고치지 않음)
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(30)")
+    private OrderReviewReason reviewReason;
+
+    // 구매자가 신고한 문제 종류. 구매자 신고가 아니면 null
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20)")
+    private OrderIssueType issueType;
+
+    // 구매자가 쓴 신고 내용. 없으면 null
+    @Column(length = ISSUE_DETAIL_MAX_LENGTH)
+    private String issueDetail;
+
+    private LocalDateTime reviewRequestedAt;
+
+    // 관리자 처리 결과(정산·환불). 처리 전이면 null
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20)")
+    private OrderReviewResult reviewResult;
+
+    private LocalDateTime reviewResolvedAt;
+
+    // 송장 조회로 배송 완료를 확인한 시각. 확인 전이면 null
+    private LocalDateTime deliveredAt;
+
+    // 자동 구매 확정을 다음에 확인할 시각. 아직 배송 중이거나 조회 서비스가 안 될 때 미룬다. null이면 바로 확인
+    private LocalDateTime autoConfirmNextCheckAt;
 
     private Order(Long auctionId, Long buyerId, Long sellerId, String productName,
                   String productImageUrl, long finalPrice, int commissionRateBps) {
@@ -327,6 +359,76 @@ public class Order extends BaseTimeEntity {
 
     public boolean isParticipant(Long userId) {
         return isBuyer(userId) || isSeller(userId);
+    }
+
+    // ===== 관리자 확인 =====
+
+    /** 관리자 확인을 기다리는 중인지. 발송된 주문에 확인 사유가 있고 아직 처리하지 않았으면 true */
+    public boolean isUnderReview() {
+        return status == OrderStatus.SHIPPING && reviewReason != null && reviewResult == null;
+    }
+
+    /**
+     * 구매자가 문제를 신고한다. 발송된 주문(구매 확정 전)에만 할 수 있고, 한 번만 할 수 있다.
+     * 송장 확인 실패로 이미 확인 대기 중이어도 구매자 신고로 바꾼다. (구매자가 알려 준 내용이 더 구체적이다)
+     */
+    public void reportIssue(OrderIssueType type, String detail, LocalDateTime now) {
+        if (status != OrderStatus.SHIPPING) {
+            throw new BusinessException(OrderErrorCode.CANNOT_REPORT_ISSUE);
+        }
+        if (reviewReason == OrderReviewReason.BUYER_REPORTED) {
+            throw new BusinessException(OrderErrorCode.ISSUE_ALREADY_REPORTED);
+        }
+        this.reviewReason = OrderReviewReason.BUYER_REPORTED;
+        this.issueType = type;
+        this.issueDetail = detail == null || detail.isBlank() ? null : detail;
+        this.reviewRequestedAt = now;
+    }
+
+    /** 송장 확인이 안 돼 관리자 확인으로 넘긴다. 이미 확인 대기 중이면 그대로 둔다. */
+    public void requestTrackingReview(OrderReviewReason reason, LocalDateTime now) {
+        if (status != OrderStatus.SHIPPING || reviewReason != null) {
+            return;
+        }
+        this.reviewReason = reason;
+        this.reviewRequestedAt = now;
+    }
+
+    /** 송장 조회로 배송 완료를 확인했다. (처음 확인한 시각만 남긴다) */
+    public void markDelivered(LocalDateTime now) {
+        if (deliveredAt == null) {
+            this.deliveredAt = now;
+        }
+    }
+
+    /** 자동 구매 확정 확인을 until까지 미룬다. (아직 배송 중이거나 조회 서비스가 안 될 때) */
+    public void postponeAutoConfirm(LocalDateTime until) {
+        this.autoConfirmNextCheckAt = until;
+    }
+
+    /** 관리자가 판매자 정산으로 처리한다. 이어서 구매 확정(confirm)과 정산은 서비스가 한다. */
+    public void resolveReviewAsConfirmed(LocalDateTime now) {
+        validateUnderReview();
+        this.reviewResult = OrderReviewResult.CONFIRMED;
+        this.reviewResolvedAt = now;
+    }
+
+    /**
+     * 관리자가 구매자 환불로 처리한다: SHIPPING -> CANCELED. 환불은 서비스가 포인트 도메인에 요청한다.
+     * 기한 초과 취소와 달리 취소 사유(cancelReason)는 비워 둔다. 미발송 제재 횟수에 들어가지 않고, 상품도 다시 올리지 않는다.
+     */
+    public void resolveReviewAsRefunded(LocalDateTime now) {
+        validateUnderReview();
+        this.reviewResult = OrderReviewResult.REFUNDED;
+        this.reviewResolvedAt = now;
+        this.canceledAt = now;
+        this.status = OrderStatus.CANCELED;
+    }
+
+    private void validateUnderReview() {
+        if (!isUnderReview()) {
+            throw new BusinessException(OrderErrorCode.NOT_UNDER_REVIEW);
+        }
     }
 
     // 자동 구매 확정 실패 획수를 1씩 올린다

@@ -162,6 +162,47 @@ class SellerSubscriptionControllerTest {
     }
 
     @Test
+    @DisplayName("판매자가 30분 안에 방송을 다시 시작하면 새 알림은 보내지 않고, 이미 보낸 알림이 새 방송을 가리키게 옮긴다")
+    void restartMovesNotification() throws Exception {
+        Member seller = signupAndLogin();
+        Member viewer = signupAndLogin();
+        subscribe(viewer, seller.id());
+
+        Long first = startLive(seller, "첫 방송");
+        verify(stompBroadcaster, timeout(5000)).sendToUser(eq(viewer.id()), eq("/queue/notifications"), argThat(message ->
+                message instanceof NotificationResponse n && n.liveStreamId().equals(first)));
+        liveStreamService.end(first, seller.id());
+
+        Long second = startLiveAgain(seller, "다시 켠 방송");
+
+        // 알림 처리는 따로 된 스레드에서 돈다. 이미 받은 알림 하나가 새 방송을 가리킬 때까지 기다린다.
+        long deadline = System.currentTimeMillis() + 5000;
+        String body;
+        do {
+            body = mockMvc.perform(get("/api/v1/notifications").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                    .andReturn().getResponse().getContentAsString();
+        } while (!body.contains("\"liveStreamId\":" + second) && System.currentTimeMillis() < deadline && sleep(100));
+        mockMvc.perform(get("/api/v1/notifications").header(HttpHeaders.AUTHORIZATION, viewer.bearer()))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].liveStreamId").value(second))
+                .andExpect(jsonPath("$.data.content[0].liveTitle").value("다시 켠 방송"));
+    }
+
+    private static boolean sleep(long millis) throws InterruptedException {
+        Thread.sleep(millis);
+        return true;
+    }
+
+    // 이미 판매자 인증을 받은 판매자의 다음 방송
+    private Long startLiveAgain(Member seller, String title) throws Exception {
+        Long liveStreamId = longValue(mockMvc.perform(post("/api/v1/live-streams").header(HttpHeaders.AUTHORIZATION, seller.bearer())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"title\": \"%s\"}".formatted(title)))
+                .andExpect(status().isCreated()), "$.data.id");
+        liveStreamService.start(liveStreamId, seller.id(), seller.nickname());
+        return liveStreamId;
+    }
+
+    @Test
     @DisplayName("자기 자신은 구독할 수 없고(SELLER_005), 없는 회원은 USER_003, 로그인하지 않으면 401")
     void subscribeErrors() throws Exception {
         Member member = signupAndLogin();

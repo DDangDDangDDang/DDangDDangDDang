@@ -104,6 +104,11 @@ public class VerificationCodeRepository {
         return result != null && result == 1;
     }
     
+    /** 토큰이 기대한 대상의 것인지 확인만 한다. (지우지 않음) */
+    public boolean tokenMatches(VerificationPurpose purpose, String token, String expectedTarget) {
+        return expectedTarget.equals(redisTemplate.opsForValue().get(key("token", purpose, token)));
+    }
+
     /** 토큰을 꺼내면서 삭제한다(GETDEL). 같은 토큰을 두 번 쓸 수 없다. */
     public Optional<String> consumeToken(VerificationPurpose purpose, String token) {
         return Optional.ofNullable(redisTemplate.opsForValue().getAndDelete(key("token", purpose, token)));

@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.user.controller;
 
 import com.example.ddangddangddang.domain.auth.dto.CodeSentResponse;
 import com.example.ddangddangddang.domain.auth.dto.PhoneCodeRequest;
+import com.example.ddangddangddang.domain.auth.dto.VerificationTokenResponse;
 import com.example.ddangddangddang.domain.user.dto.BadgeEquipRequest;
 import com.example.ddangddangddang.domain.user.dto.EmailChangeCodeRequest;
 import com.example.ddangddangddang.domain.user.dto.EmailChangeRequest;
@@ -13,6 +14,8 @@ import com.example.ddangddangddang.domain.user.dto.PhoneNumberChangeRequest;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageChangeRequest;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadRequest;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadResponse;
+import com.example.ddangddangddang.domain.user.dto.ReauthCodeRequest;
+import com.example.ddangddangddang.domain.user.dto.ReauthPasswordRequest;
 import com.example.ddangddangddang.domain.user.entity.NicknameBadgeKind;
 import com.example.ddangddangddang.domain.user.service.UserBadgeService;
 import com.example.ddangddangddang.domain.user.service.UserContactService;
@@ -76,6 +79,29 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(userService.deleteProfileImage(authUser.id())));
     }
 
+    /** 이메일·휴대폰 번호를 바꾸기 전 본인 확인 (비밀번호). 받은 토큰을 변경 요청(reauthToken)에 넣는다. */
+    @PostMapping("/me/reauth/password")
+    public ResponseEntity<ApiResponse<VerificationTokenResponse>> reauthWithPassword(
+            @AuthenticationPrincipal AuthUser authUser,
+            @Valid @RequestBody ReauthPasswordRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                new VerificationTokenResponse(contactService.reauthWithPassword(authUser.id(), request.password()))));
+    }
+
+    /** 본인 확인 인증번호를 지금 휴대폰 번호로 보내기 (비밀번호가 없는 소셜 가입 회원용) */
+    @PostMapping("/me/reauth/code")
+    public ResponseEntity<ApiResponse<CodeSentResponse>> sendReauthCode(@AuthenticationPrincipal AuthUser authUser) {
+        return ResponseEntity.ok(ApiResponse.ok(new CodeSentResponse(contactService.sendReauthCode(authUser.id()))));
+    }
+
+    @PostMapping("/me/reauth/verify")
+    public ResponseEntity<ApiResponse<VerificationTokenResponse>> verifyReauthCode(
+            @AuthenticationPrincipal AuthUser authUser,
+            @Valid @RequestBody ReauthCodeRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                new VerificationTokenResponse(contactService.verifyReauthCode(authUser.id(), request.code()))));
+    }
+
     /** 새 이메일로 인증번호 보내기 */
     @PostMapping("/me/email/code")
     public ResponseEntity<ApiResponse<CodeSentResponse>> sendEmailChangeCode(
@@ -90,7 +116,7 @@ public class UserController {
     public ResponseEntity<ApiResponse<MyInfoUpdateResponse>> changeEmail(
             @AuthenticationPrincipal AuthUser authUser,
             @Valid @RequestBody EmailChangeRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(contactService.changeEmail(authUser.id(), request.email(), request.code())));
+        return ResponseEntity.ok(ApiResponse.ok(contactService.changeEmail(authUser.id(), request.email(), request.code(), request.reauthToken())));
     }
 
     /** 새 휴대폰 번호로 인증번호 보내기 */
@@ -108,7 +134,7 @@ public class UserController {
             @AuthenticationPrincipal AuthUser authUser,
             @Valid @RequestBody PhoneNumberChangeRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(
-                contactService.changePhoneNumber(authUser.id(), request.phoneNumber(), request.code())));
+                contactService.changePhoneNumber(authUser.id(), request.phoneNumber(), request.code(), request.reauthToken())));
     }
 
     /** 내 닉네임 뱃지: 가진 뱃지와 장착한 뱃지 (뱃지는 마일리지 상점에서 산다) */

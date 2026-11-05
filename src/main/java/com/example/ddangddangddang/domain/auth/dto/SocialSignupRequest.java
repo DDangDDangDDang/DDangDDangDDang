@@ -12,6 +12,7 @@ public record SocialSignupRequest(
 
         @NotBlank(message = "닉네임은 필수입니다.")
         @Size(min = 2, max = 10, message = "닉네임은 2~10자여야 합니다.")
+        @Pattern(regexp = NicknameFormat.REGEX, message = NicknameFormat.MESSAGE)
         String nickname,
 
         @NotBlank(message = "이메일은 필수입니다.")
@@ -24,6 +25,9 @@ public record SocialSignupRequest(
         String phoneNumber,
 
         @NotBlank(message = "휴대폰 인증이 필요합니다.")
-        String phoneVerificationToken
+        String phoneVerificationToken,
+
+        // 소셜 계정이 확인해 준 이메일을 그대로 쓰면 없어도 된다. 다른 이메일을 쓰면 POST /api/v1/auth/signup/email/verify로 받은 토큰
+        String emailVerificationToken
 ) {
 }

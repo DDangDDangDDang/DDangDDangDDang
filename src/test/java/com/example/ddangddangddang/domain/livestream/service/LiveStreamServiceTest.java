@@ -953,6 +953,41 @@ class LiveStreamServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("이미 끝난 방송 다시 종료")
+    class EndAgain {
+
+        @Test
+        @DisplayName("이미 끝난 방송이면 종료 시각을 덮어쓰지 않고, 방 삭제·종료 안내 없이 지금 상태를 돌려준다")
+        void noSideEffects() {
+            LiveStream liveStream = liveStream(true);
+            liveStream.end(SELLER_ID);
+            LocalDateTime endedAt = liveStream.getEndedAt();
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            LiveStreamResponse response = liveStreamService.end(LIVE_STREAM_ID, SELLER_ID);
+
+            assertThat(response.status()).isEqualTo(LiveStreamStatus.ENDED);
+            assertThat(liveStream.getEndedAt()).isEqualTo(endedAt);
+            then(liveStreamRepository).should(never()).saveAndFlush(any());
+            then(mediaServerClient).should(never()).deleteRoom(any());
+            then(eventPublisher).should(never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("남의 끝난 방송이면 권한 오류(NOT_OWNER)")
+        void notOwner() {
+            LiveStream liveStream = liveStream(true);
+            liveStream.end(SELLER_ID);
+            given(liveStreamRepository.findById(LIVE_STREAM_ID)).willReturn(Optional.of(liveStream));
+
+            assertThatThrownBy(() -> liveStreamService.end(LIVE_STREAM_ID, SELLER_ID + 100))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(LiveStreamErrorCode.NOT_OWNER);
+        }
+    }
+
     private LiveStream liveStream(boolean live) {
         LiveStream liveStream = LiveStream.create(SELLER_ID, "테스트 방송");
         ReflectionTestUtils.setField(liveStream, "id", LIVE_STREAM_ID);

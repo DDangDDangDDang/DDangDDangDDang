@@ -29,6 +29,22 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("delete from Notification n where n.id in :ids")
     int deleteByIds(@Param("ids") List<Long> ids);
 
+    /**
+     * 판매자의 since 이후 방송 시작 알림이 새 방송을 가리키게 바꾼다. 30분 안에 다시 시작해 새 알림을 보내지 않을 때,
+     * 구독자가 이미 받은 알림을 눌러도 끝난 방송이 아니라 지금 방송으로 가게 한다. 알림 처리는 트랜잭션 밖(@Async)이라 여기서 연다.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    @Modifying
+    @Query("""
+            update Notification n set n.liveStreamId = :liveStreamId, n.liveTitle = :liveTitle, n.liveRecorded = :liveRecorded
+            where n.sellerId = :sellerId
+              and n.type = com.example.ddangddangddang.domain.notification.entity.NotificationType.LIVE_STARTED
+              and n.createdAt > :since
+            """)
+    int moveLiveStartedTo(@Param("sellerId") Long sellerId, @Param("since") LocalDateTime since,
+                          @Param("liveStreamId") Long liveStreamId, @Param("liveTitle") String liveTitle,
+                          @Param("liveRecorded") Boolean liveRecorded);
+
     @Modifying
     @Query("update Notification n set n.readAt = :now where n.userId = :userId and n.readAt is null")
     int readAll(@Param("userId") Long userId, @Param("now") LocalDateTime now);

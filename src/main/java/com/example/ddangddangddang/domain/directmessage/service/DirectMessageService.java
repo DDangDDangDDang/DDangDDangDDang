@@ -55,6 +55,10 @@ public class DirectMessageService {
     static final String DM_DESTINATION = "/queue/dm";
     static final int RATE_LIMIT_MAX_MESSAGES = 10;
     static final Duration RATE_LIMIT_WINDOW = Duration.ofSeconds(10);
+    // 한 계정으로 여러 사람에게 광고를 뿌리지 못하게, 하루에 새로 말을 거는 상대 수를 제한한다.
+    // 이미 대화한 상대(메시지가 있는 방)와 주문 안내(sendOrderNotice)는 세지 않는다.
+    static final int MAX_NEW_CONVERSATIONS_PER_DAY = 30;
+    static final Duration NEW_CONVERSATION_WINDOW = Duration.ofDays(1);
     private static final int MAX_PAGE_SIZE = 50;
     private static final int PREVIEW_LENGTH = 100;
 
@@ -146,7 +150,7 @@ public class DirectMessageService {
      * 메시지를 저장하고, 커밋된 뒤 상대와 나에게 실시간으로 보낸다. (MESSAGE)
      * 보낸 사람은 자기 메시지까지 읽은 것으로 하고, 읽음 위치가 바뀌었으면 READ도 이어서 보낸다.
      *
-     * 검사 순서: 참여자 → 같은 clientMessageId 재전송 → 내용 필터 → 차단 → 도배 제한
+     * 검사 순서: 참여자 → 같은 clientMessageId 재전송 → 내용 필터 → 차단 → 도배 제한 → 새 대화 상대 수
      * 같은 clientMessageId로 다시 보내면(응답을 못 받은 재전송) 다른 검사 없이 처음 저장한 메시지를 돌려준다.
      * 이 경우 처음 보낼 때 이미 실시간 전달을 했으므로 다시 보내지 않고, 도배 횟수에도 세지 않는다.
      */
@@ -172,6 +176,11 @@ public class DirectMessageService {
         validateNotBlocked(userId, otherUserId);
         if (dmRateLimitRepository.increment(userId, RATE_LIMIT_WINDOW) > RATE_LIMIT_MAX_MESSAGES) {
             throw new BusinessException(DirectMessageErrorCode.TOO_MANY_MESSAGES);
+        }
+        // 아직 아무 메시지도 없는 방에 처음 보내면 새 대화로 센다. (상대가 먼저 보낸 방에 답하는 것은 세지 않음)
+        if (room.getLastMessageId() == null
+                && dmRateLimitRepository.incrementNewConversation(userId, NEW_CONVERSATION_WINDOW) > MAX_NEW_CONVERSATIONS_PER_DAY) {
+            throw new BusinessException(DirectMessageErrorCode.NEW_CONVERSATION_LIMIT);
         }
 
         SendResult result;

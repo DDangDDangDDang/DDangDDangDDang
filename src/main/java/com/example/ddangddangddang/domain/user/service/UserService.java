@@ -14,7 +14,9 @@ import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.jwt.JwtProvider;
 import com.example.ddangddangddang.global.storage.FileStorage;
 import lombok.extern.slf4j.Slf4j;
+import com.example.ddangddangddang.global.config.CacheConfig;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +51,7 @@ public class UserService {
     private final UserPolicyProperties policy;
     private final FileStorage fileStorage;
     private final ChatContentFilter contentFilter;
+    private final NicknamePolicy nicknamePolicy;
     private final Clock clock;
 
     @Autowired
@@ -64,6 +67,7 @@ public class UserService {
         this.policy = policy;
         this.fileStorage = fileStorage;
         this.contentFilter = contentFilter;
+        this.nicknamePolicy = new NicknamePolicy(contentFilter);
         this.clock = clock;
     }
 
@@ -80,6 +84,7 @@ public class UserService {
      * 변경 감지는 커밋할 때 UPDATE를 보내므로, 제약 위반을 여기서 잡으려면 직접 flush해야 한다.
      */
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.NICKNAME_BADGE, key = "#userId") // 채팅에 보일 닉네임 (NicknameBadges)
     public MyInfoUpdateResponse updateMyInfo(Long userId, MyInfoUpdateRequest request) {
         User user = findUser(userId);
         LocalDateTime now = LocalDateTime.now(clock);
@@ -110,6 +115,7 @@ public class UserService {
      * - 지금과 같은 닉네임이면 USER_013 (바뀌는 것 없이 마일리지만 빠지지 않게)
      */
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.NICKNAME_BADGE, key = "#userId") // 채팅에 보일 닉네임 (NicknameBadges)
     public MyInfoUpdateResponse changeNicknameWithTicket(Long userId, String nickname) {
         User user = findUser(userId);
         LocalDateTime now = LocalDateTime.now(clock);
@@ -129,9 +135,11 @@ public class UserService {
     }
 
     private void changeNickname(User user, String nickname, LocalDateTime now) {
-        if (userRepository.existsByNickname(nickname)) {
+        // 자기 자신은 빼고 본다. ("Abc" → "abc"처럼 대소문자만 바꾸는 것은 허용)
+        if (userRepository.existsByNicknameAndIdNot(nickname, user.getId())) {
             throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME);
         }
+        nicknamePolicy.validate(nickname);
         user.changeNickname(nickname, now);
         try {
             userRepository.flush();
