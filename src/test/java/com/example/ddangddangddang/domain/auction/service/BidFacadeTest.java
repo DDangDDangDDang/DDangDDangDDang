@@ -39,29 +39,29 @@ class BidFacadeTest {
     @Test
     @DisplayName("다른 입찰에 밀려 실패하면 새 트랜잭션으로 재시도한다")
     void retryOnConflict() {
-        given(bidService.tryPlaceBid(2L, 100L, 10_000L))
+        given(bidService.tryPlaceBid(2L, 100L, 10_000L, null))
                 .willReturn(Optional.empty(), Optional.empty(), Optional.of(SUCCESS));
 
         assertThat(bidFacade.placeBid(2L, 100L, 10_000L)).isEqualTo(SUCCESS);
-        verify(bidService, times(3)).tryPlaceBid(2L, 100L, 10_000L);
+        verify(bidService, times(3)).tryPlaceBid(2L, 100L, 10_000L, null);
     }
 
     @Test
     @DisplayName("최대 횟수까지 계속 밀리면 BID_CONFLICT")
     void giveUp() {
-        given(bidService.tryPlaceBid(2L, 100L, 10_000L)).willReturn(Optional.empty());
+        given(bidService.tryPlaceBid(2L, 100L, 10_000L, null)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> bidFacade.placeBid(2L, 100L, 10_000L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(AuctionErrorCode.BID_CONFLICT);
-        verify(bidService, times(BidFacade.MAX_ATTEMPTS)).tryPlaceBid(2L, 100L, 10_000L);
+        verify(bidService, times(BidFacade.MAX_ATTEMPTS)).tryPlaceBid(2L, 100L, 10_000L, null);
     }
 
     @Test
     @DisplayName("재조회 결과 내 입찰이 더는 유효하지 않으면 재시도 없이 그 이유로 끝난다")
     void invalidAfterRetry() {
-        given(bidService.tryPlaceBid(2L, 100L, 10_000L))
+        given(bidService.tryPlaceBid(2L, 100L, 10_000L, null))
                 .willReturn(Optional.empty())
                 .willThrow(new BusinessException(AuctionErrorCode.BID_TOO_LOW));
 
@@ -69,13 +69,13 @@ class BidFacadeTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(AuctionErrorCode.BID_TOO_LOW);
-        verify(bidService, times(2)).tryPlaceBid(2L, 100L, 10_000L);
+        verify(bidService, times(2)).tryPlaceBid(2L, 100L, 10_000L, null);
     }
 
     @Test
     @DisplayName("락 대기 초과 같은 락 예외도 재시도한다")
     void retryOnLockFailure() {
-        given(bidService.tryPlaceBid(2L, 100L, 10_000L))
+        given(bidService.tryPlaceBid(2L, 100L, 10_000L, null))
                 .willThrow(new CannotAcquireLockException("lock wait timeout"))
                 .willReturn(Optional.of(SUCCESS));
 

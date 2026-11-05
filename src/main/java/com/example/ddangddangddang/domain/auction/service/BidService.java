@@ -51,6 +51,14 @@ public class BidService {
      */
     @Transactional
     public Optional<BidResponse> tryPlaceBid(Long bidderId, Long auctionId, long amount) {
+        return tryPlaceBid(bidderId, auctionId, amount, null);
+    }
+
+    /**
+     * @param bidderNickname 입찰자 닉네임 (로그인 토큰에서 받음). 실시간 전송에 쓰고, 없으면 전송할 때 DB에서 찾는다
+     */
+    @Transactional
+    public Optional<BidResponse> tryPlaceBid(Long bidderId, Long auctionId, long amount, String bidderNickname) {
         Auction auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new BusinessException(AuctionErrorCode.NOT_FOUND));
 
@@ -64,7 +72,8 @@ public class BidService {
         LocalDateTime newEndAt = auction.endAtAfterBid(now);
         boolean extended = newEndAt.isAfter(auction.getEndAt());
         Long liveStreamId = auction.getLiveStream() == null ? null : auction.getLiveStream().getId();
-        String productName = auction.getProduct().getName();
+        // 상품 이름은 방송 경매 안내에만 쓴다. 방송 경매가 아니면 꺼내지 않아 상품 조회가 나가지 않는다
+        String productName = liveStreamId == null ? null : auction.getProduct().getName();
         LocalDateTime startAt = auction.getStartAt();
 
         int updated = auctionRepository.placeBid(
@@ -83,7 +92,7 @@ public class BidService {
         // 밀려난 최고 입찰을 OUTBID로 바꾸고 새 입찰을 ACTIVE로 저장한다 (경매 행은 위 UPDATE로 잠겨 있다)
         bidRepository.changeStatus(auctionId, BidStatus.ACTIVE, BidStatus.OUTBID);
         Bid bid = bidRepository.save(Bid.create(auctionId, bidderId, amount));
-        eventPublisher.publishEvent(new BidPlacedEvent(auctionId, bidderId, amount, nextBidCount, newEndAt, extended));
+        eventPublisher.publishEvent(new BidPlacedEvent(auctionId, bidderId, amount, nextBidCount, newEndAt, extended, bidderNickname));
         // 최고 입찰자에서 밀려난 회원에게 알린다
         if (prevBidderId != null && !prevBidderId.equals(bidderId)) {
             eventPublisher.publishEvent(new BidOutbidEvent(auctionId, prevBidderId, amount));
