@@ -253,7 +253,7 @@ public class AuctionService {
         return auctionRepository.search(condition, pageable).map(item -> item.withThumbnailKeyResolved(this::imageUrl));
     }
 
-    //인기 경매 : 진행 중인 경매 중 입찰 횟수 많은 순 조회(개수 1~50 제한)
+    //인기 경매 : 대기, 진행 중인 경매를 인기 점수(조회수 + 입찰 횟수 * 5) 높은 순으로 조회(개수 1~50 제한)
     @Transactional(readOnly = true)
     public List<AuctionListResponse> popularAuctions(int size){
        int limit= Math.min(Math.max(size,1),50);
