@@ -1,6 +1,5 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router';
 import { api, call, errorMessage, useSession, type Schema } from '@/api';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Badge, Button, Card, CardBody, ConfirmDialog, EmptyState, ErrorState, Notice, Skeleton } from '@/components/ui';
@@ -114,9 +113,8 @@ function ReviewCard({ order }: { order: Order }) {
               {order.reviewReason && <Badge variant="warning">{ORDER_REVIEW_REASON_LABEL[order.reviewReason]}</Badge>}
               {order.issueType && <span className="text-label font-semibold">{ORDER_ISSUE_TYPE_LABEL[order.issueType]}</span>}
             </div>
-            <Link to={`/orders/${order.orderId}`} className="truncate text-title-md font-bold hover:underline">
-              {order.productName ?? '-'}
-            </Link>
+            {/* 주문 상세(/orders/:id)는 구매자·판매자만 볼 수 있어 링크를 걸지 않는다. 확인에 필요한 정보는 이 카드에 다 있다. */}
+            <h2 className="truncate text-title-md font-bold">{order.productName ?? '-'}</h2>
           </div>
           <div className="flex shrink-0 gap-2">
             <Button variant="outline" onClick={() => setAction('refund')}>
