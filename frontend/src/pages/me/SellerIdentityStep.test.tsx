@@ -56,13 +56,18 @@ describe('SellerIdentityStep', () => {
   });
 
   it('창을 열지 못하면(팝업 차단 등) 알 수 없는 오류 대신 팝업 차단 해제를 안내하고 서버로 보내지 않는다', async () => {
-    portOne.requestIdentityVerification.mockRejectedValue(new Error('popup blocked'));
+    const cause = new Error('popup blocked');
+    portOne.requestIdentityVerification.mockRejectedValue(cause);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     renderStep();
 
     await userEvent.click(screen.getByRole('button', { name: '휴대폰 본인인증' }));
 
     expect(await screen.findByText(/팝업 차단을 해제한 뒤 다시 시도해 주세요/)).toBeInTheDocument();
     expect(server.requests).toEqual([]);
+    // 원인을 찾을 수 있게 원래 예외는 콘솔에 남긴다
+    expect(consoleError).toHaveBeenCalledWith(expect.any(String), cause);
+    consoleError.mockRestore();
   });
 
   it('창을 닫거나 인증이 실패하면 포트원 메시지를 보여주고 서버로 보내지 않는다', async () => {
