@@ -141,6 +141,8 @@ DNS가 연결된 뒤 첫 배포를 하면 Caddy가 Let's Encrypt 인증서를 �
 | `WEB_PUSH_PUBLIC_KEY` / `WEB_PUSH_PRIVATE_KEY` | 브라우저 알림(웹 푸시) VAPID 키. `npx web-push generate-vapid-keys`의 Public Key / Private Key. 한 번 정하면 바꾸지 않음 (바꾸면 모든 회원이 다시 구독해야 함) | ✅ |
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET` | 카카오디벨로퍼스 → [앱] → [플랫폼 키] → REST API 키 / 그 키의 클라이언트 시크릿 | 카카오 로그인 사용 시 |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud 콘솔 → OAuth 클라이언트(웹 애플리케이션) | 구글 로그인 사용 시 |
+| `POINT_ACCOUNT_ENCRYPTION_KEY` | 환전 계좌번호 암호화 키 (Base64로 쓴 32바이트). `openssl rand -base64 32`. 한 번 정하면 바꾸지 않음 (바꾸면 저장된 계좌번호를 읽을 수 없음) | ✅ |
+| `DELIVERY_TRACKER_CLIENT_ID` / `DELIVERY_TRACKER_CLIENT_SECRET` | 배송 조회 콘솔(tracker.delivery) → API 키. 자동 구매 확정이 송장 조회로 배송 완료를 확인함. 비어 있으면 모든 주문이 발송 14일 뒤 관리자 확인으로 넘어감. **Free 플랜 키는 21일마다 만료**되니 갱신 일정을 잡아 둘 것 | ✅ |
 
 소셜 로그인 redirect URI는 비밀값이 아니라 `domain_name`으로 Terraform이 정합니다. (`https://<도메인>/oauth/{kakao|google}/callback`)
 
@@ -166,7 +168,10 @@ DNS가 연결된 뒤 첫 배포를 하면 Caddy가 Let's Encrypt 인증서를 �
   "KAKAO_CLIENT_ID": "",
   "KAKAO_CLIENT_SECRET": "",
   "GOOGLE_CLIENT_ID": "",
-  "GOOGLE_CLIENT_SECRET": ""
+  "GOOGLE_CLIENT_SECRET": "",
+  "POINT_ACCOUNT_ENCRYPTION_KEY": "<openssl rand -base64 32 결과>",
+  "DELIVERY_TRACKER_CLIENT_ID": "<클라이언트 ID>",
+  "DELIVERY_TRACKER_CLIENT_SECRET": "<클라이언트 시크릿>"
 }
 ```
 

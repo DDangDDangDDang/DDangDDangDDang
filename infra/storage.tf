@@ -45,6 +45,24 @@ resource "aws_s3_bucket" "uploads" {
   bucket   = each.value.name
 }
 
+# 끝나지 않은 멀티파트 업로드 조각을 하루 뒤 지운다. 조각은 목록에 보이지 않고 저장 비용만 든다.
+# 올리기만 하고 확정하지 않은 파일(프로필·상품 이미지 등)은 이 규칙으로 지워지지 않는다. 경로만으로는 쓰이는 파일과 구분할 수 없어 그대로 둔다.
+resource "aws_s3_bucket_lifecycle_configuration" "uploads" {
+  for_each = aws_s3_bucket.uploads
+  bucket   = each.value.id
+
+  rule {
+    id     = "abort-incomplete-multipart-upload"
+    status = "Enabled"
+
+    filter {}
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
+}
+
 # ACL은 쓰지 않고 버킷 정책으로만 권한을 정한다.
 resource "aws_s3_bucket_ownership_controls" "uploads" {
   for_each = aws_s3_bucket.uploads

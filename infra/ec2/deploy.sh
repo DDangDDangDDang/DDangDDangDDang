@@ -2,6 +2,7 @@
 # EC2 구성의 배포 스크립트. GitHub Actions가 SSM Run Command로 서버에서 실행한다.
 #   사용법: deploy.sh <앱 이미지 URI> <웹 이미지 URI>
 # 1) 최신 docker-compose.yml과 앱·웹 환경변수를 SSM 파라미터에서 받는다.
+#    컨테이너 로그를 보낼 CloudWatch Logs 그룹 이름(log-group)도 받아 .env에 넣는다.
 # 2) 비밀값을 Secrets Manager에서 읽어 .env / app.env / web.env / db.env를 만든다. (서버 디스크에만 남고 권한은 root 전용)
 #    운영 EC2와 dev 서버가 같은 스크립트를 쓰고, 어느 서버인지는 config.sh(PARAM_PREFIX 등)로 정해진다.
 # 3) 새 이미지·설정으로 컨테이너를 바꾸고, 헬스 체크가 통과하지 않으면 직전 배포의 이미지·설정으로 되돌린다.
@@ -26,6 +27,8 @@ to_env() {
 
 # 새 설정은 .new 파일에 먼저 받는다. 받는 도중 실패해도 지금 쓰는 파일은 그대로 남는다.
 get_param compose > docker-compose.yml.new
+# 컨테이너 로그를 보낼 CloudWatch Logs 그룹 (infra/logs.tf). docker-compose의 awslogs-group으로 쓴다.
+log_group="$(get_param log-group)"
 app_env_json="$(get_param app-env)"
 web_env_json="$(get_param web-env)"
 app_secret_json="$(get_secret "$APP_SECRET_ID")"
@@ -37,7 +40,7 @@ to_env <<<"$web_env_json" > web.env.new
 # dev 서버처럼 MySQL을 컨테이너로 띄울 때 쓰는 접속 정보. (운영은 RDS라 compose가 이 파일을 쓰지 않는다)
 jq '{MYSQL_DATABASE: (.dbname // "ddang"), MYSQL_USER: .username, MYSQL_PASSWORD: .password, MYSQL_ROOT_PASSWORD: .password}' \
   <<<"$db_secret_json" | to_env > db.env.new
-printf "APP_IMAGE='%s'\nWEB_IMAGE='%s'\n" "$IMAGE" "$WEB_IMAGE" > .env.new
+printf "APP_IMAGE='%s'\nWEB_IMAGE='%s'\nAWS_REGION='%s'\nLOG_GROUP='%s'\n" "$IMAGE" "$WEB_IMAGE" "$REGION" "$log_group" > .env.new
 
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY" >/dev/null
 
