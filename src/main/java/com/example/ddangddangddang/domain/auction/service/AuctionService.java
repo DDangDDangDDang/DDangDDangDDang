@@ -246,9 +246,12 @@ public class AuctionService {
 
         List<Auction> auctions = auctionRepository.findTop50ByProductIdOrderByIdDesc(productId);
         //낙찰됐다가 주문이 취소된 경매는 사유(낙찰취소, 제품 미발송)를 함께 보여준다
+        // 관리자 확인 뒤 환불한 주문은 취소 사유가 없다(null). toMap은 값이 null이면 NPE를 던지므로 뺀다. (그 경매는 사유 없이 보인다)
         Map<Long, OrderCancelReason> cancelReasons = orderRepository
                 .findByAuctionIdInAndStatus(auctions.stream().map(Auction::getId).toList(), OrderStatus.CANCELED)
-                .stream().collect(Collectors.toMap(Order::getAuctionId, Order::getCancelReason));
+                .stream()
+                .filter(order -> order.getCancelReason() != null)
+                .collect(Collectors.toMap(Order::getAuctionId, Order::getCancelReason));
         return auctions.stream()
                 .map(auction -> AuctionResponse.from(auction, this::imageUrl).withOrderCancelReason(cancelReasons.get(auction.getId())))
                 .toList();

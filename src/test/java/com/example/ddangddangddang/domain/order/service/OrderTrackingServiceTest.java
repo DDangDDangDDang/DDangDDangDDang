@@ -51,6 +51,25 @@ class OrderTrackingServiceTest {
     private final TrackingEvent delivered = new TrackingEvent("2026-10-27T14:00:00+09:00", "DELIVERED", "배달완료", "강남", null);
 
     @Test
+    @DisplayName("자동 확정 전 확인: 배송 완료·배송 중·송장 없음·조회 장애·기타 택배사·송장번호 없음을 구분한다")
+    void checkForAutoConfirm() {
+        given(trackingCacheRepository.find(any(), anyString())).willReturn(Optional.empty());
+        given(deliveryTrackingClient.track(Courier.CJ, "delivered")).willReturn(new TrackingInfo(delivered, List.of(delivered)));
+        given(deliveryTrackingClient.track(Courier.CJ, "moving")).willReturn(new TrackingInfo(inTransit, List.of(inTransit)));
+        given(deliveryTrackingClient.track(Courier.CJ, "fake")).willThrow(new BusinessException(OrderErrorCode.TRACKING_NOT_FOUND));
+        given(deliveryTrackingClient.track(Courier.CJ, "down")).willThrow(new BusinessException(OrderErrorCode.TRACKING_PROVIDER_ERROR));
+
+        assertThat(orderTrackingService.checkForAutoConfirm(Courier.CJ, "delivered")).isEqualTo(TrackingCheck.DELIVERED);
+        assertThat(orderTrackingService.checkForAutoConfirm(Courier.CJ, "moving")).isEqualTo(TrackingCheck.IN_TRANSIT);
+        assertThat(orderTrackingService.checkForAutoConfirm(Courier.CJ, "fake")).isEqualTo(TrackingCheck.NOT_FOUND);
+        assertThat(orderTrackingService.checkForAutoConfirm(Courier.CJ, "down")).isEqualTo(TrackingCheck.UNAVAILABLE);
+        assertThat(orderTrackingService.checkForAutoConfirm(Courier.ETC, "123")).isEqualTo(TrackingCheck.UNSUPPORTED);
+        // 송장번호 없이 발송된 주문은 기타 택배사처럼 14일 뒤 확정하지 않고 관리자 확인으로 보낸다
+        assertThat(orderTrackingService.checkForAutoConfirm(Courier.ETC, null)).isEqualTo(TrackingCheck.NOT_FOUND);
+        assertThat(orderTrackingService.checkForAutoConfirm(Courier.CJ, " ")).isEqualTo(TrackingCheck.NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("캐시가 없으면 조회하고, 배송 중이면 10분 동안 캐시한다")
     void fetchAndCache() {
         givenShippedOrder(Courier.CJ, "123");

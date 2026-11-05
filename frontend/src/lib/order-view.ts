@@ -1,7 +1,7 @@
 import type { Schema } from '@/api';
 import { dateTimeInputOf } from './datetime-input';
 import { formatDateTime, formatPoint } from './format';
-import { ORDER_CANCEL_REASON_LABEL } from './labels';
+import { ORDER_CANCEL_REASON_LABEL, ORDER_REVIEW_REASON_LABEL } from './labels';
 
 type Order = Schema<'OrderResponse'>;
 
@@ -72,15 +72,45 @@ export function autoConfirmAt(order: Order): string | null {
   return `${dateTimeInputOf(date)}:00`;
 }
 
-/** 배송 중 주문의 자동 구매 확정 안내 */
+/**
+ * 배송 중 주문의 자동 구매 확정 안내.
+ * 서버는 발송 후 7일이 지나고 송장 조회로 배송 완료를 확인한 주문만 자동 확정한다. (조회할 수 없는 택배사는 14일)
+ */
 export function autoConfirmMessage(order: Order): string {
+  if (order.courier === 'ETC') {
+    return `조회할 수 없는 택배사라 발송 후 ${UNTRACKED_AUTO_CONFIRM_DAYS}일이 지나면 자동으로 구매 확정돼요.`;
+  }
   const at = autoConfirmAt(order);
-  const base = `발송 후 ${AUTO_CONFIRM_DAYS}일이 지나면 자동으로 구매 확정돼요.`;
-  return at ? `${base} (${formatDateTime(at)} 자동 확정 예정)` : base;
+  const base = `발송 후 ${AUTO_CONFIRM_DAYS}일이 지나고 배송 완료가 확인되면 자동으로 구매 확정돼요.`;
+  return at ? `${base} (빠르면 ${formatDateTime(at)})` : base;
+}
+
+/** 조회할 수 없는 택배사(기타)는 이 날수가 지나야 자동 확정한다. (OrderService.UNTRACKED_AUTO_CONFIRM_DAYS) */
+export const UNTRACKED_AUTO_CONFIRM_DAYS = 14;
+
+/** 관리자 확인을 기다리는 중인지. (구매자 신고, 송장 확인 실패) 이때는 자동 구매 확정이 멈춘다 */
+export function isUnderReview(order: Order): boolean {
+  return order.status === 'SHIPPING' && Boolean(order.reviewReason) && !order.reviewResult;
+}
+
+/** 관리자 확인 대기 중인 주문의 안내. 확인 대기가 아니면 null */
+export function orderReviewMessage(order: Order, role: OrderRole): string | null {
+  if (!isUnderReview(order) || !order.reviewReason) return null;
+  const reason = ORDER_REVIEW_REASON_LABEL[order.reviewReason];
+  if (order.reviewReason === 'BUYER_REPORTED') {
+    return role === 'BUYER'
+      ? '문제를 신고했어요. 자동 구매 확정을 멈추고 관리자가 확인한 뒤 정산 또는 환불로 처리해요. 문제가 풀렸다면 직접 구매 확정해 주세요.'
+      : '구매자가 문제를 신고해 자동 구매 확정이 멈췄어요. 관리자가 확인한 뒤 정산 또는 환불로 처리해요.';
+  }
+  return `${reason}: 자동 구매 확정을 멈추고 관리자가 확인한 뒤 정산 또는 환불로 처리해요.`
+    + (role === 'SELLER' ? ' 송장번호가 맞는지 확인해 주세요.' : '');
 }
 
 /** 취소된 주문의 안내. 배송지 미입력 취소만 위약금이 있다 */
 export function orderCancelMessage(order: Order): string {
+  if (order.reviewResult === 'REFUNDED') {
+    return '관리자 확인 결과 취소된 주문이에요. 결제 포인트는 구매자에게 전액 환불됐어요.';
+  }
   const title = order.cancelReason ? `${ORDER_CANCEL_REASON_LABEL[order.cancelReason]} 처리된 주문이에요.` : '취소된 주문이에요.';
   const penalty = order.cancelReason === 'BUYER_NO_ADDRESS' ? (order.noAddressPenalty ?? 0) : 0;
   if (penalty === 0) return `${title} 결제 포인트는 구매자에게 전액 환불됐어요.`;

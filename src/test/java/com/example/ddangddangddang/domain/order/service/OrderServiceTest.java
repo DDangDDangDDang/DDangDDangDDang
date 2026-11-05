@@ -17,6 +17,12 @@ import com.example.ddangddangddang.domain.order.entity.OrderRole;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
+import com.example.ddangddangddang.domain.order.entity.OrderIssueType;
+import com.example.ddangddangddang.domain.order.entity.OrderReviewReason;
+import com.example.ddangddangddang.domain.order.entity.OrderReviewResult;
+import com.example.ddangddangddang.domain.order.event.OrderCanceledEvent;
+import com.example.ddangddangddang.domain.order.event.OrderReviewRequestedEvent;
+import com.example.ddangddangddang.domain.order.event.OrderReviewResolvedEvent;
 import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import org.hibernate.exception.ConstraintViolationException;
@@ -40,6 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
@@ -312,15 +319,16 @@ class OrderServiceTest {
     class AutoConfirm {
 
         @Test
-        @DisplayName("발송 후 7일이 지나면 확정하고 판매자에게 정산하며, 도네이션 포인트 적립을 알린다")
-        void overdue_confirmsAndSettles() {
+        @DisplayName("발송 후 7일이 지나고 배송 완료가 확인되면 확정하고 판매자에게 정산하며, 도네이션 포인트 적립을 알린다")
+        void delivered_confirmsAndSettles() {
             Order order = shippedOrder(10L, 8);
             given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
 
-            boolean confirmed = orderService.autoConfirm(10L);
+            boolean confirmed = orderService.autoConfirm(10L, TrackingCheck.DELIVERED);
 
             assertThat(confirmed).isTrue();
             assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+            assertThat(order.getDeliveredAt()).isNotNull();
             verify(pointService).settle(SELLER_ID, 500_000L, 10L);
             verify(eventPublisher).publishEvent(new OrderConfirmedEvent(10L, BUYER_ID, SELLER_ID, 500_000L));
         }
@@ -331,7 +339,7 @@ class OrderServiceTest {
             Order order = shippedOrder(10L, 3);
             given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
 
-            assertThat(orderService.autoConfirm(10L)).isFalse();
+            assertThat(orderService.autoConfirm(10L, TrackingCheck.DELIVERED)).isFalse();
             assertThat(order.getStatus()).isEqualTo(OrderStatus.SHIPPING);
             verify(pointService, never()).settle(anyLong(), anyLong(), anyLong());
         }
@@ -343,7 +351,77 @@ class OrderServiceTest {
             order.confirm();
             given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
 
-            assertThat(orderService.autoConfirm(10L)).isFalse();
+            assertThat(orderService.autoConfirm(10L, TrackingCheck.DELIVERED)).isFalse();
+            verify(pointService, never()).settle(anyLong(), anyLong(), anyLong());
+        }
+
+        @Test
+        @DisplayName("발송 후 7일이 지났는데 송장이 조회되지 않으면(가짜 송장 가능성) 정산하지 않고 관리자 확인으로 넘긴다")
+        void notFound_requestsReview() {
+            Order order = shippedOrder(10L, 8);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            assertThat(orderService.autoConfirm(10L, TrackingCheck.NOT_FOUND)).isFalse();
+
+            assertThat(order.getReviewReason()).isEqualTo(OrderReviewReason.TRACKING_NOT_FOUND);
+            assertThat(order.isUnderReview()).isTrue();
+            verify(pointService, never()).settle(anyLong(), anyLong(), anyLong());
+            verify(eventPublisher).publishEvent(any(OrderReviewRequestedEvent.class));
+        }
+
+        @Test
+        @DisplayName("아직 배송 중이면 6시간 뒤 다시 보고, 발송 후 14일이 지나도 배송 완료가 아니면 관리자 확인으로 넘긴다")
+        void inTransit_postponesThenReview() {
+            Order early = shippedOrder(10L, 8);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(early));
+            assertThat(orderService.autoConfirm(10L, TrackingCheck.IN_TRANSIT)).isFalse();
+            assertThat(early.getReviewReason()).isNull();
+            assertThat(early.getAutoConfirmNextCheckAt()).isAfter(LocalDateTime.now().plusHours(5));
+
+            Order late = shippedOrder(11L, 15);
+            given(orderRepository.findByIdForUpdate(11L)).willReturn(Optional.of(late));
+            assertThat(orderService.autoConfirm(11L, TrackingCheck.IN_TRANSIT)).isFalse();
+            assertThat(late.getReviewReason()).isEqualTo(OrderReviewReason.TRACKING_NOT_DELIVERED);
+            verify(pointService, never()).settle(anyLong(), anyLong(), anyLong());
+        }
+
+        @Test
+        @DisplayName("조회 서비스 장애면 미루고, 발송 후 14일이 지나도 확인하지 못하면 관리자 확인으로 넘긴다")
+        void unavailable_postponesThenReview() {
+            Order early = shippedOrder(10L, 8);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(early));
+            assertThat(orderService.autoConfirm(10L, TrackingCheck.UNAVAILABLE)).isFalse();
+            assertThat(early.getReviewReason()).isNull();
+            assertThat(early.getAutoConfirmNextCheckAt()).isNotNull();
+
+            Order late = shippedOrder(11L, 15);
+            given(orderRepository.findByIdForUpdate(11L)).willReturn(Optional.of(late));
+            orderService.autoConfirm(11L, TrackingCheck.UNAVAILABLE);
+            assertThat(late.getReviewReason()).isEqualTo(OrderReviewReason.TRACKING_UNAVAILABLE);
+        }
+
+        @Test
+        @DisplayName("조회할 수 없는 택배사(기타)는 발송 후 14일이 지나야 확정하고, 그 전에는 14일째로 미룬다")
+        void unsupportedCourier_confirmsAfter14Days() {
+            Order early = shippedOrder(10L, 8);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(early));
+            assertThat(orderService.autoConfirm(10L, TrackingCheck.UNSUPPORTED)).isFalse();
+            assertThat(early.getAutoConfirmNextCheckAt()).isEqualTo(early.getShippedAt().plusDays(14));
+
+            Order late = shippedOrder(11L, 14);
+            given(orderRepository.findByIdForUpdate(11L)).willReturn(Optional.of(late));
+            assertThat(orderService.autoConfirm(11L, TrackingCheck.UNSUPPORTED)).isTrue();
+            assertThat(late.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+        }
+
+        @Test
+        @DisplayName("관리자 확인 대기 중인 주문은 배송 완료여도 자동 확정하지 않는다")
+        void underReview_skips() {
+            Order order = shippedOrder(10L, 8);
+            order.reportIssue(OrderIssueType.NOT_RECEIVED, null, LocalDateTime.now());
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            assertThat(orderService.autoConfirm(10L, TrackingCheck.DELIVERED)).isFalse();
             verify(pointService, never()).settle(anyLong(), anyLong(), anyLong());
         }
 
@@ -363,6 +441,90 @@ class OrderServiceTest {
             Order order = shippableOrder(orderId);
             order.ship(Courier.CJ, "1234567890");
             ReflectionTestUtils.setField(order, "shippedAt", LocalDateTime.now().minusDays(shippedDaysAgo));
+            return order;
+        }
+    }
+
+    @Nested
+    @DisplayName("구매자 문제 신고와 관리자 확인")
+    class IssueReview {
+
+        @Test
+        @DisplayName("구매자가 신고하면 자동 확정이 멈추고 판매자에게 알린다. 다시 신고하면 ORDER_024")
+        void report() {
+            Order order = shipped(10L);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            OrderResponse response = orderService.reportIssue(BUYER_ID, 10L, OrderIssueType.WRONG_ITEM, "  다른 색이 왔어요  ");
+
+            assertThat(response.reviewReason()).isEqualTo(OrderReviewReason.BUYER_REPORTED);
+            assertThat(response.issueType()).isEqualTo(OrderIssueType.WRONG_ITEM);
+            assertThat(response.issueDetail()).isEqualTo("다른 색이 왔어요");
+            verify(eventPublisher).publishEvent(any(OrderReviewRequestedEvent.class));
+            assertThatThrownBy(() -> orderService.reportIssue(BUYER_ID, 10L, OrderIssueType.OTHER, null))
+                    .extracting("errorCode").isEqualTo(OrderErrorCode.ISSUE_ALREADY_REPORTED);
+        }
+
+        @Test
+        @DisplayName("판매자는 신고할 수 없고(ORDER_026), 발송 전 주문은 신고할 수 없다(ORDER_023)")
+        void reportRejected() {
+            Order order = shipped(10L);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+            assertThatThrownBy(() -> orderService.reportIssue(SELLER_ID, 10L, OrderIssueType.OTHER, null))
+                    .extracting("errorCode").isEqualTo(OrderErrorCode.NOT_ORDER_BUYER_REPORT);
+
+            Order escrow = shippableOrder(11L);
+            given(orderRepository.findByIdForUpdate(11L)).willReturn(Optional.of(escrow));
+            assertThatThrownBy(() -> orderService.reportIssue(BUYER_ID, 11L, OrderIssueType.NOT_RECEIVED, null))
+                    .extracting("errorCode").isEqualTo(OrderErrorCode.CANNOT_REPORT_ISSUE);
+        }
+
+        @Test
+        @DisplayName("관리자가 정산으로 처리하면 구매 확정되고 판매자에게 정산한다")
+        void resolveConfirmed() {
+            Order order = shipped(10L);
+            order.reportIssue(OrderIssueType.NOT_RECEIVED, null, LocalDateTime.now());
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            OrderResponse response = orderService.resolveReviewAsConfirmed(10L);
+
+            assertThat(response.status()).isEqualTo(OrderStatus.COMPLETED);
+            assertThat(response.reviewResult()).isEqualTo(OrderReviewResult.CONFIRMED);
+            verify(pointService).settle(SELLER_ID, 500_000L, 10L);
+            verify(eventPublisher).publishEvent(any(OrderReviewResolvedEvent.class));
+        }
+
+        @Test
+        @DisplayName("관리자가 환불로 처리하면 주문을 취소하고 구매자에게 전액 환불한다. 취소 사유는 비워 미발송 제재에 넣지 않는다")
+        void resolveRefunded() {
+            Order order = shipped(10L);
+            order.reportIssue(OrderIssueType.NOT_RECEIVED, null, LocalDateTime.now());
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            OrderResponse response = orderService.resolveReviewAsRefunded(10L);
+
+            assertThat(response.status()).isEqualTo(OrderStatus.CANCELED);
+            assertThat(response.reviewResult()).isEqualTo(OrderReviewResult.REFUNDED);
+            assertThat(response.cancelReason()).isNull();
+            verify(pointService).refundOrder(eq(BUYER_ID), eq(500_000L), eq(10L), any());
+            verify(pointService, never()).settle(anyLong(), anyLong(), anyLong());
+            verify(eventPublisher, never()).publishEvent(any(OrderCanceledEvent.class));
+        }
+
+        @Test
+        @DisplayName("확인 대기가 아닌 주문은 관리자 처리할 수 없다 (ORDER_025)")
+        void notUnderReview() {
+            Order order = shipped(10L);
+            given(orderRepository.findByIdForUpdate(10L)).willReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.resolveReviewAsRefunded(10L))
+                    .extracting("errorCode").isEqualTo(OrderErrorCode.NOT_UNDER_REVIEW);
+            verify(pointService, never()).refundOrder(anyLong(), anyLong(), anyLong(), any());
+        }
+
+        private Order shipped(Long orderId) {
+            Order order = shippableOrder(orderId);
+            order.ship(Courier.CJ, "1234567890");
             return order;
         }
     }

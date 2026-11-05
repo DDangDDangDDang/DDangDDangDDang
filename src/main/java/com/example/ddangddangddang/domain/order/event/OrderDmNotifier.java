@@ -2,6 +2,7 @@ package com.example.ddangddangddang.domain.order.event;
 
 import com.example.ddangddangddang.domain.directmessage.service.DirectMessageService;
 import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
+import com.example.ddangddangddang.domain.order.entity.OrderIssueType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -54,6 +55,46 @@ public class OrderDmNotifier {
                 : " 미발송 판매 취소가 90일 안에 2회가 되면 경매 등록이 7일 정지됩니다.";
         send(event.orderId(), event.sellerId(), event.buyerId(), "order-cancel-" + event.orderId(),
                 label(event.auctionId(), event.productName()) + reason + settlement + warning);
+    }
+
+    /** 자동 구매 확정이 멈춰 관리자가 확인한다고 판매자에게 알린다. (구매자 신고면 구매자 쪽에서, 송장 확인 실패면 판매자가 받는다) */
+    @Async
+    @TransactionalEventListener
+    public void handle(OrderReviewRequestedEvent event) {
+        String reason = switch (event.reason()) {
+            case BUYER_REPORTED -> "구매자가 문제를 신고했어요. (" + issueLabel(event.issueType()) + ")";
+            case TRACKING_NOT_FOUND -> "발송 후 7일이 지났는데 택배사에서 송장이 조회되지 않아요. 송장번호를 확인해 주세요.";
+            case TRACKING_NOT_DELIVERED -> "발송 후 14일이 지났는데 배송 완료가 확인되지 않아요.";
+            case TRACKING_UNAVAILABLE -> "배송 조회가 되지 않아 배송 완료를 확인하지 못했어요.";
+        };
+        send(event.orderId(), event.buyerId(), event.sellerId(), "order-review-" + event.orderId() + "-" + event.reason(),
+                label(event.auctionId(), event.productName()) + reason
+                        + "\n자동 구매 확정을 멈추고 관리자가 확인한 뒤 정산 또는 환불로 처리합니다.");
+    }
+
+    @Async
+    @TransactionalEventListener
+    public void handle(OrderReviewResolvedEvent event) {
+        String result = event.refunded()
+                ? "관리자 확인 결과 구매자에게 " + point(event.amount()) + "를 전액 환불했어요."
+                : "관리자 확인 결과 판매자에게 " + point(event.amount()) + "를 정산했어요.";
+        // 환불은 구매자에게, 정산은 판매자에게 읽지 않은 메시지로 간다. (같은 대화방이라 두 사람 모두 볼 수 있다)
+        Long senderId = event.refunded() ? event.sellerId() : event.buyerId();
+        Long receiverId = event.refunded() ? event.buyerId() : event.sellerId();
+        send(event.orderId(), senderId, receiverId, "order-review-result-" + event.orderId(),
+                label(event.auctionId(), event.productName()) + result);
+    }
+
+    private static String issueLabel(OrderIssueType type) {
+        if (type == null) {
+            return "기타";
+        }
+        return switch (type) {
+            case NOT_RECEIVED -> "상품을 받지 못함";
+            case WRONG_ITEM -> "주문한 상품과 다름";
+            case DAMAGED -> "상품 파손";
+            case OTHER -> "기타";
+        };
     }
 
     private String point(long amount) {
