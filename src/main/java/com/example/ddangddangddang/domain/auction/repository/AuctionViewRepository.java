@@ -2,10 +2,12 @@ package com.example.ddangddangddang.domain.auction.repository;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -39,13 +41,21 @@ public class AuctionViewRepository {
         return firstView;
     }
 
-    // 조회수가 많은 경매 count개까지 가져온다.
-    public List<Long> topAuctionIds(int count){
-        Set<String> values = redisTemplate.opsForZSet().reverseRange(VIEWS_KEY, 0, count - 1);
-        if (values == null){
-            return List.of();
+
+    // 순위표 전체를 "경매 ID -> 조회수"로 가져온다. 끝난 경매는 지우므로 대기,진행 중 경매만 남게 된다.
+    public Map<Long, Long> allViewCounts(){
+        Set<TypedTuple<String>> tuples = redisTemplate.opsForZSet().rangeWithScores(VIEWS_KEY, 0, -1);
+        if (tuples == null){
+            return Map.of();
         }
-        return values.stream().map(Long::parseLong).toList();
+        HashMap<Long, Long> result = new HashMap<>();
+        for (TypedTuple<String> tuple : tuples){
+            if (tuple.getValue() != null && tuple.getScore() != null){
+                result.put(Long.parseLong(tuple.getValue()),tuple.getScore().longValue());
+            }
+        }
+        return result;
+
     }
 
     // 끝난 경매(낙찰,유찰,취소)를 순위표에서 지운다. 끝난 경매가 계속 쌓이지 않게 한다
