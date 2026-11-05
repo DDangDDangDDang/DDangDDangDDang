@@ -42,7 +42,7 @@ public class BidController {
             @PathVariable Long auctionId,
             @Valid @RequestBody BidRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok(bidFacade.placeBid(authUser.id(), auctionId, request.amount())));
+                .body(ApiResponse.ok(bidFacade.placeBid(authUser.id(), auctionId, request.amount(), authUser.nickname())));
     }
 
     /** 입찰 기록 (최신순). 로그인하지 않아도 볼 수 있다. 입찰자는 가린 닉네임으로, 로그인했으면 본인 입찰을 표시한다 */

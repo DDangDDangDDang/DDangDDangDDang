@@ -11,6 +11,8 @@ public record BidPlacedEvent(
         long amount,
         int bidCount,
         LocalDateTime endAt,
-        boolean extended
+        boolean extended,
+        // 입찰자 닉네임 (로그인 토큰에서 받음). 없으면 실시간 전송 때 DB에서 찾는다 (AuctionEventListener)
+        String bidderNickname
 ) {
 }
