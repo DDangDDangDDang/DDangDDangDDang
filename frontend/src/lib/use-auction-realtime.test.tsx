@@ -55,18 +55,31 @@ describe('useAuctionRealtime', () => {
     expect(invalidated()).toHaveLength(0);
 
     act(() => vi.advanceTimersByTime(BID_REFRESH_DELAY_MS));
-    expect(invalidated()).toEqual([JSON.stringify([...auctionKey(7), 'bids']), JSON.stringify([...auctionKey(7), 'my-bid'])]);
+    // my-bid를 아직 모르는 상태라 포인트도 함께 다시 부른다
+    expect(invalidated()).toEqual([
+      JSON.stringify([...auctionKey(7), 'bids']),
+      JSON.stringify([...auctionKey(7), 'my-bid']),
+      JSON.stringify(['points', 'wallet']),
+    ]);
   });
 
-  it('내가 최고 입찰자였을 때만 내 포인트를 다시 부른다', () => {
+  it('입찰에 참여했으면 상태와 관계없이 1초 묶음에서 내 포인트를 다시 부른다 (my-bid 캐시가 늦어도 놓치지 않음)', () => {
     vi.useFakeTimers();
-    const leading = setup('LEADING');
-    act(() => state.onMessage?.(bid(11000)));
-    expect(leading.invalidated()).toContain(JSON.stringify(['points', 'wallet']));
+    for (const myBidState of ['LEADING', 'OUTBID', undefined]) {
+      const { invalidated } = setup(myBidState);
+      act(() => state.onMessage?.(bid(11000)));
+      expect(invalidated()).not.toContain(JSON.stringify(['points', 'wallet'])); // 바로 부르지 않고
+      act(() => vi.advanceTimersByTime(BID_REFRESH_DELAY_MS));
+      expect(invalidated()).toContain(JSON.stringify(['points', 'wallet'])); // 1초 묶음에서 부른다
+    }
+  });
 
-    const outbid = setup('OUTBID');
-    act(() => state.onMessage?.(bid(12000)));
-    expect(outbid.invalidated()).not.toContain(JSON.stringify(['points', 'wallet']));
+  it('입찰한 적 없는 게 확실하면(NONE) 내 포인트를 다시 부르지 않는다', () => {
+    vi.useFakeTimers();
+    const { invalidated } = setup('NONE');
+    act(() => state.onMessage?.(bid(11000)));
+    act(() => vi.advanceTimersByTime(BID_REFRESH_DELAY_MS));
+    expect(invalidated()).not.toContain(JSON.stringify(['points', 'wallet']));
   });
 
   it('경매가 끝나면 경매를 다시 불러온다', () => {

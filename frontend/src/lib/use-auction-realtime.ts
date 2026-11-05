@@ -15,7 +15,8 @@ export const BID_REFRESH_DELAY_MS = 1_000;
  * - 입찰이 반영되면 메시지에 든 현재가·입찰 수·마감 시각을 캐시에 바로 넣는다. 경매 자체는 다시 부르지 않는다.
  * - 입찰 기록·내 입찰 상태는 1초 동안 모았다가 한 번만 다시 부른다.
  *   (보는 사람 모두가 입찰마다 요청을 보내면, 입찰이 몰릴 때 요청이 보는 사람 수 × 입찰 수만큼 쏟아진다)
- * - 내 포인트는 내가 최고 입찰자였을 때만(밀려나 묶인 포인트가 풀림) 다시 부른다.
+ * - 내 포인트도 같은 1초 묶음에서 다시 부른다. 단 이 경매에 입찰한 적 없는 게 확실하면(my-bid가 NONE) 부르지 않는다.
+ *   (내가 밀려나면 묶인 포인트가 풀린다. my-bid 캐시는 늦을 수 있어 "최고 입찰 중일 때만"으로 거르면 놓친다)
  * - 경매가 끝나면 경매를 다시 불러와 낙찰·유찰 상태를 보여 준다.
  * 화면을 떠나면 연결을 끊는다. 실시간이 끊겨도 각 화면의 주기적 새로 불러오기가 남아 있다.
  */
@@ -32,6 +33,9 @@ export function useAuctionRealtime(auctionId: number | undefined, enabled = true
         refreshTimer = undefined;
         void queryClient.invalidateQueries({ queryKey: [...auctionKey(auctionId), 'bids'] });
         void queryClient.invalidateQueries({ queryKey: [...auctionKey(auctionId), 'my-bid'] });
+        // 입찰에 참여한 사람(또는 아직 모르는 경우)만. 구경만 하는 사람은 포인트가 바뀔 일이 없다
+        const myBid = queryClient.getQueryData<{ state?: string }>([...auctionKey(auctionId), 'my-bid']);
+        if (loggedIn && myBid?.state !== 'NONE') void queryClient.invalidateQueries({ queryKey: ['points', 'wallet'] });
       }, BID_REFRESH_DELAY_MS);
     };
 
@@ -41,9 +45,6 @@ export function useAuctionRealtime(auctionId: number | undefined, enabled = true
         queryClient.setQueryData<Auction>(auctionKey(auctionId), (prev) =>
           prev ? { ...prev, currentPrice: message.amount, bidCount: message.bidCount, endAt: message.endAt } : prev,
         );
-        // 내가 최고 입찰자였다면 이 입찰로 밀려나 묶인 포인트가 풀렸다
-        const myBid = queryClient.getQueryData<{ state?: string }>([...auctionKey(auctionId), 'my-bid']);
-        if (loggedIn && myBid?.state === 'LEADING') void queryClient.invalidateQueries({ queryKey: ['points', 'wallet'] });
         refreshBidViews();
         return;
       }
