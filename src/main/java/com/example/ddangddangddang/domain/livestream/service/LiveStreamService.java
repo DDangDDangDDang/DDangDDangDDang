@@ -430,13 +430,22 @@ public class LiveStreamService {
         if (idle && liveStream.getStatus() != LiveStreamStatus.LIVE) {
             throw new BusinessException(LiveStreamErrorCode.NOT_LIVE);
         }
+        // 이미 끝난 방송이면 아무것도 바꾸지 않고 지금 상태를 돌려준다. ([방송 종료] 연타, 재시도)
+        // 다시 끝내면 종료 시각이 덮어써져 누적 방송 시간이 늘고, 방 삭제·채팅 종료 안내도 다시 나간다.
+        // 주인 확인은 먼저 한다. (남의 끝난 방송이면 권한 오류)
+        if (liveStream.getStatus() == LiveStreamStatus.ENDED) {
+            if (!liveStream.isOwner(sellerId)) {
+                throw new BusinessException(LiveStreamErrorCode.NOT_OWNER);
+            }
+            return toResponse(liveStream);
+        }
         liveStream.end(sellerId);
         flushWithVersionCheck(liveStream);
 
         // 방을 삭제하면 접속 중인 판매자·시청자 모두 연결이 끊긴다.
         mediaServerClient.deleteRoom(liveStream.getRoomName());
 
-        // 커밋 후 리스너가 처리한다. (채팅 종료 안내 / TODO(6단계): 경매 도메인에서 진행 중 경매 처리)
+        // 커밋 후 리스너가 채팅에 종료를 안내한다. 경매는 방송과 별개라 방송이 끝나도 그대로 진행된다.
         eventPublisher.publishEvent(new LiveStreamEndedEvent(liveStream.getId(), idle));
         return toResponse(liveStream);
     }

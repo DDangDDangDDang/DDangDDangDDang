@@ -20,7 +20,7 @@ import java.util.Locale;
 /**
  * 방송 목록과 검색. 상태별로 하나씩 보여 준다.
  * - LIVE(기본): 최근 시작한 순
- * - SCHEDULED: 시작 예정 시간이 가까운 순 (시작 예정 시간을 정하지 않은 방송은 제외)
+ * - SCHEDULED: 시작 예정 시간이 가까운 순 (시작 예정 시간을 정하지 않은 방송, 예정 시간에서 30분 넘게 지난 방송은 제외)
  * - ENDED: 최근 종료한 순
  *
  * 검색어가 있으면 제목·설명·판매자 닉네임에 검색어가 들어간 방송만 보여 준다. (대소문자 구분 없음)
@@ -52,7 +52,8 @@ public class LiveStreamListService {
 
         List<LiveStream> fetched = switch (target) {
             case LIVE -> liveStreamRepository.findLiveList(sellerId, pattern, cursorAt, cursor, pageable);
-            case SCHEDULED -> liveStreamRepository.findScheduledList(sellerId, pattern, cursorAt, cursor, pageable);
+            case SCHEDULED -> liveStreamRepository.findScheduledList(sellerId, pattern,
+                    LocalDateTime.now().minus(LiveStreamHomeService.UPCOMING_GRACE), cursorAt, cursor, pageable);
             case ENDED -> liveStreamRepository.findEndedList(sellerId, pattern, cursorAt, cursor, pageable);
         };
 
