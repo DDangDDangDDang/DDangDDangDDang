@@ -9,6 +9,7 @@ import com.example.ddangddangddang.domain.auction.dto.response.AuctionResponse;
 import com.example.ddangddangddang.domain.auction.service.AuctionService;
 import com.example.ddangddangddang.global.common.ApiResponse;
 import com.example.ddangddangddang.global.security.AuthUser;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
@@ -38,10 +39,15 @@ public class AuctionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(auctionService.auctionCreate(authUser.id(), request)));
     }
 
+    // 경매 상세 조회(누구나). 조회수를 세려고 누가 봤는지도 넘긴다.
     @GetMapping("/auctions/{auctionId}")
     ResponseEntity<ApiResponse<AuctionResponse>> findAddBy(
-            @PathVariable Long auctionId) {
-        return ResponseEntity.ok(ApiResponse.ok(auctionService.findAddBy(auctionId)));
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable Long auctionId,
+            HttpServletRequest request) {
+        // 로그인 안 한 사람은 authUser이 비어 있다. 그때는 userId도 비워 두고, 서비스에서 IP로 구분한다.
+        Long userId = authUser != null ? authUser.id() : null;
+        return ResponseEntity.ok(ApiResponse.ok(auctionService.findAddBy(auctionId,userId, request.getRemoteAddr())));
     }
 
     //경매 취소(본인 경매만)

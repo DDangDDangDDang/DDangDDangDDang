@@ -15,6 +15,7 @@ import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,9 @@ import java.util.List;
 
 @RequiredArgsConstructor
 public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
+    // 인기 점수에서 입찰 1번이 조회 몇번 만큼인지. 입찰은 포인트 거는 행동이라 보기만 한것보다 무겁게 친다.
+    private static final int BID_WEIGHT = 5;
+
     private final JPAQueryFactory queryFactory;
 
     /**경매 목록 조회 및 검색
@@ -84,7 +88,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
 
     /**
      * 인기 경매.
-     * 진행 중인 경매 중 입찰 횟수(입찰자 수 아님) 많은 순으로 상위 limi개 조회
+     * 대기,진행 중인 경매를 인기 점수(조회수 + 입찰 횟수 * 5) 높은 순으로 상위 limit개 조회
      * 순위라서 페이지 없이 상위 n개만 가져온다 */
     @Override
     public List<AuctionListResponse> findPopular(int limit) {
@@ -102,8 +106,8 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
                 .join(product.category,category)
                 .leftJoin(auction.liveStream, liveStream)
                 .leftJoin(boost).on(activeBoost(auction, boost))
-                .where(auction.status.eq(AuctionStatus.ONGOING))
-                .orderBy(auction.bidCount.desc(),auction.id.desc()) //입찰 횟수 많은 수 -> 같은면 최근 생성순
+                .where(auction.status.in(AuctionStatus.READY,AuctionStatus.ONGOING))
+                .orderBy(popularityScore(auction).desc(),auction.id.desc())// 인기 점수 높은 순 -> 같으면 최근 생성순
                 .limit(limit)
                 .fetch();
     }
@@ -156,7 +160,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
         return auction.status.eq(status);
     }
 
-    //정렬 : 안보낼시 기본 최신순,값이 같을 경우 id 순으로,인기순은 입찰 횟수 많은순
+    //정렬 : 안보낼시 기본 최신순,값이 같을 경우 id 순으로,인기순은 인기 점수(조회수 + 입찰 횟수 * 5) 높은 순
     //최신순은 위로 올린(홍보) 경매를 맨 위에 둔다. 홍보끼리는 최근에 올린 순. 다른 정렬은 정렬 기준이 틀려 보이지 않게 그대로 둔다
     private OrderSpecifier<?>[] orderBy(QAuction auction, QAuctionBoost boost, AuctionSort sort){
         if (sort ==null){
@@ -169,7 +173,12 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom{
             case PRICE_ASC -> new OrderSpecifier<?>[]{auction.currentPrice.asc(),auction.id.desc()};
             case PRICE_DESC -> new OrderSpecifier<?>[]{auction.currentPrice.desc(),auction.id.desc()};
             case ENDING_SOON -> new OrderSpecifier<?>[]{auction.endAt.asc(),auction.id.desc()};
-            case POPULAR -> new OrderSpecifier<?>[]{auction.bidCount.desc(), auction.id.desc()};
+            case POPULAR -> new OrderSpecifier<?>[]{popularityScore(auction).desc(), auction.id.desc()};
         };
+    }
+
+    //인기 점수 = 조회수 + 입찰 횟수 * 5. 홈 인기 경매와 검색 인기순이 같은 기준을 쓴다
+    private NumberExpression<Long> popularityScore(QAuction auction){
+        return auction.viewCount.add(auction.bidCount.multiply(BID_WEIGHT));
     }
 }
