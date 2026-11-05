@@ -82,4 +82,7 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // 테스트마다 설정이 다른 스프링 컨텍스트가 캐시에 쌓인다. (2026-11 기준 24개)
+    // Gradle 기본값 512MB로는 힙이 가득 차 OutOfMemoryError로 테스트가 멈춰서 넉넉히 준다.
+    maxHeapSize = '1536m'
 }

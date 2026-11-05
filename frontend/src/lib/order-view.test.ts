@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { autoConfirmAt, autoConfirmMessage, orderCancelMessage, orderDeadlineMessage, orderRoleOf, orderStage } from './order-view';
+import {
+  autoConfirmAt,
+  autoConfirmMessage,
+  isUnderReview,
+  orderCancelMessage,
+  orderDeadlineMessage,
+  orderReviewMessage,
+  orderRoleOf,
+  orderStage,
+} from './order-view';
 
 const base = { orderId: 1, buyerId: 10, sellerId: 20, status: 'ESCROW' as const };
 const address = { receiverName: '홍길동', receiverPhone: '01012345678', address: '서울시 중구 세종대로 1' };
@@ -61,13 +70,38 @@ describe('주문 상세 화면 판단', () => {
   it('배송 중 주문은 발송 7일 뒤를 자동 확정 예정 시각으로 안내한다', () => {
     const order = { ...base, ...address, status: 'SHIPPING' as const, shippedAt: '2026-10-28T15:30:00' };
     expect(autoConfirmAt(order)).toBe('2026-11-04T15:30:00');
-    expect(autoConfirmMessage(order)).toContain('발송 후 7일이 지나면 자동으로 구매 확정돼요');
+    expect(autoConfirmMessage(order)).toContain('발송 후 7일이 지나고 배송 완료가 확인되면 자동으로 구매 확정돼요');
     expect(autoConfirmMessage(order)).toContain('11월 4일');
+  });
+
+  it('조회할 수 없는 택배사(기타)는 14일 뒤 자동 확정한다고 안내한다', () => {
+    const order = { ...base, ...address, status: 'SHIPPING' as const, courier: 'ETC' as const, shippedAt: '2026-10-28T15:30:00' };
+    expect(autoConfirmMessage(order)).toBe('조회할 수 없는 택배사라 발송 후 14일이 지나면 자동으로 구매 확정돼요.');
+  });
+
+  it('관리자 확인 대기 중이면 구매자·판매자에게 맞는 안내를 하고, 처리됐거나 배송 중이 아니면 안내하지 않는다', () => {
+    const reported = { ...base, status: 'SHIPPING' as const, reviewReason: 'BUYER_REPORTED' as const };
+    expect(isUnderReview(reported)).toBe(true);
+    expect(orderReviewMessage(reported, 'BUYER')).toContain('문제를 신고했어요');
+    expect(orderReviewMessage(reported, 'SELLER')).toContain('구매자가 문제를 신고해');
+
+    const trackingIssue = { ...base, status: 'SHIPPING' as const, reviewReason: 'TRACKING_NOT_FOUND' as const };
+    expect(orderReviewMessage(trackingIssue, 'SELLER')).toContain('송장 조회 안 됨');
+    expect(orderReviewMessage(trackingIssue, 'SELLER')).toContain('송장번호가 맞는지 확인해 주세요');
+
+    expect(orderReviewMessage({ ...reported, reviewResult: 'CONFIRMED' }, 'BUYER')).toBeNull();
+    expect(orderReviewMessage({ ...base, status: 'SHIPPING' }, 'BUYER')).toBeNull();
+  });
+
+  it('관리자가 환불로 처리한 주문은 그 결과로 취소 안내를 한다', () => {
+    expect(orderCancelMessage({ ...base, status: 'CANCELED', reviewResult: 'REFUNDED', finalPrice: 10000 })).toBe(
+      '관리자 확인 결과 취소된 주문이에요. 결제 포인트는 구매자에게 전액 환불됐어요.',
+    );
   });
 
   it('발송 시각이 없거나 배송 중이 아니면 예정 시각 없이 안내한다', () => {
     expect(autoConfirmAt({ ...base, status: 'SHIPPING' })).toBeNull();
     expect(autoConfirmAt({ ...base, status: 'COMPLETED', shippedAt: '2026-10-28T15:30:00' })).toBeNull();
-    expect(autoConfirmMessage({ ...base, status: 'SHIPPING' })).toBe('발송 후 7일이 지나면 자동으로 구매 확정돼요.');
+    expect(autoConfirmMessage({ ...base, status: 'SHIPPING' })).toBe('발송 후 7일이 지나고 배송 완료가 확인되면 자동으로 구매 확정돼요.');
   });
 });

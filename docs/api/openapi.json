@@ -2583,6 +2583,63 @@
         }
       }
     },
+    "/api/v1/orders/{orderId}/issue" : {
+      "post" : {
+        "tags" : [ "order-controller" ],
+        "operationId" : "orderReportIssue",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrderIssueRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/orders/{orderId}/delay-request" : {
       "post" : {
         "tags" : [ "order-controller" ],
@@ -5490,6 +5547,100 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseAdminPointExchangeResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/orders/{orderId}/review/refund" : {
+      "post" : {
+        "tags" : [ "admin-order-review-controller" ],
+        "operationId" : "adminOrderReviewRefund",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/orders/{orderId}/review/confirm" : {
+      "post" : {
+        "tags" : [ "admin-order-review-controller" ],
+        "operationId" : "adminOrderReviewConfirm",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
                 }
               }
             }
@@ -9177,6 +9328,62 @@
         }
       }
     },
+    "/api/v1/admin/orders/reviews" : {
+      "get" : {
+        "tags" : [ "admin-order-review-controller" ],
+        "operationId" : "adminOrderReviewGetReviewOrders",
+        "parameters" : [ {
+          "name" : "cursor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorResponseOrderResponse"
+                }
+              }
+            }
+          },
+          "4XX" : {
+            "description" : "요청 오류 (검증 실패, 인증 필요, 권한 없음, 없는 리소스, 상태 충돌 등)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "5XX" : {
+            "description" : "서버 오류",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/live-bots/{botId}/orders" : {
       "get" : {
         "tags" : [ "admin-live-bot-selling-controller" ],
@@ -11498,16 +11705,20 @@
           }
         }
       },
-      "OrderDelayRequest" : {
+      "OrderIssueRequest" : {
         "type" : "object",
         "properties" : {
-          "reason" : {
+          "type" : {
             "type" : "string",
-            "maxLength" : 200,
+            "enum" : [ "NOT_RECEIVED", "WRONG_ITEM", "DAMAGED", "OTHER" ]
+          },
+          "detail" : {
+            "type" : "string",
+            "maxLength" : 500,
             "minLength" : 0
           }
         },
-        "required" : [ "reason" ]
+        "required" : [ "type" ]
       },
       "ApiResponseOrderResponse" : {
         "type" : "object",
@@ -11628,8 +11839,46 @@
           "canceledAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "reviewReason" : {
+            "type" : "string",
+            "enum" : [ "BUYER_REPORTED", "TRACKING_NOT_FOUND", "TRACKING_NOT_DELIVERED", "TRACKING_UNAVAILABLE" ]
+          },
+          "issueType" : {
+            "type" : "string",
+            "enum" : [ "NOT_RECEIVED", "WRONG_ITEM", "DAMAGED", "OTHER" ]
+          },
+          "issueDetail" : {
+            "type" : "string"
+          },
+          "reviewRequestedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reviewResult" : {
+            "type" : "string",
+            "enum" : [ "CONFIRMED", "REFUNDED" ]
+          },
+          "reviewResolvedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "deliveredAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
+      },
+      "OrderDelayRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "reason" ]
       },
       "ApiResponseNotificationResponse" : {
         "type" : "object",
@@ -14935,6 +15184,38 @@
           }
         }
       },
+      "ApiResponseCursorResponseOrderResponse" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CursorResponseOrderResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          }
+        }
+      },
+      "CursorResponseOrderResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrderResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ApiResponseListLiveBotResponse" : {
         "type" : "object",
         "properties" : {
@@ -15737,6 +16018,22 @@
     "code" : "ORDER_022",
     "status" : 400,
     "message" : "지연 사유에 쓸 수 없는 내용이 있습니다."
+  }, {
+    "code" : "ORDER_023",
+    "status" : 409,
+    "message" : "발송된 주문에서 구매 확정 전에만 문제를 신고할 수 있습니다."
+  }, {
+    "code" : "ORDER_024",
+    "status" : 409,
+    "message" : "이미 문제를 신고했습니다. 관리자가 확인하고 있어요."
+  }, {
+    "code" : "ORDER_025",
+    "status" : 409,
+    "message" : "관리자 확인을 기다리는 주문이 아닙니다."
+  }, {
+    "code" : "ORDER_026",
+    "status" : 403,
+    "message" : "구매자만 문제를 신고할 수 있습니다."
   }, {
     "code" : "POINT_001",
     "status" : 404,

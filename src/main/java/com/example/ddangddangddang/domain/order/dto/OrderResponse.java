@@ -4,6 +4,9 @@ import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
 import com.example.ddangddangddang.domain.order.entity.OrderDelayStatus;
+import com.example.ddangddangddang.domain.order.entity.OrderIssueType;
+import com.example.ddangddangddang.domain.order.entity.OrderReviewReason;
+import com.example.ddangddangddang.domain.order.entity.OrderReviewResult;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 
 import java.time.LocalDateTime;
@@ -36,7 +39,14 @@ public record OrderResponse(
         OrderDelayStatus delayStatus,     // 지연 신청 전이면 null
         String delayReason,
         OrderCancelReason cancelReason,
-        LocalDateTime canceledAt
+        LocalDateTime canceledAt,
+        OrderReviewReason reviewReason,   // 관리자 확인이 필요한 이유. 없으면 null (있고 reviewResult가 없으면 자동 구매 확정이 멈춘 상태)
+        OrderIssueType issueType,         // 구매자가 신고한 문제 종류. 구매자 신고가 아니면 null
+        String issueDetail,
+        LocalDateTime reviewRequestedAt,
+        OrderReviewResult reviewResult,   // 관리자 처리 결과(정산·환불). 처리 전이면 null
+        LocalDateTime reviewResolvedAt,
+        LocalDateTime deliveredAt         // 송장 조회로 배송 완료를 확인한 시각
 ) {
 
     public static OrderResponse from(Order order) {
@@ -68,7 +78,14 @@ public record OrderResponse(
                 order.getDelayStatus(),
                 order.getDelayReason(),
                 order.getCancelReason(),
-                order.getCanceledAt()
+                order.getCanceledAt(),
+                order.getReviewReason(),
+                order.getIssueType(),
+                order.getIssueDetail(),
+                order.getReviewRequestedAt(),
+                order.getReviewResult(),
+                order.getReviewResolvedAt(),
+                order.getDeliveredAt()
         );
     }
 }

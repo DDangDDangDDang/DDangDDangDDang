@@ -15,6 +15,10 @@ import com.example.ddangddangddang.global.exception.BusinessException;
 import java.util.List;
 import java.util.Optional;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
+import com.example.ddangddangddang.global.security.jwt.JwtProvider;
+import com.example.ddangddangddang.domain.user.entity.User;
+import com.example.ddangddangddang.domain.user.entity.UserRole;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.example.ddangddangddang.support.SignupFixture;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +52,9 @@ class OrderControllerTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private JwtProvider jwtProvider;
 
     @MockitoBean
     private RefreshTokenRepository refreshTokenRepository;
@@ -432,6 +439,102 @@ class OrderControllerTest {
             ship(orderId, "CJ", "1234567890").andExpect(status().isOk());
             return orderId;
         }
+    }
+
+    @Nested
+    @DisplayName("구매자 문제 신고와 관리자 확인")
+    class IssueAndReview {
+
+        @Test
+        @DisplayName("구매자가 신고하면 관리자 확인 목록에 오르고, 관리자가 환불하면 주문이 취소되고 목록에서 빠진다")
+        void reportThenRefund() throws Exception {
+            Long orderId = shippedOrder();
+
+            mockMvc.perform(post("/api/v1/orders/{orderId}/issue", orderId)
+                            .header(HttpHeaders.AUTHORIZATION, buyer.bearer())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"type": "NOT_RECEIVED", "detail": "아직 못 받았어요"}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.reviewReason").value("BUYER_REPORTED"))
+                    .andExpect(jsonPath("$.data.issueType").value("NOT_RECEIVED"));
+
+            mockMvc.perform(get("/api/v1/admin/orders/reviews").header(HttpHeaders.AUTHORIZATION, adminBearer()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.content[0].orderId").value(orderId))
+                    .andExpect(jsonPath("$.data.content[0].issueDetail").value("아직 못 받았어요"));
+
+            mockMvc.perform(post("/api/v1/admin/orders/{orderId}/review/refund", orderId).header(HttpHeaders.AUTHORIZATION, adminBearer()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("CANCELED"))
+                    .andExpect(jsonPath("$.data.reviewResult").value("REFUNDED"));
+
+            mockMvc.perform(get("/api/v1/admin/orders/reviews").header(HttpHeaders.AUTHORIZATION, adminBearer()))
+                    .andExpect(jsonPath("$.data.content.length()").value(0));
+        }
+
+        @Test
+        @DisplayName("관리자가 정산하면 구매 확정된다")
+        void reportThenConfirm() throws Exception {
+            Long orderId = shippedOrder();
+            report(orderId, buyer).andExpect(status().isOk());
+
+            mockMvc.perform(post("/api/v1/admin/orders/{orderId}/review/confirm", orderId).header(HttpHeaders.AUTHORIZATION, adminBearer()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                    .andExpect(jsonPath("$.data.reviewResult").value("CONFIRMED"));
+        }
+
+        @Test
+        @DisplayName("판매자는 신고할 수 없고 403 ORDER_026, 일반 회원은 관리자 확인 API를 쓸 수 없다(403)")
+        void forbidden() throws Exception {
+            Long orderId = shippedOrder();
+
+            report(orderId, seller)
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error.code").value("ORDER_026"));
+            mockMvc.perform(get("/api/v1/admin/orders/reviews").header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(post("/api/v1/admin/orders/{orderId}/review/refund", orderId).header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("문제 종류가 없으면 400")
+        void missingType() throws Exception {
+            Long orderId = shippedOrder();
+
+            mockMvc.perform(post("/api/v1/orders/{orderId}/issue", orderId)
+                            .header(HttpHeaders.AUTHORIZATION, buyer.bearer())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        private ResultActions report(Long orderId, TestUser user) throws Exception {
+            return mockMvc.perform(post("/api/v1/orders/{orderId}/issue", orderId)
+                    .header(HttpHeaders.AUTHORIZATION, user.bearer())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"type": "DAMAGED"}
+                            """));
+        }
+
+        private Long shippedOrder() throws Exception {
+            Long orderId = createOrder(1L, "아이패드");
+            registerAddress(orderId, buyer).andExpect(status().isOk());
+            ship(orderId, "CJ", "1234567890").andExpect(status().isOk());
+            return orderId;
+        }
+    }
+
+    // Access Token의 권한 클레임만으로 인증하므로, 관리자 권한을 가진 토큰을 직접 만든다.
+    private String adminBearer() {
+        User admin = User.create("order-admin@test.com", "encoded", "주문관리자");
+        ReflectionTestUtils.setField(admin, "id", 900_002L);
+        ReflectionTestUtils.setField(admin, "role", UserRole.ADMIN);
+        return "Bearer " + jwtProvider.createAccessToken(admin);
     }
 
     private ResultActions registerAddress(Long orderId, TestUser user) throws Exception {

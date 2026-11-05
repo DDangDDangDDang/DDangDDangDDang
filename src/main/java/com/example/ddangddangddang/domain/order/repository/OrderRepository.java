@@ -84,17 +84,31 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("select o from Order o where o.id = :orderId")
     Optional<Order> findByIdForUpdate(@Param("orderId") Long orderId);
 
-    //발송 후 기한이 지나도 구매 확정 되지 않은 주문 ID (자동구매 확정 대상)
-    @Query(""" 
-            select o.id from Order o 
-            where o.status = :status and o.shippedAt <= :cutoff 
+    // 발송 후 기한이 지나도 구매 확정 되지 않은 주문 ID (자동 구매 확정 대상)
+    // 관리자 확인 대기 중인 주문과, 배송 중이라 확인을 미룬 주문(다음 확인 시각 전)은 뺀다.
+    @Query("""
+            select o.id from Order o
+            where o.status = :status and o.shippedAt <= :cutoff
+            and o.reviewReason is null
+            and (o.autoConfirmNextCheckAt is null or o.autoConfirmNextCheckAt <= :now)
             and o.autoConfirmFailCount < :maxFailCount
             and (o.autoConfirmLastFailedAt is null or o.autoConfirmLastFailedAt <= :retryAfter)
             order by o.id
             """)
     List<Long> findConfirmOverdueIds(@Param("status") OrderStatus status,
                                      @Param("cutoff") LocalDateTime cutoff,
+                                     @Param("now") LocalDateTime now,
                                      @Param("maxFailCount") int maxFailCount,
                                      @Param("retryAfter") LocalDateTime retryAfter,
                                      Pageable pageable);
+
+    /** 관리자 확인 대기 주문. 먼저 들어온 순 (cursor: 이전 페이지 마지막 주문 ID) */
+    @Query("""
+            select o from Order o
+            where o.status = com.example.ddangddangddang.domain.order.entity.OrderStatus.SHIPPING
+            and o.reviewReason is not null and o.reviewResult is null
+            and (:cursor is null or o.id > :cursor)
+            order by o.id asc
+            """)
+    List<Order> findReviewOrders(@Param("cursor") Long cursor, Pageable pageable);
 }

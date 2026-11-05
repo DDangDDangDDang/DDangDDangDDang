@@ -30,7 +30,11 @@ public enum OrderErrorCode implements ErrorCode {
     CANNOT_RESPOND_DELAY(HttpStatus.CONFLICT, "ORDER_019", "응답을 기다리는 지연 신청이 없습니다."),
     NOT_ORDER_BUYER_DELAY(HttpStatus.FORBIDDEN, "ORDER_020", "구매자만 지연 신청에 응답할 수 있습니다."),
     NOT_ORDER_SELLER_DELAY(HttpStatus.FORBIDDEN, "ORDER_021", "판매자만 지연을 신청할 수 있습니다."),
-    DELAY_REASON_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "ORDER_022", "지연 사유에 쓸 수 없는 내용이 있습니다.");
+    DELAY_REASON_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "ORDER_022", "지연 사유에 쓸 수 없는 내용이 있습니다."),
+    CANNOT_REPORT_ISSUE(HttpStatus.CONFLICT, "ORDER_023", "발송된 주문에서 구매 확정 전에만 문제를 신고할 수 있습니다."),
+    ISSUE_ALREADY_REPORTED(HttpStatus.CONFLICT, "ORDER_024", "이미 문제를 신고했습니다. 관리자가 확인하고 있어요."),
+    NOT_UNDER_REVIEW(HttpStatus.CONFLICT, "ORDER_025", "관리자 확인을 기다리는 주문이 아닙니다."),
+    NOT_ORDER_BUYER_REPORT(HttpStatus.FORBIDDEN, "ORDER_026", "구매자만 문제를 신고할 수 있습니다.");
 
     private final HttpStatus status;
     private final String code;
