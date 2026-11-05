@@ -6,10 +6,15 @@ import { check } from 'k6';
 export const BASE_URL = (__ENV.BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
 export const WS_URL = __ENV.WS_URL || BASE_URL.replace(/^http/, 'ws') + '/ws';
 
-/** 운영 주소로 잘못 돌리는 일을 막는다. 꼭 필요하면 ALLOW_PROD=true */
+/** 운영 주소로 잘못 돌리는 일을 막는다. WS_URL은 따로 지정할 수 있어 함께 본다. 꼭 필요하면 ALLOW_PROD=true */
 export function guardTarget() {
-  if (/ddangddangddang\.com/.test(BASE_URL) && !/(^|\/\/)dev\./.test(BASE_URL) && __ENV.ALLOW_PROD !== 'true') {
-    throw new Error(`운영 주소(${BASE_URL})에는 부하 테스트를 돌리지 않습니다. 꼭 필요하면 ALLOW_PROD=true`);
+  if (__ENV.ALLOW_PROD === 'true') {
+    return;
+  }
+  for (const url of [BASE_URL, WS_URL]) {
+    if (/ddangddangddang\.com/i.test(url) && !/(^|\/\/)dev\./i.test(url)) {
+      throw new Error(`운영 주소(${url})에는 부하 테스트를 돌리지 않습니다. 꼭 필요하면 ALLOW_PROD=true`);
+    }
   }
 }
 

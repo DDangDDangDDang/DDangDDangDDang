@@ -92,6 +92,8 @@ export default function () {
   let seq = 0;
   let connected = false;
   let sender = null;
+  let closed = false;
+  let starter = null;
 
   const ws = new WebSocket(WS_URL);
 
@@ -113,8 +115,12 @@ export default function () {
         ws.send(frame('SUBSCRIBE', { id: 'errors', destination: '/user/queue/errors' }));
         if (isSender) {
           // 보내는 사람들이 같은 순간에 몰리지 않게 시작을 흩는다
-          setTimeout(() => {
-            sender = setInterval(() => sendChat(), SEND_INTERVAL_MS);
+          // 접속이 늦어 종료 타이머가 먼저 돌았으면 보내기를 시작하지 않는다
+          starter = setTimeout(() => {
+            if (closed) return;
+            sender = setInterval(() => {
+              if (!closed) sendChat();
+            }, SEND_INTERVAL_MS);
           }, Math.random() * SEND_INTERVAL_MS);
         }
       } else if (f.command === 'MESSAGE') {
@@ -153,6 +159,8 @@ export default function () {
   }
 
   setTimeout(() => {
+    closed = true;
+    if (starter) clearTimeout(starter);
     if (sender) clearInterval(sender);
     if (!connected) {
       stompConnected.add(false);

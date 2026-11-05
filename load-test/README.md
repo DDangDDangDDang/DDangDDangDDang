@@ -158,7 +158,7 @@ docker compose -f load-test/monitoring/docker-compose.yml down
 ## 5. 대상 환경 주의
 
 - **로컬**: k6와 서버가 같은 PC에서 CPU를 나눠 쓰므로 절대 수치보다 병목 위치·오류 양상을 보는 용도
-- **개발 서버(dev.ddangddangddang.com)**: EC2 1대에 web·app·MySQL·Redis가 함께 떠 있어(메모리 2GB) 실제 운영 구성과 다르다. 팀원이 쓰는 중이면 미리 알린다. 로그인 IP 제한은 Caddy 뒤에서 k6 PC IP 기준으로 걸린다
+- **개발 서버(dev.ddangddangddang.com)**: `loadtest` 프로필을 켜지 않는다. 개발 서버는 `prod` 프로필로 뜨므로(`infra/dev.tf`) 함께 켜면 시드·지표 보안 설정은 빠지고, 긴 토큰·방송 자동 종료 끔·지표 노출만 실제 사용자에게 적용된다. 개발 서버에서 테스트하려면 시드 데이터를 만드는 방법을 따로 정해야 한다. 또 EC2 1대에 web·app·MySQL·Redis가 함께 떠 있어(메모리 2GB) 운영 구성과 다르다
 - **운영(ddangddangddang.com)**: 실제 회원·데이터가 있으므로 하지 않는다. 스크립트가 운영 주소를 막는다(`ALLOW_PROD=true`로만 풀림)
 - 서버 쪽 지표는 4장의 Grafana 대시보드로 함께 본다. 개발 서버를 테스트할 때는 그 서버의 Actuator가 열려 있지 않으므로 CloudWatch와 `docker stats`로 본다
 

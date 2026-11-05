@@ -1,4 +1,6 @@
-# 부하 테스트(k6) 전용 설정. 로컬·개발 서버에서 --spring.profiles.active=loadtest 로 켠다. 운영(prod)에서는 쓰지 않는다.
+# 부하 테스트(k6) 전용 설정. 로컬에서 --spring.profiles.active=loadtest 로 켠다.
+# prod 프로필(운영·개발 서버 모두 prod로 뜬다)과 함께 켜지 않는다. 함께 켜면 시드·지표 보안 설정은 빠지고
+# 아래 설정(긴 토큰, 방송 자동 종료 끔, 지표 노출)만 실제 사용자에게 적용된다.
 # 데이터 준비: global/loadtest/LoadTestDataInitializer, 실행 방법: load-test/README.md
 
 app:

@@ -54,6 +54,7 @@ public class LoadTestDataInitializer implements ApplicationRunner {
 
     static final String EMAIL_PREFIX = "loadtest-";
     static final String EMAIL_DOMAIN = "@ddang.test";
+    static final String CATEGORY_NAME = "부하테스트";
 
     private final UserRepository userRepository;
     private final PointWalletRepository pointWalletRepository;
@@ -118,10 +119,15 @@ public class LoadTestDataInitializer implements ApplicationRunner {
             liveStream.start(seller.getId());
         }
 
-        Category category = categoryRepository.findAllByOrderBySortOrderAscIdAsc().stream()
+        // 하위 카테고리를 먼저 쓰고, 없으면(빈 DB) 전에 만든 부하테스트 카테고리를 다시 쓴다. 그것도 없을 때만 만든다
+        List<Category> categories = categoryRepository.findAllByOrderBySortOrderAscIdAsc();
+        Category category = categories.stream()
                 .filter(c -> c.getParent() != null)
                 .findFirst()
-                .orElseGet(() -> categoryRepository.save(new Category(null, "부하테스트", 9999)));
+                .or(() -> categories.stream()
+                        .filter(c -> c.getParent() == null && CATEGORY_NAME.equals(c.getName()))
+                        .findFirst())
+                .orElseGet(() -> categoryRepository.save(new Category(null, CATEGORY_NAME, 9999)));
 
         LocalDateTime now = LocalDateTime.now();
         List<Long> auctionIds = new ArrayList<>();
