@@ -11,6 +11,8 @@ type Identity = Schema<'SellerIdentityResponse'>;
 /** 본인인증 창을 닫았거나 인증이 실패한 경우 (서버로 보내지 않는다) */
 class IdentityWindowStopped extends Error {}
 
+const IDENTITY_WINDOW_FAILED = '본인인증 창을 열지 못했어요. 브라우저의 팝업 차단을 해제한 뒤 다시 시도해 주세요.';
+
 /**
  * 판매자 신청 1단계: 휴대폰 본인인증. 만 19세 이상, 한 사람은 한 계정에서만 판매자가 될 수 있다.
  * 포트원 본인인증 창에서 인증을 마치면 그 ID를 서버로 보내고, 서버가 결과(실명·생년월일)를 직접 확인한다.
@@ -25,13 +27,19 @@ export function SellerIdentityStep({ identity, error }: { identity?: Identity; e
     mutationFn: async () => {
       const identityVerificationId = newIdentityVerificationId();
       if (config) {
-        const response = await PortOne.requestIdentityVerification({
-          storeId: config.storeId,
-          channelKey: config.channelKey,
-          identityVerificationId,
-          // PC에서는 인증 창이 이 페이지 위에 뜨고 결과는 Promise로 받는다. (SDK가 리디렉션용 주소를 요구한다)
-          redirectUrl: window.location.href,
-        });
+        let response;
+        try {
+          response = await PortOne.requestIdentityVerification({
+            storeId: config.storeId,
+            channelKey: config.channelKey,
+            identityVerificationId,
+            // PC에서는 인증 창이 이 페이지 위에 뜨고 결과는 Promise로 받는다. (SDK가 리디렉션용 주소를 요구한다)
+            redirectUrl: window.location.href,
+          });
+        } catch {
+          // 창 자체를 열지 못한 경우. KG이니시스 인증 창은 PC에서 팝업이라, 브라우저가 팝업을 막으면 여기로 온다.
+          throw new IdentityWindowStopped(IDENTITY_WINDOW_FAILED);
+        }
         // code가 있으면 창을 닫았거나 인증이 실패한 것
         if (response?.code !== undefined) throw new IdentityWindowStopped(response.message || '본인인증을 마치지 않았어요.');
       }
