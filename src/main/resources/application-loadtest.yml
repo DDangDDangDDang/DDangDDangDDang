@@ -1,0 +1,45 @@
+# 부하 테스트(k6) 전용 설정. 로컬·개발 서버에서 --spring.profiles.active=loadtest 로 켠다. 운영(prod)에서는 쓰지 않는다.
+# 데이터 준비: global/loadtest/LoadTestDataInitializer, 실행 방법: load-test/README.md
+
+app:
+  loadtest:
+    users: ${LOADTEST_USERS:200}
+    points-per-user: ${LOADTEST_POINTS:100000000}
+    auctions: ${LOADTEST_AUCTIONS:5}
+    auction-hours: ${LOADTEST_AUCTION_HOURS:6}
+    output: ${LOADTEST_OUTPUT:load-test/data/seed.json}
+
+jwt:
+  # k6는 시작할 때 만든 토큰을 끝까지 쓰므로 테스트 시간보다 길게 둔다
+  access-token-validity: ${LOADTEST_TOKEN_VALIDITY:6h}
+
+live-stream:
+  idle:
+    # 부하 테스트 방송은 LiveKit 송출이 없으므로 자동 종료를 끈다
+    enabled: false
+
+server:
+  tomcat:
+    # Tomcat 스레드 지표(tomcat.threads.busy 등)는 MBean 등록을 켜야 나온다
+    mbeanregistry:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # 부하 테스트 중 서버 내부 지표를 본다. 경로 접근은 LoadTestMetricsSecurityConfig가 연다
+        include: health,metrics,prometheus
+  metrics:
+    tags:
+      application: ddang
+    distribution:
+      # 서버 쪽 API 응답 시간 백분위(p95, p99)를 Prometheus에서 계산할 수 있게 히스토그램을 남긴다
+      percentiles-histogram:
+        http.server.requests: true
+        hikaricp.connections.acquire: true
+
+logging:
+  level:
+    # SQL 로그를 콘솔에 찍으면 그 자체가 병목이 되어 측정값이 틀어진다
+    org.hibernate.SQL: warn

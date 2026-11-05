@@ -1,0 +1,15 @@
+global:
+  # 부하 테스트는 몇 분 단위라 촘촘하게 수집한다 (기본 1분이면 순간적인 튐을 놓친다)
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # loadtest 프로필로 켠 Spring 서버. 다른 포트로 켰다면 여기를 바꾼다
+  - job_name: ddang-app
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8090"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
