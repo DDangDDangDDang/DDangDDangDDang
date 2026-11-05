@@ -78,7 +78,10 @@ public class OrderDmNotifier {
         String result = event.refunded()
                 ? "관리자 확인 결과 구매자에게 " + point(event.amount()) + "를 전액 환불했어요."
                 : "관리자 확인 결과 판매자에게 " + point(event.amount()) + "를 정산했어요.";
-        send(event.orderId(), event.sellerId(), event.buyerId(), "order-review-result-" + event.orderId(),
+        // 환불은 구매자에게, 정산은 판매자에게 읽지 않은 메시지로 간다. (같은 대화방이라 두 사람 모두 볼 수 있다)
+        Long senderId = event.refunded() ? event.sellerId() : event.buyerId();
+        Long receiverId = event.refunded() ? event.buyerId() : event.sellerId();
+        send(event.orderId(), senderId, receiverId, "order-review-result-" + event.orderId(),
                 label(event.auctionId(), event.productName()) + result);
     }
 

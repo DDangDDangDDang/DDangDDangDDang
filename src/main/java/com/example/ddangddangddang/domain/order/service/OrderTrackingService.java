@@ -58,7 +58,11 @@ public class OrderTrackingService {
      * - 조회 서비스 장애·미설정이면 UNAVAILABLE, 조회할 수 없는 택배사(기타)면 UNSUPPORTED
      */
     public TrackingCheck checkForAutoConfirm(Courier courier, String trackingNo) {
-        if (courier == null || trackingNo == null || !DeliveryTrackingClient.supports(courier)) {
+        // 송장번호 없이 발송된 주문(예전 데이터 등)은 확인할 수 없으므로, 기타 택배사처럼 기다렸다 확정하지 않고 관리자 확인으로 보낸다.
+        if (trackingNo == null || trackingNo.isBlank()) {
+            return TrackingCheck.NOT_FOUND;
+        }
+        if (courier == null || !DeliveryTrackingClient.supports(courier)) {
             return TrackingCheck.UNSUPPORTED;
         }
         try {

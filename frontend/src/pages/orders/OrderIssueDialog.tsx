@@ -62,7 +62,7 @@ function OrderIssueForm({ order, onClose }: { order: Order; onClose: () => void 
         label="자세한 내용 (선택)"
         value={detail}
         maxLength={DETAIL_MAX}
-        placeholder="받은 상품의 상태나 배송 상황을 적어 주세요. 관리자가 확인할 때 참고해요."
+        placeholder="받은 상품의 상태나 배송 상황을 적어 주세요. 관리자만 보고 확인할 때 참고해요."
         hint={`${detail.length}/${DETAIL_MAX}자`}
         onChange={(e) => setDetail(e.target.value)}
       />

@@ -49,6 +49,23 @@ public record OrderResponse(
         LocalDateTime deliveredAt         // 송장 조회로 배송 완료를 확인한 시각
 ) {
 
+    /**
+     * 주문 참여자에게 보여 줄 응답. 판매자에게는 구매자가 쓴 신고 내용(issueDetail)을 빼고 준다.
+     * 신고 내용은 관리자가 확인할 때 참고하는 것이라 화면에서도 관리자만 본다고 안내한다. (신고 종류는 판매자도 본다)
+     */
+    public static OrderResponse forParticipant(Order order, Long userId) {
+        OrderResponse response = from(order);
+        return order.isSeller(userId) ? response.withoutIssueDetail() : response;
+    }
+
+    private OrderResponse withoutIssueDetail() {
+        return new OrderResponse(orderId, orderNo, auctionId, buyerId, sellerId, productName, productImageUrl, finalPrice,
+                commissionRateBps, commission, settlementAmount, noAddressPenalty, status, receiverName, receiverPhone, address,
+                deliveryMemo, courier, trackingNo, createdAt, shippedAt, completedAt, addressDeadlineAt, shipDeadlineAt,
+                delayStatus, delayReason, cancelReason, canceledAt, reviewReason, issueType, null, reviewRequestedAt,
+                reviewResult, reviewResolvedAt, deliveredAt);
+    }
+
     public static OrderResponse from(Order order) {
         return new OrderResponse(
                 order.getId(),

@@ -475,6 +475,25 @@ class OrderControllerTest {
         }
 
         @Test
+        @DisplayName("구매자가 쓴 신고 내용은 구매자와 관리자만 보고, 판매자에게는 신고 종류만 보인다")
+        void issueDetailHiddenFromSeller() throws Exception {
+            Long orderId = shippedOrder();
+            mockMvc.perform(post("/api/v1/orders/{orderId}/issue", orderId)
+                            .header(HttpHeaders.AUTHORIZATION, buyer.bearer())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"type": "WRONG_ITEM", "detail": "판매자가 다른 물건을 보냈어요"}
+                                    """))
+                    .andExpect(status().isOk());
+
+            mockMvc.perform(get("/api/v1/orders/{orderId}", orderId).header(HttpHeaders.AUTHORIZATION, seller.bearer()))
+                    .andExpect(jsonPath("$.data.issueType").value("WRONG_ITEM"))
+                    .andExpect(jsonPath("$.data.issueDetail").doesNotExist());
+            mockMvc.perform(get("/api/v1/orders/{orderId}", orderId).header(HttpHeaders.AUTHORIZATION, buyer.bearer()))
+                    .andExpect(jsonPath("$.data.issueDetail").value("판매자가 다른 물건을 보냈어요"));
+        }
+
+        @Test
         @DisplayName("관리자가 정산하면 구매 확정된다")
         void reportThenConfirm() throws Exception {
             Long orderId = shippedOrder();

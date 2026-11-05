@@ -132,7 +132,7 @@ public class OrderService {
         if (!order.isParticipant(userId)) {
             throw new BusinessException(OrderErrorCode.NOT_ORDER_PARTICIPANT);
         }
-        return OrderResponse.from(order);
+        return OrderResponse.forParticipant(order, userId);
     }
 
     /**
