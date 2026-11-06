@@ -24,6 +24,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     boolean existsByCourierAndTrackingNo(Courier courier, String trackingNo);
 
+    /** 상품 이미지 삭제 전 확인: 이 판매자의 주문(취소된 주문 포함)이 이 대표 이미지 주소를 들고 있는지 */
+    boolean existsBySellerIdAndProductImageUrl(Long sellerId, String productImageUrl);
+
     /** 판매자 프로필 신뢰 지표: 판매자의 주문 중 그 상태인 것의 수 (구매 확정 수) */
     long countBySellerIdAndStatus(Long sellerId, OrderStatus status);
 

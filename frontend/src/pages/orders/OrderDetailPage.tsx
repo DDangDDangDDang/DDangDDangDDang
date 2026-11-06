@@ -276,6 +276,14 @@ function AddressFormBody({
   const saved = savedQuery.data ?? [];
   // 고른 배송지가 다른 곳에서 지워졌으면 선택만 푼다 (채운 값은 그대로 둔다)
   if (selectedId && savedQuery.isSuccess && !saved.some((a) => String(a.addressId) === selectedId)) setSelectedId('');
+  // 고른 배송지를 다시 불러왔더니 내용이 바뀌었으면, 고른 뒤 칸을 고치지 않았을 때만 새 내용으로 채운다
+  const [picked, setPicked] = useState<DeliveryFields>();
+  const pickedNow = selectedId ? saved.find((a) => String(a.addressId) === selectedId) : undefined;
+  if (picked && pickedNow && !sameDelivery(picked, deliveryFieldsOf(pickedNow))) {
+    const next = deliveryFieldsOf(pickedNow);
+    setPicked(next);
+    setValue(next);
+  }
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -300,15 +308,18 @@ function AddressFormBody({
 
   function choose(addressId: string) {
     setSelectedId(addressId);
-    const picked = saved.find((a) => String(a.addressId) === addressId);
-    if (picked) {
+    const address = saved.find((a) => String(a.addressId) === addressId);
+    if (address) {
+      const fields = deliveryFieldsOf(address);
       setTouched(true);
-      setValue(deliveryFieldsOf(picked));
+      setPicked(fields);
+      setValue(fields);
     }
   }
 
   function edit(next: DeliveryFields) {
     setTouched(true);
+    setPicked(undefined);
     setValue(next);
   }
 
@@ -343,7 +354,8 @@ function AddressFormBody({
               ]}
               value={selectedId}
               onChange={(e) => choose(e.target.value)}
-              disabled={mutation.isPending}
+              // 다시 불러오는 동안에는 예전 목록에서 고르지 않게 막는다
+              disabled={mutation.isPending || savedQuery.isFetching}
             />
           </div>
           <Link to="/me/addresses" className={buttonVariants({ variant: 'ghost' })}>

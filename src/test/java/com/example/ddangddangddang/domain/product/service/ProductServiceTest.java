@@ -12,6 +12,7 @@ import static org.mockito.Mockito.never;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
+import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.product.dto.request.ProductRequest;
 import com.example.ddangddangddang.domain.product.dto.request.UpdateRequest;
 import com.example.ddangddangddang.domain.product.dto.response.ProductImageResponse;
@@ -56,6 +57,8 @@ class ProductServiceTest {
     @Mock
     private AuctionRepository auctionRepository;
     @Mock
+    private OrderRepository orderRepository;
+    @Mock
     private FileStorage fileStorage;
     @Mock
     private com.example.ddangddangddang.domain.seller.service.SellerVerification sellerVerification;
@@ -67,7 +70,7 @@ class ProductServiceTest {
     @BeforeEach
     void setUp() {
         productService = new ProductService(productRepository, userRepository, categoryRepository, auctionRepository,
-                new ProductImageResolver(fileStorage), fileStorage, sellerVerification);
+                orderRepository, new ProductImageResolver(fileStorage), fileStorage, sellerVerification);
         seller = User.create("seller@test.com", "pw", "seller");
         ReflectionTestUtils.setField(seller, "id", SELLER_ID);
         category = new Category(null, "카메라", 1);
@@ -177,6 +180,18 @@ class ProductServiceTest {
     void imageUsedByOtherProductKept() {
         savedProduct(List.of(KEY_A, KEY_B), "설명");
         given(productRepository.existsImageKeyInOtherProduct(SELLER_ID, PRODUCT_ID, KEY_A)).willReturn(true);
+
+        productService.updateProduct(SELLER_ID, PRODUCT_ID, new UpdateRequest(null, null, null, List.of()));
+
+        then(fileStorage).should(never()).delete(KEY_A);
+        then(fileStorage).should().delete(KEY_B);
+    }
+
+    @Test
+    @DisplayName("낙찰이 취소되어 다시 판매 중인 상품: 취소된 주문이 대표 이미지로 들고 있는 사진은 빼도 지우지 않는다")
+    void imageUsedByCanceledOrderKept() {
+        savedProduct(List.of(KEY_A, KEY_B), "설명");
+        given(orderRepository.existsBySellerIdAndProductImageUrl(SELLER_ID, "https://cdn/" + KEY_A)).willReturn(true);
 
         productService.updateProduct(SELLER_ID, PRODUCT_ID, new UpdateRequest(null, null, null, List.of()));
 
