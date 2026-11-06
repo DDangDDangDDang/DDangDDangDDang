@@ -119,9 +119,10 @@ export default function () {
   let closed = false;
   let starter = null;
 
-  // 접속을 흩어도 모두가 같은 구간에 함께 있도록 한다.
-  // 접속 → 마지막 사람이 들어올 때(CONNECT_SPREAD)까지 기다림 → 그때부터 DURATION 동안 함께 머묾 → 같은 시각에 보내기를 멈추고 나감
-  // 그래서 chat_received는 "chat_sent × 연결된 사람 수"와 정확히 비교할 수 있다.
+  // 접속을 흩어도 모두가 같은 구간에 머물도록 시각을 맞춘다.
+  // 접속 시작(CONNECT_SPREAD 안에서 흩음) → 테스트 시작 뒤 JOIN_WINDOW초에 모두 보내기 시작 → DURATION 동안 머묾 → 같은 시각에 멈추고 나감
+  // 그 시각까지 연결이 끝났다는 보장은 없다. 늦은 연결은 chat_late, 도중 끊김은 chat_dropped로 세고,
+  // 둘이 0일 때만 chat_received를 "chat_sent × chat_ready"와 비교한다. 구독 완료는 확인하지 못한다(위 머리말 참고)
   const delay = CONNECT_SPREAD_S > 0 ? Math.random() * CONNECT_SPREAD_S : 0;
   if (delay > 0) {
     sleep(delay);
