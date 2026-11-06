@@ -33,6 +33,8 @@ import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.storage.FileStorage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.example.ddangddangddang.global.config.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -254,6 +256,8 @@ public class AuctionService {
     }
 
     //인기 경매 : 대기, 진행 중인 경매를 인기 점수(조회수 + 입찰 횟수 * 5) 높은 순으로 조회(개수 1~50 제한)
+    // 10초 동안 같은 결과를 다시 쓴다 (CacheConfig.POPULAR_AUCTIONS). 개수를 1~50으로 맞춘 값으로 저장해서, 결과가 같은 요청끼리 나눠 쓴다.
+    @Cacheable(cacheNames = CacheConfig.POPULAR_AUCTIONS, key = "T(java.lang.Math).min(T(java.lang.Math).max(#size,1),50)")
     @Transactional(readOnly = true)
     public List<AuctionListResponse> popularAuctions(int size){
        int limit= Math.min(Math.max(size,1),50);

@@ -1,5 +1,6 @@
 package com.example.ddangddangddang.global.config;
 
+import com.example.ddangddangddang.domain.auction.dto.response.AuctionListResponse;
 import com.example.ddangddangddang.domain.hammer.entity.HammerGrade;
 import com.example.ddangddangddang.domain.donation.policy.DonationPolicy;
 import com.example.ddangddangddang.domain.user.service.EquippedBadge;
@@ -35,6 +36,11 @@ public class CacheConfig implements CachingConfigurer {
     public static final String NICKNAME_BADGE = "nicknameBadge";
     // 회원의 망치 등급 (HammerGradeService.gradeOf). 판매자 프로필마다 12개월치 주문을 읽어 계산하므로 캐시한다. 지우지 않고 10분 뒤 새로 계산한다.
     public static final String HAMMER_GRADE = "hammerGrade";
+    // 인기 경매 목록 캐시 (AuctionService.popularAuctions)
+    // 인기 경매는 홈에 들어올 때마다 불리고, 매번 모든 경매의 점수를 계산해야 해서 무겁다.
+    // 그래서 한 번 계산한 결과를 10초 동안 저장해 두고 다시 사용한다.
+    // 조회수도 1분마다 반영되므로 10초 늦게 바뀌어도 사용자는 크게 차이를 느끼지 못한다.
+    public static final String POPULAR_AUCTIONS = "popularAuctions";
 
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory){
@@ -67,6 +73,14 @@ public class CacheConfig implements CachingConfigurer {
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
                         new JacksonJsonRedisSerializer<>(jsonMapper, jsonMapper.getTypeFactory().constructType(HammerGrade.class))
                 ));
+        RedisCacheConfiguration popularAuctionsConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofSeconds(10)) // 순위는 최대 10초 늦게 바뀌는 것을 받아들인다.
+                .disableCachingNullValues()
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
+                        new JacksonJsonRedisSerializer<>(jsonMapper, jsonMapper.getTypeFactory()
+                                .constructCollectionType(List.class, AuctionListResponse.class))
+                ));
+
         // 캐시 쓰기·삭제를 끝까지 기다린다. (immediateWrites)
         // Spring Data Redis 4는 Lettuce를 쓰면 기본으로 비동기로 지워서, 카테고리·정책을 바꾸자마자 다시 조회하면 지우기 전의 예전 값이 나왔다.
         RedisCacheWriter cacheWriter = RedisCacheWriter.create(connectionFactory, writer -> writer.immediateWrites());
@@ -75,6 +89,7 @@ public class CacheConfig implements CachingConfigurer {
                 .withCacheConfiguration(DONATION_POLICY, donationPolicyConfig)
                 .withCacheConfiguration(NICKNAME_BADGE, nicknameBadgeConfig)
                 .withCacheConfiguration(HAMMER_GRADE, hammerGradeConfig)
+                .withCacheConfiguration(POPULAR_AUCTIONS, popularAuctionsConfig)
                 .build();
         // 빈으로 등록하지 않으므로 위에서 정한 캐시 설정을 직접 적용한다.
         redisCacheManager.afterPropertiesSet();
