@@ -1,13 +1,19 @@
 // 채팅 부하: 시청자 여러 명이 한 방송 채팅방에 WebSocket(STOMP)으로 붙고, 그중 일부가 메시지를 보낸다.
 // 실행: k6 run -e BASE_URL=http://localhost:8080 load-test/scenarios/chat.js
 // 조절: VIEWERS(접속자 수, 기본 200), SENDERS(그중 보내는 사람 수, 기본 20), SEND_INTERVAL(보내는 간격 초, 기본 3),
-//       DURATION(접속 유지 초, 기본 120), CONNECT_SPREAD(접속 시작을 흩는 초, 기본 0 = 모두 동시에)
+//       DURATION(접속 유지 초, 기본 120), CONNECT_SPREAD(접속 시작을 흩는 초, 기본 0 = 모두 동시에),
+//       JOIN_GRACE(보내기 시작 전에 접속을 기다리는 최소 초, 기본 5)
+//
+// 진행 순서: 접속(CONNECT_SPREAD 안에서 흩음) → 접속 대기가 끝나는 시각(max(CONNECT_SPREAD, JOIN_GRACE))부터 보내기 시작
+//            → DURATION 동안 함께 머묾 → 모두 같은 시각에 보내기를 멈추고 2초 뒤 나감
 //
 // 보는 것
 // - chat_echo_latency: 보낸 사람이 자기 메시지를 구독 경로로 다시 받기까지 걸린 시간 (서버 처리 + 브로드캐스트).
 //   보낸 사람 기준이라 다른 시청자 전원의 전달 지연과는 다를 수 있다
-// - chat_received: 받은 채팅 수 합계. 모두 같은 구간에 머물므로 기대값은 chat_sent × 연결된 사람 수
-//   (연결된 사람 수 = stomp_connected_rate의 성공 개수). 합계만 보므로 사람별 누락·중복은 가리지 못한다
+// - chat_received: 받은 채팅 수 합계. 기대값은 chat_sent × chat_ready 다.
+//   chat_late(보내기 시작 뒤에야 연결됨)나 chat_dropped(끝나기 전에 끊김)가 0이 아니면 그 사람들은 일부만 받으므로
+//   합계가 기대값보다 적게 나온다. 유실로 보기 전에 이 둘을 먼저 본다. 합계만 보므로 사람별 누락·중복은 가리지 못한다
+// - chat_ready / chat_late / chat_dropped: 보내기 시작 시각에 연결돼 있던 사람 / 그 뒤에 연결된 사람 / 도중에 끊긴 사람 수
 // - chat_error: /user/queue/errors로 받은 오류 (도배 제한 등)
 // - ws_connecting, stomp_connected_rate: 접속이 몰릴 때 연결이 버티는지
 // 서버 도배 제한은 5초에 5개, 같은 말 30초에 2번이라 SEND_INTERVAL을 1초 아래로 내리면 오류가 섞인다.
@@ -26,6 +32,9 @@ const SEND_INTERVAL_MS = Number(__ENV.SEND_INTERVAL || 3) * 1000;
 const DURATION_MS = Number(__ENV.DURATION || 120) * 1000;
 // 접속 시작을 이 시간(초) 안에 고르게 흩는다. 0이면 모두 같은 순간에 접속한다 (방송 시작 직후 몰림)
 const CONNECT_SPREAD_S = Number(__ENV.CONNECT_SPREAD || 0);
+// 동시 접속이어도 연결이 몰리면 몇 초씩 늦는 사람이 있으므로, 보내기 시작 전에 이만큼은 기다린다
+const JOIN_GRACE_S = Number(__ENV.JOIN_GRACE || 5);
+const JOIN_WINDOW_S = Math.max(CONNECT_SPREAD_S, JOIN_GRACE_S);
 // 보내기를 멈춘 뒤 나가기 전까지 기다리는 시간. 마지막에 보낸 메시지가 모두에게 도착하게 한다
 const DRAIN_MS = 2000;
 
@@ -34,6 +43,9 @@ const received = new Counter('chat_received');
 const sent = new Counter('chat_sent');
 const chatErrors = new Counter('chat_error');
 const stompConnected = new Rate('stomp_connected_rate');
+const ready = new Counter('chat_ready');
+const late = new Counter('chat_late');
+const dropped = new Counter('chat_dropped');
 
 export const options = {
   scenarios: {
@@ -41,13 +53,16 @@ export const options = {
       executor: 'per-vu-iterations',
       vus: VIEWERS,
       iterations: 1,
-      maxDuration: `${Math.ceil(DURATION_MS / 1000) + CONNECT_SPREAD_S + 60}s`,
+      maxDuration: `${Math.ceil(DURATION_MS / 1000) + JOIN_WINDOW_S + 60}s`,
     },
   },
   thresholds: {
     stomp_connected_rate: ['rate>0.99'],
     chat_echo_latency: ['p(95)<500'],
     chat_error: ['count<10'],
+    // 기대값 계산의 전제. 0이 아니면 chat_received 비교를 다시 계산해야 한다
+    chat_late: ['count<1'],
+    chat_dropped: ['count<1'],
   },
 };
 
@@ -108,9 +123,20 @@ export default function () {
   if (delay > 0) {
     sleep(delay);
   }
-  const untilAllJoinedMs = (CONNECT_SPREAD_S - delay) * 1000;
+  const untilAllJoinedMs = (JOIN_WINDOW_S - delay) * 1000;
   const ws = new WebSocket(WS_URL);
   const joinedAt = Date.now();
+  const sendStartAt = joinedAt + untilAllJoinedMs;
+  let leaving = false;
+  // 지표가 0이어도 요약에 나오게 한다
+  ready.add(0);
+  late.add(0);
+  dropped.add(0);
+
+  // 보내기 시작 시각에 연결돼 있었는지 센다
+  const readyCheck = setTimeout(() => {
+    if (connected) ready.add(1);
+  }, untilAllJoinedMs);
 
   ws.onopen = () => {
     ws.send(frame('CONNECT', {
@@ -126,6 +152,9 @@ export default function () {
       if (f.command === 'CONNECTED') {
         connected = true;
         stompConnected.add(true);
+        if (Date.now() >= sendStartAt) {
+          late.add(1);
+        }
         ws.send(frame('SUBSCRIBE', { id: 'chat', destination: `/topic/live-streams/${LIVE_STREAM_ID}/chat` }));
         ws.send(frame('SUBSCRIBE', { id: 'errors', destination: '/user/queue/errors' }));
         if (isSender) {
@@ -136,7 +165,7 @@ export default function () {
             sender = setInterval(() => {
               if (!closed) sendChat();
             }, SEND_INTERVAL_MS);
-          }, Math.max(0, untilAllJoinedMs - (Date.now() - joinedAt)) + Math.random() * SEND_INTERVAL_MS);
+          }, Math.max(0, sendStartAt - Date.now()) + Math.random() * SEND_INTERVAL_MS);
         }
       } else if (f.command === 'MESSAGE') {
         if (f.headers.subscription === 'errors') {
@@ -158,6 +187,13 @@ export default function () {
     }
   };
 
+  ws.onclose = () => {
+    // 정해진 때보다 먼저 끊겼으면 센다 (연결에 성공했던 사람만)
+    if (connected && !leaving) {
+      dropped.add(1);
+    }
+  };
+
   ws.onerror = (e) => {
     console.warn(`WebSocket 오류 (VU ${__VU}): ${e.error}`);
   };
@@ -176,6 +212,7 @@ export default function () {
   // 모두가 같은 시각에 보내기를 멈추고, 이미 보낸 메시지가 도착할 시간(DRAIN_MS)을 둔 뒤 나간다
   setTimeout(() => {
     closed = true;
+    clearTimeout(readyCheck);
     if (starter) clearTimeout(starter);
     if (sender) clearInterval(sender);
     setTimeout(() => {
@@ -183,6 +220,7 @@ export default function () {
         stompConnected.add(false);
       }
       check(connected, { 'STOMP 연결됨': (c) => c });
+      leaving = true;
       ws.close();
     }, DRAIN_MS);
   }, untilAllJoinedMs + DURATION_MS);
