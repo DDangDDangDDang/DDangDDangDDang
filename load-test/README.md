@@ -77,6 +77,8 @@ k6 run -e BASE_URL=http://localhost:8090 -e VIEWERS=1000 -e SENDERS=100 -e DURAT
 - **chat_echo_latency**: 보낸 사람이 자기 메시지를 다시 받기까지 걸린 시간. 보낸 사람 기준이라 시청자 전원의 전달 지연과는 다를 수 있다
 - **chat_received**: 받은 채팅 수 합계. 기대값은 `chat_sent × chat_ready`(보내기 시작 시각에 연결돼 있던 사람 수)다.
   - `chat_late`(보내기 시작 뒤에야 연결됨)나 `chat_dropped`(끝나기 전에 끊김)가 0이 아니면, 그 사람들은 일부만 받으므로 합계가 기대값보다 적게 나온다. 유실로 판단하기 전에 이 둘을 먼저 본다(0이 아니면 threshold가 실패로 표시한다).
+  - VIEWERS명 전원이 함께 있었는지는 `chat_ready = VIEWERS`인지로 본다. 연결에 실패한 사람은 `chat_ready`·`chat_late`·`chat_dropped` 어디에도 들어가지 않는다.
+  - 구독이 끝났는지는 확인하지 못한다. Spring 내장 브로커는 SUBSCRIBE의 `receipt`에 RECEIPT를 돌려주지 않는다. 대신 보내기 시작 전 `JOIN_GRACE`초를 그 여유로 둔다.
   - 합계만 보므로 사람별 누락·중복은 가리지 못한다
 - **chat_error**: 서버가 `/user/queue/errors`로 보낸 오류 (도배 제한: 5초에 5개, 같은 말 30초에 2번)
 

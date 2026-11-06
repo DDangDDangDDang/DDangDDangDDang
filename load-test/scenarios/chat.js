@@ -13,7 +13,9 @@
 // - chat_received: 받은 채팅 수 합계. 기대값은 chat_sent × chat_ready 다.
 //   chat_late(보내기 시작 뒤에야 연결됨)나 chat_dropped(끝나기 전에 끊김)가 0이 아니면 그 사람들은 일부만 받으므로
 //   합계가 기대값보다 적게 나온다. 유실로 보기 전에 이 둘을 먼저 본다. 합계만 보므로 사람별 누락·중복은 가리지 못한다
-// - chat_ready / chat_late / chat_dropped: 보내기 시작 시각에 연결돼 있던 사람 / 그 뒤에 연결된 사람 / 도중에 끊긴 사람 수
+// - chat_ready / chat_late / chat_dropped: 보내기 시작 시각에 연결돼 있던 사람 / 그 뒤에 연결된 사람 / 도중에 끊긴 사람 수.
+//   VIEWERS명 전원이 함께 있었는지는 chat_ready = VIEWERS 인지로 본다 (연결 실패한 사람은 셋 어디에도 들어가지 않는다)
+//   구독 완료는 확인하지 못한다(내장 브로커가 RECEIPT를 주지 않음). 보내기 시작 전 JOIN_GRACE초를 그 여유로 둔다
 // - chat_error: /user/queue/errors로 받은 오류 (도배 제한 등)
 // - ws_connecting, stomp_connected_rate: 접속이 몰릴 때 연결이 버티는지
 // 서버 도배 제한은 5초에 5개, 같은 말 30초에 2번이라 SEND_INTERVAL을 1초 아래로 내리면 오류가 섞인다.
@@ -128,14 +130,18 @@ export default function () {
   const joinedAt = Date.now();
   const sendStartAt = joinedAt + untilAllJoinedMs;
   let leaving = false;
+  // 지금 연결이 살아 있는지. connected는 "한 번이라도 연결됐는지"라 끊긴 뒤에도 true로 남는다
+  let open = false;
   // 지표가 0이어도 요약에 나오게 한다
   ready.add(0);
   late.add(0);
   dropped.add(0);
 
-  // 보내기 시작 시각에 연결돼 있었는지 센다
+  // 보내기 시작 시각에 연결돼 있었는지 센다 (그 전에 끊긴 사람은 빼고, chat_dropped로 따로 센다)
+  // 구독 완료는 확인하지 못한다: 내장 브로커는 SUBSCRIBE의 receipt에 RECEIPT를 돌려주지 않는다.
+  // 대신 CONNECTED 직후 구독을 보내고, 보내기 시작까지 최소 JOIN_GRACE초를 둬서 구독이 끝날 여유를 준다
   const readyCheck = setTimeout(() => {
-    if (connected) ready.add(1);
+    if (connected && open) ready.add(1);
   }, untilAllJoinedMs);
 
   ws.onopen = () => {
@@ -151,6 +157,7 @@ export default function () {
     for (const f of parseFrames(event.data)) {
       if (f.command === 'CONNECTED') {
         connected = true;
+        open = true;
         stompConnected.add(true);
         if (Date.now() >= sendStartAt) {
           late.add(1);
@@ -188,6 +195,7 @@ export default function () {
   };
 
   ws.onclose = () => {
+    open = false;
     // 정해진 때보다 먼저 끊겼으면 센다 (연결에 성공했던 사람만)
     if (connected && !leaving) {
       dropped.add(1);
