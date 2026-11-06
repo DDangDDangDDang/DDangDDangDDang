@@ -191,7 +191,8 @@ class ProductServiceTest {
     @DisplayName("낙찰이 취소되어 다시 판매 중인 상품: 취소된 주문이 대표 이미지로 들고 있는 사진은 빼도 지우지 않는다")
     void imageUsedByCanceledOrderKept() {
         savedProduct(List.of(KEY_A, KEY_B), "설명");
-        given(orderRepository.existsBySellerIdAndProductImageUrl(SELLER_ID, "https://cdn/" + KEY_A)).willReturn(true);
+        // 공개 주소 앞부분이 바뀌어도 찾도록 키로 끝나는지 본다
+        given(orderRepository.existsBySellerIdAndProductImageUrlEndingWith(SELLER_ID, "/" + KEY_A)).willReturn(true);
 
         productService.updateProduct(SELLER_ID, PRODUCT_ID, new UpdateRequest(null, null, null, List.of()));
 

@@ -376,7 +376,12 @@ function AddressFormBody({
             취소
           </Button>
         )}
-        <Button type="submit" loading={mutation.isPending} disabled={!isDeliveryFilled(value) || (refreshing && !touched)}>
+        <Button
+          type="submit"
+          loading={mutation.isPending}
+          // 다시 불러오는 동안에는 손대지 않은 값(기본 배송지, 고른 뒤 고치지 않은 배송지)을 예전 내용으로 제출하지 못하게 한다
+          disabled={!isDeliveryFilled(value) || (refreshing && !touched) || (picked !== undefined && savedQuery.isFetching)}
+        >
           {onCancel ? '배송지 수정' : '배송지 입력'}
         </Button>
       </div>

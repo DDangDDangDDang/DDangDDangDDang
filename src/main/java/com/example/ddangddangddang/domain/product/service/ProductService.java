@@ -167,7 +167,7 @@ public class ProductService {
                 ProductImageResolver.usedKeys(product.getImageKeys(), product.getDescription()),
                 key -> productRepository.existsImageKeyInOtherProduct(sellerId, product.getId(), key)
                         || productRepository.existsKeyInOtherDescription(sellerId, product.getId(), key)
-                        || orderRepository.existsBySellerIdAndProductImageUrl(sellerId, fileStorage.publicUrl(key)));
+                        || orderRepository.existsBySellerIdAndProductImageUrlEndingWith(sellerId, "/" + key));
         return ProductResponse.from(product, fileStorage::publicUrl);
 
     }
