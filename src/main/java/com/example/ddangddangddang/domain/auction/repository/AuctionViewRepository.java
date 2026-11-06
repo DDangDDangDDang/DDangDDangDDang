@@ -11,10 +11,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 경매 조회수를 Redis에 둔다. 인기 경매 선별을 위해 사용한다
- *
+ * 경매 조회수를 Redis에 잠깐 모아 둔다. 스케줄러가 1분마다 DB로 옮긴다.
+
  * 저장하는 것 두가지
- * - auction:views                          경매별 조회수를 모아 둔 순위표
+ * - auction:views:pending                         경매별로 아직 DB에 옮기지 않은 조회수
  * - auction:views:viewer:{경매ID}:{사람}    "회원 2가 5번 경매를 봤음" 표시. 30분 뒤 사라진다.
  *   표시가 남아 있는 동안 또 볼시 조회수를 올리지 않는다(새로고침으로 조작 방지)
  */
@@ -22,7 +22,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class AuctionViewRepository {
 
-    static final String VIEWS_KEY = "auction:views";
+    static final String VIEWS_KEY = "auction:views:pending";
     static final String VIEWER_KEY_PREFIX = "auction:views:viewer:";
 
     private final StringRedisTemplate redisTemplate;
@@ -42,7 +42,7 @@ public class AuctionViewRepository {
     }
 
 
-    // 순위표 전체를 "경매 ID -> 조회수"로 가져온다. 끝난 경매는 지우므로 대기,진행 중 경매만 남게 된다.
+    // 아직 DB에 옮기지 않은 조회수를 "경매 ID -> 조회수"로 가져온다.
     public Map<Long, Long> allViewCounts(){
         Set<TypedTuple<String>> tuples = redisTemplate.opsForZSet().rangeWithScores(VIEWS_KEY, 0, -1);
         if (tuples == null){
@@ -58,8 +58,9 @@ public class AuctionViewRepository {
 
     }
 
-    // 끝난 경매(낙찰,유찰,취소)를 순위표에서 지운다. 끝난 경매가 계속 쌓이지 않게 한다
-    public void remove(Long auctionId){
-        redisTemplate.opsForZSet().remove(VIEWS_KEY,String.valueOf(auctionId));
+    // DB에 옮긴 숫자만큼만 뺀다. 옮기는 동안 새로 본 사람 수는 남아서 다음에 옮겨진다. 0이 되면 지운다.
+    public void subtract(Map<Long,Long> movedCounts){
+        movedCounts.forEach((auctionId,count)-> redisTemplate.opsForZSet().incrementScore(VIEWS_KEY, String.valueOf(auctionId), -count));
+        redisTemplate.opsForZSet().removeRangeByScore(VIEWS_KEY,Double.NEGATIVE_INFINITY,0);
     }
 }
