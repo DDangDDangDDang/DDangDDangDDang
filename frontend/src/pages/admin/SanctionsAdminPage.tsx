@@ -7,6 +7,12 @@ import { formatDateTime } from '@/lib/format';
 import { SANCTION_CAUSE_LABEL, SANCTION_TYPE_LABEL } from '@/lib/labels';
 
 type Target = Schema<'AdminSanctionResponse'>;
+/** 정지를 풀 수 있는 대상: 회원 ID와 정지 종류가 모두 있는 항목 */
+type Releasable = Target & { userId: number; type: NonNullable<Target['type']> };
+
+function isReleasable(target: Target): target is Releasable {
+  return target.userId != null && target.type != null;
+}
 
 /**
  * 정지 검토 (관리자): 최근 90일 본인 책임 취소가 4회 이상인 회원.
@@ -15,7 +21,7 @@ type Target = Schema<'AdminSanctionResponse'>;
 export function SanctionsAdminPage() {
   const session = useSession();
   const queryClient = useQueryClient();
-  const [releasing, setReleasing] = useState<Target>();
+  const [releasing, setReleasing] = useState<Releasable>();
 
   const query = useQuery({
     queryKey: ['admin', 'sanctions'],
@@ -23,8 +29,8 @@ export function SanctionsAdminPage() {
     enabled: session?.user.role === 'ADMIN',
   });
   const release = useMutation({
-    mutationFn: (target: Target) =>
-      call(api.POST('/api/v1/admin/sanctions/release', { body: { userId: target.userId!, type: target.type! } })),
+    mutationFn: ({ userId, type }: Releasable) =>
+      call(api.POST('/api/v1/admin/sanctions/release', { body: { userId, type } })),
     onSuccess: () => setReleasing(undefined),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ['admin', 'sanctions'] }),
   });
@@ -66,9 +72,11 @@ export function SanctionsAdminPage() {
                     {target.bannedUntil && ` · ${formatDateTime(target.bannedUntil)}까지 정지`}
                   </span>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setReleasing(target)}>
-                  정지 풀기
-                </Button>
+                {isReleasable(target) && (
+                  <Button variant="outline" size="sm" onClick={() => setReleasing(target)}>
+                    정지 풀기
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
@@ -78,7 +86,7 @@ export function SanctionsAdminPage() {
         open={releasing !== undefined}
         title="정지를 풀까요?"
         description={
-          releasing && `${releasing.nickname ?? `회원 #${releasing.userId}`}님의 ${releasing.type ? SANCTION_TYPE_LABEL[releasing.type] : '정지'}를 지금 풀어요. 지금까지의 취소는 다시 세지 않아요.`
+          releasing && `${releasing.nickname ?? `회원 #${releasing.userId}`}님의 ${SANCTION_TYPE_LABEL[releasing.type]}를 지금 풀어요. 지금까지의 취소는 다시 세지 않아요.`
         }
         confirmLabel="풀기"
         loading={release.isPending}

@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.product.service;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
+import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.exception.CategoryErrorCode;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
@@ -41,6 +42,7 @@ public class ProductService {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final AuctionRepository auctionRepository;
+    private final OrderRepository orderRepository;
     private final ProductImageResolver imageResolver;
     private final FileStorage fileStorage;
     private final SellerVerification sellerVerification;
@@ -158,12 +160,14 @@ public class ProductService {
         }
 
         // 수정하면서 지운 이미지는 저장소에서도 지운다.
-        // 팔린 상품은 위에서 수정을 막았으니, 주문에 보이는 사진이 지워질 일은 없다.
         // 같은 사진을 내 다른 상품에서도 쓰고 있을시 저장소에서는 지우지를 않는다.
+        // 주문이 대표 이미지 주소를 들고 있는 사진도 지우지 않는다. 팔린 상품은 위에서 수정을 막지만,
+        // 낙찰이 취소되어 다시 판매 중이 된 상품은 수정할 수 있고 취소된 주문 내역에 그 사진이 계속 보이기 때문이다.
         imageResolver.deleteRemovedImagesAfterCommit(sellerId, before,
                 ProductImageResolver.usedKeys(product.getImageKeys(), product.getDescription()),
                 key -> productRepository.existsImageKeyInOtherProduct(sellerId, product.getId(), key)
-                        || productRepository.existsKeyInOtherDescription(sellerId, product.getId(), key));
+                        || productRepository.existsKeyInOtherDescription(sellerId, product.getId(), key)
+                        || orderRepository.existsBySellerIdAndProductImageUrlEndingWith(sellerId, "/" + key));
         return ProductResponse.from(product, fileStorage::publicUrl);
 
     }
