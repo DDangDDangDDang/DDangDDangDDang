@@ -4,8 +4,10 @@
 //       DURATION(접속 유지 초, 기본 120), CONNECT_SPREAD(접속 시작을 흩는 초, 기본 0 = 모두 동시에)
 //
 // 보는 것
-// - chat_echo_latency: 보낸 메시지가 구독 경로로 자기에게 돌아오기까지 걸린 시간 (서버 처리 + 브로드캐스트)
-// - chat_received: 받은 채팅 수. 이상적으로는 보낸 수 × 접속자 수
+// - chat_echo_latency: 보낸 사람이 자기 메시지를 구독 경로로 다시 받기까지 걸린 시간 (서버 처리 + 브로드캐스트).
+//   보낸 사람 기준이라 다른 시청자 전원의 전달 지연과는 다를 수 있다
+// - chat_received: 받은 채팅 수 합계. 모두 같은 구간에 머물므로 기대값은 chat_sent × 연결된 사람 수
+//   (연결된 사람 수 = stomp_connected_rate의 성공 개수). 합계만 보므로 사람별 누락·중복은 가리지 못한다
 // - chat_error: /user/queue/errors로 받은 오류 (도배 제한 등)
 // - ws_connecting, stomp_connected_rate: 접속이 몰릴 때 연결이 버티는지
 // 서버 도배 제한은 5초에 5개, 같은 말 30초에 2번이라 SEND_INTERVAL을 1초 아래로 내리면 오류가 섞인다.
@@ -24,6 +26,8 @@ const SEND_INTERVAL_MS = Number(__ENV.SEND_INTERVAL || 3) * 1000;
 const DURATION_MS = Number(__ENV.DURATION || 120) * 1000;
 // 접속 시작을 이 시간(초) 안에 고르게 흩는다. 0이면 모두 같은 순간에 접속한다 (방송 시작 직후 몰림)
 const CONNECT_SPREAD_S = Number(__ENV.CONNECT_SPREAD || 0);
+// 보내기를 멈춘 뒤 나가기 전까지 기다리는 시간. 마지막에 보낸 메시지가 모두에게 도착하게 한다
+const DRAIN_MS = 2000;
 
 const echoLatency = new Trend('chat_echo_latency', true);
 const received = new Counter('chat_received');
@@ -97,10 +101,16 @@ export default function () {
   let closed = false;
   let starter = null;
 
-  if (CONNECT_SPREAD_S > 0) {
-    sleep(Math.random() * CONNECT_SPREAD_S);
+  // 접속을 흩어도 모두가 같은 구간에 함께 있도록 한다.
+  // 접속 → 마지막 사람이 들어올 때(CONNECT_SPREAD)까지 기다림 → 그때부터 DURATION 동안 함께 머묾 → 같은 시각에 보내기를 멈추고 나감
+  // 그래서 chat_received는 "chat_sent × 연결된 사람 수"와 정확히 비교할 수 있다.
+  const delay = CONNECT_SPREAD_S > 0 ? Math.random() * CONNECT_SPREAD_S : 0;
+  if (delay > 0) {
+    sleep(delay);
   }
+  const untilAllJoinedMs = (CONNECT_SPREAD_S - delay) * 1000;
   const ws = new WebSocket(WS_URL);
+  const joinedAt = Date.now();
 
   ws.onopen = () => {
     ws.send(frame('CONNECT', {
@@ -119,14 +129,14 @@ export default function () {
         ws.send(frame('SUBSCRIBE', { id: 'chat', destination: `/topic/live-streams/${LIVE_STREAM_ID}/chat` }));
         ws.send(frame('SUBSCRIBE', { id: 'errors', destination: '/user/queue/errors' }));
         if (isSender) {
-          // 보내는 사람들이 같은 순간에 몰리지 않게 시작을 흩는다
-          // 접속이 늦어 종료 타이머가 먼저 돌았으면 보내기를 시작하지 않는다
+          // 모두 들어온 뒤에 보내기 시작하고, 보내는 사람들이 같은 순간에 몰리지 않게 시작을 흩는다
+          // 접속이 늦어 보내기를 멈출 시각이 먼저 지났으면 시작하지 않는다
           starter = setTimeout(() => {
             if (closed) return;
             sender = setInterval(() => {
               if (!closed) sendChat();
             }, SEND_INTERVAL_MS);
-          }, Math.random() * SEND_INTERVAL_MS);
+          }, Math.max(0, untilAllJoinedMs - (Date.now() - joinedAt)) + Math.random() * SEND_INTERVAL_MS);
         }
       } else if (f.command === 'MESSAGE') {
         if (f.headers.subscription === 'errors') {
@@ -163,16 +173,19 @@ export default function () {
     }, JSON.stringify({ content: `부하 테스트 메시지 [${tag}]` })));
   }
 
+  // 모두가 같은 시각에 보내기를 멈추고, 이미 보낸 메시지가 도착할 시간(DRAIN_MS)을 둔 뒤 나간다
   setTimeout(() => {
     closed = true;
     if (starter) clearTimeout(starter);
     if (sender) clearInterval(sender);
-    if (!connected) {
-      stompConnected.add(false);
-    }
-    check(connected, { 'STOMP 연결됨': (c) => c });
-    ws.close();
-  }, DURATION_MS);
+    setTimeout(() => {
+      if (!connected) {
+        stompConnected.add(false);
+      }
+      check(connected, { 'STOMP 연결됨': (c) => c });
+      ws.close();
+    }, DRAIN_MS);
+  }, untilAllJoinedMs + DURATION_MS);
 }
 
 function safeContent(body) {

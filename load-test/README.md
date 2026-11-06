@@ -59,6 +59,7 @@ k6 run -e BASE_URL=http://localhost:8090 -e RATE=200 load-test/scenarios/bid.js
 k6 run -e BASE_URL=http://localhost:8090 -e VIEWERS=30 -e SENDERS=5 -e DURATION=20 load-test/scenarios/chat.js
 k6 run -e BASE_URL=http://localhost:8090 -e VIEWERS=1000 -e SENDERS=50 -e DURATION=180 load-test/scenarios/chat.js
 # 기본은 모두 같은 순간에 접속(몰림). CONNECT_SPREAD초에 걸쳐 흩으면 몰림 없이 수용 인원만 본다
+# (흩어도 마지막 사람이 들어온 뒤에 보내기 시작해 DURATION초 동안 모두 함께 머물고, 같은 시각에 끝난다)
 k6 run -e BASE_URL=http://localhost:8090 -e VIEWERS=1000 -e SENDERS=100 -e DURATION=60 -e CONNECT_SPREAD=10 load-test/scenarios/chat.js
 ```
 
@@ -73,7 +74,8 @@ k6 run -e BASE_URL=http://localhost:8090 -e VIEWERS=1000 -e SENDERS=100 -e DURAT
 - **http_req_failed**: 5xx·연결 실패 비율. 입찰의 400/409(최소가 미달, 이미 최고 입찰자, 락 충돌)는 경쟁에서 진 정상 응답이라 실패로 세지 않는다
 - **bid_result{code:…}**: 입찰 결과 코드별 개수. `OK`가 성공, `AUCTION_016`(최소가 미달)·`AUCTION_015`(이미 최고 입찰자)는 경쟁 패배, `AUCTION_018`(BID_CONFLICT)은 서버가 락 재시도 5번을 다 쓰고 포기한 것 → 늘어나면 입찰 처리의 한계
 - 입찰 테스트가 끝나면 `현재가 = 시작가 + 단위 × (입찰 수 - 1)`을 확인해 콘솔에 `정합성 OK / 불일치!`를 찍는다
-- **chat_echo_latency**: 보낸 메시지가 자기에게 돌아오기까지 걸린 시간. **chat_received**는 이상적으로 `chat_sent × VIEWERS`
+- **chat_echo_latency**: 보낸 사람이 자기 메시지를 다시 받기까지 걸린 시간. 보낸 사람 기준이라 시청자 전원의 전달 지연과는 다를 수 있다
+- **chat_received**: 받은 채팅 수 합계. 기대값은 `chat_sent × 연결된 사람 수`(`stomp_connected_rate`의 성공 개수)다. 모두 같은 구간에 머물므로 흩어 접속해도 그대로 비교할 수 있다. 합계만 보므로 사람별 누락·중복은 가리지 못한다
 - **chat_error**: 서버가 `/user/queue/errors`로 보낸 오류 (도배 제한: 5초에 5개, 같은 말 30초에 2번)
 
 포인트 홀딩 정합성은 SQL로 따로 본다. 진행 중 경매의 최고 입찰자 홀딩 합계와 지갑 `held_balance` 합계가 같아야 한다.
@@ -125,7 +127,7 @@ k6 run -o experimental-prometheus-rw -e BASE_URL=http://localhost:8090 -e RATE=2
 | --- | --- | --- |
 | k6 | 초당 요청 수, 응답 시간 p95, VU·실패율 | 부하를 올려도 초당 요청 수가 더 안 오르고 p95만 오르면 한계에 닿은 것 |
 | k6 | 입찰 결과 코드 | `AUCTION_018`이 나타나기 시작하는 RATE가 입찰 처리 한계 |
-| k6 | 채팅 전달 지연·수신 | 지연이 오르거나 초당 수신이 `보낸 수 × 접속자 수`보다 적으면 브로드캐스트 병목·유실 |
+| k6 | 채팅 전달 지연·수신 | 보낸 사람 기준 지연이 오르거나, 초당 수신이 `초당 보낸 수 × 연결된 사람 수`보다 적으면 브로드캐스트 병목·유실 의심 |
 | 서버 HTTP | API별 요청 수·p95, 상태 코드 | k6 p95는 높은데 서버 p95는 낮으면 서버 밖(네트워크, 연결 대기, k6 PC) 문제 |
 | HikariCP | 사용 현황 | `active`가 `max`(10)에 붙고 `pending`이 0보다 크면 **커넥션 풀이 병목** |
 | HikariCP | 얻는 데 걸린 시간, 쥐고 있던 시간 | 쥐고 있던 시간이 길면 트랜잭션이 오래 걸리는 것(락 대기 등). 얻는 시간이 길면 풀이 모자란 것 |
