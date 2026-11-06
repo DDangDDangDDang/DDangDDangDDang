@@ -2,7 +2,7 @@
 // 실행: k6 run -e BASE_URL=http://localhost:8080 load-test/scenarios/chat.js
 // 조절: VIEWERS(접속자 수, 기본 200), SENDERS(그중 보내는 사람 수, 기본 20), SEND_INTERVAL(보내는 간격 초, 기본 3),
 //       DURATION(접속 유지 초, 기본 120), CONNECT_SPREAD(접속 시작을 흩는 초, 기본 0 = 모두 동시에),
-//       JOIN_GRACE(보내기 시작 전에 접속을 기다리는 최소 초, 기본 5)
+//       JOIN_GRACE(테스트 시작부터 보내기 시작까지 최소 몇 초를 둘지, 기본 5)
 //
 // 진행 순서: 접속(CONNECT_SPREAD 안에서 흩음) → 접속 대기가 끝나는 시각(max(CONNECT_SPREAD, JOIN_GRACE))부터 보내기 시작
 //            → DURATION 동안 함께 머묾 → 모두 같은 시각에 보내기를 멈추고 2초 뒤 나감
@@ -15,7 +15,8 @@
 //   합계가 기대값보다 적게 나온다. 유실로 보기 전에 이 둘을 먼저 본다. 합계만 보므로 사람별 누락·중복은 가리지 못한다
 // - chat_ready / chat_late / chat_dropped: 보내기 시작 시각에 연결돼 있던 사람 / 그 뒤에 연결된 사람 / 도중에 끊긴 사람 수.
 //   VIEWERS명 전원이 함께 있었는지는 chat_ready = VIEWERS 인지로 본다 (연결 실패한 사람은 셋 어디에도 들어가지 않는다)
-//   구독 완료는 확인하지 못한다(내장 브로커가 RECEIPT를 주지 않음). 보내기 시작 전 JOIN_GRACE초를 그 여유로 둔다
+//   구독 완료는 확인하지 못한다(내장 브로커가 RECEIPT를 주지 않음). 보내기 시작 시각을 테스트 시작 뒤
+//   max(CONNECT_SPREAD, JOIN_GRACE)초로 고정해 그 여유로 둔다. 그 시각 직전에 연결된 사람은 여유가 짧을 수 있다
 // - chat_error: /user/queue/errors로 받은 오류 (도배 제한 등)
 // - ws_connecting, stomp_connected_rate: 접속이 몰릴 때 연결이 버티는지
 // 서버 도배 제한은 5초에 5개, 같은 말 30초에 2번이라 SEND_INTERVAL을 1초 아래로 내리면 오류가 섞인다.
@@ -139,7 +140,8 @@ export default function () {
 
   // 보내기 시작 시각에 연결돼 있었는지 센다 (그 전에 끊긴 사람은 빼고, chat_dropped로 따로 센다)
   // 구독 완료는 확인하지 못한다: 내장 브로커는 SUBSCRIBE의 receipt에 RECEIPT를 돌려주지 않는다.
-  // 대신 CONNECTED 직후 구독을 보내고, 보내기 시작까지 최소 JOIN_GRACE초를 둬서 구독이 끝날 여유를 준다
+  // 대신 CONNECTED 직후 구독을 보내고, 보내기 시작 시각(테스트 시작 뒤 JOIN_WINDOW초, 모든 VU가 같은 시각)까지를 구독이 끝날 여유로 둔다.
+  // 이 여유는 연결이 맺어진 때부터 세는 것이 아니므로, 그 시각 직전에 연결된 사람에게는 짧을 수 있다
   const readyCheck = setTimeout(() => {
     if (connected && open) ready.add(1);
   }, untilAllJoinedMs);
