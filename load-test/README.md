@@ -58,7 +58,11 @@ k6 run -e BASE_URL=http://localhost:8090 -e RATE=200 load-test/scenarios/bid.js
 # 채팅: VIEWERS명 접속, 그중 SENDERS명이 SEND_INTERVAL초마다 말함, DURATION초 유지
 k6 run -e BASE_URL=http://localhost:8090 -e VIEWERS=30 -e SENDERS=5 -e DURATION=20 load-test/scenarios/chat.js
 k6 run -e BASE_URL=http://localhost:8090 -e VIEWERS=1000 -e SENDERS=50 -e DURATION=180 load-test/scenarios/chat.js
+# 기본은 모두 같은 순간에 접속(몰림). CONNECT_SPREAD초에 걸쳐 흩으면 몰림 없이 수용 인원만 본다
+k6 run -e BASE_URL=http://localhost:8090 -e VIEWERS=1000 -e SENDERS=100 -e DURATION=60 -e CONNECT_SPREAD=10 load-test/scenarios/chat.js
 ```
+
+측정 결과와 해석은 `reports/`에 날짜별로 남긴다. (첫 기준선: `reports/2026-11-06-local-baseline.md`)
 
 결과를 파일로 남기려면 `--summary-export load-test/results/<이름>.json`을 붙인다. (`results/`, `data/`는 git에 올라가지 않는다)
 

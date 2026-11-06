@@ -1,7 +1,7 @@
 // 채팅 부하: 시청자 여러 명이 한 방송 채팅방에 WebSocket(STOMP)으로 붙고, 그중 일부가 메시지를 보낸다.
 // 실행: k6 run -e BASE_URL=http://localhost:8080 load-test/scenarios/chat.js
 // 조절: VIEWERS(접속자 수, 기본 200), SENDERS(그중 보내는 사람 수, 기본 20), SEND_INTERVAL(보내는 간격 초, 기본 3),
-//       DURATION(접속 유지 초, 기본 120)
+//       DURATION(접속 유지 초, 기본 120), CONNECT_SPREAD(접속 시작을 흩는 초, 기본 0 = 모두 동시에)
 //
 // 보는 것
 // - chat_echo_latency: 보낸 메시지가 구독 경로로 자기에게 돌아오기까지 걸린 시간 (서버 처리 + 브로드캐스트)
@@ -10,7 +10,7 @@
 // - ws_connecting, stomp_connected_rate: 접속이 몰릴 때 연결이 버티는지
 // 서버 도배 제한은 5초에 5개, 같은 말 30초에 2번이라 SEND_INTERVAL을 1초 아래로 내리면 오류가 섞인다.
 import { WebSocket } from 'k6/websockets';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
 import { WS_URL, guardTarget } from '../lib/common.js';
@@ -22,6 +22,8 @@ const VIEWERS = Number(__ENV.VIEWERS || 200);
 const SENDERS = Number(__ENV.SENDERS || 20);
 const SEND_INTERVAL_MS = Number(__ENV.SEND_INTERVAL || 3) * 1000;
 const DURATION_MS = Number(__ENV.DURATION || 120) * 1000;
+// 접속 시작을 이 시간(초) 안에 고르게 흩는다. 0이면 모두 같은 순간에 접속한다 (방송 시작 직후 몰림)
+const CONNECT_SPREAD_S = Number(__ENV.CONNECT_SPREAD || 0);
 
 const echoLatency = new Trend('chat_echo_latency', true);
 const received = new Counter('chat_received');
@@ -35,7 +37,7 @@ export const options = {
       executor: 'per-vu-iterations',
       vus: VIEWERS,
       iterations: 1,
-      maxDuration: `${Math.ceil(DURATION_MS / 1000) + 60}s`,
+      maxDuration: `${Math.ceil(DURATION_MS / 1000) + CONNECT_SPREAD_S + 60}s`,
     },
   },
   thresholds: {
@@ -95,6 +97,9 @@ export default function () {
   let closed = false;
   let starter = null;
 
+  if (CONNECT_SPREAD_S > 0) {
+    sleep(Math.random() * CONNECT_SPREAD_S);
+  }
   const ws = new WebSocket(WS_URL);
 
   ws.onopen = () => {
