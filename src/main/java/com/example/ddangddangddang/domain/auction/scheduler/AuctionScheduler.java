@@ -66,7 +66,7 @@ public class AuctionScheduler {
         }
     }
 
-    // 1분 마다 Redis 조회수를 DB에 옮겨 적는다. 끝난 경매는 Redis에서 지운다
+    // 1분 마다 Redis에 모인 조회수를 DB에 더하고, 더한 만큼 Redis에서 뺀다
     @Scheduled(fixedDelay = 60_000)
     public void syncViewCounts(){
         try {
@@ -74,11 +74,12 @@ public class AuctionScheduler {
             if (viewCounts.isEmpty()){
                 return;
             }
-            // DB에 다 적은 다음에 Redis에서 지운다 (먼저 지우면, DB 저장이 실패했을때 조회수가 사라지기 때문이다)
-            List<Long> closedIds = auctionViewCountService.writeViewCounts(viewCounts);
-            closedIds.forEach(auctionViewRepository::remove);
+            // DB에 다 더한 다음에 Redis에서 뺀다 (먼저 빼면, DB 저장이 실패했을 때 조회수가 사라지기 때문이다)
+            auctionViewCountService.addViewCounts(viewCounts);
+            auctionViewRepository.subtract(viewCounts);
         } catch (Exception e){
-            // 실패해도 괜찮다. Redis에 조회수가 그대로 남아 있기에 1분 뒤에 다시 적는다.
+            // DB 저장이 실패하면 Redis에 그대로 남아 1분 뒤에 다시 더한다.
+            // DB에 더한 뒤 Redis 빼기만 실패하면 다음에 한 번 더 더해진다 (조회수가 조금 늘 뿐이라 허용)
             log.warn("경매 조회수 옮겨 적기 실패", e);
         }
     }

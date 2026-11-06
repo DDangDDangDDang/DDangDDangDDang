@@ -12,7 +12,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -119,16 +118,9 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
      * 조회수를 바꾸는 방법은 이 쿼리 하나뿐이다
      * 경매 시작,마감,취소처럼 경매를 읽어서 저장하는 코드는 조회수 칸을 건드리지 못하게 막아둔다.
      * 막지 않으면 읽어 둔 옛날 조회수로 스케줄러가 적은 값을 덮어쓰기 때문이다
-     * 조회수는 줄지 않으므로 DB 값보다 클때만 바꾼다.
-     * (Redis 재시작으로 값이 작아지거나, 서버 여러 대가 겹쳐 옛날 값을 늦게 쓰는 경우에도 DB 값이 줄지 않게)*/
+     * Redis에 쌓인 만큼 더한다. 덮어쓰지 않으므로 Redis가 비워져도 DB 조회수는 줄거나 멈추지 않는다.*/
     @Modifying
-    @Query("update Auction a set a.viewCount = :viewCount where a.id = :auctionId and a.viewCount < :viewCount")
-    int updateViewCount(@Param("auctionId") Long auctionId, @Param("viewCount") long viewCount);
-
-    // 받은 경매 ID 중에서 끝난 경매(낙찰,유찰,취소)의 ID만 골라 준다
-    // 끝난 경매를 Redis 조회수 순위표에서 지울때 쓴다
-    @Query("select a.id from Auction a where a.id in :auctionIds and a.status not in :openStatuses")
-    List<Long> findClosedIds(@Param("auctionIds") Collection<Long> auctionIds,
-                             @Param("openStatuses") Collection<AuctionStatus> openStatuses);
+    @Query("update Auction a set a.viewCount = a.viewCount + :addedCount where a.id = :auctionId")
+    int addViewCount(@Param("auctionId") Long auctionId, @Param("addedCount") long addedCount);
 
 }
