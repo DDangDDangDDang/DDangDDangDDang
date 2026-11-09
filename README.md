@@ -118,7 +118,7 @@ flowchart LR
 
 - 영상은 브라우저와 LiveKit이 직접 주고받고, 서버는 **입장 토큰 발급과 방 관리**만 합니다.
 - 입찰·채팅·알림 같은 실시간 메시지는 STOMP로 보내고, 서버가 여러 대여도 모든 구독자에게 닿도록 **Redis Pub/Sub**으로 서버끼리 전달합니다.
-- 배포는 EC2 한 대 구성으로 운영 중이며, 같은 Terraform 코드에서 스위치로 **ECS Fargate + ALB** 구성으로 바꿀 수 있습니다.
+- 배포는 EC2 한 대 구성으로 운영 중입니다. 같은 Terraform 코드에 **ECS Fargate + ALB** 구성도 있지만, 지금은 API만 제공합니다. 전환하려면 화면을 제공할 웹 이미지나 정적 호스팅을 먼저 추가해야 합니다. ([docs/deploy.md](docs/deploy.md))
 
 <br>
 
@@ -167,32 +167,35 @@ flowchart LR
 
 ## 로컬 실행
 
-**준비물**: JDK 17, Node.js, Docker
+**준비물**: JDK 17, Node.js 24 (CI와 같은 버전, 최소 20.19), Docker
 
 ```bash
-# 1. MySQL · Redis · LiveKit 실행 (저장소 루트에서)
+# 1. MySQL · Redis · LiveKit 실행 (터미널 1, 저장소 루트에서)
 docker compose up -d
 ```
 
 ```bash
-# 2. 백엔드 실행 (http://localhost:8080)
+# 2. 백엔드 실행 (터미널 1, 저장소 루트에서. 켜 둔 채로 둡니다) → http://localhost:8080
 ./gradlew bootRun
 ```
 
 ```bash
-# 3. 프론트엔드 실행 (http://localhost:5173)
+# 3. 프론트엔드 실행 (터미널 2, 저장소 루트에서) → http://localhost:5173
 cd frontend
 npm install
 npm run dev
 ```
 
-- 기본 설정만으로 회원가입·경매·방송·채팅을 쓸 수 있습니다. (LiveKit은 Docker의 개발 모드로 실행)
+- 기본 설정만으로 회원가입, 경매 둘러보기, 채팅을 쓸 수 있습니다. (LiveKit은 Docker의 개발 모드로 실행)
+- **방송을 열려면 승인된 판매자 계정**이 필요합니다. 판매자 신청 전에 본인인증을 해야 하고(기본은 PortOne 본인인증. 로컬에서는 `seller.identity.provider=fake`로 가짜 인증을 쓸 수 있음), 신청은 관리자가 승인합니다. 로컬에서 관리자 계정을 만들려면 백엔드를 켜기 전에 `DEV_ADMIN_EMAIL`, `DEV_ADMIN_PASSWORD`를 설정하세요. (운영 프로필에서는 만들지 않음)
 - 결제, 소셜 로그인, SMS, 메일, AI 채팅 검토, S3 업로드는 외부 키가 필요합니다. 환경 변수(`PORTONE_*`, `KAKAO_*`, `GOOGLE_*`, `SOLAPI_*`, `MAIL_*` 등)를 설정하면 켜집니다. 프론트 쪽 설정은 [frontend/README.md](frontend/README.md)를 참고하세요.
 - API 문서(Swagger UI): http://localhost:8080/swagger-ui/index.html
 
 <br>
 
 ## 테스트
+
+각 명령은 **저장소 루트에서** 실행합니다.
 
 ```bash
 # 백엔드 단위·통합 테스트 (Testcontainers를 쓰는 테스트는 Docker가 필요합니다)
@@ -209,6 +212,8 @@ cd frontend && npm run check
 cd frontend && npm run e2e
 ```
 
+E2E 테스트는 실행 중인 로컬 백엔드, `frontend/.env.e2e.local`의 테스트 계정, Playwright 브라우저(또는 PC의 Chrome)가 필요합니다. 준비 절차는 [frontend/README.md의 E2E 테스트](frontend/README.md#e2e-테스트-playwright)를 참고하세요.
+
 **부하 테스트**: k6로 조회·입찰·채팅 시나리오를 측정합니다. 방법은 [load-test/README.md](load-test/README.md), 결과는 [load-test/reports](load-test/reports)에 있습니다.
 
 <br>
@@ -221,6 +226,7 @@ cd frontend && npm run e2e
 | `dev` | 개발 | https://dev.ddangddangddang.com |
 
 브랜치에 푸시되면 GitHub Actions가 **테스트 → Docker 이미지 빌드 · ECR 푸시 → SSM으로 EC2에 배포**합니다.
+단, 배포는 저장소 변수가 설정된 경우에만 진행됩니다. `main`은 `DEPLOY_TARGET`(ec2 또는 ecs)이 있어야 하고, `dev`는 `DEV_DEPLOY_ENABLED`가 `true`여야 합니다. 설정이 없으면 테스트만 하고 빌드·배포는 건너뜁니다.
 AWS 인증은 OIDC로 받아, 저장소에 AWS 키를 두지 않습니다. 자세한 내용은 [docs/deploy.md](docs/deploy.md)를 참고하세요.
 
 <br>
