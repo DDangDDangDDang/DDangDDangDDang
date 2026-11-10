@@ -7634,6 +7634,13 @@
             "enum" : [ "ACTIVE", "SOLD", "DELETED" ]
           }
         }, {
+          "name" : "keyword",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "page",
           "in" : "query",
           "description" : "Zero-based page index (0..N)",
