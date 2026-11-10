@@ -20,6 +20,7 @@ import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import com.example.ddangddangddang.global.storage.FileStorage;
 import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,8 @@ public class ProductService {
     private final FileStorage fileStorage;
     private final SellerVerification sellerVerification;
     private static final char LIKE_ESCAPE = '!';
+    // 상품 이름 최대 길이(50)와 같다. 방송 검색(LiveStreamListService)과 같은 규칙
+    static final int MAX_KEYWORD_LENGTH = 50;
 
     //상품 상세 조회(삭제된 상품은 제외)
     @Transactional(readOnly = true)
@@ -204,13 +207,17 @@ public class ProductService {
         product.delete();
     }
 
-    // 검색어가 없거나 공백이면 이름으로 거르지 않는다(null). %·_·! 는 글자 그대로 찾도록 escape 한다.
+    // 검색어가 없거나 공백이면 이름으로 거르지 않는다(null). 50자를 넘으면 거부하고, %·_·! 는 글자 그대로 찾도록 escape 한다.
     private static String toNamePattern(String keyword) {
         if (keyword == null || keyword.isBlank()) {
             return null;
         }
+        String trimmed = keyword.trim();
+        if (trimmed.length() > MAX_KEYWORD_LENGTH) {
+            throw new BusinessException(CommonErrorCode.INVALID_INPUT, "검색어는 " + MAX_KEYWORD_LENGTH + "자 이하로 입력해 주세요.");
+        }
         StringBuilder escaped = new StringBuilder();
-        for (char c : keyword.trim().toLowerCase(Locale.ROOT).toCharArray()) {
+        for (char c : trimmed.toLowerCase(Locale.ROOT).toCharArray()) {
             if (c == '%' || c == '_' || c == LIKE_ESCAPE) {
                 escaped.append(LIKE_ESCAPE);
             }

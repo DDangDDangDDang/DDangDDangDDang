@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.product.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.ddangddangddang.domain.auth.repository.LoginAttemptRepository;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
@@ -14,6 +15,7 @@ import com.example.ddangddangddang.domain.product.entity.Status;
 import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
+import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.security.jwt.TokenBlacklistRepository;
 import com.example.ddangddangddang.global.websocket.broadcast.StompBroadcaster;
 import java.util.List;
@@ -180,5 +182,12 @@ class MyProductsFilterTest {
     void keywordEscapesWildcards() {
         assertThat(mine(null, null, "%", 0).getTotalElements()).isZero();
         assertThat(mine(null, null, "_", 0).getTotalElements()).isZero();
+    }
+    @Test
+    @DisplayName("검색어가 50자를 넘으면 거부하고, 50자까지는 찾는다")
+    void keywordTooLong() {
+        assertThat(mine(null, null, "가".repeat(50), 0).getTotalElements()).isZero();
+        assertThatThrownBy(() -> mine(null, null, "가".repeat(51), 0))
+                .isInstanceOf(BusinessException.class);
     }
 }
