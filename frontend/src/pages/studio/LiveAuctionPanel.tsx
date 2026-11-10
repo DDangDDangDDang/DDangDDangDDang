@@ -1,12 +1,12 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Gavel, MonitorPlay, Plus } from 'lucide-react';
-import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link } from 'react-router';
 import { api, call, errorMessage, isErrorCode, type Schema } from '@/api';
 import { AuctionPhaseBadge, AuctionTime } from '@/components/auction/AuctionBits';
 import { AuctionConditionFields } from '@/components/auction/AuctionConditionFields';
 import { ProductImage } from '@/components/order/OrderBits';
-import { Badge, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Dialog, ErrorState, Notice, Pagination, Skeleton } from '@/components/ui';
+import { Badge, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Dialog, ErrorState, Input, Notice, Pagination, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { CategorySelects } from '@/components/product/CategorySelects';
 import { useCategories } from '@/lib/use-categories';
@@ -33,12 +33,18 @@ type Product = Schema<'ProductResponse'>;
 /** 경매 상품 목록 한 페이지에 보여 줄 상품 수 */
 const PRODUCT_PAGE_SIZE = 10;
 
+/** 상품 이름 검색어 최대 길이 (서버도 50자를 넘으면 COMMON_001로 거절한다) */
+const PRODUCT_KEYWORD_MAX_LENGTH = 50;
+
+/** 입력이 이만큼 멈추면 검색한다. (글자마다 요청하지 않게) */
+const PRODUCT_SEARCH_DELAY_MS = 300;
+
 /**
  * 경매 상품: 내 판매 중 상품 목록에서 [경매 시작] → 시작가·입찰 단위·진행 시간을 정해 방송 중 경매를 연다.
  * 미리 만든(시작 전·진행 중) 경매가 있는 상품은 [이 방송에 올리기]로 그 경매를 방송에 보여준다. (일정은 그대로)
  * [상품 등록]은 창으로 열어 스튜디오를 떠나지 않고 등록하고, 방송 중이면 그 상품의 경매 조건 입력을 바로 연다.
  * 경매가 없는 상품(내 상품에서 수정할 수 있는 상품)은 [수정]으로 창을 열어 바로 고친다. 삭제는 방송 중 실수를 막으려고 내 상품 화면에만 둔다.
- * 목록은 최신순으로 10개씩 페이지를 나누고, 카테고리(대분류를 고르면 그 아래 소분류까지)로 거를 수 있다.
+ * 목록은 최신순으로 10개씩 페이지를 나누고, 카테고리(대분류를 고르면 그 아래 소분류까지)와 상품 이름 검색어로 함께 거를 수 있다.
  */
 export function LiveAuctionProducts({ live, auctions }: { live: boolean; auctions: LiveAuctions }) {
   const [selected, setSelected] = useState<number>();
@@ -46,18 +52,39 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
   const [editingId, setEditingId] = useState<number>();
   const [page, setPage] = useState(0);
   const [categoryId, setCategoryId] = useState('');
+  // 입력창 값(searchInput)과 실제로 검색한 값(keyword)을 나눠, 입력이 멈춘 뒤에만 검색한다.
+  const [searchInput, setSearchInput] = useState('');
+  const [keyword, setKeyword] = useState('');
+  useEffect(() => {
+    // 앞뒤 공백은 서버도 무시하므로, 공백만 바뀌었으면 다시 검색하지 않는다.
+    const next = searchInput.trim();
+    if (next === keyword) return;
+    const timer = setTimeout(() => {
+      setKeyword(next);
+      setPage(0);
+      setSelected(undefined);
+    }, PRODUCT_SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput, keyword]);
   const categories = useCategories();
   const products = useQuery({
-    queryKey: ['products', 'mine', 'studio', { page, categoryId }],
+    queryKey: ['products', 'mine', 'studio', { page, categoryId, keyword }],
     queryFn: () =>
       call(
         api.GET('/api/v1/users/me/products', {
           params: {
-            query: { status: 'ACTIVE', categoryId: categoryId ? Number(categoryId) : undefined, page, size: PRODUCT_PAGE_SIZE, sort: ['createdAt,desc', 'id,desc'] },
+            query: {
+              status: 'ACTIVE',
+              categoryId: categoryId ? Number(categoryId) : undefined,
+              keyword: keyword || undefined,
+              page,
+              size: PRODUCT_PAGE_SIZE,
+              sort: ['createdAt,desc', 'id,desc'],
+            },
           },
         }),
       ),
-    // 페이지·카테고리를 바꾸는 동안 이전 목록을 그대로 두어 목록이 깜빡이지 않게 한다.
+    // 페이지·카테고리·검색어를 바꾸는 동안 이전 목록을 그대로 두어 목록이 깜빡이지 않게 한다.
     placeholderData: keepPreviousData,
   });
   const list = products.data?.content ?? [];
@@ -95,6 +122,17 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
               }}
             />
           </div>
+          <div className="w-[240px]">
+            <Input
+              label="상품 이름 검색"
+              hideLabel
+              type="search"
+              placeholder="상품 이름으로 찾기"
+              maxLength={PRODUCT_KEYWORD_MAX_LENGTH}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </div>
           {/* 카테고리를 못 불러오면 '전체 카테고리'만 남으므로, 이유와 다시 시도를 보여 준다. (목록은 전체로 계속 보인다) */}
           {categories.isError && (
             <div role="alert" className="flex items-center gap-2 text-label text-red-300">
@@ -116,7 +154,11 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
           <div className="flex items-center gap-4 rounded-md bg-neutral-25 px-4 py-4">
             <Gavel className="size-6 shrink-0 text-neutral-400" aria-hidden="true" />
             <p className="text-body text-neutral-700">
-              {categoryId ? '이 카테고리에는 판매 중인 상품이 없어요. 다른 카테고리를 골라 보세요.' : '경매에 올릴 판매 중인 상품이 없어요. [상품 등록]으로 바로 등록할 수 있어요.'}
+              {keyword
+                ? `‘${keyword}’이(가) 들어간 판매 중인 상품이 없어요.`
+                : categoryId
+                  ? '이 카테고리에는 판매 중인 상품이 없어요. 다른 카테고리를 골라 보세요.'
+                  : '경매에 올릴 판매 중인 상품이 없어요. [상품 등록]으로 바로 등록할 수 있어요.'}
             </p>
           </div>
         ) : (
@@ -152,8 +194,10 @@ export function LiveAuctionProducts({ live, auctions }: { live: boolean; auction
         live={live}
         onClose={() => setCreating(false)}
         onCreated={(productId) => {
-          // 새 상품은 최신순 첫 페이지 맨 위에 있으므로 거르기를 풀고 첫 페이지로 간다.
+          // 새 상품은 최신순 첫 페이지 맨 위에 있으므로 거르기(카테고리·검색어)를 풀고 첫 페이지로 간다.
           setCategoryId('');
+          setSearchInput('');
+          setKeyword('');
           setPage(0);
           if (live) setSelected(productId);
         }}
