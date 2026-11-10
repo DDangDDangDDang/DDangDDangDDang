@@ -86,7 +86,7 @@ variable "app_environment" {
   default = {
     MAIL_ENABLED               = "false"
     SMS_ENABLED                = "false"
-    CHAT_MODERATION_AI_ENABLED = "false"
+    CHAT_MODERATION_AI_ENABLED = "true"
   }
 }
 
