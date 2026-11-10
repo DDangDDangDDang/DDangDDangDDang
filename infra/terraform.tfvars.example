@@ -16,7 +16,7 @@ manage_dns_record = true
 app_environment = {
   MAIL_ENABLED               = "true"
   SMS_ENABLED                = "true"
-  CHAT_MODERATION_AI_ENABLED = "false"
+  CHAT_MODERATION_AI_ENABLED = "true"
   # 포트원 콘솔의 상점 ID (결제를 쓰지 않으면 빈 문자열)
   PORTONE_STORE_ID = ""
 }
