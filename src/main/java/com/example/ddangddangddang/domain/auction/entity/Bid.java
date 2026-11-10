@@ -23,7 +23,12 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "bids",
-        indexes = @Index(name = "idx_bids_auction_id", columnList = "auction_id, id")
+        indexes = {
+                @Index(name = "idx_bids_auction_id", columnList = "auction_id, id"),
+                // 입찰마다 이 경매의 최고 입찰(ACTIVE)을 OUTBID로 바꾼다 (BidRepository.changeStatus).
+                // 이 인덱스가 없으면 경매의 입찰 행을 전부 훑고 잠가, 입찰이 쌓일수록 느려지고 동시 입찰끼리 오래 기다린다
+                @Index(name = "idx_bids_auction_status", columnList = "auction_id, status")
+        }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Bid extends BaseTimeEntity {

@@ -1,5 +1,5 @@
 import type { Schema } from '@/api';
-import { fromDateTimeInput } from './datetime-input';
+import { fromDateTimeInput, seoulTimeMillis } from './datetime-input';
 import type { AuctionStatus } from './labels';
 
 /*
@@ -25,7 +25,7 @@ export const AUCTION_PHASE_LABEL: Record<AuctionPhase, string> = {
 
 export function auctionPhase(auction: { status?: AuctionStatus; endAt?: string }, now: Date): AuctionPhase | undefined {
   if (!auction.status) return undefined;
-  if (auction.status === 'ONGOING' && auction.endAt && new Date(auction.endAt) <= now) return 'CLOSING';
+  if (auction.status === 'ONGOING' && auction.endAt && seoulTimeMillis(auction.endAt) <= now.getTime()) return 'CLOSING';
   return auction.status;
 }
 
@@ -61,7 +61,8 @@ export function featuredAuctions<T extends { id?: number; status?: AuctionStatus
 /** 서버 시각까지 남은 초 (지났으면 0) */
 export function secondsUntil(serverTime: string | undefined, now: Date): number {
   if (!serverTime) return 0;
-  return Math.max(0, Math.floor((new Date(serverTime).getTime() - now.getTime()) / 1000));
+  // 서버 시각은 시간대 없는 서울 시각이라 브라우저 시간대와 상관없이 서울 시각으로 읽는다
+  return Math.max(0, Math.floor((seoulTimeMillis(serverTime) - now.getTime()) / 1000));
 }
 
 /** 고른 카테고리 id가 속한 대분류. 대분류 id면 그 대분류, 비었거나 없는 id면 undefined */
@@ -121,6 +122,13 @@ export function durationLabel(seconds: number): string {
   return `${seconds / DAY}일`;
 }
 
+/** 경매 금액(시작가·입찰 단위·즉시구매가) 상한. 서버 Auction.MAX_PRICE와 같다 */
+export const MAX_AUCTION_PRICE = 100_000_000;
+/** 일반 경매(시작·마감 시각을 정하는 경매) 진행 시간 범위와 시작 시각 상한. 서버 Auction.MIN_DURATION·MAX_DURATION·MAX_START_AHEAD와 같다 */
+export const MIN_SCHEDULED_DURATION_MS = MINUTE * 1000;
+export const MAX_SCHEDULED_DURATION_MS = 14 * DAY * 1000;
+export const MAX_START_AHEAD_MS = 30 * DAY * 1000;
+
 /** 경매 조건 입력. 금액은 입력 문자열, 시각은 datetime-local 값 */
 export type AuctionConditionValues = {
   /** 즉시구매만 판매: 켜면 시작가·최소 입찰 단위 없이 즉시구매가로만 판다 (서버에는 두 값을 빼고 보낸다) */
@@ -138,7 +146,7 @@ export const EMPTY_AUCTION_CONDITION: AuctionConditionValues = { buyNowOnly: fal
 
 /**
  * 경매 조건을 검사한다. schedule은 시작·마감 시각을 정하는 경매, live는 방송 중에 바로 시작하는 경매.
- * (서버도 같은 규칙으로 다시 검사한다: 금액 양수, 즉시구매가 > 시작가, 시각은 미래·마감 > 시작)
+ * (서버도 같은 규칙으로 다시 검사한다: 금액 양수·1억 원 이하, 즉시구매가 > 시작가, 시각은 미래·마감 > 시작, 진행 1분~14일, 시작은 30일 이내)
  */
 export function validateAuctionCondition(values: AuctionConditionValues, mode: 'schedule' | 'live', now: Date): AuctionConditionErrors {
   const errors: AuctionConditionErrors = {};
@@ -149,21 +157,29 @@ export function validateAuctionCondition(values: AuctionConditionValues, mode: '
   if (values.buyNowOnly) {
     if (buyNowPrice === undefined) errors.buyNowPrice = '즉시구매만 판매하려면 즉시구매가를 입력해 주세요.';
     else if (buyNowPrice === 0) errors.buyNowPrice = '즉시구매가는 0원일 수 없어요.';
+    else if (buyNowPrice > MAX_AUCTION_PRICE) errors.buyNowPrice = tooHigh('즉시구매가');
   } else {
     const startError = amountError(values.startPrice, '시작가');
     const unitError = amountError(values.bidUnit, '최소 입찰 단위');
     if (startError) errors.startPrice = startError;
     if (unitError) errors.bidUnit = unitError;
-    if (buyNowPrice !== undefined && startPrice && buyNowPrice <= startPrice) errors.buyNowPrice = '즉시구매가는 시작가보다 커야 해요.';
+    if (buyNowPrice !== undefined && buyNowPrice > MAX_AUCTION_PRICE) errors.buyNowPrice = tooHigh('즉시구매가');
+    else if (buyNowPrice !== undefined && startPrice && buyNowPrice <= startPrice) errors.buyNowPrice = '즉시구매가는 시작가보다 커야 해요.';
   }
 
   if (mode === 'schedule') {
-    const startAt = values.startAt ? new Date(values.startAt) : undefined;
-    const endAt = values.endAt ? new Date(values.endAt) : undefined;
+    // 입력값은 서울 시각이다. 브라우저 시간대로 읽으면 해외 시간대(서머타임 등)에서 기간이 서버와 다르게 계산된다
+    const startAt = values.startAt ? new Date(seoulTimeMillis(`${values.startAt}:00`)) : undefined;
+    const endAt = values.endAt ? new Date(seoulTimeMillis(`${values.endAt}:00`)) : undefined;
     if (!startAt) errors.startAt = '시작 시각을 정해 주세요.';
     else if (startAt <= now) errors.startAt = '시작 시각은 지금 이후로 정해 주세요.';
+    else if (startAt.getTime() - now.getTime() > MAX_START_AHEAD_MS) errors.startAt = '시작 시각은 30일 이내로 정해 주세요.';
     if (!endAt) errors.endAt = '마감 시각을 정해 주세요.';
     else if (startAt && endAt <= startAt) errors.endAt = '마감 시각은 시작 시각보다 뒤여야 해요.';
+    else if (startAt) {
+      const duration = endAt.getTime() - startAt.getTime();
+      if (duration < MIN_SCHEDULED_DURATION_MS || duration > MAX_SCHEDULED_DURATION_MS) errors.endAt = '경매는 1분 이상 14일 이내로 진행할 수 있어요.';
+    }
   } else if (!LIVE_AUCTION_DURATIONS.includes(Number(values.durationSec) as (typeof LIVE_AUCTION_DURATIONS)[number])) {
     errors.durationSec = '진행 시간을 선택해 주세요.';
   }
@@ -198,7 +214,12 @@ function amountError(raw: string, label: string): string | undefined {
   const amount = parseAmount(raw);
   if (amount === 0) return `${label}는 0원일 수 없어요.`;
   if (!amount) return `${label}를 입력해 주세요.`;
+  if (amount > MAX_AUCTION_PRICE) return tooHigh(label);
   return undefined;
+}
+
+function tooHigh(label: string): string {
+  return `${label}는 1억 원까지 정할 수 있어요.`;
 }
 
 /**

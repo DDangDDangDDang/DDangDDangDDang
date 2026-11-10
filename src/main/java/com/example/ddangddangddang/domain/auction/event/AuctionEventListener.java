@@ -30,7 +30,9 @@ public class AuctionEventListener {
 
     @TransactionalEventListener
     public void handleBidPlaced(BidPlacedEvent event) {
-        broadcast(event.auctionId(), AuctionRealtimeMessage.BidPlaced.of(event, NicknameMasker.mask(nickname(event.bidderId()))));
+        // 닉네임은 보통 이벤트에 들어 있다 (로그인 토큰). 없을 때만 DB에서 찾는다
+        String nickname = event.bidderNickname() != null ? event.bidderNickname() : nickname(event.bidderId());
+        broadcast(event.auctionId(), AuctionRealtimeMessage.BidPlaced.of(event, NicknameMasker.mask(nickname)));
     }
 
     @TransactionalEventListener

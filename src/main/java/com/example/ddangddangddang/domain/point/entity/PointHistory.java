@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.ColumnDefault;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -53,6 +54,14 @@ public class PointHistory extends BaseTimeEntity {
     @Column(nullable = false)
     private Long refId;
 
+    /**
+     * 구매(PURCHASE) 금액 중 번 포인트로 낸 몫. 주문이 취소되면 이만큼을 번 포인트(환전 가능)로 돌려준다.
+     * 다른 종류의 내역은 0이다.
+     */
+    @ColumnDefault("0")
+    @Column(nullable = false)
+    private long earnedPortion;
+
     private PointHistory(Long walletId, PointHistoryType type, long amount, long balanceAfter,
                          long heldBalanceAfter, PointReferenceType refType, Long refId) {
         this.walletId = walletId;
@@ -68,5 +77,12 @@ public class PointHistory extends BaseTimeEntity {
                                   PointReferenceType refType, Long refId) {
         return new PointHistory(wallet.getId(), type, amount, wallet.getBalance(),
                 wallet.getHeldBalance(), refType, refId);
+    }
+
+    /** 구매 내역: 번 포인트로 낸 몫을 함께 남긴다. */
+    public static PointHistory purchase(PointWallet wallet, long amount, long earnedPortion, Long auctionId) {
+        PointHistory history = of(wallet, PointHistoryType.PURCHASE, amount, PointReferenceType.AUCTION, auctionId);
+        history.earnedPortion = earnedPortion;
+        return history;
     }
 }

@@ -260,7 +260,7 @@ class PointServiceTest {
         given(pointWalletRepository.findByUserIdForUpdate(10L)).willReturn(Optional.of(wallet));
         given(pointHistoryRepository.save(any(PointHistory.class))).willAnswer(call -> call.getArgument(0));
 
-        pointService.refundOrder(10L, 5_000L, 77L);
+        pointService.refundOrder(10L, 5_000L, 77L, 300L);
 
         assertThat(wallet.getBalance()).isEqualTo(6_000L);
         org.mockito.ArgumentCaptor<PointHistory> history = org.mockito.ArgumentCaptor.forClass(PointHistory.class);
@@ -279,7 +279,7 @@ class PointServiceTest {
         given(pointWalletRepository.findByUserIdForUpdate(10L)).willReturn(Optional.of(buyer));
         given(pointHistoryRepository.save(any(PointHistory.class))).willAnswer(call -> call.getArgument(0));
 
-        pointService.cancelWin(10L, 100_000L, 5L, 10_000L, 77L);
+        pointService.cancelWin(10L, 100_000L, 5L, 10_000L, 77L, 300L);
 
         assertThat(buyer.getBalance()).isEqualTo(90_000L);
         assertThat(seller.getBalance()).isEqualTo(10_000L);
@@ -302,11 +302,30 @@ class PointServiceTest {
         given(pointWalletRepository.findByUserIdForUpdate(10L)).willReturn(Optional.of(buyer));
         given(pointHistoryRepository.save(any(PointHistory.class))).willAnswer(call -> call.getArgument(0));
 
-        pointService.cancelWin(10L, 100_000L, 5L, 0L, 77L);
+        pointService.cancelWin(10L, 100_000L, 5L, 0L, 77L, 300L);
 
         assertThat(buyer.getBalance()).isEqualTo(100_000L);
         verify(pointWalletRepository, never()).findByUserIdForUpdate(5L);
         verify(pointHistoryRepository, times(1)).save(any(PointHistory.class));
+    }
+
+    @Test
+    @DisplayName("주문 취소 환불은 그 경매 구매 때 번 포인트로 낸 몫을 환전할 수 있는 포인트로 돌려준다")
+    void refundOrder_restoresEarnedPortionFromPurchaseHistory() {
+        PointWallet wallet = walletWithBalance(1L, 10L, 0L);
+        PointWallet buyer = walletWithBalance(1L, 10L, 10_000L);
+        ReflectionTestUtils.setField(buyer, "earnedBalance", 10_000L);
+        long earnedPortion = buyer.purchase(10_000L);
+        PointHistory purchase = PointHistory.purchase(buyer, 10_000L, earnedPortion, 300L);
+        given(pointWalletRepository.findByUserIdForUpdate(10L)).willReturn(Optional.of(wallet));
+        given(pointHistoryRepository.findFirstByWalletIdAndTypeAndRefTypeAndRefIdOrderByIdDesc(
+                1L, PointHistoryType.PURCHASE, PointReferenceType.AUCTION, 300L)).willReturn(Optional.of(purchase));
+        given(pointHistoryRepository.save(any(PointHistory.class))).willAnswer(call -> call.getArgument(0));
+
+        pointService.refundOrder(10L, 10_000L, 77L, 300L);
+
+        assertThat(purchase.getEarnedPortion()).isEqualTo(10_000L);
+        assertThat(wallet.getExchangeableBalance()).isEqualTo(10_000L);
     }
 
     private PointWallet walletWithBalance(Long walletId, Long userId, long balance) {

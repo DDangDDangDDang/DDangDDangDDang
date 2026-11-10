@@ -1,5 +1,7 @@
 package com.example.ddangddangddang.domain.seller.dto;
 
+import com.example.ddangddangddang.domain.hammer.entity.HammerGrade;
+
 import java.time.LocalDateTime;
 
 /**
@@ -14,6 +16,7 @@ import java.time.LocalDateTime;
  * - 방송: firstBroadcastAt(첫 방송 시작, 방송한 적 없으면 null), broadcastCount(시작한 방송 수), totalBroadcastSeconds(방송한 시간 합, 방송 중이면 지금까지)
  * - powerSeller: 마일리지 상점에서 파워 판매자를 샀는지 (영구, 프로필에 파워 판매자 배지)
  * - 신뢰 지표(trust): 판매자를 믿을 수 있는지 판단할 자료
+ * - hammerGrade: 최근 12개월 거래 기록으로 정한 망치 등급 (단계만 보여 주고 점수는 내보내지 않는다)
  */
 public record SellerProfileResponse(
         Long sellerId,
@@ -35,7 +38,8 @@ public record SellerProfileResponse(
         LocalDateTime firstBroadcastAt,
         long broadcastCount,
         long totalBroadcastSeconds,
-        Trust trust
+        Trust trust,
+        HammerGrade hammerGrade
 ) {
     /**
      * - soldAuctionCount: 낙찰된 경매 수, failedAuctionCount: 입찰 없이 끝난(유찰) 경매 수, canceledAuctionCount: 판매자가 취소한 경매 수

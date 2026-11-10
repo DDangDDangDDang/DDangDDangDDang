@@ -17,13 +17,14 @@ import java.util.Optional;
 public interface ProductRepository extends JpaRepository<Product, Long> {
     //상품 조회: 삭제된 상품 제외 조회
     Optional<Product> findByIdAndStatusNot(Long id, Status status);
-    // 내 판매 상품 조회 + 상태·카테고리 거르기 (스튜디오 경매 상품 목록). status가 null이면 상태 무관, allCategories면 카테고리 무관
+    // 내 판매 상품 조회 + 상태·카테고리·이름 거르기 (스튜디오 경매 상품 목록). status가 null이면 상태 무관, allCategories면 카테고리 무관, pattern이 null이면 이름 무관
     @Query("select p from Product p where p.seller.id = :sellerId and p.status <> :deleted"
             + " and (:status is null or p.status = :status)"
-            + " and (:allCategories = true or p.category.id in :categoryIds)")
+            + " and (:allCategories = true or p.category.id in :categoryIds)"
+            + " and (:pattern is null or lower(p.name) like :pattern escape '!')")
     Page<Product> findMine(@Param("sellerId") Long sellerId, @Param("deleted") Status deleted, @Param("status") Status status,
                            @Param("allCategories") boolean allCategories, @Param("categoryIds") List<Long> categoryIds,
-                           Pageable pageable);
+                           @Param("pattern") String pattern, Pageable pageable);
     // 이미지 삭제 전 확인 : 이 판매자의 다른 상품(삭제·판매 포함) 갤러리가 이 키를 쓰는지
     @Query("select count(p) > 0 from Product p join p.imageKeys k"
             + " where p.seller.id = :sellerId and p.id <> :productId and k = :key")

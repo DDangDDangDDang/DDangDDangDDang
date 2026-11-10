@@ -112,4 +112,15 @@ public interface AuctionRepository extends JpaRepository<Auction,Long>,AuctionRe
     추후 같은 상품 올리시 시작가 정하는데 참고용*/
     @EntityGraph(attributePaths ={"product","product.seller","liveStream"})
     List<Auction> findTop50ByProductIdOrderByIdDesc(Long productId);
+
+    /**
+     * 조회수를 DB에 적는다 (스케줄러만 쓴다)
+     * 조회수를 바꾸는 방법은 이 쿼리 하나뿐이다
+     * 경매 시작,마감,취소처럼 경매를 읽어서 저장하는 코드는 조회수 칸을 건드리지 못하게 막아둔다.
+     * 막지 않으면 읽어 둔 옛날 조회수로 스케줄러가 적은 값을 덮어쓰기 때문이다
+     * Redis에 쌓인 만큼 더한다. 덮어쓰지 않으므로 Redis가 비워져도 DB 조회수는 줄거나 멈추지 않는다.*/
+    @Modifying
+    @Query("update Auction a set a.viewCount = a.viewCount + :addedCount where a.id = :auctionId")
+    int addViewCount(@Param("auctionId") Long auctionId, @Param("addedCount") long addedCount);
+
 }

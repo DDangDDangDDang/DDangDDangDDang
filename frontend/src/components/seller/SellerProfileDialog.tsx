@@ -24,6 +24,7 @@ import { satisfactionLabel } from '@/lib/review';
 import { useInfiniteScroll } from '@/lib/use-infinite-scroll';
 import { useNow } from '@/lib/use-now';
 import { useSellerProfile } from '@/lib/use-seller';
+import { HammerGradeBadge } from './HammerGradeBadge';
 import { SellerAvatar } from './SellerAvatar';
 import { SellerReviewsTab } from './SellerReviewsTab';
 import { SubscribeButton } from './SubscribeButton';
@@ -86,6 +87,7 @@ function ProfileHeader({ profile, sellerId, onNavigate }: { profile: Profile; se
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <strong className="text-title-md font-bold">{profile.nickname || '판매자'}</strong>
+          <HammerGradeBadge grade={profile.hammerGrade} />
           {profile.verifiedSeller && (
             <Badge variant="info">
               <ShieldCheck className="size-3.5" aria-hidden="true" />

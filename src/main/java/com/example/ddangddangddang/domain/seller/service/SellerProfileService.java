@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.seller.service;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.donation.service.DonationTrust;
 import com.example.ddangddangddang.domain.donation.service.PowerSellers;
+import com.example.ddangddangddang.domain.hammer.service.HammerGradeService;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.entity.SellerAuctionTab;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
@@ -56,6 +57,8 @@ public class SellerProfileService {
     private final DonationTrust donationTrust;
     // 리뷰 도메인의 값을 읽기만 하낟.(구매자 만족도)
     private final ReviewRepository reviewRepository;
+    // 망치 등급 (거래 신뢰도 단계)
+    private final HammerGradeService hammerGradeService;
 
     /** @param viewerId 보는 사람 (로그인하지 않았으면 null) */
     public SellerProfileResponse getProfile(Long sellerId, Long viewerId) {
@@ -102,7 +105,8 @@ public class SellerProfileService {
                         donation.windowDays(),
                         averageRating(reviewRepository.findAverageRatingBySellerId(sellerId)),
                         reviewRepository.countBySellerId(sellerId)
-                )
+                ),
+                hammerGradeService.gradeOf(sellerId)
         );
     }
 

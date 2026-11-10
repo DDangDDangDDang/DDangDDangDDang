@@ -16,4 +16,8 @@ describe('productSaleState', () => {
     expect(productSaleState({ status: 'ACTIVE', auctionId: 1, auctionStatus: 'FAILED' })).toEqual({ label: '유찰', variant: 'warning', editable: true });
     expect(productSaleState({ status: 'ACTIVE', auctionId: 1, auctionStatus: 'CANCELED' })).toEqual({ label: '취소됨', variant: 'neutral', editable: true });
   });
+
+  it('낙찰 뒤 거래가 취소돼 판매 중으로 돌아온 상품은 거래 취소됨이고 수정·삭제할 수 있다', () => {
+    expect(productSaleState({ status: 'ACTIVE', auctionId: 1, auctionStatus: 'ENDED' })).toEqual({ label: '거래 취소됨', variant: 'neutral', editable: true });
+  });
 });

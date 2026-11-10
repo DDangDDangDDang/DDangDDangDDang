@@ -234,6 +234,61 @@ class AuthControllerTest {
     }
 
     @Nested
+    @DisplayName("회원가입 이메일 인증")
+    class SignupEmail {
+
+        @Test
+        @DisplayName("로그인하지 않고 인증번호를 받고 확인하면 가입에 쓸 인증 토큰을 준다")
+        void sendAndVerify() throws Exception {
+            given(verificationService.issueCode(VerificationPurpose.SIGNUP_EMAIL, "new@test.com")).willReturn("123456");
+            given(verificationService.verifyCode(VerificationPurpose.SIGNUP_EMAIL, "new@test.com", "123456")).willReturn("email-token");
+
+            mockMvc.perform(post("/api/v1/auth/signup/email/code")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"email": "new@test.com"}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.expiresIn").value(300));
+
+            mockMvc.perform(post("/api/v1/auth/signup/email/verify")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"email": "new@test.com", "code": "123456"}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.verificationToken").value("email-token"));
+        }
+
+        @Test
+        @DisplayName("이미 가입된 이메일이면 409 USER_001")
+        void duplicateEmail() throws Exception {
+            signup("used@test.com", "Abcd1234!", "가입회원");
+
+            mockMvc.perform(post("/api/v1/auth/signup/email/code")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"email": "used@test.com"}
+                                    """))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.error.code").value("USER_001"));
+        }
+
+        @Test
+        @DisplayName("이메일 인증 없이 가입하면 400")
+        void signupWithoutEmailVerification() throws Exception {
+            mockMvc.perform(post("/api/v1/auth/signup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"email": "user@test.com", "password": "Abcd1234!", "nickname": "경매왕",
+                                     "phoneNumber": "01012345678", "phoneVerificationToken": "verified:01012345678"}
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+        }
+    }
+
+    @Nested
     @DisplayName("회원가입 휴대폰 인증")
     class SignupPhone {
 
@@ -334,7 +389,8 @@ class AuthControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"email": "user@test.com", "password": "Abcd1234!", "nickname": "경매왕",
-                                     "phoneNumber": "01012345678", "phoneVerificationToken": "verified:01099999999"}
+                                     "phoneNumber": "01012345678", "phoneVerificationToken": "verified:01099999999",
+                                     "emailVerificationToken": "verified:user@test.com"}
                                     """))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("VERIFY_004"));

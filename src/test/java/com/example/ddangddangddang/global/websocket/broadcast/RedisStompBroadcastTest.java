@@ -115,11 +115,13 @@ class RedisStompBroadcastTest {
 
         // 구독 등록과 전송이 서버에서 서로 다른 스레드로 처리될 수 있어서, 받을 때까지 내용을 바꿔 가며 다시 보낸다.
         // 실제 Redis의 도배 제한(5초에 5개)에 걸리지 않게 1초 간격으로 보낸다.
+        // 1초 안에 못 받아 다시 보냈는데 앞서 보낸 메시지가 늦게 도착할 수 있어, 받은 메시지가 보낸 것 중 하나인지 본다.
         Map<String, Object> received = null;
-        String content = null;
+        List<String> sent = new ArrayList<>();
         for (int attempt = 1; attempt <= 4 && received == null; attempt++) {
-            content = "안녕하세요-" + attempt;
-            sender.send("/app/live-streams/" + liveStreamId + "/chat", Map.of("content", content));
+            String attemptContent = "안녕하세요-" + attempt;
+            sent.add(attemptContent);
+            sender.send("/app/live-streams/" + liveStreamId + "/chat", Map.of("content", attemptContent));
             received = server2Messages.poll(1, TimeUnit.SECONDS);
         }
 
@@ -127,7 +129,8 @@ class RedisStompBroadcastTest {
         assertThat(received.get("type")).isEqualTo("CHAT");
         assertThat(received.get("senderId")).isEqualTo(1);
         assertThat(received.get("nickname")).isEqualTo("회원1");
-        assertThat(received.get("content")).isEqualTo(content);
+        assertThat(sent).contains((String) received.get("content"));
+        String content = (String) received.get("content");
 
         // 보낸 서버의 구독자도 같은 메시지를 정확히 한 번 받는다. (직접 전송 + Redis 수신으로 두 번 받지 않는다)
         assertThat(countContent(server1Messages, content)).isEqualTo(1);

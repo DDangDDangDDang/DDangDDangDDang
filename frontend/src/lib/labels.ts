@@ -11,6 +11,7 @@ export type Courier = NonNullable<Schema<'OrderResponse'>['courier']>;
 
 export const POINT_HISTORY_LABEL: Record<PointHistoryType, string> = {
   CHARGE: '충전',
+  CHARGE_CANCEL: '충전 결제 취소',
   HOLD: '입찰(묶임)',
   RELEASE: '입찰 해제',
   PURCHASE: '낙찰·구매',
@@ -26,6 +27,7 @@ export const POINT_HISTORY_LABEL: Record<PointHistoryType, string> = {
 /** 사용 가능 포인트 기준으로 늘어나는(+) 종류인지. 묶임·구매·환전은 줄어든다(−). */
 export const POINT_HISTORY_INCREASES: Record<PointHistoryType, boolean> = {
   CHARGE: true,
+  CHARGE_CANCEL: false,
   HOLD: false,
   RELEASE: true,
   PURCHASE: false,
@@ -50,6 +52,51 @@ export type OrderCancelReason = NonNullable<Schema<'OrderResponse'>['cancelReaso
 export const ORDER_CANCEL_REASON_LABEL: Record<OrderCancelReason, string> = {
   BUYER_NO_ADDRESS: '낙찰취소',
   SELLER_NOT_SHIPPED: '제품 미발송',
+};
+
+export type OrderIssueType = NonNullable<Schema<'OrderResponse'>['issueType']>;
+
+/** 구매자가 신고하는 문제 종류 */
+export const ORDER_ISSUE_TYPE_LABEL: Record<OrderIssueType, string> = {
+  NOT_RECEIVED: '상품을 받지 못했어요',
+  WRONG_ITEM: '주문한 상품과 달라요',
+  DAMAGED: '상품이 파손됐어요',
+  OTHER: '기타',
+};
+
+export type OrderReviewReason = NonNullable<Schema<'OrderResponse'>['reviewReason']>;
+
+/** 자동 구매 확정이 멈추고 관리자가 확인하는 이유 */
+export const ORDER_REVIEW_REASON_LABEL: Record<OrderReviewReason, string> = {
+  BUYER_REPORTED: '구매자 문제 신고',
+  TRACKING_NOT_FOUND: '송장 조회 안 됨',
+  TRACKING_NOT_DELIVERED: '배송 완료 안 됨',
+  TRACKING_UNAVAILABLE: '배송 조회 장애',
+};
+
+export type HammerGrade = NonNullable<Schema<'SellerProfileResponse'>['hammerGrade']>;
+
+export const HAMMER_GRADE_LABEL: Record<HammerGrade, string> = {
+  NEWBIE: '새 망치',
+  WOOD: '나무 망치',
+  STONE: '돌 망치',
+  SILVER: '은 망치',
+  GOLD: '금 망치',
+  DIAMOND: '다이아 망치',
+};
+
+export type SanctionType = NonNullable<Schema<'SanctionResponse'>['type']>;
+
+/** 관리자 화면에 쓰는 짧은 이름 */
+export const SANCTION_TYPE_LABEL: Record<SanctionType, string> = {
+  BID_BAN: '입찰 정지',
+  LISTING_BAN: '경매 등록 정지',
+};
+
+/** 정지를 부른 본인 책임 취소 */
+export const SANCTION_CAUSE_LABEL: Record<SanctionType, string> = {
+  BID_BAN: '배송지 미입력 낙찰취소',
+  LISTING_BAN: '미발송 판매 취소',
 };
 
 export const COURIER_LABEL: Record<Courier, string> = {

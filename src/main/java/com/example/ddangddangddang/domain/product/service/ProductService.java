@@ -3,6 +3,7 @@ package com.example.ddangddangddang.domain.product.service;
 import com.example.ddangddangddang.domain.auction.entity.Auction;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
+import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.exception.CategoryErrorCode;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
@@ -19,17 +20,17 @@ import com.example.ddangddangddang.domain.user.entity.User;
 import com.example.ddangddangddang.domain.user.exception.UserErrorCode;
 import com.example.ddangddangddang.domain.user.repository.UserRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import com.example.ddangddangddang.global.storage.FileStorage;
+import com.example.ddangddangddang.domain.seller.service.SellerVerification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+
 
 @RequiredArgsConstructor
 @Service
@@ -39,8 +40,13 @@ public class ProductService {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final AuctionRepository auctionRepository;
+    private final OrderRepository orderRepository;
     private final ProductImageResolver imageResolver;
     private final FileStorage fileStorage;
+    private final SellerVerification sellerVerification;
+    private static final char LIKE_ESCAPE = '!';
+    // 상품 이름 최대 길이(50)와 같다. 방송 검색(LiveStreamListService)과 같은 규칙
+    static final int MAX_KEYWORD_LENGTH = 50;
 
     //상품 상세 조회(삭제된 상품은 제외)
     @Transactional(readOnly = true)
@@ -53,22 +59,22 @@ public class ProductService {
     }
 
     //내 상품 조회(삭제된 상품은 제외) + 상품 마다 경매 상태
-    //status: 이 상태만(없으면 전부), categoryId: 이 카테고리만(대분류면 그 아래 소분류까지, 없으면 전부)
+    //status: 이 상태만(없으면 전부), categoryId: 이 카테고리만(대분류면 그 아래 소분류까지, 없으면 전부), keyword: 상품 이름에 이 글자가 들어간 것만(없으면 전부)
     @Transactional(readOnly = true)
-    public Page<ProductResponse> myProducts(Long sellerId, Long categoryId, Status status, Pageable pageable) {
+    public Page<ProductResponse> myProducts(Long sellerId, Long categoryId, Status status,String keyword, Pageable pageable) {
         // 거르지 않을 때도 IN 목록이 비지 않게 쓰지 않는 값 하나를 넣는다. (allCategories가 참이면 보지 않는다)
         List<Long> categoryIds = categoryId == null ? List.of(-1L) : categoryWithChildren(categoryId);
-        Page<Product> products = productRepository.findMine(sellerId, Status.DELETED, status, categoryId == null, categoryIds, pageable);
+        Page<Product> products = productRepository.findMine(sellerId, Status.DELETED, status, categoryId == null, categoryIds,toNamePattern(keyword), pageable);
 
         //이번 페이지 상품들의 id만 모으기
         List<Long> productIds = products.getContent().stream().map(Product::getId).toList();
 
         //상품별 최근 경매 : 상품마다 최신 경매 id 조회 ->그 id 경매만 조회
         HashMap<Long, Auction> latestAuctions = new HashMap<>();
-        if (!productIds.isEmpty()){
+        if (!productIds.isEmpty()) {
             List<Long> latestIds = auctionRepository.findLatestIdsByProductIds(productIds);
-            for (Auction auction : auctionRepository.findAllById(latestIds)){
-                latestAuctions.put(auction.getProduct().getId(),auction);
+            for (Auction auction : auctionRepository.findAllById(latestIds)) {
+                latestAuctions.put(auction.getProduct().getId(), auction);
             }
         }
         return products.map(product -> ProductResponse.from(product, latestAuctions.get(product.getId()), fileStorage::publicUrl));
@@ -80,8 +86,23 @@ public class ProductService {
         return imageResolver.createUpload(sellerId, request.contentType(), request.contentLength());
     }
 
-    //상품 생성(하위 카테고리 내에서만 생성(대분류에는 등록X))
+    //상품 생성(하위 카테고리 내에서만 생성(대분류에는 등록X)). 판매자 인증(관리자 승인)을 받은 회원만 등록할 수 있다
     public ProductResponse creation(Long sellerId, ProductRequest request) {
+        if (!sellerVerification.isVerified(sellerId)) {
+            throw new BusinessException(ProductErrorCode.NOT_VERIFIED_SELLER);
+        }
+        return create(sellerId, request);
+    }
+
+    /**
+     * 방송 봇의 상품 등록 (LiveBotSellingService 전용). 봇 계정은 관리자가 만들고 운영해 판매자 인증이 없으므로 인증을 보지 않는다.
+     * 회원 요청에서는 부르지 않는다.
+     */
+    public ProductResponse creationAsBot(Long botUserId, ProductRequest request) {
+        return create(botUserId, request);
+    }
+
+    private ProductResponse create(Long sellerId, ProductRequest request) {
         User seller = userRepository.findById(sellerId).orElseThrow(
                 () -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
         Category category = findCategory(request.categoryId());
@@ -107,8 +128,13 @@ public class ProductService {
             throw new BusinessException(ProductErrorCode.NOT_OWNER);
         }
 
+        // 판매 완료된 상품은 주문,경매 이력이 이상품 정보를 보여 주므로 수정하지 않는다(화면도 판매 완료는 수정 불가)
+        if (product.getStatus() == Status.SOLD) {
+            throw new BusinessException(ProductErrorCode.SOLD_PRODUCT_NOT_EDITABLE);
+        }
+
         // 진행 OR 대기 중 경매 있을시
-        if (auctionRepository.existsByProductIdAndStatusIn(product.getId(), List.of(AuctionStatus.READY,AuctionStatus.ONGOING))){
+        if (auctionRepository.existsByProductIdAndStatusIn(product.getId(), List.of(AuctionStatus.READY, AuctionStatus.ONGOING))) {
             throw new BusinessException(ProductErrorCode.IN_AUCTION);
         }
 
@@ -133,15 +159,16 @@ public class ProductService {
         if (imageKeys != null) {
             product.changeImages(imageKeys);
         }
-        // 판매된 상품은 주문이 대표 이미지 주소를 그대로 들고 있어 빠진 이미지도 지우지 않는다.
-        if (product.getStatus() != Status.SOLD) {
-            // 같은 판매자가 한 키를 다른 상품에도 넣었을 수 있으므로, 다른 상품이 쓰는 키는 지우지 않는다.
-            imageResolver.deleteRemovedImagesAfterCommit(sellerId, before,
-                    ProductImageResolver.usedKeys(product.getImageKeys(), product.getDescription()),
-                    key -> productRepository.existsImageKeyInOtherProduct(sellerId, product.getId(), key)
-                            || productRepository.existsKeyInOtherDescription(sellerId, product.getId(), key));
-        }
 
+        // 수정하면서 지운 이미지는 저장소에서도 지운다.
+        // 같은 사진을 내 다른 상품에서도 쓰고 있을시 저장소에서는 지우지를 않는다.
+        // 주문이 대표 이미지 주소를 들고 있는 사진도 지우지 않는다. 팔린 상품은 위에서 수정을 막지만,
+        // 낙찰이 취소되어 다시 판매 중이 된 상품은 수정할 수 있고 취소된 주문 내역에 그 사진이 계속 보이기 때문이다.
+        imageResolver.deleteRemovedImagesAfterCommit(sellerId, before,
+                ProductImageResolver.usedKeys(product.getImageKeys(), product.getDescription()),
+                key -> productRepository.existsImageKeyInOtherProduct(sellerId, product.getId(), key)
+                        || productRepository.existsKeyInOtherDescription(sellerId, product.getId(), key)
+                        || orderRepository.existsBySellerIdAndProductImageUrlEndingWith(sellerId, "/" + key));
         return ProductResponse.from(product, fileStorage::publicUrl);
 
     }
@@ -178,5 +205,24 @@ public class ProductService {
             throw new BusinessException(ProductErrorCode.IN_AUCTION);
         }
         product.delete();
+    }
+
+    // 검색어가 없거나 공백이면 이름으로 거르지 않는다(null). 50자를 넘으면 거부하고, %·_·! 는 글자 그대로 찾도록 escape 한다.
+    private static String toNamePattern(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        if (trimmed.length() > MAX_KEYWORD_LENGTH) {
+            throw new BusinessException(CommonErrorCode.INVALID_INPUT, "검색어는 " + MAX_KEYWORD_LENGTH + "자 이하로 입력해 주세요.");
+        }
+        StringBuilder escaped = new StringBuilder();
+        for (char c : trimmed.toLowerCase(Locale.ROOT).toCharArray()) {
+            if (c == '%' || c == '_' || c == LIKE_ESCAPE) {
+                escaped.append(LIKE_ESCAPE);
+            }
+            escaped.append(c);
+        }
+        return "%" + escaped + "%";
     }
 }

@@ -11,7 +11,9 @@ import { AdsAdminPage } from '@/pages/admin/AdsAdminPage';
 import { LiveBotsAdminPage } from '@/pages/admin/LiveBotsAdminPage';
 import { LiveBotSellingPage } from '@/pages/admin/LiveBotSellingPage';
 import { DmReportsPage } from '@/pages/admin/DmReportsPage';
+import { OrderReviewsAdminPage } from '@/pages/admin/OrderReviewsAdminPage';
 import { PointExchangesAdminPage } from '@/pages/admin/PointExchangesAdminPage';
+import { SanctionsAdminPage } from '@/pages/admin/SanctionsAdminPage';
 import { SellerApplicationsPage } from '@/pages/admin/SellerApplicationsPage';
 import { AuctionDetailPage } from '@/pages/auctions/AuctionDetailPage';
 import { AuctionListPage } from '@/pages/auctions/AuctionListPage';
@@ -100,6 +102,8 @@ export const router = createBrowserRouter([
           // 관리자 (역할은 화면 안에서 확인하고, 서버도 ADMIN만 허용한다)
           { path: '/admin/categories', element: <CategoryAdminPage /> },
           { path: '/admin/dm-reports', element: <DmReportsPage /> },
+          { path: '/admin/order-reviews', element: <OrderReviewsAdminPage /> },
+          { path: '/admin/sanctions', element: <SanctionsAdminPage /> },
           { path: '/admin/seller-applications', element: <SellerApplicationsPage /> },
           { path: '/admin/donation-policy', element: <DonationPolicyPage /> },
           { path: '/admin/point-exchanges', element: <PointExchangesAdminPage /> },

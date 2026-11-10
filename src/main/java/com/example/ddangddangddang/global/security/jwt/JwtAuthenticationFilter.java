@@ -1,12 +1,15 @@
 package com.example.ddangddangddang.global.security.jwt;
 
 import com.example.ddangddangddang.global.exception.BusinessException;
+import com.example.ddangddangddang.global.exception.CommonErrorCode;
 import com.example.ddangddangddang.global.security.SecurityErrorResponder;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Set;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -57,6 +61,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             authentication = accessTokenAuthenticator.authenticate(token);
         } catch (BusinessException e) {
             errorResponder.respond(response, e.getErrorCode());
+            return;
+        } catch (DataAccessException e) {
+            // 블랙리스트를 확인하는 Redis가 응답하지 않는 경우. 토큰 문제가 아니므로 401이 아니라 503으로 알린다.
+            // 401을 주면 프론트가 재발급을 시도하다 로그아웃시켜, 서버 장애가 "로그인이 풀린 것"처럼 보인다.
+            log.warn("토큰 블랙리스트를 확인하지 못했습니다: {}", e.getMostSpecificCause().getMessage());
+            errorResponder.respond(response, CommonErrorCode.SERVICE_UNAVAILABLE);
             return;
         }
 

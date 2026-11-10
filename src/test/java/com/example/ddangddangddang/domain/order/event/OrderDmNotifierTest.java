@@ -75,6 +75,16 @@ class OrderDmNotifierTest {
     }
 
     @Test
+    @DisplayName("취소 안내에는 책임 있는 쪽이 받을 수 있는 정지를 함께 알린다")
+    void orderCanceled_warnsSanction() {
+        notifier.handle(new OrderCanceledEvent(7L, 123L, BUYER, SELLER, "빈티지 시계", OrderCancelReason.BUYER_NO_ADDRESS, 90_000L, 10_000L));
+        assertThat(sent(SELLER, BUYER, "order-cancel-7")).contains("90일 안에 2회", "입찰이 7일 정지");
+
+        notifier.handle(new OrderCanceledEvent(8L, 124L, BUYER, SELLER, "빈티지 시계", OrderCancelReason.SELLER_NOT_SHIPPED, 100_000L, 0L));
+        assertThat(sent(SELLER, BUYER, "order-cancel-8")).contains("90일 안에 2회", "경매 등록이 7일 정지");
+    }
+
+    @Test
     @DisplayName("위약금 없는 기존 주문의 낙찰취소는 전액 환불로 안내한다")
     void orderCanceled_legacy_statesFullRefund() {
         notifier.handle(new OrderCanceledEvent(7L, 123L, BUYER, SELLER, "빈티지 시계", OrderCancelReason.BUYER_NO_ADDRESS, 100_000L, 0L));

@@ -6,6 +6,8 @@ import com.example.ddangddangddang.domain.auction.event.AuctionEndedEvent;
 import com.example.ddangddangddang.domain.auction.event.LiveAuctionEvent;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
+import com.example.ddangddangddang.domain.hammer.entity.SanctionType;
+import com.example.ddangddangddang.domain.hammer.service.SanctionService;
 import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +29,14 @@ public class BuyNowService {
     private final PointService pointService;
     private final AuctionSettlementService auctionSettlementService;
     private final ApplicationEventPublisher eventPublisher;
+    private final SanctionService sanctionService;
 
     @Transactional
     public BuyNowResponse buyNow(Long buyerId, Long auctionId) {
         Auction auction = auctionRepository.findByIdForUpdate(auctionId)
                 .orElseThrow(() -> new BusinessException(AuctionErrorCode.NOT_FOUND));
+        // 입찰이 정지된 회원은 즉시 구매도 할 수 없다 (경매를 잠근 뒤에 읽어 첫 조회를 잠금 조회로 둔다)
+        sanctionService.requireNotBanned(buyerId, SanctionType.BID_BAN);
 
         LocalDateTime now = LocalDateTime.now();
         auction.validateBuyNow(buyerId, now);

@@ -47,6 +47,37 @@ class AuctionBidRuleTest {
         }
 
         @Test
+        @DisplayName("입찰 금액은 1억 원까지다")
+        void maxPrice() {
+            Auction auction = AuctionFixture.ongoing(NOW);
+            org.springframework.test.util.ReflectionTestUtils.setField(auction, "buyNowPrice", null);
+
+            assertError(() -> auction.validateBid(BIDDER, Auction.MAX_PRICE + 1_000L, NOW), AuctionErrorCode.BID_TOO_HIGH);
+            assertThatCode(() -> auction.validateBid(BIDDER, Auction.MAX_PRICE, NOW)).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("상한 전에 만든 경매의 다음 최소 입찰가가 1억 원을 넘으면 더 입찰할 수 없다고 알린다")
+        void minimumAboveMaxPrice() {
+            Auction auction = AuctionFixture.ongoing(NOW);
+            org.springframework.test.util.ReflectionTestUtils.setField(auction, "buyNowPrice", null);
+            AuctionFixture.bidBy(auction, OTHER, Auction.MAX_PRICE);
+
+            assertError(() -> auction.validateBid(BIDDER, Auction.MAX_PRICE, NOW), AuctionErrorCode.BID_LIMIT_REACHED);
+        }
+
+        @Test
+        @DisplayName("상한 전에 만든 경매의 입찰 단위가 너무 커서 다음 최소 입찰가 계산이 넘치면 어떤 입찰도 받지 않는다")
+        void overflowingBidUnit() {
+            Auction auction = AuctionFixture.ongoing(NOW);
+            AuctionFixture.bidBy(auction, OTHER, 10_000L);
+            org.springframework.test.util.ReflectionTestUtils.setField(auction, "bidUnit", Long.MAX_VALUE);
+
+            assertThat(auction.minimumBidAmount()).isEqualTo(Long.MAX_VALUE);
+            assertError(() -> auction.validateBid(BIDDER, 10_000L, NOW), AuctionErrorCode.BID_LIMIT_REACHED);
+        }
+
+        @Test
         @DisplayName("판매자는 입찰할 수 없다")
         void seller() {
             Auction auction = AuctionFixture.ongoing(NOW);

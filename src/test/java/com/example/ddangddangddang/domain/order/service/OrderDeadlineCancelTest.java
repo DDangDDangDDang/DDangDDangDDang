@@ -10,6 +10,7 @@ import com.example.ddangddangddang.domain.category.repository.CategoryRepository
 import com.example.ddangddangddang.domain.order.entity.Courier;
 import com.example.ddangddangddang.domain.order.entity.Order;
 import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
+import com.example.ddangddangddang.domain.order.entity.OrderIssueType;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.point.entity.PointHistoryType;
@@ -59,6 +60,9 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
     @Autowired private UserRepository userRepository;
 
     private User seller;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository sellerApplicationRepository;
     private User buyer;
     private Product product;
     private Long auctionId;
@@ -66,6 +70,7 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
     @BeforeEach
     void setUp() {
         seller = userRepository.save(User.create("deadline-seller@test.com", "pw", "deadlineSeller", "01011112222"));
+        com.example.ddangddangddang.support.SellerFixture.verify(sellerApplicationRepository, seller.getId());
         buyer = userRepository.save(User.create("deadline-buyer@test.com", "pw", "deadlineBuyer", "01033334444"));
         pointWalletRepository.save(PointWallet.create(buyer.getId()));
         pointWalletRepository.save(PointWallet.create(seller.getId()));
@@ -82,6 +87,7 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
         auctionRepository.deleteAllInBatch();
         productRepository.deleteAllInBatch();
         categoryRepository.deleteAllInBatch();
+        sellerApplicationRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
     }
 
@@ -254,6 +260,21 @@ class OrderDeadlineCancelTest extends MySqlIntegrationTest {
         assertThat(auctionService.productAuctionHistory(seller.getId(), product.getId()))
                 .singleElement()
                 .satisfies(history -> assertThat(history.orderCancelReason()).isEqualTo(OrderCancelReason.BUYER_NO_ADDRESS));
+    }
+
+    @Test
+    @DisplayName("관리자 확인 뒤 환불한 주문(취소 사유 없음)이 있어도 경매 이력을 볼 수 있고, 사유 없이 나온다")
+    void productAuctionHistory_adminRefundedOrder_reasonNull() {
+        Order order = Order.create(auctionId, buyer.getId(), seller.getId(), "아이패드", null, PRICE);
+        order.registerDeliveryAddress("홍길동", "01012345678", "서울시 중구 세종대로 1", null);
+        order.ship(Courier.CJ, "1234567890");
+        Long orderId = orderRepository.save(order).getId();
+        orderService.reportIssue(buyer.getId(), orderId, OrderIssueType.NOT_RECEIVED, null);
+        orderService.resolveReviewAsRefunded(orderId);
+
+        assertThat(auctionService.productAuctionHistory(seller.getId(), product.getId()))
+                .singleElement()
+                .satisfies(history -> assertThat(history.orderCancelReason()).isNull());
     }
 
     @Test

@@ -2,6 +2,10 @@ package com.example.ddangddangddang.domain.auction.service;
 
 import java.util.stream.Collectors;
 import java.util.Map;
+
+import com.example.ddangddangddang.domain.auction.repository.AuctionViewRepository;
+import com.example.ddangddangddang.domain.hammer.entity.SanctionType;
+import com.example.ddangddangddang.domain.hammer.service.SanctionService;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.entity.OrderCancelReason;
@@ -17,7 +21,6 @@ import com.example.ddangddangddang.domain.auction.event.AuctionCanceledEvent;
 import com.example.ddangddangddang.domain.auction.event.LiveAuctionEvent;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
-import com.example.ddangddangddang.domain.livechat.exception.LiveChatErrorCode;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
 import com.example.ddangddangddang.domain.livestream.exception.LiveStreamErrorCode;
@@ -28,22 +31,20 @@ import com.example.ddangddangddang.domain.product.exception.ProductErrorCode;
 import com.example.ddangddangddang.domain.product.repository.ProductRepository;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import com.example.ddangddangddang.global.storage.FileStorage;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.nio.channels.spi.AbstractSelectableChannel;
+import com.example.ddangddangddang.domain.seller.service.SellerVerification;
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.IllegalFormatCodePointException;
 import java.util.List;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 @Transactional
@@ -54,16 +55,25 @@ public class AuctionService {
     private final LiveStreamRepository liveStreamRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final FileStorage fileStorage;
+    private final SanctionService sanctionService;
+    private final SellerVerification sellerVerification;
+    private final AuctionViewRepository auctionViewRepository;
+
+    //같은 사람이 이 시간 안에 다시 보면 조회수를 세지 않는다
+    private static final Duration VIEW_DEDUPLICATION_WINDOW = Duration.ofMinutes(30);
 
     //경매(일반) 생성 : 본인 상품이고 판매 중이며 대기 or 진행 중인 경매가 아닐때 생성이 가능합니다
     public AuctionResponse auctionCreate(Long sellerId, AuctionCreateRequest request) {
         //삼품 검증(공통)
         Product product=productVerification(sellerId,request.productId());
+        // 미발송 판매 취소가 반복된 회원은 경매를 등록할 수 없다 (상품을 잠근 뒤에 읽는다. createLiveAuction 참고)
+        sanctionService.requireNotBanned(sellerId, SanctionType.LISTING_BAN);
 
-        //시작 시간< 종료 시간
-        if (!request.startAt().isBefore(request.endAt())) {
-            throw new BusinessException(AuctionErrorCode.INVALID_TIME);
-        }
+        // 판매자 인증(관리자 승인)을 받은 회원만 경매를 등록할 수 있다
+        requireVerifiedSeller(sellerId);
+
+        //시작 시간< 종료 시간, 종료 시간은 지금 이후, 진행 시간·시작 시각 범위
+        scheduleVerification(request.startAt(), request.endAt(), LocalDateTime.now());
 
         //가격 규칙: 시작가·입찰 단위는 둘 다 있거나 둘 다 없음(즉시구매 전용), 즉시구매가 > 시작가
         priceVerification(request.startPrice(), request.bidUnit(), request.buyNowPrice());
@@ -76,12 +86,34 @@ public class AuctionService {
 
     //경매 상세 조회
     @Transactional(readOnly = true)
-    public AuctionResponse findAddBy(Long auctionId) {
+    public AuctionResponse findAddBy(Long auctionId, Long userId, String ip) {
         Auction auction = auctionRepository.findById(auctionId).orElseThrow(
                 () -> new BusinessException(AuctionErrorCode.NOT_FOUND)
         );
-
+        countView(auction,userId,ip);
         return AuctionResponse.from(auction, this::imageUrl);
+    }
+
+    /**
+     * 조회수 세기 (인기 경매 점수에 사용된다)
+     * - 끝난 경매는 세지 않는다 (인기 목록에서 빠진 경매라 셀 필요가 없다)
+     * - 판매자가 자기 경매를 본 건 세지 않는다 (자기 경매는 살 수 없으니 구매 관심에서 제외로 조회수에서는 제외 된다)
+     * - Redis가 고장 나도 경매 상세는 보여야 하므로, 실패하면 경고 로그만 남긴다.
+     */
+    private void countView(Auction auction, Long userId, String ip){
+        if (auction.getStatus() != AuctionStatus.READY && auction.getStatus() != AuctionStatus.ONGOING){
+            return;
+        }
+        if (userId != null && userId.equals(auction.getProduct().getSeller().getId())){
+            return;
+        }
+        // 로그인했으면 회원 ID로, 안 했으면 IP로 같은 사람을 구분한다.
+        String viewer = userId != null ? "user:" + userId : "ip:" + ip;
+        try {
+            auctionViewRepository.increaseIfFirstView(auction.getId(),viewer,VIEW_DEDUPLICATION_WINDOW);
+        } catch (RuntimeException e){
+            log.warn("경매 조회수 기록 실패 auctionId={}",auction.getId(), e);
+        }
     }
 
     //경매 취소(본인 경매이며 대기OR진행 중이며 입찰이 0건일시에만 취소가 가능합니다)
@@ -120,12 +152,28 @@ public class AuctionService {
 
     // 라이브 중 경매 생성 : 방송 주인이 라이브 중 경매 생성,생성 즉시 AuctionStatus는 ONGOING변환
     public AuctionResponse createLiveAuction (Long sellerId, Long liveId,LiveAuctionCreateRequest request){
+        return createLiveAuction(sellerId, liveId, request, true);
+    }
 
+    /**
+     * 방송 봇의 경매 생성 (LiveBotSellingService 전용). 봇 계정은 관리자가 만들고 운영해 판매자 인증이 없으므로 인증을 보지 않는다.
+     * 회원 요청에서는 부르지 않는다.
+     */
+    public AuctionResponse createLiveAuctionAsBot(Long botUserId, Long liveId, LiveAuctionCreateRequest request) {
+        return createLiveAuction(botUserId, liveId, request, false);
+    }
+
+    private AuctionResponse createLiveAuction(Long sellerId, Long liveId, LiveAuctionCreateRequest request, boolean requireVerified){
         // 상품 검증(공통) - 반드시 이 트랜잭션의 첫 조회여야 한다 (동시성)
         // productVerification은 상품 행을 비관적 락으로 잡은 뒤 "대기/진행 중 경매가 있는지" 확인한다.
         // MySQL(REPEATABLE READ)은 트랜잭션의 첫 일반 조회 시점에 스냅샷을 고정하므로,
         // 방송을 먼저 조회하면 락을 기다리는 동안 다른 요청이 만든 경매를 보지 못해 같은 상품에 경매가 두 개 생긴다.
         Product product = productVerification(sellerId, request.productId());
+        // 미발송 판매 취소가 반복된 회원은 경매를 등록할 수 없다 (위 '첫 조회' 규칙 때문에 상품을 잠근 뒤에 읽는다)
+        sanctionService.requireNotBanned(sellerId, SanctionType.LISTING_BAN);
+        if (requireVerified) {
+            requireVerifiedSeller(sellerId);
+        }
         // 방송 검증(존재, 방송 주인, 방송 중)
         LiveStream liveStream = ownLiveStream(sellerId, liveId);
         // 가격 규칙 (일반 경매와 같다)
@@ -205,7 +253,7 @@ public class AuctionService {
         return auctionRepository.search(condition, pageable).map(item -> item.withThumbnailKeyResolved(this::imageUrl));
     }
 
-    //인기 경매 : 진행 중인 경매 중 입찰 횟수 많은 순 조회(개수 1~50 제한)
+    //인기 경매 : 대기, 진행 중인 경매를 인기 점수(조회수 + 입찰 횟수 * 5) 높은 순으로 조회(개수 1~50 제한)
     @Transactional(readOnly = true)
     public List<AuctionListResponse> popularAuctions(int size){
        int limit= Math.min(Math.max(size,1),50);
@@ -228,9 +276,12 @@ public class AuctionService {
 
         List<Auction> auctions = auctionRepository.findTop50ByProductIdOrderByIdDesc(productId);
         //낙찰됐다가 주문이 취소된 경매는 사유(낙찰취소, 제품 미발송)를 함께 보여준다
+        // 관리자 확인 뒤 환불한 주문은 취소 사유가 없다(null). toMap은 값이 null이면 NPE를 던지므로 뺀다. (그 경매는 사유 없이 보인다)
         Map<Long, OrderCancelReason> cancelReasons = orderRepository
                 .findByAuctionIdInAndStatus(auctions.stream().map(Auction::getId).toList(), OrderStatus.CANCELED)
-                .stream().collect(Collectors.toMap(Order::getAuctionId, Order::getCancelReason));
+                .stream()
+                .filter(order -> order.getCancelReason() != null)
+                .collect(Collectors.toMap(Order::getAuctionId, Order::getCancelReason));
         return auctions.stream()
                 .map(auction -> AuctionResponse.from(auction, this::imageUrl).withOrderCancelReason(cancelReasons.get(auction.getId())))
                 .toList();
@@ -293,6 +344,9 @@ public class AuctionService {
      * - 입찰을 받는 경매의 즉시구매가는 시작가보다 커야 한다
      */
     static void priceVerification(Long startPrice, Long bidUnit, Long buyNowPrice) {
+        if (exceedsMaxPrice(startPrice) || exceedsMaxPrice(bidUnit) || exceedsMaxPrice(buyNowPrice)) {
+            throw new BusinessException(AuctionErrorCode.PRICE_TOO_HIGH);
+        }
         if ((startPrice == null) != (bidUnit == null)) {
             throw new BusinessException(AuctionErrorCode.INVALID_PRICE_SETTING);
         }
@@ -304,6 +358,34 @@ public class AuctionService {
         }
         if (buyNowPrice != null && buyNowPrice <= startPrice) {
             throw new BusinessException(AuctionErrorCode.INVALID_BUY_NOW_PRICE);
+        }
+    }
+
+    private static boolean exceedsMaxPrice(Long price) {
+        return price != null && price > Auction.MAX_PRICE;
+    }
+
+    /**
+     * 일반 경매 시각 검증: 마감 > 시작, 마감은 지금 이후, 진행 시간 1분~14일, 시작은 30일 이내.
+     * (마감이 지난 시각으로 만들면 스케줄러가 바로 유찰시킨다)
+     * 상한이 없으면 먼 미래로 마감을 잡아 상품을 경매 중으로 계속 묶어 둘 수 있다. (경매 중인 상품은 수정·삭제 불가)
+     */
+    static void scheduleVerification(LocalDateTime startAt, LocalDateTime endAt, LocalDateTime now) {
+        if (!startAt.isBefore(endAt) || !endAt.isAfter(now)) {
+            throw new BusinessException(AuctionErrorCode.INVALID_TIME);
+        }
+        Duration duration = Duration.between(startAt, endAt);
+        if (duration.compareTo(Auction.MIN_DURATION) < 0 || duration.compareTo(Auction.MAX_DURATION) > 0) {
+            throw new BusinessException(AuctionErrorCode.INVALID_DURATION);
+        }
+        if (startAt.isAfter(now.plus(Auction.MAX_START_AHEAD))) {
+            throw new BusinessException(AuctionErrorCode.START_TOO_FAR);
+        }
+    }
+
+    private void requireVerifiedSeller(Long sellerId) {
+        if (!sellerVerification.isVerified(sellerId)) {
+            throw new BusinessException(AuctionErrorCode.NOT_VERIFIED_SELLER);
         }
     }
 

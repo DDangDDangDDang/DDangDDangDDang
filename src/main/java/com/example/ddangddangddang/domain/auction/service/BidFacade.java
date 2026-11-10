@@ -2,6 +2,8 @@ package com.example.ddangddangddang.domain.auction.service;
 
 import com.example.ddangddangddang.domain.auction.dto.response.BidResponse;
 import com.example.ddangddangddang.domain.auction.exception.AuctionErrorCode;
+import com.example.ddangddangddang.domain.hammer.entity.SanctionType;
+import com.example.ddangddangddang.domain.hammer.service.SanctionService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,11 +31,19 @@ public class BidFacade {
     private static final int MAX_BACKOFF_MS = 50;
 
     private final BidService bidService;
+    private final SanctionService sanctionService;
 
     public BidResponse placeBid(Long bidderId, Long auctionId, long amount) {
+        return placeBid(bidderId, auctionId, amount, null);
+    }
+
+    /** @param bidderNickname 입찰자 닉네임 (로그인 토큰에서 받음). 실시간 전송 때 회원 DB 조회를 줄인다 */
+    public BidResponse placeBid(Long bidderId, Long auctionId, long amount, String bidderNickname) {
+        // 배송지 미입력 낙찰 취소가 반복된 회원은 입찰할 수 없다
+        sanctionService.requireNotBanned(bidderId, SanctionType.BID_BAN);
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
-                Optional<BidResponse> result = bidService.tryPlaceBid(bidderId, auctionId, amount);
+                Optional<BidResponse> result = bidService.tryPlaceBid(bidderId, auctionId, amount, bidderNickname);
                 if (result.isPresent()) {
                     return result.get();
                 }

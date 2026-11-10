@@ -16,7 +16,8 @@ import {
   toLiveAuctionCreateRequest,
   validateAuctionCondition, auctionPriceLabel } from './auction';
 
-const NOW = new Date('2026-10-21T12:00:00');
+// 서울 시각 기준 (입력값을 서울 시각으로 읽으므로 브라우저 시간대와 상관없이 같은 결과)
+const NOW = new Date('2026-10-21T12:00:00+09:00');
 
 const categories = [
   { id: 1, name: '카메라', children: [{ id: 11, name: '필름 카메라' }, { id: 12, name: '렌즈' }] },
@@ -135,6 +136,27 @@ describe('validateAuctionCondition', () => {
     const zero = validateAuctionCondition({ ...schedule, startPrice: '0', bidUnit: '0' }, 'schedule', NOW);
     expect(zero.startPrice).toBe('시작가는 0원일 수 없어요.');
     expect(zero.bidUnit).toBe('최소 입찰 단위는 0원일 수 없어요.');
+  });
+
+  it('금액은 1억 원까지', () => {
+    const errors = validateAuctionCondition({ ...schedule, startPrice: '100,000,001', bidUnit: '200000000', buyNowPrice: '300000000' }, 'schedule', NOW);
+    expect(errors.startPrice).toBe('시작가는 1억 원까지 정할 수 있어요.');
+    expect(errors.bidUnit).toBe('최소 입찰 단위는 1억 원까지 정할 수 있어요.');
+    expect(errors.buyNowPrice).toBe('즉시구매가는 1억 원까지 정할 수 있어요.');
+    expect(validateAuctionCondition({ ...schedule, buyNowOnly: true, buyNowPrice: '100000001' }, 'schedule', NOW).buyNowPrice).toBe(
+      '즉시구매가는 1억 원까지 정할 수 있어요.',
+    );
+    expect(validateAuctionCondition({ ...schedule, startPrice: '99,999,999', bidUnit: '1', buyNowPrice: '100,000,000' }, 'schedule', NOW)).toEqual({});
+  });
+
+  it('일반 경매는 1분~14일 진행하고, 시작은 30일 이내', () => {
+    expect(validateAuctionCondition({ ...schedule, endAt: '2026-10-21T13:00' }, 'schedule', NOW).endAt).toBe('마감 시각은 시작 시각보다 뒤여야 해요.');
+    expect(validateAuctionCondition({ ...schedule, endAt: '2026-10-21T13:01' }, 'schedule', NOW)).toEqual({});
+    expect(validateAuctionCondition({ ...schedule, endAt: '2026-11-04T13:00' }, 'schedule', NOW)).toEqual({});
+    expect(validateAuctionCondition({ ...schedule, endAt: '2026-11-04T13:01' }, 'schedule', NOW).endAt).toBe('경매는 1분 이상 14일 이내로 진행할 수 있어요.');
+    expect(validateAuctionCondition({ ...schedule, startAt: '2026-12-01T13:00', endAt: '2026-12-01T14:00' }, 'schedule', NOW).startAt).toBe(
+      '시작 시각은 30일 이내로 정해 주세요.',
+    );
   });
 
   it('[즉시구매만 판매]면 시작가·입찰 단위를 요청에 넣지 않는다 (입력해 둔 값이 있어도)', () => {

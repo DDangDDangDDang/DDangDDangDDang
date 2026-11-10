@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.domain.auth.service;
 
 import com.example.ddangddangddang.domain.auth.dto.FindEmailResponse;
+import com.example.ddangddangddang.domain.auth.repository.LoginAttemptRepository;
 import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository;
 import com.example.ddangddangddang.domain.auth.verification.VerificationErrorCode;
 import com.example.ddangddangddang.domain.auth.verification.VerificationPurpose;
@@ -40,6 +41,7 @@ public class AccountRecoveryService {
     private final EmailSender emailSender;
     private final TokenBlacklistRepository tokenBlacklistRepository;
     private final JwtProvider jwtProvider;
+    private final LoginAttemptRepository loginAttemptRepository;
 
     /**
      * 가입 여부와 상관없이 인증번호를 보냄
@@ -90,6 +92,8 @@ public class AccountRecoveryService {
 
         user.changePassword(passwordEncoder.encode(newPassword));
         refreshTokenRepository.deleteByUserId(user.getId());
+        // 비밀번호를 틀려 로그인이 막혔다가 재설정한 경우, 새 비밀번호로 바로 로그인할 수 있게 실패 횟수를 지운다.
+        loginAttemptRepository.clearFailures(user.getEmail());
         tokenBlacklistRepository.invalidateTokensIssuedBefore(
                 user.getId(), Instant.now(), jwtProvider.getAccessTokenValidity());
     }

@@ -50,11 +50,15 @@ class AuctionCreateConcurrencyTest extends MySqlIntegrationTest {
     @Autowired private LiveStreamRepository liveStreamRepository;
 
     private User seller;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.example.ddangddangddang.domain.seller.repository.SellerApplicationRepository sellerApplicationRepository;
     private Product product;
 
     @BeforeEach
     void setUp() {
         seller = userRepository.save(User.create("auction-seller@test.com", "pw", "auctionSeller", "01088887777"));
+        com.example.ddangddangddang.support.SellerFixture.verify(sellerApplicationRepository, seller.getId());
         Category category = categoryRepository.save(new Category(null, "전자기기", 1));
         product = productRepository.save(new Product(seller, category, "아이패드", "설명"));
     }
@@ -65,6 +69,7 @@ class AuctionCreateConcurrencyTest extends MySqlIntegrationTest {
         liveStreamRepository.deleteAllInBatch();
         productRepository.deleteAllInBatch();
         categoryRepository.deleteAllInBatch();
+        sellerApplicationRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
     }
 

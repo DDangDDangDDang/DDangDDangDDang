@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -123,6 +124,18 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("블랙리스트 저장소(Redis)가 응답하지 않으면 401이 아니라 503 COMMON_008")
+    void blacklistStoreDown() throws Exception {
+        given(tokenBlacklistRepository.exists(anyString()))
+                .willThrow(new RedisConnectionFailureException("Unable to connect to Redis"));
+
+        mockMvc.perform(get("/api/v1/test/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.createAccessToken(user(1L, UserRole.USER)))))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("COMMON_008"));
+    }
+
+    @Test
     @DisplayName("비밀번호를 바꾸기 전에 발급된 토큰이면 401 AUTH_009")
     void tokenIssuedBeforePasswordChange() throws Exception {
         given(tokenBlacklistRepository.isInvalidatedForUser(eq(1L), any())).willReturn(true);
@@ -131,6 +144,17 @@ class JwtAuthenticationFilterTest {
                         .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.createAccessToken(user(1L, UserRole.USER)))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("AUTH_009"));
+    }
+
+    @Test
+    @DisplayName("로그아웃 전에 발급된 다른 토큰(재발급 전 토큰 등)도 401 AUTH_004")
+    void tokenIssuedBeforeLogout() throws Exception {
+        given(tokenBlacklistRepository.isLoggedOutForUser(eq(1L), any())).willReturn(true);
+
+        mockMvc.perform(get("/api/v1/test/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(jwtProvider.createAccessToken(user(1L, UserRole.USER)))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_004"));
     }
 
     @Test

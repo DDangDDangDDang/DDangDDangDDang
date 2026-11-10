@@ -1,0 +1,44 @@
+# 부하 테스트용 모니터링: Prometheus(지표 수집·저장) + Grafana(대시보드)
+# 실행: docker compose -f load-test/monitoring/docker-compose.yml up -d
+# - Grafana:    http://localhost:3000  (로그인 없이 열림, 대시보드 "DDang 부하 테스트")
+# - Prometheus: http://localhost:9090
+# 두 포트 모두 이 PC(127.0.0.1)에서만 열린다.
+services:
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    container_name: ddang-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      # k6가 테스트 결과를 직접 밀어 넣을 수 있게 한다 (k6 run -o experimental-prometheus-rw)
+      - --web.enable-remote-write-receiver
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    extra_hosts:
+      # 리눅스 Docker에서도 호스트의 서버(8090)에 닿게 한다 (Docker Desktop은 원래 됨)
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:12.0.2
+    container_name: ddang-grafana
+    environment:
+      # 로컬 전용이라 로그인 없이 관리자 권한으로 연다
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/ddang-loadtest.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-data:

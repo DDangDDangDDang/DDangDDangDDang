@@ -14,12 +14,14 @@ import {
   hasDeliveryAddress,
   orderCancelMessage,
   orderDeadlineMessage,
+  orderReviewMessage,
   orderRoleOf,
   orderStage,
   requireOrderId,
   type OrderRole,
 } from '@/lib/order-view';
 import { OrderDelayCard } from './OrderDelayCard';
+import { OrderIssueDialog } from './OrderIssueDialog';
 import { OrderReviewSection } from './OrderReviewSection';
 import { TrackingCard } from './TrackingCard';
 
@@ -41,6 +43,7 @@ export function OrderDetailPage() {
   const order = query.data;
   const role = order ? orderRoleOf(order, session?.user.userId) : null;
   const deadlineMessage = order ? orderDeadlineMessage(order) : null;
+  const reviewMessage = order && role ? orderReviewMessage(order, role) : null;
 
   return (
     <div className="mx-auto max-w-[880px]">
@@ -73,6 +76,7 @@ export function OrderDetailPage() {
           <OrderSummary order={order} />
           {deadlineMessage && <Notice tone="info">{deadlineMessage}</Notice>}
           {role && <OrderDelayCard order={order} role={role} />}
+          {reviewMessage && <Notice tone="info">{reviewMessage}</Notice>}
           {order.status === 'CANCELED' && <Notice tone="error">{orderCancelMessage(order)}</Notice>}
           {order.status !== 'CANCELED' && role === 'BUYER' && <BuyerPanel order={order} />}
           {order.status !== 'CANCELED' && role === 'SELLER' && (
@@ -181,6 +185,9 @@ function BuyerPanel({ order }: { order: Order }) {
 function BuyerShippingPanel({ order, onConfirmed }: { order: Order; onConfirmed: () => void }) {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  // 신고는 한 번만 할 수 있다. 송장 확인 실패로 관리자 확인 중이어도 구매자는 신고할 수 있다.
+  const reported = order.reviewReason === 'BUYER_REPORTED';
   const mutation = useMutation({
     mutationFn: () => call(api.PATCH('/api/v1/orders/{orderId}/confirm', { params: { path: { orderId: requireOrderId(order) } } })),
     onSuccess: (data) => {
@@ -201,7 +208,12 @@ function BuyerShippingPanel({ order, onConfirmed }: { order: Order; onConfirmed:
         <AddressView order={order} />
         {mutation.isError && <Notice tone="error">{errorMessage(mutation.error)}</Notice>}
         <div className="flex items-center justify-end gap-4">
-          <p className="text-label text-neutral-500">{autoConfirmMessage(order)}</p>
+          {!order.reviewReason && <p className="text-label text-neutral-500">{autoConfirmMessage(order)}</p>}
+          {!reported && (
+            <Button variant="outline" onClick={() => setReporting(true)}>
+              문제 신고
+            </Button>
+          )}
           <Button onClick={() => setConfirming(true)}>구매 확정</Button>
         </div>
       </CardBody>
@@ -214,6 +226,7 @@ function BuyerShippingPanel({ order, onConfirmed }: { order: Order; onConfirmed:
         onConfirm={() => mutation.mutate()}
         onCancel={() => setConfirming(false)}
       />
+      <OrderIssueDialog order={order} open={reporting} onClose={() => setReporting(false)} />
     </Card>
   );
 }
@@ -263,6 +276,14 @@ function AddressFormBody({
   const saved = savedQuery.data ?? [];
   // 고른 배송지가 다른 곳에서 지워졌으면 선택만 푼다 (채운 값은 그대로 둔다)
   if (selectedId && savedQuery.isSuccess && !saved.some((a) => String(a.addressId) === selectedId)) setSelectedId('');
+  // 고른 배송지를 다시 불러왔더니 내용이 바뀌었으면, 고른 뒤 칸을 고치지 않았을 때만 새 내용으로 채운다
+  const [picked, setPicked] = useState<DeliveryFields>();
+  const pickedNow = selectedId ? saved.find((a) => String(a.addressId) === selectedId) : undefined;
+  if (picked && pickedNow && !sameDelivery(picked, deliveryFieldsOf(pickedNow))) {
+    const next = deliveryFieldsOf(pickedNow);
+    setPicked(next);
+    setValue(next);
+  }
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -287,15 +308,18 @@ function AddressFormBody({
 
   function choose(addressId: string) {
     setSelectedId(addressId);
-    const picked = saved.find((a) => String(a.addressId) === addressId);
-    if (picked) {
+    const address = saved.find((a) => String(a.addressId) === addressId);
+    if (address) {
+      const fields = deliveryFieldsOf(address);
       setTouched(true);
-      setValue(deliveryFieldsOf(picked));
+      setPicked(fields);
+      setValue(fields);
     }
   }
 
   function edit(next: DeliveryFields) {
     setTouched(true);
+    setPicked(undefined);
     setValue(next);
   }
 
@@ -330,7 +354,8 @@ function AddressFormBody({
               ]}
               value={selectedId}
               onChange={(e) => choose(e.target.value)}
-              disabled={mutation.isPending}
+              // 다시 불러오는 동안에는 예전 목록에서 고르지 않게 막는다
+              disabled={mutation.isPending || savedQuery.isFetching}
             />
           </div>
           <Link to="/me/addresses" className={buttonVariants({ variant: 'ghost' })}>
@@ -351,7 +376,12 @@ function AddressFormBody({
             취소
           </Button>
         )}
-        <Button type="submit" loading={mutation.isPending} disabled={!isDeliveryFilled(value) || (refreshing && !touched)}>
+        <Button
+          type="submit"
+          loading={mutation.isPending}
+          // 다시 불러오는 동안에는 손대지 않은 값(기본 배송지, 고른 뒤 고치지 않은 배송지)을 예전 내용으로 제출하지 못하게 한다
+          disabled={!isDeliveryFilled(value) || (refreshing && !touched) || (picked !== undefined && savedQuery.isFetching)}
+        >
           {onCancel ? '배송지 수정' : '배송지 입력'}
         </Button>
       </div>
@@ -430,7 +460,8 @@ function SellerPanel({ order }: { order: Order }) {
         </CardHeader>
         <CardBody className="flex flex-col gap-4">
           <ShipmentView order={order} />
-          <Notice tone="info">구매 확정 대기 중이에요. {autoConfirmMessage(order)}</Notice>
+          {/* 관리자 확인 중이면 위의 안내(orderReviewMessage)가 대신 보인다 */}
+          {!order.reviewReason && <Notice tone="info">구매 확정 대기 중이에요. {autoConfirmMessage(order)}</Notice>}
         </CardBody>
       </Card>
     );
@@ -443,7 +474,11 @@ function SellerPanel({ order }: { order: Order }) {
       </CardHeader>
       <CardBody className="flex flex-col gap-4">
         <ShipmentView order={order} />
-        <Notice tone="success">정산 완료. 구매자가 확정해 판매 수수료를 뺀 금액이 포인트로 지급됐어요.</Notice>
+        <Notice tone="success">
+          {order.reviewResult === 'CONFIRMED'
+            ? '정산 완료. 관리자 확인 결과 판매 수수료를 뺀 금액이 포인트로 지급됐어요.'
+            : '정산 완료. 구매 확정되어 판매 수수료를 뺀 금액이 포인트로 지급됐어요.'}
+        </Notice>
       </CardBody>
     </Card>
   );

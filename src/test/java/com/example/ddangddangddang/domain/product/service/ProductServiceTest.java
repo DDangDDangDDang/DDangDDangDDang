@@ -12,6 +12,7 @@ import static org.mockito.Mockito.never;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
 import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
+import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.product.dto.request.ProductRequest;
 import com.example.ddangddangddang.domain.product.dto.request.UpdateRequest;
 import com.example.ddangddangddang.domain.product.dto.response.ProductImageResponse;
@@ -56,7 +57,11 @@ class ProductServiceTest {
     @Mock
     private AuctionRepository auctionRepository;
     @Mock
+    private OrderRepository orderRepository;
+    @Mock
     private FileStorage fileStorage;
+    @Mock
+    private com.example.ddangddangddang.domain.seller.service.SellerVerification sellerVerification;
 
     private ProductService productService;
     private User seller;
@@ -65,13 +70,14 @@ class ProductServiceTest {
     @BeforeEach
     void setUp() {
         productService = new ProductService(productRepository, userRepository, categoryRepository, auctionRepository,
-                new ProductImageResolver(fileStorage), fileStorage);
+                orderRepository, new ProductImageResolver(fileStorage), fileStorage, sellerVerification);
         seller = User.create("seller@test.com", "pw", "seller");
         ReflectionTestUtils.setField(seller, "id", SELLER_ID);
         category = new Category(null, "카메라", 1);
         ReflectionTestUtils.setField(category, "id", CATEGORY_ID);
 
         given(userRepository.findById(SELLER_ID)).willReturn(Optional.of(seller));
+        given(sellerVerification.isVerified(SELLER_ID)).willReturn(true);
         given(categoryRepository.findById(CATEGORY_ID)).willReturn(Optional.of(category));
         given(productRepository.save(any(Product.class))).willAnswer(inv -> inv.getArgument(0));
         given(fileStorage.publicUrl(anyString())).willAnswer(inv -> "https://cdn/" + inv.getArgument(0));
@@ -108,6 +114,28 @@ class ProductServiceTest {
         assertThat(response.thumbnailUrl()).isNull();
         assertThat(response.images()).isEmpty();
         assertThat(response.descriptionImages()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("판매자 인증을 받지 않은 회원은 상품을 등록할 수 없다(PRODUCT_012)")
+    void createRequiresVerifiedSeller() {
+        given(sellerVerification.isVerified(SELLER_ID)).willReturn(false);
+
+        assertThatThrownBy(() -> productService.creation(SELLER_ID,
+                new ProductRequest(CATEGORY_ID, "필름 카메라", null, null)))
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ProductErrorCode.NOT_VERIFIED_SELLER);
+        then(productRepository).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("방송 봇은 판매자 인증 없이 상품을 등록한다")
+    void botCreatesWithoutVerification() {
+        given(sellerVerification.isVerified(SELLER_ID)).willReturn(false);
+
+        ProductResponse response = productService.creationAsBot(SELLER_ID, new ProductRequest(CATEGORY_ID, "필름 카메라", null, null));
+
+        assertThat(response.name()).isEqualTo("필름 카메라");
     }
 
     @Test
@@ -160,6 +188,19 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("낙찰이 취소되어 다시 판매 중인 상품: 취소된 주문이 대표 이미지로 들고 있는 사진은 빼도 지우지 않는다")
+    void imageUsedByCanceledOrderKept() {
+        savedProduct(List.of(KEY_A, KEY_B), "설명");
+        // 공개 주소 앞부분이 바뀌어도 찾도록 키로 끝나는지 본다
+        given(orderRepository.existsBySellerIdAndProductImageUrlEndingWith(SELLER_ID, "/" + KEY_A)).willReturn(true);
+
+        productService.updateProduct(SELLER_ID, PRODUCT_ID, new UpdateRequest(null, null, null, List.of()));
+
+        then(fileStorage).should(never()).delete(KEY_A);
+        then(fileStorage).should().delete(KEY_B);
+    }
+
+    @Test
     @DisplayName("imageKeys를 보내지 않으면 이미지는 그대로 둔다")
     void updateWithoutImageKeysKeepsImages() {
         Product product = savedProduct(List.of(KEY_A, KEY_B), "설명");
@@ -172,14 +213,17 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("판매된 상품은 주문이 대표 이미지를 쓰고 있어 빠진 이미지를 지우지 않는다")
+    @DisplayName("판매된 상품은 수정할 수 없고, 주문이 사용하는 대표 이미지도 지우지 않는다")
     void soldProductImagesKept() {
         Product product = savedProduct(List.of(KEY_A), "설명");
         product.sold();
 
-        productService.updateProduct(SELLER_ID, PRODUCT_ID, new UpdateRequest(null, null, null, List.of()));
+        assertThatThrownBy(()->productService.updateProduct(SELLER_ID, PRODUCT_ID, new UpdateRequest(null, null, null, List.of())))
+                .extracting(e->((BusinessException) e).getErrorCode())
+                        .isEqualTo(ProductErrorCode.SOLD_PRODUCT_NOT_EDITABLE);
+        assertThat(product.getImageKeys()).containsExactly(KEY_A);
+        assertThat(product.getThumbnailKey()).isEqualTo(KEY_A);
 
-        assertThat(product.getThumbnailKey()).isNull();
         then(fileStorage).should(never()).delete(anyString());
     }
 

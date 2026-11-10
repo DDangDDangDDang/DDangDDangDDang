@@ -84,6 +84,19 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(new VerificationTokenResponse(token)));
     }
 
+    /** 가입할 이메일로 인증번호 보내기. 확인하면 받은 토큰을 가입 요청(emailVerificationToken)에 넣는다. */
+    @PostMapping("/signup/email/code")
+    public ResponseEntity<ApiResponse<CodeSentResponse>> sendSignupEmailCode(@Valid @RequestBody EmailCodeRequest request) {
+        long expiresIn = signupVerificationService.sendEmailCode(request.email());
+        return ResponseEntity.ok(ApiResponse.ok(new CodeSentResponse(expiresIn)));
+    }
+
+    @PostMapping("/signup/email/verify")
+    public ResponseEntity<ApiResponse<VerificationTokenResponse>> verifySignupEmail(@Valid @RequestBody EmailVerifyRequest request) {
+        String token = signupVerificationService.verifyEmailCode(request.email(), request.code());
+        return ResponseEntity.ok(ApiResponse.ok(new VerificationTokenResponse(token)));
+    }
+
     @PostMapping("/find-email/code")
     public ResponseEntity<ApiResponse<CodeSentResponse>> sendFindEmailCode(@Valid @RequestBody PhoneCodeRequest request) {
         long expiresIn = accountRecoveryService.sendFindEmailCode(request.phoneNumber());

@@ -12,6 +12,10 @@ import com.example.ddangddangddang.domain.order.event.OrderCanceledEvent;
 import com.example.ddangddangddang.domain.order.event.OrderConfirmedEvent;
 import com.example.ddangddangddang.domain.order.event.OrderDelayRequestedEvent;
 import com.example.ddangddangddang.domain.order.event.OrderDelayRespondedEvent;
+import com.example.ddangddangddang.domain.order.event.OrderReviewRequestedEvent;
+import com.example.ddangddangddang.domain.order.event.OrderReviewResolvedEvent;
+import com.example.ddangddangddang.domain.order.entity.OrderIssueType;
+import com.example.ddangddangddang.domain.order.entity.OrderReviewReason;
 import com.example.ddangddangddang.domain.order.exception.OrderErrorCode;
 import com.example.ddangddangddang.domain.order.repository.OrderRepository;
 import com.example.ddangddangddang.domain.point.service.PointService;
@@ -37,8 +41,20 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class OrderService {
-    // 발송 후 이 기간이 지날시 자동으로 구매 확정
+    // 발송 후 이 기간이 지날시 자동으로 구매 확정 (송장 조회로 배송 완료를 확인해야 한다)
     static final int AUTO_CONFIRM_DAYS = 7;
+
+    // 조회할 수 없는 택배사(기타)는 송장을 확인할 수 없어, 구매자가 문제를 신고할 시간을 더 주고 이 기간 뒤에 확정한다.
+    static final int UNTRACKED_AUTO_CONFIRM_DAYS = 14;
+
+    // 발송 후 이 기간이 지나도 배송 완료를 확인하지 못하면(아직 배송 중, 조회 서비스 장애) 관리자 확인으로 넘긴다.
+    static final int TRACKING_MAX_WAIT_DAYS = 14;
+
+    // 아직 배송 중이거나 조회 서비스가 안 될 때 다음 확인까지 미루는 시간
+    static final int TRACKING_RECHECK_HOURS = 6;
+
+    // 관리자 확인 목록 한 번에 볼 수
+    private static final int MAX_REVIEW_PAGE_SIZE = 50;
 
     // 자동 구매 확정이 실패하면 이 시간이 지난 두에 다시 시도한다( 잠깐의 장애로 바로 제외되지 않게)
     static final int AUTO_CONFIRM_RETRY_HOURS =1;
@@ -116,7 +132,7 @@ public class OrderService {
         if (!order.isParticipant(userId)) {
             throw new BusinessException(OrderErrorCode.NOT_ORDER_PARTICIPANT);
         }
-        return OrderResponse.from(order);
+        return OrderResponse.forParticipant(order, userId);
     }
 
     /**
@@ -170,21 +186,111 @@ public class OrderService {
     }
 
     /**
-     * 발송 후 7일이 지나도 구매 확정하지 않은 주문을 자동을 확정하고 정산한다. 스케줄러가 건별로 호출한다.
+     * 발송 후 7일이 지나도 구매 확정하지 않은 주문을 송장 확인 결과에 따라 처리한다. 스케줄러가 건별로 호출한다.
+     * 가짜 송장으로 발송 처리하고 기다리기만 해서 정산받지 못하게, 배송 완료를 확인한 주문만 확정한다.
      *
-     * 주문을 잠근 뒤 상태와 기한을 다시 확인하므로, 그 사이 구매자가 확정했거나 취소된 주문은 건너뛴다.
+     * - 배송 완료: 확정하고 정산한다.
+     * - 아직 배송 중: 6시간 뒤 다시 본다. 발송 후 14일이 지나도 배송 완료가 아니면 관리자 확인으로 넘긴다.
+     * - 송장이 조회되지 않음: 발송 후 7일이 지났는데도 택배사에 없으면 관리자 확인으로 넘긴다.
+     * - 조회 서비스 장애: 6시간 뒤 다시 본다. 발송 후 14일이 지나도 확인하지 못하면 관리자 확인으로 넘긴다.
+     * - 조회할 수 없는 택배사(기타): 발송 후 14일이 지나면 확정한다. (그동안 구매자가 문제를 신고할 수 있다)
      *
+     * 주문을 잠근 뒤 상태와 기한을 다시 확인하므로, 그 사이 구매자가 확정했거나 신고한 주문은 건너뛴다.
+     *
+     * @param check 주문을 잠그기 전에 조회한 송장 확인 결과 (OrderTrackingService.checkForAutoConfirm)
      * @return 이번 호출로 확정했으면 true
      */
     @Transactional
-    public boolean autoConfirm(Long orderId){
+    public boolean autoConfirm(Long orderId, TrackingCheck check){
         Order order = findOrderForUpdate(orderId);
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(AUTO_CONFIRM_DAYS);
-        if (order.getStatus() != OrderStatus.SHIPPING || order.getShippedAt().isAfter(cutoff)){
+        LocalDateTime now = LocalDateTime.now();
+        if (order.getStatus() != OrderStatus.SHIPPING || order.getReviewReason() != null
+                || order.getShippedAt().isAfter(now.minusDays(AUTO_CONFIRM_DAYS))){
             return false;
         }
+        boolean waitedLong = !order.getShippedAt().isAfter(now.minusDays(TRACKING_MAX_WAIT_DAYS));
+        switch (check) {
+            case DELIVERED -> {
+                order.markDelivered(now);
+                settlePurchase(order);
+                return true;
+            }
+            case UNSUPPORTED -> {
+                LocalDateTime confirmAt = order.getShippedAt().plusDays(UNTRACKED_AUTO_CONFIRM_DAYS);
+                if (now.isBefore(confirmAt)) {
+                    order.postponeAutoConfirm(confirmAt);
+                    return false;
+                }
+                settlePurchase(order);
+                return true;
+            }
+            case NOT_FOUND -> requestTrackingReview(order, OrderReviewReason.TRACKING_NOT_FOUND, now);
+            case IN_TRANSIT -> postponeOrReview(order, waitedLong, OrderReviewReason.TRACKING_NOT_DELIVERED, now);
+            case UNAVAILABLE -> postponeOrReview(order, waitedLong, OrderReviewReason.TRACKING_UNAVAILABLE, now);
+        }
+        return false;
+    }
+
+    private void postponeOrReview(Order order, boolean waitedLong, OrderReviewReason reason, LocalDateTime now) {
+        if (waitedLong) {
+            requestTrackingReview(order, reason, now);
+        } else {
+            order.postponeAutoConfirm(now.plusHours(TRACKING_RECHECK_HOURS));
+        }
+    }
+
+    private void requestTrackingReview(Order order, OrderReviewReason reason, LocalDateTime now) {
+        order.requestTrackingReview(reason, now);
+        eventPublisher.publishEvent(new OrderReviewRequestedEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), reason, null));
+    }
+
+    /**
+     * 구매자가 문제를 신고한다. (받지 못함, 다른 상품, 파손 등) 자동 구매 확정이 멈추고 관리자가 확인한다.
+     * 문제가 풀리면 구매자는 지금처럼 직접 구매 확정할 수 있다.
+     */
+    @Transactional
+    public OrderResponse reportIssue(Long userId, Long orderId, OrderIssueType type, String detail) {
+        Order order = findOrderForUpdate(orderId);
+        if (!order.isBuyer(userId)) {
+            throw new BusinessException(OrderErrorCode.NOT_ORDER_BUYER_REPORT);
+        }
+        order.reportIssue(type, detail == null ? null : detail.strip(), LocalDateTime.now());
+        eventPublisher.publishEvent(new OrderReviewRequestedEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), OrderReviewReason.BUYER_REPORTED, type));
+        return OrderResponse.from(order);
+    }
+
+    /** 관리자 확인 대기 주문 목록. 먼저 들어온 순 */
+    public CursorResponse<OrderResponse> getReviewOrders(Long cursor, int size) {
+        int pageSize = Math.max(1, Math.min(size, MAX_REVIEW_PAGE_SIZE));
+        List<Order> fetched = orderRepository.findReviewOrders(cursor, PageRequest.of(0, pageSize + 1));
+        return CursorResponse.of(fetched, pageSize, OrderResponse::from, Order::getId);
+    }
+
+    /** 관리자가 확인한 뒤 판매자에게 정산한다. (구매 확정과 같다) */
+    @Transactional
+    public OrderResponse resolveReviewAsConfirmed(Long orderId) {
+        Order order = findOrderForUpdate(orderId);
+        order.resolveReviewAsConfirmed(LocalDateTime.now());
         settlePurchase(order);
-        return true;
+        eventPublisher.publishEvent(new OrderReviewResolvedEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), false, order.getSettlementAmount()));
+        return OrderResponse.from(order);
+    }
+
+    /**
+     * 관리자가 확인한 뒤 구매자에게 전액 환불한다. 정산 전이라 판매자 정산금·수수료는 건드릴 것이 없다.
+     * 기한 초과 취소(OrderCanceledEvent)와 달리 상품을 다시 올리지 않고, 미발송 제재 횟수에도 넣지 않는다.
+     */
+    @Transactional
+    public OrderResponse resolveReviewAsRefunded(Long orderId) {
+        Order order = findOrderForUpdate(orderId);
+        order.resolveReviewAsRefunded(LocalDateTime.now());
+        pointService.refundOrder(order.getBuyerId(), order.getFinalPrice(), order.getId(), order.getAuctionId());
+        eventPublisher.publishEvent(new OrderReviewResolvedEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
+                order.getSellerId(), order.getProductName(), true, order.getFinalPrice()));
+        return OrderResponse.from(order);
     }
 
     /**
@@ -228,9 +334,10 @@ public class OrderService {
         long penalty = reason == OrderCancelReason.BUYER_NO_ADDRESS ? order.getNoAddressPenalty() : 0;
         long refund = order.getFinalPrice() - penalty;
         if (reason == OrderCancelReason.BUYER_NO_ADDRESS) {
-            pointService.cancelWin(order.getBuyerId(), order.getFinalPrice(), order.getSellerId(), penalty, order.getId());
+            pointService.cancelWin(order.getBuyerId(), order.getFinalPrice(), order.getSellerId(), penalty, order.getId(),
+                    order.getAuctionId());
         } else {
-            pointService.refundOrder(order.getBuyerId(), refund, order.getId());
+            pointService.refundOrder(order.getBuyerId(), refund, order.getId(), order.getAuctionId());
         }
         eventPublisher.publishEvent(new OrderCanceledEvent(order.getId(), order.getAuctionId(), order.getBuyerId(),
                 order.getSellerId(), order.getProductName(), reason, refund, penalty));

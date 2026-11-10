@@ -1,6 +1,7 @@
 package com.example.ddangddangddang.global.security;
 
 import com.example.ddangddangddang.global.security.jwt.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +28,8 @@ public class SecurityConfig {
             "/api/v1/auth/signup",
             "/api/v1/auth/signup/phone/code",
             "/api/v1/auth/signup/phone/verify",
+            "/api/v1/auth/signup/email/code",
+            "/api/v1/auth/signup/email/verify",
             "/api/v1/auth/find-email/code",
             "/api/v1/auth/find-email/verify",
             "/api/v1/auth/password-reset/code",
@@ -83,6 +86,9 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
+                        // 처리 중 예외가 나면 서블릿이 /error로 다시 보낸다(ERROR 디스패치). 이것도 인가 대상이라 막혀 있으면
+                        // 원래 요청이 인증됐어도 익명으로 검사돼 500 대신 401 AUTH_001이 나간다. 원래 요청은 이미 인가를 거쳤으므로 연다.
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_APIS).permitAll()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_APIS).permitAll()
                         // 브라우저는 WebSocket 핸드셰이크에 Authorization 헤더를 붙일 수 없다.

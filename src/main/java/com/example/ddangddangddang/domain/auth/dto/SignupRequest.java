@@ -18,6 +18,7 @@ public record SignupRequest(
 
         @NotBlank(message = "닉네임은 필수입니다.")
         @Size(min = 2, max = 10, message = "닉네임은 2~10자여야 합니다.")
+        @Pattern(regexp = NicknameFormat.REGEX, message = NicknameFormat.MESSAGE)
         String nickname,
 
         @NotBlank(message = "휴대폰 번호는 필수입니다.")
@@ -25,6 +26,9 @@ public record SignupRequest(
                 String phoneNumber,
 
         @NotBlank(message = "휴대폰 인증이 필요합니다.")
-        String phoneVerificationToken
+        String phoneVerificationToken,
+
+        @NotBlank(message = "이메일 인증이 필요합니다.")
+        String emailVerificationToken
 ) {
 }

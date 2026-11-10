@@ -44,6 +44,8 @@ locals {
     # 프론트는 접속한 주소의 /oauth/{provider}/callback을 쓴다. 카카오·구글 콘솔에도 같은 주소를 등록한다.
     KAKAO_REDIRECT_URI  = "https://${var.domain_name}/oauth/kakao/callback"
     GOOGLE_REDIRECT_URI = "https://${var.domain_name}/oauth/google/callback"
+    # WebSocket 연결을 받을 페이지 출처. 프론트와 같은 주소다. (WebSocketConfig, ECS·EC2 공통. EC2는 ec2.tf에서 다시 정한다)
+    APP_WEBSOCKET_ALLOWED_ORIGINS = "https://${var.domain_name}"
   })
 }
 

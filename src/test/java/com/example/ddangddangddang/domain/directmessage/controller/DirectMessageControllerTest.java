@@ -308,6 +308,32 @@ class DirectMessageControllerTest extends DmApiTestSupport {
 
             assertThat(dmMessageRepository.findBySenderIdAndClientMessageId(alice.id(), clientMessageId)).isEmpty();
         }
+
+        @Test
+        @DisplayName("오늘 새로 대화를 시작한 상대가 30명을 넘으면 빈 대화방의 첫 메시지는 DM_015(429), 저장하지 않는다")
+        void tooManyNewConversations() throws Exception {
+            given(dmRateLimitRepository.incrementNewConversation(eq(alice.id()), any())).willReturn(31L);
+            Long roomId = roomId(alice, bob.id());
+            String clientMessageId = UUID.randomUUID().toString();
+
+            send(alice, roomId, clientMessageId, "안녕하세요")
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(jsonPath("$.error.code").value("DM_015"));
+
+            assertThat(dmMessageRepository.findBySenderIdAndClientMessageId(alice.id(), clientMessageId)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("이미 메시지가 있는 대화방(상대가 먼저 보낸 방 포함)에 보내는 것은 새 대화로 세지 않는다")
+        void replyIsNotNewConversation() throws Exception {
+            Long roomId = roomId(alice, bob.id());
+            send(bob, roomId, UUID.randomUUID().toString(), "먼저 보내요").andExpect(status().isCreated());
+            then(dmRateLimitRepository).should().incrementNewConversation(eq(bob.id()), any());
+
+            send(alice, roomId, UUID.randomUUID().toString(), "답장해요").andExpect(status().isCreated());
+
+            then(dmRateLimitRepository).should(never()).incrementNewConversation(eq(alice.id()), any());
+        }
     }
 
     @Nested

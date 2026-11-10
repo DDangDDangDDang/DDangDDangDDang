@@ -88,7 +88,7 @@ class LiveBotSellingServiceTest {
 
         sellingService.createProduct(BOT_ID, request);
 
-        verify(productService).creation(USER_ID, request);
+        verify(productService).creationAsBot(USER_ID, request);
     }
 
     @Test
@@ -100,7 +100,7 @@ class LiveBotSellingServiceTest {
 
         sellingService.startLiveAuction(BOT_ID, request);
 
-        verify(auctionService).createLiveAuction(USER_ID, LIVE_ID, request);
+        verify(auctionService).createLiveAuctionAsBot(USER_ID, LIVE_ID, request);
     }
 
     @Test
@@ -112,7 +112,7 @@ class LiveBotSellingServiceTest {
         assertError(() -> sellingService.startLiveAuction(BOT_ID, new LiveAuctionCreateRequest(5L, 1000L, 100L, null, 600)),
                 LiveBotErrorCode.NOT_LIVE);
         assertError(() -> sellingService.featureAuction(BOT_ID, 9L), LiveBotErrorCode.NOT_LIVE);
-        verify(auctionService, never()).createLiveAuction(anyLong(), anyLong(), any());
+        verify(auctionService, never()).createLiveAuctionAsBot(anyLong(), anyLong(), any());
     }
 
     @Test

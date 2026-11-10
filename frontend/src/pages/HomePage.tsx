@@ -393,7 +393,7 @@ function TileLink({
   );
 }
 
-/** 인기 경매: 진행 중인 경매 중 입찰이 많은 순. 방송 섹션과 따로 불러와 한쪽이 실패해도 다른 쪽은 보인다. */
+/** 인기 경매: 대기·진행 중 경매를 조회수 + 입찰 수×5 순으로. 방송 섹션과 따로 불러와 한쪽이 실패해도 다른 쪽은 보인다. */
 function PopularAuctions() {
   const query = useQuery({
     queryKey: ["auctions", "popular", 4],
@@ -407,8 +407,8 @@ function PopularAuctions() {
     <Section
       title="인기 경매"
       description="방송을 보지 않아도 바로 입찰할 수 있어요."
-      // 홈 인기 경매와 같은 기준(입찰 수 많은 순)으로 연다. 왼쪽 [경매] 메뉴로 들어가면 최신순 그대로.
-      moreTo="/auctions?status=ONGOING&sort=POPULAR"
+      // 홈 인기 경매와 같은 기준(조회수 + 입찰 수)으로 연다. 왼쪽 [경매] 메뉴로 들어가면 최신순 그대로.
+      moreTo="/auctions?sort=POPULAR"
     >
       {query.isPending ? (
         <CardGrid>

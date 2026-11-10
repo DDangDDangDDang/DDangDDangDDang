@@ -19,11 +19,13 @@ public class VerificationWebConfig implements WebMvcConfigurer {
         registry.addInterceptor(ipRateLimitInterceptor)
                 .addPathPatterns(
                         "/api/v1/auth/signup/phone/code",
+                        "/api/v1/auth/signup/email/code",
                         "/api/v1/auth/find-email/code",
                         "/api/v1/auth/password-reset/code",
                         "/api/v1/auth/oauth/{provider}/phone/code",
                         "/api/v1/users/me/email/code",
-                        "/api/v1/users/me/phone-number/code"
+                        "/api/v1/users/me/phone-number/code",
+                        "/api/v1/users/me/reauth/code"
                 );
     }
 }

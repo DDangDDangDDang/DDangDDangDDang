@@ -26,7 +26,10 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+
 import java.lang.reflect.Type;
+import java.util.concurrent.CompletableFuture;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -110,6 +113,34 @@ class DirectMessageWebSocketTest {
     }
 
     // 200ms 동안 기다리며 MESSAGE 이벤트가 오면 반환한다. READ 이벤트는 건너뛴다.
+    @Test
+    @DisplayName("연결하면 서버가 10초 하트비트를 약속한다. (조용한 방송에서 유휴 연결이 끊기거나 죽은 연결을 못 알아채지 않게)")
+    void serverOffersHeartbeat() throws Exception {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.initialize();
+        WebSocketStompClient client = new WebSocketStompClient(new StandardWebSocketClient());
+        client.setMessageConverter(new JacksonJsonMessageConverter());
+        client.setTaskScheduler(scheduler);
+        client.setDefaultHeartbeat(new long[]{10_000, 10_000});
+        CompletableFuture<long[]> serverHeartbeat = new CompletableFuture<>();
+        try {
+            StompHeaders connectHeaders = new StompHeaders();
+            connectHeaders.add(HttpHeaders.AUTHORIZATION, "Bearer " + jwtProvider.createAccessToken(user("하트비트")));
+            client.connectAsync("ws://localhost:" + port + "/ws", new WebSocketHttpHeaders(), connectHeaders,
+                    new StompSessionHandlerAdapter() {
+                        @Override
+                        public void afterConnected(StompSession session, StompHeaders connectedHeaders) {
+                            serverHeartbeat.complete(connectedHeaders.getHeartbeat());
+                        }
+                    }).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+            assertThat(serverHeartbeat.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)).containsExactly(10_000, 10_000);
+        } finally {
+            client.stop();
+            scheduler.shutdown();
+        }
+    }
+
     private Map<String, Object> pollMessageEvent(BlockingQueue<Map<String, Object>> queue) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(200);
         while (System.nanoTime() < deadline) {

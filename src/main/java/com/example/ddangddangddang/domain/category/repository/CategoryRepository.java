@@ -1,7 +1,6 @@
 package com.example.ddangddangddang.domain.category.repository;
 
 import com.example.ddangddangddang.domain.category.entity.Category;
-import com.example.ddangddangddang.domain.product.entity.Status;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

@@ -12,6 +12,9 @@ public interface DmReportRepository extends JpaRepository<DmReport, Long> {
 
     boolean existsByReporterIdAndMessageId(Long reporterId, Long messageId);
 
+    // 메시지를 고르지 않은 대화방 신고를 since 이후에 이미 했는지
+    boolean existsByReporterIdAndRoomIdAndMessageIdIsNullAndCreatedAtAfter(Long reporterId, Long roomId, java.time.LocalDateTime since);
+
     /**
      * 관리자 신고 목록. 최근 신고부터, cursor보다 id가 작은 것을 가져온다.
      */

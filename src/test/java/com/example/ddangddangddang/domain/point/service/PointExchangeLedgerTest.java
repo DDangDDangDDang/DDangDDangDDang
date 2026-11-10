@@ -70,6 +70,20 @@ class PointExchangeLedgerTest {
     }
 
     @Test
+    @DisplayName("차감: 잔액은 충분해도 충전한 포인트뿐이면 환전할 수 없고 차감·이력도 없다")
+    void deductChargedOnly() {
+        PointWallet wallet = wallet(50_000L, 0L);
+        given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
+
+        assertThatThrownBy(() -> ledger.deduct(exchange()))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PointErrorCode.INSUFFICIENT_EXCHANGEABLE_BALANCE);
+        assertThat(wallet.getBalance()).isEqualTo(50_000L);
+        verify(pointHistoryRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("환불: 잔액이 늘고 EXCHANGE_REFUND 이력이 남는다")
     void refund() {
         PointWallet wallet = wallet(40_000L);
@@ -89,10 +103,16 @@ class PointExchangeLedgerTest {
         return captor.getValue();
     }
 
+    /** 사용 가능 포인트가 모두 정산받은(환전할 수 있는) 포인트인 지갑 */
     private PointWallet wallet(long balance) {
+        return wallet(balance, balance);
+    }
+
+    private PointWallet wallet(long balance, long earnedBalance) {
         PointWallet wallet = PointWallet.create(USER_ID);
         ReflectionTestUtils.setField(wallet, "id", 10L);
         ReflectionTestUtils.setField(wallet, "balance", balance);
+        ReflectionTestUtils.setField(wallet, "earnedBalance", earnedBalance);
         return wallet;
     }
 

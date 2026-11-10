@@ -284,7 +284,31 @@ class LiveAuctionControllerTest {
                 .andExpect(status().isNoContent());
     }
 
+    @Test
+    @DisplayName("판매자 인증을 받지 않은 회원은 상품(PRODUCT_012)도 경매(AUCTION_027)도 등록할 수 없다")
+    void unverifiedMemberCannotSell() throws Exception {
+        Member member = signupAndLogin();
+        Category parent = categoryRepository.save(new Category(null, "인증" + UUID.randomUUID().toString().substring(0, 6), 1));
+        Category leaf = categoryRepository.save(new Category(parent, "필름 카메라", 1));
+        Long productId = productRepository.save(new Product(userRepository.findById(member.id()).orElseThrow(), leaf, "카메라", "설명")).getId();
+        LocalDateTime startAt = LocalDateTime.now().plusMinutes(10).truncatedTo(ChronoUnit.SECONDS);
+
+        mockMvc.perform(post("/api/v1/products").header(HttpHeaders.AUTHORIZATION, member.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"categoryId\": %d, \"name\": \"카메라\"}".formatted(leaf.getId())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("PRODUCT_012"));
+        mockMvc.perform(post("/api/v1/auctions").header(HttpHeaders.AUTHORIZATION, member.bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"productId\": %d, \"startPrice\": 10000, \"bidUnit\": 1000, \"startAt\": \"%s\", \"endAt\": \"%s\"}"
+                                .formatted(productId, startAt, startAt.plusHours(1))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("AUCTION_027"));
+    }
+
     private Long createProduct(Member seller) {
+        // 상품·경매를 등록하려면 판매자 인증이 있어야 한다.
+        SellerFixture.verify(sellerApplicationRepository, seller.id());
         Category parent = categoryRepository.save(new Category(null, "카메라" + UUID.randomUUID().toString().substring(0, 6), 1));
         Category leaf = categoryRepository.save(new Category(parent, "필름 카메라", 1));
         Product product = productRepository.save(new Product(userRepository.findById(seller.id()).orElseThrow(), leaf, "E2E 카메라", "테스트 상품"));

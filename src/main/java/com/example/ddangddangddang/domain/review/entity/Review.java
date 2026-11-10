@@ -6,10 +6,12 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.LocalDateTime;
 
 @Entity
+@DynamicUpdate // 바뀐 칸만 UPDATE: 구매자 리뷰 수정과 판매자 답글이 동시에 와도 서로 덮었쓰지 않게
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name ="reviews",uniqueConstraints = @UniqueConstraint(name = "uk_reviews_order_id",columnNames = "order_id"),

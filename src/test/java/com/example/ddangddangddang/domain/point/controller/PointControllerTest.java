@@ -25,6 +25,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -151,4 +152,84 @@ class PointControllerTest {
                     .andExpect(jsonPath("$.data.content[0].type").value("HOLD"));
         }
     }
+
+    @Nested
+    @DisplayName("POST /api/v1/points/exchanges")
+    class RequestExchange {
+
+        private static final String EXCHANGE_BODY = """
+                {"amount": 10000, "bankCode": "088", "accountNumber": "110-123-456789", "accountHolder": "경매왕"}
+                """;
+
+        @Test
+        @DisplayName("충전한 포인트만 있으면 환전할 수 없다 (POINT_047)")
+        void chargedOnly() throws Exception {
+            PointWallet wallet = pointWalletRepository.findByUserId(userId).orElseThrow();
+            wallet.charge(50_000L);
+            pointWalletRepository.saveAndFlush(wallet);
+
+            mockMvc.perform(get("/api/v1/points/wallet")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                    .andExpect(jsonPath("$.data.balance").value(50_000))
+                    .andExpect(jsonPath("$.data.exchangeableBalance").value(0));
+
+            mockMvc.perform(post("/api/v1/points/exchanges")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(EXCHANGE_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("POINT_047"));
+        }
+
+        @Test
+        @DisplayName("정산받은 포인트는 환전할 수 있고, 계좌번호는 DB에 암호화돼 저장된다")
+        void earnedAndEncrypted() throws Exception {
+            PointWallet wallet = pointWalletRepository.findByUserId(userId).orElseThrow();
+            wallet.settle(10_000L);
+            pointWalletRepository.saveAndFlush(wallet);
+
+            String response = mockMvc.perform(post("/api/v1/points/exchanges")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(EXCHANGE_BODY))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.data.accountNumber").value("110******789"))
+                    .andReturn().getResponse().getContentAsString();
+            long exchangeId = ((Number) JsonPath.read(response, "$.data.exchangeId")).longValue();
+
+            String stored = jdbcTemplate.queryForObject(
+                    "select account_number from point_exchanges where id = ?", String.class, exchangeId);
+            assertThat(stored).startsWith("enc:v1:").doesNotContain("110123456789");
+        }
+
+        @Test
+        @DisplayName("암호화 전에 평문으로 저장된 계좌번호는 서버 시작 작업이 암호화하고, 원래 값으로 읽힌다")
+        void legacyPlaintextIsReencrypted() throws Exception {
+            PointWallet wallet = pointWalletRepository.findByUserId(userId).orElseThrow();
+            wallet.settle(10_000L);
+            pointWalletRepository.saveAndFlush(wallet);
+            String response = mockMvc.perform(post("/api/v1/points/exchanges")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(EXCHANGE_BODY))
+                    .andExpect(status().isCreated())
+                    .andReturn().getResponse().getContentAsString();
+            long exchangeId = ((Number) JsonPath.read(response, "$.data.exchangeId")).longValue();
+            jdbcTemplate.update("update point_exchanges set account_number = ? where id = ?", "110123456789", exchangeId);
+
+            new com.example.ddangddangddang.domain.point.service.AccountNumberReencryptRunner(jdbcTemplate, accountNumberConverter)
+                    .run(null);
+
+            String stored = jdbcTemplate.queryForObject(
+                    "select account_number from point_exchanges where id = ?", String.class, exchangeId);
+            assertThat(stored).startsWith("enc:v1:");
+            assertThat(accountNumberConverter.convertToEntityAttribute(stored)).isEqualTo("110123456789");
+        }
+    }
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private com.example.ddangddangddang.domain.point.entity.AccountNumberConverter accountNumberConverter;
 }

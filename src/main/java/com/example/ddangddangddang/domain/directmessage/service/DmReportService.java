@@ -22,6 +22,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 /**
@@ -32,6 +34,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class DmReportService {
+
+    static final Duration ROOM_REPORT_INTERVAL = Duration.ofDays(1);
 
     private final DmReportRepository dmReportRepository;
     private final DmMessageRepository dmMessageRepository;
@@ -54,6 +58,10 @@ public class DmReportService {
             if (dmReportRepository.existsByReporterIdAndMessageId(userId, message.getId())) {
                 throw new BusinessException(DirectMessageErrorCode.ALREADY_REPORTED);
             }
+        } else if (dmReportRepository.existsByReporterIdAndRoomIdAndMessageIdIsNullAndCreatedAtAfter(
+                userId, roomId, LocalDateTime.now().minus(ROOM_REPORT_INTERVAL))) {
+            // 메시지 없이 대화방을 신고하는 것은 하루에 한 번. 같은 방을 계속 신고해 관리자 목록을 도배하지 못하게 한다.
+            throw new BusinessException(DirectMessageErrorCode.ROOM_ALREADY_REPORTED);
         }
 
         String detail = request.detail() == null || request.detail().isBlank() ? null : request.detail().strip();

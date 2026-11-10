@@ -24,6 +24,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     boolean existsByCourierAndTrackingNo(Courier courier, String trackingNo);
 
+    /**
+     * 상품 이미지 삭제 전 확인: 이 판매자의 주문(취소된 주문 포함)이 이 키의 사진을 대표 이미지로 들고 있는지.
+     * 주문에는 낙찰 때의 전체 주소(공개 주소 앞부분 + "/" + 키)가 저장되므로, 앞부분(CDN 도메인 등) 설정이 바뀌어도 찾을 수 있게 "/키"로 끝나는지 본다.
+     */
+    boolean existsBySellerIdAndProductImageUrlEndingWith(Long sellerId, String suffix);
+
     /** 판매자 프로필 신뢰 지표: 판매자의 주문 중 그 상태인 것의 수 (구매 확정 수) */
     long countBySellerIdAndStatus(Long sellerId, OrderStatus status);
 
@@ -84,17 +90,31 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("select o from Order o where o.id = :orderId")
     Optional<Order> findByIdForUpdate(@Param("orderId") Long orderId);
 
-    //발송 후 기한이 지나도 구매 확정 되지 않은 주문 ID (자동구매 확정 대상)
-    @Query(""" 
-            select o.id from Order o 
-            where o.status = :status and o.shippedAt <= :cutoff 
+    // 발송 후 기한이 지나도 구매 확정 되지 않은 주문 ID (자동 구매 확정 대상)
+    // 관리자 확인 대기 중인 주문과, 배송 중이라 확인을 미룬 주문(다음 확인 시각 전)은 뺀다.
+    @Query("""
+            select o.id from Order o
+            where o.status = :status and o.shippedAt <= :cutoff
+            and o.reviewReason is null
+            and (o.autoConfirmNextCheckAt is null or o.autoConfirmNextCheckAt <= :now)
             and o.autoConfirmFailCount < :maxFailCount
             and (o.autoConfirmLastFailedAt is null or o.autoConfirmLastFailedAt <= :retryAfter)
             order by o.id
             """)
     List<Long> findConfirmOverdueIds(@Param("status") OrderStatus status,
                                      @Param("cutoff") LocalDateTime cutoff,
+                                     @Param("now") LocalDateTime now,
                                      @Param("maxFailCount") int maxFailCount,
                                      @Param("retryAfter") LocalDateTime retryAfter,
                                      Pageable pageable);
+
+    /** 관리자 확인 대기 주문. 먼저 들어온 순 (cursor: 이전 페이지 마지막 주문 ID) */
+    @Query("""
+            select o from Order o
+            where o.status = com.example.ddangddangddang.domain.order.entity.OrderStatus.SHIPPING
+            and o.reviewReason is not null and o.reviewResult is null
+            and (:cursor is null or o.id > :cursor)
+            order by o.id asc
+            """)
+    List<Order> findReviewOrders(@Param("cursor") Long cursor, Pageable pageable);
 }

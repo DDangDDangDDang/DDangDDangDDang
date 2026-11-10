@@ -5,6 +5,7 @@ import com.example.ddangddangddang.domain.auth.verification.VerificationPurpose;
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.global.exception.BusinessException;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -14,7 +15,7 @@ import static org.mockito.BDDMockito.willAnswer;
  * 컨트롤러 통합 테스트에서 회원가입을 간단히 하기 위한 도우미.
  *
  * 실제 휴대폰 인증(Redis, 문자 발송)을 거치지 않도록 VerificationService를 Mock으로 두고,
- * "verified:{휴대폰 번호}" 형태의 토큰을 넣으면 그 번호로 인증된 것처럼 동작하게 한다.
+ * "verified:{휴대폰 번호 또는 이메일}" 형태의 토큰을 넣으면 그 번호·이메일로 인증된 것처럼 동작하게 한다.
  */
 public final class SignupFixture {
 
@@ -35,18 +36,19 @@ public final class SignupFixture {
     public static String signupBody(String email, String password, String nickname) {
         String phoneNumber = phoneOf(email);
         return """
-                {"email": "%s", "password": "%s", "nickname": "%s", "phoneNumber": "%s", "phoneVerificationToken": "%s"}
-                """.formatted(email, password, nickname, phoneNumber, tokenOf(phoneNumber));
+                {"email": "%s", "password": "%s", "nickname": "%s", "phoneNumber": "%s",
+                 "phoneVerificationToken": "%s", "emailVerificationToken": "%s"}
+                """.formatted(email, password, nickname, phoneNumber, tokenOf(phoneNumber), tokenOf(email));
     }
 
-    /** "verified:{번호}" 토큰을 받으면 그 번호로 인증된 것으로 응답하게 한다. */
+    /** "verified:{번호·이메일}" 토큰을 받으면 그 번호·이메일로 인증된 것으로 응답하게 한다. (휴대폰·이메일 가입 인증 모두) */
     public static void stubPhoneVerification(VerificationService verificationService) {
         given(verificationService.consumeToken(eq(VerificationPurpose.SIGNUP_PHONE), anyString()))
                 .willAnswer(invocation -> {
                     String token = invocation.getArgument(1);
                     return token.startsWith(TOKEN_PREFIX) ? token.substring(TOKEN_PREFIX.length()) : "";
                 });
-        // "verified:{번호}" 토큰이 요청한 번호와 같을 때만 통과한다
+        // "verified:{번호·이메일}" 토큰이 요청한 값과 같을 때만 통과한다
         willAnswer(invocation -> {
             String token = invocation.getArgument(1);
             String expected = invocation.getArgument(2);
@@ -54,6 +56,14 @@ public final class SignupFixture {
                 throw new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
             }
             return null;
-        }).given(verificationService).consumeMatchingToken(eq(VerificationPurpose.SIGNUP_PHONE), anyString(), anyString());
+        }).given(verificationService).consumeMatchingToken(any(VerificationPurpose.class), anyString(), anyString());
+        willAnswer(invocation -> {
+            String token = invocation.getArgument(1);
+            String expected = invocation.getArgument(2);
+            if (!token.equals(TOKEN_PREFIX + expected)) {
+                throw new BusinessException(VerificationErrorCode.INVALID_VERIFICATION_TOKEN);
+            }
+            return null;
+        }).given(verificationService).requireMatchingToken(any(VerificationPurpose.class), anyString(), anyString());
     }
 }

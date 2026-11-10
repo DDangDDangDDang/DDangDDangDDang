@@ -1,4 +1,4 @@
-import { Banknote, Bot, FolderTree, Megaphone, Flag, Gavel, Gift, House, MapPin, Package, ReceiptText, ShoppingBag, Tv, UserCheck, Video, type LucideIcon } from 'lucide-react';
+import { Ban, Banknote, Bot, FolderTree, Megaphone, Flag, Gavel, Gift, House, MapPin, Package, PackageSearch, ReceiptText, ShoppingBag, Tv, UserCheck, Video, type LucideIcon } from 'lucide-react';
 import { NavLink } from 'react-router';
 import { useSession } from '@/api';
 import { AdBanner } from '@/components/ad/AdBanner';
@@ -34,6 +34,8 @@ export function SideNav() {
                 <p className="px-3 pb-1 text-label font-bold text-neutral-500">관리자</p>
                 <Item to="/admin/categories" icon={FolderTree} label="카테고리 관리" />
                 <Item to="/admin/dm-reports" icon={Flag} label="채팅 신고" />
+                <Item to="/admin/order-reviews" icon={PackageSearch} label="주문 확인" />
+                <Item to="/admin/sanctions" icon={Ban} label="정지 검토" />
                 <Item to="/admin/seller-applications" icon={UserCheck} label="판매자 심사" />
                 <Item to="/admin/donation-policy" icon={Gift} label="도네이션 정책" />
                 <Item to="/admin/point-exchanges" icon={Banknote} label="환전 승인" />

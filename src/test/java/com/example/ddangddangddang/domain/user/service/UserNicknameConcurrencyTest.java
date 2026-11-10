@@ -80,4 +80,14 @@ class UserNicknameConcurrencyTest extends MySqlIntegrationTest {
                 .allMatch(code -> code == UserErrorCode.DUPLICATE_NICKNAME);
         assertThat(owners).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("대소문자만 바꾸는 닉네임은 DB가 대소문자를 구분하지 않아도 자기 자신과 겹친다고 보지 않는다")
+    void changeCaseOnly() {
+        Long userId = userRepository.save(User.create("case@test.com", "encoded", "Abc")).getId();
+
+        userService.updateMyInfo(userId, new MyInfoUpdateRequest("abc"));
+
+        assertThat(userRepository.findById(userId).orElseThrow().getNickname()).isEqualTo("abc");
+    }
 }

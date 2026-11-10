@@ -17,6 +17,7 @@ import com.example.ddangddangddang.domain.livestream.service.LiveStreamService;
 import com.example.ddangddangddang.domain.order.entity.OrderRole;
 import com.example.ddangddangddang.domain.order.entity.OrderStatus;
 import com.example.ddangddangddang.domain.order.service.OrderService;
+import com.example.ddangddangddang.domain.point.service.PointService;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadRequest;
 import com.example.ddangddangddang.domain.user.dto.ProfileImageUploadResponse;
 import com.example.ddangddangddang.domain.user.entity.User;
@@ -45,6 +46,7 @@ import java.util.stream.Collectors;
  * 라이브 봇: 관리자가 만든 판매자 계정이 미리 올린 녹화 영상으로 방송한다. 방송 목록이 비어 보이지 않게 켜 둔다.
  *
  * - 봇을 만들면 로그인할 수 없는 계정(User.createBot)이 생긴다. 방송 카드·시청 화면에는 이 계정의 닉네임이 판매자로 보인다.
+ *   봇 계정도 실제 경매·주문의 판매자이므로 일반 가입처럼 포인트 지갑을 함께 만든다. (구매 확정 정산·낙찰 취소 위약금이 판매자 지갑을 쓴다)
  * - 녹화 영상은 다른 파일과 같은 방식으로 올린다. (createVideoUpload로 URL을 받아 브라우저가 올린 뒤 create로 키를 넘김)
  * - 켜면 이 계정의 방송을 만들어 바로 시작한다. 송출하는 사람이 없으므로 시청 화면이 영상을 방송 시작 시각에 맞춰 반복 재생해
  *   누가 언제 들어와도 같은 장면을 본다. 송출 감시(LiveStreamIdleWatcher)는 봇 방송을 끝내지 않는다.
@@ -76,6 +78,7 @@ public class LiveBotService {
     // 봇을 지울 때 남은 경매·발송 전 주문이 있는지만 본다.
     private final AuctionService auctionService;
     private final OrderService orderService;
+    private final PointService pointService;
 
     /** 관리자 목록. 봇마다 지금 켜 둔 방송을 함께 보여 준다 */
     public List<LiveBotResponse> getAll() {
@@ -117,6 +120,7 @@ public class LiveBotService {
             throw new BusinessException(UserErrorCode.DUPLICATE_NICKNAME);
         }
         User user = userRepository.save(User.createBot(nickname));
+        pointService.createWallet(user.getId());
         LiveBot bot = liveBotRepository.save(LiveBot.create(user.getId(), videoKey));
         log.info("[라이브 봇] 생성 botId={}, userId={}", bot.getId(), user.getId());
         return toResponse(bot, user, null);

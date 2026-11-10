@@ -125,6 +125,20 @@ class ChatContentFilterTest {
         assertThat(filter.findViolation("")).isEmpty();
     }
 
+    @Test
+    @DisplayName("폭 없는 공백·한글 채움 문자·빈 점자를 끼워 넣어도 휴대폰 번호와 금칙어를 막는다")
+    void invisibleCharacters() {
+        assertThat(filter.findViolation("010\u200B1234\u200B5678")).contains(ContentViolation.PHONE_NUMBER);
+        assertThat(filter.findViolation("010\u20601234\u20605678")).contains(ContentViolation.PHONE_NUMBER);
+        assertThat(filter.findViolation("0\u31641\u31640 1234 5678")).contains(ContentViolation.PHONE_NUMBER);
+        assertThat(filter.findViolation("금\u200B칙어")).contains(ContentViolation.BANNED_WORD);
+        assertThat(filter.findViolation("금\u3164칙\uFFA0어")).contains(ContentViolation.BANNED_WORD);
+        assertThat(filter.findViolation("금\u2800칙어")).contains(ContentViolation.BANNED_WORD);
+        assertThat(filter.findViolation("open\u200B.kakao.com/o/abc")).contains(ContentViolation.EXTERNAL_LINK);
+        // 보통 문장은 그대로 통과
+        assertThat(filter.findViolation("안녕하세요\u200B 반가워요")).isEmpty();
+    }
+
     private void assertRejected(String content, String reasonKeyword) {
         assertThatThrownBy(() -> filter.validate(content))
                 .isInstanceOf(BusinessException.class)
