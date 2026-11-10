@@ -129,6 +129,8 @@ describe('스튜디오 경매 상품 이름 검색', () => {
 
     await waitFor(() => expect(shownNames()).toEqual(['상품 2', '상품 20']));
     // 글자마다 요청하지 않고, 입력이 멈춘 뒤 마지막 검색어로 한 번만 요청한다.
+    // 늦게 오는 요청도 잡도록 검색 대기 시간(0.3초)보다 조금 더 기다린 뒤 센다.
+    await new Promise((resolve) => setTimeout(resolve, 400));
     expect(state.queries.filter((q) => q.keyword)).toEqual([expect.objectContaining({ status: 'ACTIVE', keyword: '상품 2', page: 0 })]);
     expect(screen.getByRole('searchbox', { name: '상품 이름 검색' })).toHaveAttribute('maxLength', '50');
   });
