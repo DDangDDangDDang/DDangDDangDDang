@@ -90,7 +90,12 @@ class MyProductsFilterTest {
     }
 
     private Page<ProductResponse> mine(Long categoryId, Status status, int page) {
-        return productService.myProducts(seller.getId(), categoryId, status, PageRequest.of(page, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
+        return mine(categoryId, status, null, page);
+    }
+
+    private Page<ProductResponse> mine(Long categoryId, Status status, String keyword, int page) {
+        return productService.myProducts(seller.getId(), categoryId, status, keyword,
+                PageRequest.of(page, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
     @Test
@@ -143,5 +148,37 @@ class MyProductsFilterTest {
         assertThat(mine(camera.getId(), Status.ACTIVE, 0).getTotalElements()).isEqualTo(13);
         assertThat(mine(clothes.getId(), null, 0).getContent()).extracting(ProductResponse::name).containsExactly("옷");
         assertThat(mine(film.getId(), null, 1).getContent()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("검색어를 주면 이름에 그 글자가 들어간 내 상품만 나온다 (남의 상품·지운 상품 제외)")
+    void keywordFilter() {
+        assertThat(mine(null, null, "카메라", 0).getTotalElements()).isEqualTo(12);
+        assertThat(mine(null, null, "렌즈", 0).getContent()).extracting(ProductResponse::name)
+                .containsExactlyInAnyOrder("렌즈", "팔린 렌즈");
+        assertThat(mine(null, null, "옷", 0).getContent()).extracting(ProductResponse::name).containsExactly("옷");
+    }
+
+    @Test
+    @DisplayName("검색어는 상태·카테고리 거르기와 함께 쓸 수 있다")
+    void keywordWithOtherFilters() {
+        assertThat(mine(null, Status.ACTIVE, "렌즈", 0).getContent()).extracting(ProductResponse::name).containsExactly("렌즈");
+        assertThat(mine(camera.getId(), Status.ACTIVE, "렌즈", 0).getContent()).extracting(ProductResponse::name).containsExactly("렌즈");
+        assertThat(mine(clothes.getId(), null, "카메라", 0).getTotalElements()).isZero();
+    }
+
+    @Test
+    @DisplayName("검색어가 비었거나 공백이면 거르지 않고, 앞뒤 공백은 무시한다")
+    void blankKeyword() {
+        assertThat(mine(null, null, "", 0).getTotalElements()).isEqualTo(15);
+        assertThat(mine(null, null, "   ", 0).getTotalElements()).isEqualTo(15);
+        assertThat(mine(null, null, "  렌즈  ", 0).getTotalElements()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("검색어의 %·_ 는 와일드카드가 아니라 글자 그대로 찾는다")
+    void keywordEscapesWildcards() {
+        assertThat(mine(null, null, "%", 0).getTotalElements()).isZero();
+        assertThat(mine(null, null, "_", 0).getTotalElements()).isZero();
     }
 }

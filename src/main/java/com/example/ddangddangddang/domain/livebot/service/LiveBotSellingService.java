@@ -53,7 +53,7 @@ public class LiveBotSellingService {
 
     /** 봇의 상품 (삭제한 상품 제외, 최근 등록순) */
     public Page<ProductResponse> getProducts(Long botId, Pageable pageable) {
-        return productService.myProducts(botUserId(botId), null, null, pageable);
+        return productService.myProducts(botUserId(botId), null, null,null, pageable);
     }
 
     /** 상품 이미지 업로드 URL. 사람 판매자와 같은 규칙(JPG·PNG·WEBP·GIF, 10MB) */

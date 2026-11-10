@@ -28,10 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 
 @RequiredArgsConstructor
@@ -46,6 +43,7 @@ public class ProductService {
     private final ProductImageResolver imageResolver;
     private final FileStorage fileStorage;
     private final SellerVerification sellerVerification;
+    private static final char LIKE_ESCAPE = '!';
 
     //상품 상세 조회(삭제된 상품은 제외)
     @Transactional(readOnly = true)
@@ -58,12 +56,12 @@ public class ProductService {
     }
 
     //내 상품 조회(삭제된 상품은 제외) + 상품 마다 경매 상태
-    //status: 이 상태만(없으면 전부), categoryId: 이 카테고리만(대분류면 그 아래 소분류까지, 없으면 전부)
+    //status: 이 상태만(없으면 전부), categoryId: 이 카테고리만(대분류면 그 아래 소분류까지, 없으면 전부), keyword: 상품 이름에 이 글자가 들어간 것만(없으면 전부)
     @Transactional(readOnly = true)
-    public Page<ProductResponse> myProducts(Long sellerId, Long categoryId, Status status, Pageable pageable) {
+    public Page<ProductResponse> myProducts(Long sellerId, Long categoryId, Status status,String keyword, Pageable pageable) {
         // 거르지 않을 때도 IN 목록이 비지 않게 쓰지 않는 값 하나를 넣는다. (allCategories가 참이면 보지 않는다)
         List<Long> categoryIds = categoryId == null ? List.of(-1L) : categoryWithChildren(categoryId);
-        Page<Product> products = productRepository.findMine(sellerId, Status.DELETED, status, categoryId == null, categoryIds, pageable);
+        Page<Product> products = productRepository.findMine(sellerId, Status.DELETED, status, categoryId == null, categoryIds,toNamePattern(keyword), pageable);
 
         //이번 페이지 상품들의 id만 모으기
         List<Long> productIds = products.getContent().stream().map(Product::getId).toList();
@@ -204,5 +202,20 @@ public class ProductService {
             throw new BusinessException(ProductErrorCode.IN_AUCTION);
         }
         product.delete();
+    }
+
+    // 검색어가 없거나 공백이면 이름으로 거르지 않는다(null). %·_·! 는 글자 그대로 찾도록 escape 한다.
+    private static String toNamePattern(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        StringBuilder escaped = new StringBuilder();
+        for (char c : keyword.trim().toLowerCase(Locale.ROOT).toCharArray()) {
+            if (c == '%' || c == '_' || c == LIKE_ESCAPE) {
+                escaped.append(LIKE_ESCAPE);
+            }
+            escaped.append(c);
+        }
+        return "%" + escaped + "%";
     }
 }
