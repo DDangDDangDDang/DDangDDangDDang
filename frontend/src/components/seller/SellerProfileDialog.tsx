@@ -201,7 +201,7 @@ function InfoTab({ profile }: { profile: Profile }) {
           <Stat
             icon={<ShieldCheck className="size-4" aria-hidden="true" />}
             label="판매자 인증"
-            value={profile.verifiedSeller ? (profile.verifiedAt ? `${formatDotDate(profile.verifiedAt)} 인증` : '인증') : '인증 전'}
+            value={profile.botSeller ? '운영 계정' : profile.verifiedSeller ? (profile.verifiedAt ? `${formatDotDate(profile.verifiedAt)} 인증` : '인증') : '인증 전'}
             hint={profile.joinedAt ? `${formatDate(profile.joinedAt)} 가입` : undefined}
           />
           {/* 시청자가 방송에서 도네이션 마일리지로 응원한 기록. 구매 확정한 회원만 마일리지가 있어, 실제로 거래한 사람들의 응원이다. */}

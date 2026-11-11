@@ -19,20 +19,22 @@ type Props = {
 
 /**
  * 판매자 썸네일 + 이름. 판매자 인증 회원이면 인증 마크를 붙이고, 누르면 판매자 프로필 창이 열린다.
- * 인증 전인 회원은 프로필 창 없이 이름만 보여 준다.
+ * 라이브 봇도 프로필 창이 열린다. 그 밖에 인증 전인 회원은 프로필 창 없이 이름만 보여 준다.
  */
 export function SellerIdentity({ sellerId, fallbackName, size = 'md', detail, live = false, className }: Props) {
   const profile = useSellerProfile(sellerId);
   const openProfile = useOpenSellerProfile();
   const name = profile.data?.nickname || fallbackName || '판매자';
   const verified = profile.data?.verifiedSeller ?? false;
+  // 라이브 봇은 판매자 인증이 없지만 프로필 창은 연다. (인증 마크는 붙이지 않음)
+  const canOpenProfile = verified || (profile.data?.botSeller ?? false);
 
   const content = (
     <>
       <SellerAvatar name={name} imageUrl={profile.data?.profileImageUrl} verified={verified} size={size} live={live} />
       <span className="flex min-w-0 flex-col text-left">
         <span className="flex min-w-0 items-center gap-1.5">
-          <strong className={cn('truncate font-semibold', size === 'sm' ? 'text-body' : 'text-body-lg', verified && 'group-hover:underline')}>{name}</strong>
+          <strong className={cn('truncate font-semibold', size === 'sm' ? 'text-body' : 'text-body-lg', canOpenProfile && 'group-hover:underline')}>{name}</strong>
           {/* 테두리 색만으로 방송 중임을 알리지 않도록 글자 배지를 함께 둔다. */}
           {live && (
             <Badge variant="live" className="shrink-0">
@@ -45,7 +47,7 @@ export function SellerIdentity({ sellerId, fallbackName, size = 'md', detail, li
     </>
   );
 
-  if (verified && sellerId !== undefined) {
+  if (canOpenProfile && sellerId !== undefined) {
     return (
       <button type="button" aria-label={`${name} 판매자 프로필 보기`} onClick={() => openProfile(sellerId)} className={cn('group flex min-w-0 items-center gap-3', className)}>
         {content}
