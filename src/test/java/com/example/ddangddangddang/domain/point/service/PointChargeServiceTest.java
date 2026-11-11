@@ -43,6 +43,7 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -273,6 +274,93 @@ class PointChargeServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(PointErrorCode.WALLET_NOT_FOUND);
+        }
+    }
+
+    // 포인트를 지급하기 전에 포트원 콘솔에서 부분 취소된 결제 (서버 장애·지연 사이에 관리자가 일부 환불한 경우)
+    @Nested
+    @DisplayName("지급 전에 취소된 결제")
+    class CancelledBeforeCharge {
+
+        @Test
+        @DisplayName("부분 취소된 결제면 결제 금액을 지급한 뒤 취소분을 회수해, 실제로 낸 금액만큼만 남긴다")
+        void partiallyCancelled() {
+            PointCharge charge = pendingCharge();
+            PointWallet wallet = wallet();
+            givenCharge(charge);
+            given(paymentGateway.getPayment(PAYMENT_ID))
+                    .willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.PARTIAL_CANCELLED, AMOUNT, 3_000L));
+            given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
+
+            PointChargeCompleteResponse response = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
+
+            assertThat(response.status()).isEqualTo(PointChargeType.COMPLETE);
+            assertThat(response.balance()).isEqualTo(7_000L);
+            assertThat(wallet.getBalance()).isEqualTo(7_000L);
+            assertThat(charge.getCancelledAmount()).isEqualTo(3_000L);
+            assertThat(charge.getUnreclaimedAmount()).isZero();
+
+            // 내역: 충전 +10,000 → 결제 취소 회수 3,000 (무슨 일이 있었는지 그대로 남는다)
+            ArgumentCaptor<PointHistory> captor = ArgumentCaptor.forClass(PointHistory.class);
+            verify(pointHistoryRepository, times(2)).save(captor.capture());
+            assertThat(captor.getAllValues())
+                    .extracting(PointHistory::getType, PointHistory::getAmount)
+                    .containsExactly(
+                            org.assertj.core.groups.Tuple.tuple(PointHistoryType.CHARGE, AMOUNT),
+                            org.assertj.core.groups.Tuple.tuple(PointHistoryType.CHARGE_CANCEL, 3_000L));
+            // 관리자가 일부만 돌려준 결제라 남은 금액까지 취소하지 않는다
+            verify(paymentGateway, never()).cancelPayment(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("부분 취소로 처리한 충전을 다시 확인해도(프론트·웹훅·보정) 다시 지급·회수하지 않는다")
+        void partiallyCancelledIsIdempotent() {
+            PointCharge charge = pendingCharge();
+            PointWallet wallet = wallet();
+            givenCharge(charge);
+            given(paymentGateway.getPayment(PAYMENT_ID))
+                    .willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.PARTIAL_CANCELLED, AMOUNT, 3_000L));
+            given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
+            lenient().when(pointWalletRepository.findByUserId(USER_ID)).thenReturn(Optional.of(wallet));
+
+            pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
+            PointChargeCompleteResponse again = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
+
+            assertThat(again.status()).isEqualTo(PointChargeType.COMPLETE);
+            assertThat(again.balance()).isEqualTo(7_000L);
+            assertThat(wallet.getBalance()).isEqualTo(7_000L);
+            verify(pointHistoryRepository, times(2)).save(any());
+            verify(paymentGateway, times(1)).getPayment(PAYMENT_ID);
+        }
+
+        @Test
+        @DisplayName("부분 취소됐는데 결제 총액이 요청 금액과 다르면 남은 금액을 취소하고 FAILED로 바꾼다")
+        void partiallyCancelledAmountMismatch() {
+            PointCharge charge = pendingCharge();
+            givenCharge(charge);
+            given(paymentGateway.getPayment(PAYMENT_ID))
+                    .willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.PARTIAL_CANCELLED, 1_000L, 500L));
+
+            PointChargeCompleteResponse response = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
+
+            assertThat(response.status()).isEqualTo(PointChargeType.FAILED);
+            verify(paymentGateway).cancelPayment(eq(PAYMENT_ID), anyString());
+            verify(pointWalletRepository, never()).findByUserIdForUpdate(anyLong());
+        }
+
+        @Test
+        @DisplayName("전액 취소된 결제면 FAILED로 바꾸고 포인트를 지급하지 않는다")
+        void fullyCancelled() {
+            PointCharge charge = pendingCharge();
+            givenCharge(charge);
+            given(paymentGateway.getPayment(PAYMENT_ID))
+                    .willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.CANCELLED, AMOUNT, AMOUNT));
+
+            PointChargeCompleteResponse response = pointChargeService.completeCharge(USER_ID, PAYMENT_ID);
+
+            assertThat(response.status()).isEqualTo(PointChargeType.FAILED);
+            verify(pointWalletRepository, never()).findByUserIdForUpdate(anyLong());
+            verify(paymentGateway, never()).cancelPayment(anyString(), anyString());
         }
     }
 
