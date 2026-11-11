@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -237,6 +238,26 @@ class PointChargeWebhookServiceTest {
         pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
 
         assertThat(charge.isPending()).isTrue();
+    }
+
+    @Test
+    @DisplayName("지급 전에 부분 취소된 결제의 웹훅이면 결제 금액을 지급한 뒤 취소분을 회수한다")
+    void partiallyCancelledBeforeCharge() {
+        PointCharge charge = pendingCharge();
+        PointWallet wallet = wallet();
+        givenCharge(charge);
+        given(paymentGateway.getPayment(PAYMENT_ID))
+                .willReturn(new PaymentInfo(PAYMENT_ID, PaymentStatus.PARTIAL_CANCELLED, AMOUNT, 3_000L));
+        given(pointWalletRepository.findByUserIdForUpdate(USER_ID)).willReturn(Optional.of(wallet));
+
+        boolean handled = pointChargeService.syncChargeFromWebhook(PAYMENT_ID);
+
+        assertThat(handled).isTrue();
+        assertThat(charge.getStatus()).isEqualTo(PointChargeType.COMPLETE);
+        assertThat(wallet.getBalance()).isEqualTo(AMOUNT - 3_000L);
+        assertThat(charge.getCancelledAmount()).isEqualTo(3_000L);
+        verify(pointHistoryRepository, times(2)).save(any());
+        verify(paymentGateway, never()).cancelPayment(anyString(), anyString());
     }
 
     // 처음엔 락 없이 읽고, 결과를 반영할 때(PointChargeProcessor) 락을 걸고 다시 읽는다

@@ -53,9 +53,21 @@ public class PointChargeProcessor {
             return PointChargeCompleteResponse.of(charge, null);
         }
 
-        // 결제 실패/취소, 또는 금액이 달라 취소한 결제
+        // 결제는 됐다가 포인트를 지급하기 전에 일부가 취소된 결제 (서버 장애 사이 포트원 콘솔에서 부분 취소 등).
+        // 남은 금액은 사용자가 실제로 낸 돈이라 실패로 끝내면 돈만 빠져나간 채 묻힌다. (FAILED는 보정 작업도 다시 보지 않는다)
+        // 그래서 결제 금액 전체를 지급한 뒤 취소분을 회수해, 남은 금액만큼만 포인트로 남긴다.
+        if (payment.isPartiallyCancelled() && charge.matchesAmount(payment.totalAmount())) {
+            log.info("부분 취소된 결제를 지급 후 취소분 회수로 처리 paymentId={}, total={}, cancelled={}",
+                    paymentId, payment.totalAmount(), payment.cancelledAmount());
+            PointWallet wallet = applyCharge(charge);
+            reclaimCancelled(charge, wallet, payment.cancelledAmount());
+            return PointChargeCompleteResponse.of(charge, wallet.getSpendableBalance());
+        }
+
+        // 결제 실패·전액 취소, 또는 금액이 달라 취소한 결제
         if (!payment.isPaid() || !charge.matchesAmount(payment.totalAmount())) {
-            log.info("결제 미완료로 충전 실패 처리 paymentId={}, status={}", paymentId, payment.status());
+            log.info("결제가 완료되지 않았거나 금액이 달라 충전 실패 처리 paymentId={}, status={}, total={}, cancelled={}",
+                    paymentId, payment.status(), payment.totalAmount(), payment.cancelledAmount());
             charge.fail();
             return PointChargeCompleteResponse.of(charge, null);
         }
@@ -94,13 +106,25 @@ public class PointChargeProcessor {
     public void applyCancellation(String paymentId, long paymentCancelledTotal) {
         PointCharge charge = pointChargeRepository.findByPaymentIdForUpdate(paymentId)
                 .orElseThrow(() -> new BusinessException(PointErrorCode.CHARGE_NOT_FOUND));
-        long cancelled = charge.newlyCancelled(paymentCancelledTotal);
-        if (cancelled <= 0) {
+        if (charge.newlyCancelled(paymentCancelledTotal) <= 0) {
             return;
         }
 
         PointWallet wallet = pointWalletRepository.findByUserIdForUpdate(charge.getUserId())
                 .orElseThrow(() -> new BusinessException(PointErrorCode.WALLET_NOT_FOUND));
+        reclaimCancelled(charge, wallet, paymentCancelledTotal);
+    }
+
+    /**
+     * 완료된 충전의 결제 취소분 중 아직 회수하지 않은 만큼을 지갑에서 회수한다. 충전 요청과 지갑은 이미 잠근 상태로 부른다.
+     * (충전 완료 뒤 취소된 결제, 그리고 지급 전에 부분 취소된 결제가 함께 쓴다)
+     */
+    private void reclaimCancelled(PointCharge charge, PointWallet wallet, long paymentCancelledTotal) {
+        long cancelled = charge.newlyCancelled(paymentCancelledTotal);
+        if (cancelled <= 0) {
+            return;
+        }
+        String paymentId = charge.getPaymentId();
         long reclaimed = wallet.reclaimCharge(cancelled);
         charge.recordCancellation(cancelled);
         charge.recordShortfall(cancelled - reclaimed);
