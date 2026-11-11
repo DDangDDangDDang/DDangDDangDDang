@@ -13974,6 +13974,9 @@
           "powerSeller" : {
             "type" : "boolean"
           },
+          "botSeller" : {
+            "type" : "boolean"
+          },
           "storeName" : {
             "type" : "string"
           },

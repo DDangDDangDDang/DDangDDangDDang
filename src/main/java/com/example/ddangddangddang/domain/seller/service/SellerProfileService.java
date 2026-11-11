@@ -7,6 +7,7 @@ import com.example.ddangddangddang.domain.hammer.service.HammerGradeService;
 import com.example.ddangddangddang.domain.auction.entity.AuctionStatus;
 import com.example.ddangddangddang.domain.auction.entity.SellerAuctionTab;
 import com.example.ddangddangddang.domain.auction.repository.AuctionRepository;
+import com.example.ddangddangddang.domain.livebot.repository.LiveBotRepository;
 import com.example.ddangddangddang.domain.livestream.dto.SellerBroadcastSummary;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStreamStatus;
@@ -44,7 +45,10 @@ import java.util.List;
 public class SellerProfileService {
 
     static final int MAX_AUCTION_PAGE_SIZE = 30;
+    /** 라이브 봇 프로필의 임시 소개. 인증·거래 지표는 꾸미지 않고 실제 값을 그대로 보여 준다. */
+    static final String BOT_INTRODUCTION = "땅땅땅이 직접 운영하는 라이브 경매 채널이에요.\n방송에서 다양한 상품을 경매로 소개합니다.";
 
+    private final LiveBotRepository liveBotRepository;
     private final UserRepository userRepository;
     private final UserService userService;
     private final SellerApplicationRepository applicationRepository;
@@ -66,6 +70,7 @@ public class SellerProfileService {
                 .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
         SellerApplication approved = applicationRepository.findByUserId(sellerId)
                 .filter(SellerApplication::isApproved).orElse(null);
+        boolean bot = liveBotRepository.existsByUserId(sellerId);
 
         // 방송 기록은 집계 쿼리로 구한다. (방송이 많아도 엔티티를 모두 읽지 않음) 방송 중인 방송은 판매자당 하나라 따로 읽는다.
         SellerBroadcastSummary summary = liveStreamRepository.summarizeBroadcasts(sellerId);
@@ -82,8 +87,9 @@ public class SellerProfileService {
                 approved != null,
                 approved != null && approved.isApprovedBusiness(),
                 powerSellers.is(sellerId),
-                approved == null ? null : approved.getStoreName(),
-                approved == null ? null : approved.getIntroduction(),
+                bot,
+                approved != null ? approved.getStoreName() : bot ? seller.getNickname() + " 라이브" : null,
+                approved != null ? approved.getIntroduction() : bot ? BOT_INTRODUCTION : null,
                 approved == null ? null : approved.getReturnAddress(),
                 approved == null ? null : approved.getContactPhone(),
                 approved == null ? null : approved.getReviewedAt(),

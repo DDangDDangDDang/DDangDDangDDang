@@ -5,6 +5,8 @@ import com.example.ddangddangddang.domain.auth.repository.RefreshTokenRepository
 import com.example.ddangddangddang.domain.auth.verification.VerificationService;
 import com.example.ddangddangddang.domain.category.entity.Category;
 import com.example.ddangddangddang.domain.category.repository.CategoryRepository;
+import com.example.ddangddangddang.domain.livebot.entity.LiveBot;
+import com.example.ddangddangddang.domain.livebot.repository.LiveBotRepository;
 import com.example.ddangddangddang.domain.livestream.entity.LiveStream;
 import com.example.ddangddangddang.domain.livestream.infra.MediaServerClient;
 import com.example.ddangddangddang.domain.livestream.repository.LiveStreamRepository;
@@ -84,6 +86,9 @@ class SellerSubscriptionControllerTest {
 
     @Autowired
     private LiveStreamRepository liveStreamRepository;
+
+    @Autowired
+    private LiveBotRepository liveBotRepository;
 
     @MockitoBean
     private RefreshTokenRepository refreshTokenRepository;
@@ -292,6 +297,24 @@ class SellerSubscriptionControllerTest {
                 .andExpect(jsonPath("$.data.businessSeller").value(true))
                 // 사업자등록번호는 공개 프로필에 내보내지 않는다.
                 .andExpect(jsonPath("$.data.businessNumber").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("라이브 봇 프로필은 임시 상점 이름·소개를 주고, 판매자 인증과 연락처는 꾸미지 않는다")
+    void botSellerProfile() throws Exception {
+        User bot = userRepository.save(User.createBot("봇상점" + SEQ.incrementAndGet()));
+        liveBotRepository.save(LiveBot.create(bot.getId(), "live-bots/profile-test.mp4"));
+
+        mockMvc.perform(get("/api/v1/sellers/{id}/profile", bot.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.botSeller").value(true))
+                .andExpect(jsonPath("$.data.storeName").value(bot.getNickname() + " 라이브"))
+                .andExpect(jsonPath("$.data.introduction").isNotEmpty())
+                .andExpect(jsonPath("$.data.verifiedSeller").value(false))
+                .andExpect(jsonPath("$.data.businessSeller").value(false))
+                .andExpect(jsonPath("$.data.contactPhone").doesNotExist())
+                .andExpect(jsonPath("$.data.returnAddress").doesNotExist())
+                .andExpect(jsonPath("$.data.trust.completedOrderCount").value(0));
     }
 
     @Test
