@@ -1,0 +1,14 @@
+-- 부하 테스트 데이터를 전부 지운다. (경매·상품·주문·입찰·알림·포인트·테스트 회원)
+-- dev에서 테스트를 다 마친 뒤 실행한다. 사이트에서 직접 만든 테스트 경매(예: 경매 9번)는 따로 정리한다.
+DELETE FROM notifications WHERE user_id BETWEEN 900000 AND 900999 OR auction_id BETWEEN 9000001 AND 9999999;
+DELETE FROM auction_closing_notices WHERE auction_id BETWEEN 9000001 AND 9999999;
+DELETE FROM auction_alerts WHERE auction_id BETWEEN 9000001 AND 9999999;
+DELETE FROM orders WHERE auction_id BETWEEN 9000001 AND 9999999 OR buyer_id BETWEEN 900000 AND 900999;
+DELETE FROM bids WHERE auction_id BETWEEN 9000001 AND 9999999 OR bidder_id BETWEEN 900000 AND 900999;
+DELETE FROM auctions WHERE id BETWEEN 9000001 AND 9999999;
+DELETE FROM products WHERE id BETWEEN 9000001 AND 9999999;
+DELETE FROM point_histories WHERE wallet_id IN (SELECT id FROM (SELECT id FROM point_wallets WHERE user_id BETWEEN 900000 AND 900999) w);
+DELETE FROM point_wallets WHERE user_id BETWEEN 900000 AND 900999;
+DELETE FROM users WHERE id BETWEEN 900000 AND 900999;
+SELECT (SELECT COUNT(*) FROM users WHERE id BETWEEN 900000 AND 900999) AS users_left,
+       (SELECT COUNT(*) FROM auctions WHERE id BETWEEN 9000001 AND 9999999) AS auctions_left;

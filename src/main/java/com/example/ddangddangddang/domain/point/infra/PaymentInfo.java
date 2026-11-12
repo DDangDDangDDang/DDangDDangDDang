@@ -19,6 +19,11 @@ public record PaymentInfo(
         return status == PaymentStatus.PAID;
     }
 
+    /** 결제가 완료됐다가 일부만 취소된 상태 (포트원 콘솔에서 부분 취소한 경우 등) */
+    public boolean isPartiallyCancelled() {
+        return status == PaymentStatus.PARTIAL_CANCELLED;
+    }
+
     public boolean isInProgress() {
         return !isPaid() && !status.isTerminalFailure();
     }

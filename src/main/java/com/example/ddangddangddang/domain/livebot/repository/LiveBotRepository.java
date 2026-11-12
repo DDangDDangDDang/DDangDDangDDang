@@ -9,4 +9,7 @@ public interface LiveBotRepository extends JpaRepository<LiveBot, Long> {
 
     /** 관리자 목록: 최근에 만든 봇부터 */
     List<LiveBot> findAllByOrderByIdDesc();
+
+    /** 이 회원이 라이브 봇 계정인지 */
+    boolean existsByUserId(Long userId);
 }

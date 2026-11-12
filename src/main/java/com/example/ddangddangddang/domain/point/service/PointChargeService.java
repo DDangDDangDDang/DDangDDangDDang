@@ -133,11 +133,11 @@ public class PointChargeService {
         String paymentId = charge.getPaymentId();
         PaymentInfo payment = paymentGateway.getPayment(paymentId);
 
-        // 결제는 됐는데 금액이 다름 → 위변조 의심, 결제부터 취소한다.
+        // 결제는 됐는데 금액이 다름 → 위변조 의심, 결제부터 취소한다. (부분 취소된 결제면 남은 금액을 취소한다)
         // 취소가 실패하면 예외가 나서 PENDING으로 남고, 다음 조회 때 다시 시도한다. (먼저 FAILED로 바꾸면 돈만 빠져나간 채 남는다)
-        if (payment.isPaid() && !charge.matchesAmount(payment.totalAmount())) {
-            log.warn("결제 금액 불일치 paymentId={}, expected={}, actual={}",
-                    paymentId, charge.getAmount(), payment.totalAmount());
+        if ((payment.isPaid() || payment.isPartiallyCancelled()) && !charge.matchesAmount(payment.totalAmount())) {
+            log.warn("결제 금액 불일치 paymentId={}, status={}, expected={}, actual={}",
+                    paymentId, payment.status(), charge.getAmount(), payment.totalAmount());
             paymentGateway.cancelPayment(paymentId, "결제 금액 불일치");
         }
 

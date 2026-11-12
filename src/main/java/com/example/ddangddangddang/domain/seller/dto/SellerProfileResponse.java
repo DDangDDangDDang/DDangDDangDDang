@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
  * - bio: 회원 자기소개, profileImageUrl: 프로필 이미지 주소 (없으면 null)
  * - businessSeller: 사업자등록번호로 승인받은 사업자 판매자 (판매자 인증 배지 옆에 사업자 배지)
  * - verifiedSeller: 관리자가 판매자 신청을 승인한 회원. storeName·introduction·verifiedAt은 인증 회원만 있다. (아니면 null)
+ * - botSeller: 운영자가 관리하는 라이브 봇 계정. 판매자 신청을 거치지 않아 verifiedSeller는 false이고, storeName·introduction은 임시 문구로 채운다.
  * - returnAddress·contactPhone: 인증 판매자의 반품·교환 주소와 고객 문의 연락처 (공개 정보). 인증 회원이 아니거나 받기 전에 인증된 판매자는 null
  * - subscribed: 내가 구독 중인지. 로그인하지 않았으면 false
  * - liveStreamId: 지금 방송 중이면 그 방송 (아니면 null)
@@ -26,6 +27,7 @@ public record SellerProfileResponse(
         boolean verifiedSeller,
         boolean businessSeller,
         boolean powerSeller,
+        boolean botSeller,
         String storeName,
         String introduction,
         String returnAddress,
