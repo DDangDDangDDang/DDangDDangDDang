@@ -25,6 +25,8 @@ locals {
     GOOGLE_REDIRECT_URI    = "${local.dev_origin}/oauth/google/callback"
     # WebSocket 연결을 받을 페이지 출처 (WebSocketConfig)
     APP_WEBSOCKET_ALLOWED_ORIGINS = local.dev_origin
+    # API 명세·Swagger UI를 공개한다. (application-prod.yml의 springdoc)
+    SPRINGDOC_ENABLED = "true"
   })
 
   dev_livekit_url = var.dev_livekit_url != "" ? var.dev_livekit_url : var.livekit_url

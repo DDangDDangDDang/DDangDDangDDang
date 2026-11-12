@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * API 명세(OpenAPI) 설정. 명세는 /v3/api-docs, 화면은 /swagger-ui/index.html (운영에서는 꺼 둔다)
+ * API 명세(OpenAPI) 설정. 명세는 /v3/api-docs, 화면은 /swagger-ui/index.html (운영에서는 꺼 두고 dev 사이트에서만 켠다)
  *
  * 프론트엔드가 명세만 보고 정확한 코드를 만들 수 있도록 다음을 명세에 넣는다.
  * - 인증: Authorization: Bearer {Access Token}

@@ -34,11 +34,12 @@ point:
     account-encryption-key: ${POINT_ACCOUNT_ENCRYPTION_KEY}
 
 # API 명세·Swagger UI는 개발용이라 운영에서는 끈다. (프론트엔드는 저장소의 docs/api/openapi.json을 쓴다)
+# dev 사이트는 SPRINGDOC_ENABLED=true로 켠다. (infra/dev.tf)
 springdoc:
   api-docs:
-    enabled: false
+    enabled: ${SPRINGDOC_ENABLED:false}
   swagger-ui:
-    enabled: false
+    enabled: ${SPRINGDOC_ENABLED:false}
 
 livekit:
   api-url: ${LIVEKIT_API_URL}
