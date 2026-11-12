@@ -30,10 +30,10 @@ API를 만들 때 명세가 실제 동작과 맞도록 두 가지를 지켜 주�
 
 ### 보기
 
-로컬에서 서버를 띄운 뒤 브라우저로 엽니다. 운영(prod)에서는 꺼져 있습니다.
+로컬 서버나 dev 사이트에서 브라우저로 엽니다. 운영(prod)에서는 꺼져 있습니다.
 
-- Swagger UI: http://localhost:8080/swagger-ui/index.html
-- 명세(JSON): http://localhost:8080/v3/api-docs
+- Swagger UI: http://localhost:8080/swagger-ui/index.html (dev: https://dev.ddangddangddang.com/swagger-ui/index.html)
+- 명세(JSON): http://localhost:8080/v3/api-docs (dev: https://dev.ddangddangddang.com/v3/api-docs)
 
 오른쪽 위 **Authorize**에 로그인 응답의 `accessToken`을 넣으면 인증이 필요한 API도 호출해 볼 수 있습니다.
 
